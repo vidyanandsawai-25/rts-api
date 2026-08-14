@@ -151,7 +151,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
 
                     IsActive = true,
                     CreatedBy = createDto.CreatedBy ?? 1,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 });
             }
 
@@ -180,7 +180,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                         Shape = offset.Shape ?? "Rectangle",
                         IsActive = true,
                         CreatedBy = createDto.CreatedBy ?? 1,
-                        CreatedDate = DateTime.UtcNow
+                        CreatedDate = DateTime.Now
                     });
                 }
             }
@@ -519,7 +519,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                     FloorId = dto.FloorId,
                     SubFloorId = dto.PropertyGroups.Count > 1 ? subFloorId++ : null,
                     ConstructionYear = group.ConstructionYear,
-                    AssessmentYear = DateTime.UtcNow.Year.ToString(),
+                    AssessmentYear = DateTime.Now.Year.ToString(),
                     ConstructionTypeId = group.ConstructionTypeId,
                     TypeOfUseId = group.TypeOfUseId,
                     SubTypeOfUseId = group.SubTypeOfUseId,
@@ -530,7 +530,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                     NoOfRooms = group.Rooms.Sum(r => r.NoOfRooms ?? 1),
                     IsActive = true,
                     CreatedBy = currentUserId,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 };
 
                 await _repository.AddAsync(floorDetail, cancellationToken);
@@ -558,7 +558,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                         MinusYesNo = room.MinusYesNo,
                         IsActive = true,
                         CreatedBy = currentUserId,
-                        CreatedDate = DateTime.UtcNow
+                        CreatedDate = DateTime.Now
                     });
                 }
                 await _roomWiseRepository.AddRangeAsync(roomEntitiesForGroup, cancellationToken);
@@ -577,7 +577,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                     AssetId = dto.ParentAssetId,
                     FloorDetailsId = firstFloorDetailsId,
                     LeaseType = leaseType,
-                    LeaseStartDate = dto.RentInformation.LeaseStart ?? DateTime.UtcNow,
+                    LeaseStartDate = dto.RentInformation.LeaseStart ?? DateTime.Now,
                     LeaseEndDate = dto.RentInformation.LeaseEnd,
                     Duration = dto.RentInformation.Duration,
                     PaymentFrequency = dto.RentInformation.RentFrequency ?? "Monthly",
@@ -586,7 +586,7 @@ public class SubUnitsDetailsService : BaseCommonCrudService<SubUnitsDetailsEntit
                     DepositType = dto.RentInformation.DepositType,
                     IsActive = true,
                     CreatedBy = currentUserId,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 };
                 await _leaseRentDetailsRepository.AddAsync(leaseRent, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);

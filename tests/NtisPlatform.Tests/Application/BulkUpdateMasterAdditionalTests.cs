@@ -191,7 +191,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "NULL_FIELDS",
             UpdateName = "Null Fields Test",
             ReferenceTableName = "TestTable",
-            IsApprovalRequired = null,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
@@ -204,7 +203,6 @@ public class BulkUpdateMasterAdditionalTests
             Id = 1,
             UpdateCode = "NULL_FIELDS",
             UpdateName = "Null Fields Test",
-            IsApprovalRequired = null,
             IsActive = true
         };
 
@@ -220,7 +218,6 @@ public class BulkUpdateMasterAdditionalTests
 
         // Assert
         result.Should().NotBeNull();
-        result.IsApprovalRequired.Should().BeNull();
     }
 
     #endregion

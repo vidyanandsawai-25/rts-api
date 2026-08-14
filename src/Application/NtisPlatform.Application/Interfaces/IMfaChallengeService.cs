@@ -6,7 +6,7 @@ namespace NtisPlatform.Application.Interfaces;
 /// A newly created login MFA challenge. <see cref="ChallengeId"/> is the raw opaque token
 /// handed to the client — only its hash is persisted server-side.
 /// </summary>
-public sealed record MfaLoginChallenge(string ChallengeId, DateTime ExpiresAtUtc);
+public sealed record MfaLoginChallenge(string ChallengeId, DateTime ExpiresAt);
 
 /// <summary>
 /// Why an MFA login-challenge verification attempt did not succeed. Lets the controller map to

@@ -83,7 +83,7 @@ public class ReportWorkerServiceAuthenticateTests
         RequestedByUserId = 7,
         OrganizationId = organizationId,
         SltConsumed = false,
-        SltExpiresAt = DateTime.UtcNow.AddMinutes(5),
+        SltExpiresAt = DateTime.Now.AddMinutes(5),
         ParametersJson = null,
     };
 
@@ -164,7 +164,7 @@ public class ReportWorkerServiceAuthenticateTests
     {
         var requestId = Guid.NewGuid();
         var entity = BuildValidEntity(requestId);
-        entity.SltExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+        entity.SltExpiresAt = DateTime.Now.AddMinutes(-1);
         _tokenServiceMock.Setup(t => t.ValidateShortLivedToken("slt")).Returns((requestId, 7));
         SeedRequests(entity);
 

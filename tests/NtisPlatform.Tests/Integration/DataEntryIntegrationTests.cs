@@ -151,7 +151,7 @@ public class DataEntryIntegrationTests
 
     private void SeedMasterData(ApplicationDbContext context)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         // Add PropertyEntity (required FK for PropertyDetails)
         context.Set<PropertyEntity>().Add(

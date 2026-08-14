@@ -58,7 +58,7 @@ public class ConfigKeyMasterServiceTests
             ControlType = "TextBox",
             DefaultValue = "30",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             CreatedBy = 1
         };
 
@@ -522,7 +522,7 @@ public class ConfigKeyMasterServiceTests
             DefaultValue = "default",
             IsActive = true,
             CreatedBy = 1,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var resultDto = new ConfigKeyMasterDto
@@ -602,7 +602,7 @@ public class ConfigKeyMasterServiceTests
             DefaultValue = "100",
             IsActive = true,
             UpdatedBy = 1,
-            UpdatedDate = DateTime.UtcNow
+            UpdatedDate = DateTime.Now
         };
 
         var resultDto = new ConfigKeyMasterDto

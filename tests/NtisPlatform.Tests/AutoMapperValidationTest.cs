@@ -74,7 +74,7 @@ public class AutoMapperValidationTest
               "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
               "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
               "FlagMaster", "PropertyTaxCalculationCVResults", "RVCalculationResults", "PlotDetails", "PropertyDetails",
-              "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
+              "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails", "MergeDetail",
               "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", "DocumentBinding", "DocumentBindingId", // Navigation properties
               "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
               "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties
@@ -175,6 +175,10 @@ public class AutoMapperValidationTest
                 "ConditionFactor", "CVFormula",
                 // SubUnitsDetailsDto - stubbed display fields, never populated
                 "CVCalculationFormula", "RoomDetails",
+                // Document-metadata DTOs (PropertyCertificateDto, ULBDocumentDto, etc.) - file
+                // metadata joined in by their controller via
+                // IDocumentApplicationService.GetDocumentByBindingAsync, not by AutoMapper
+                "OriginalFileName", "FileSizeBytes",
                 // InventoryItemCategoryDto.AssetCategoryName - resolved via a GetAllAsync-only SQL join
                 // against AssetCategoryEntity (CategoryName), not part of the base entity<->dto map.
                 // Listed explicitly even though it also happens to contain the "CategoryName" pattern

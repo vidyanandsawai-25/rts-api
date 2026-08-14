@@ -49,7 +49,7 @@ public class FieldRegistryQueryParameters : BaseQueryParameters
     public string? FieldName { get; set; }
 }
 
-public class CreateFieldRegistryDto
+public class CreateFieldRegistryDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "UpdateCode is required")]
     [StringLength(50, ErrorMessage = "UpdateCode cannot exceed 50 characters")]
@@ -66,8 +66,6 @@ public class CreateFieldRegistryDto
     public bool? IsApprovalRequired { get; set; }
 
     public bool IsActive { get; set; } = true;
-
-    public int? CreatedBy { get; set; }
 
     [Required(ErrorMessage = "At least one field configuration is required")]
     [MinLength(1, ErrorMessage = "At least one field configuration is required")]
@@ -125,9 +123,8 @@ public class FieldRegistryResponseDto
     public List<FieldRegistryFieldConfigResponseDto> FieldConfigs { get; set; } = new();
 }
 
-public class FieldRegistryFieldConfigResponseDto
+public class FieldRegistryFieldConfigResponseDto : BaseDtos
 {
-    public int Id { get; set; }
     public int BulkUpdateMasterId { get; set; }
     public string FieldName { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
@@ -141,12 +138,10 @@ public class FieldRegistryFieldConfigResponseDto
     public int SequenceNo { get; set; }
     public string? BindApi { get; set; }
     public string? ApiResponse { get; set; }
-    public bool IsActive { get; set; }
-    public DateTime? CreatedDate { get; set; }
     public int? CreatedBy { get; set; }
 }
 
-public class UpdateFieldRegistryDto
+public class UpdateFieldRegistryDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "UpdateName is required")]
     [StringLength(200, ErrorMessage = "UpdateName cannot exceed 200 characters")]
@@ -159,8 +154,6 @@ public class UpdateFieldRegistryDto
     public bool? IsApprovalRequired { get; set; }
 
     public bool IsActive { get; set; } = true;
-
-    public int? UpdatedBy { get; set; }
 
     [Required(ErrorMessage = "At least one field configuration is required")]
     [MinLength(1, ErrorMessage = "At least one field configuration is required")]

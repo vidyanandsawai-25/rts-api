@@ -417,7 +417,7 @@ public class RuleEngineControllerTests
                 RuleName = "Version 1",
                 ChangeType = "CREATED",
                 ChangedBy = 1,
-                ChangedDate = DateTime.UtcNow,
+                ChangedDate = DateTime.Now,
                 RuleJson = "{}",
                 Priority = 100,
                 IsEnabled = true
@@ -431,7 +431,7 @@ public class RuleEngineControllerTests
                 RuleName = "Version 2",
                 ChangeType = "UPDATED",
                 ChangedBy = 1,
-                ChangedDate = DateTime.UtcNow,
+                ChangedDate = DateTime.Now,
                 RuleJson = "{}",
                 Priority = 100,
                 IsEnabled = true

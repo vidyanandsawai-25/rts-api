@@ -361,9 +361,9 @@ public class DataEntryStageService : IDataEntryStageService
                 zoneCounts = new Dictionary<int, (int StructureCount, int UnitCount)>();
 
             result[zoneId].Assessed = GetStatusCounts(statusIdsByName, zoneCounts, "ASSESSED");
-            result[zoneId].Unassessed = GetStatusCounts(statusIdsByName, zoneCounts, "UNASSESSED");
-            result[zoneId].NewlyAssessedFound = GetStatusCounts(statusIdsByName, zoneCounts, "PARTIALLY_ASSESSED");
-            result[zoneId].AssessmentInProcess = GetStatusCounts(statusIdsByName, zoneCounts, "UNDER_UNASSESSED");
+            result[zoneId].Unassessed = GetStatusCounts(statusIdsByName, zoneCounts, "UNASSESSED", "UN ASSESSED");
+            result[zoneId].NewlyAssessedFound = GetStatusCounts(statusIdsByName, zoneCounts, "PARTIALLY_ASSESSED", "PARTIALLY ASSESSED", "NEWLY_ASSESSED_FOUND", "NEWLY ASSESSED FOUND");
+            result[zoneId].AssessmentInProcess = GetStatusCounts(statusIdsByName, zoneCounts, "UNDER_UNASSESSED", "UNDER UNASSESSED", "ASSESSMENT_IN_PROCESS", "ASSESSMENT IN PROCESS");
         }
 
         return result;
@@ -372,20 +372,39 @@ public class DataEntryStageService : IDataEntryStageService
     private static StructureUnitCountDto GetStatusCounts(
         Dictionary<string, int> statusIdsByName,
         Dictionary<int, (int StructureCount, int UnitCount)> countsByStatusId,
-        string statusName)
+        params string[] statusNames)
     {
-        if (!statusIdsByName.TryGetValue(statusName, out var statusId) ||
-            !countsByStatusId.TryGetValue(statusId, out var counts))
+        var statusId = ResolveStatusId(statusIdsByName, statusNames);
+        if (!countsByStatusId.TryGetValue(statusId, out var counts))
         {
-            return new StructureUnitCountDto();
+            return new StructureUnitCountDto { StatusId = statusId };
         }
 
         return new StructureUnitCountDto
         {
+            StatusId = statusId,
             StructureCount = counts.StructureCount,
             UnitCount = counts.UnitCount
         };
     }
+
+    private static int ResolveStatusId(Dictionary<string, int> statusIdsByName, params string[] aliases)
+    {
+        var normalizedLookup = statusIdsByName
+            .GroupBy(kvp => NormalizeStatusName(kvp.Key))
+            .ToDictionary(g => g.Key, g => g.First().Value);
+
+        foreach (var alias in aliases)
+        {
+            if (normalizedLookup.TryGetValue(NormalizeStatusName(alias), out var statusId))
+                return statusId;
+        }
+
+        return 0;
+    }
+
+    private static string NormalizeStatusName(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     private static List<DataEntryWardDataDto> BuildDataEntryWardRows(DataEntryWardWiseSummaryProjection snapshot)
     {
@@ -580,9 +599,9 @@ public class DataEntryStageService : IDataEntryStageService
                 return new AssessmentStatusBreakdownDto
                 {
                     Assessed = GetStatusCounts(statusIdsByName, wardCounts, "ASSESSED"),
-                    Unassessed = GetStatusCounts(statusIdsByName, wardCounts, "UNASSESSED"),
-                    NewlyAssessedFound = GetStatusCounts(statusIdsByName, wardCounts, "PARTIALLY_ASSESSED"),
-                    AssessmentInProcess = GetStatusCounts(statusIdsByName, wardCounts, "UNDER_UNASSESSED")
+                    Unassessed = GetStatusCounts(statusIdsByName, wardCounts, "UNASSESSED", "UN ASSESSED"),
+                    NewlyAssessedFound = GetStatusCounts(statusIdsByName, wardCounts, "PARTIALLY_ASSESSED", "PARTIALLY ASSESSED", "NEWLY_ASSESSED_FOUND", "NEWLY ASSESSED FOUND"),
+                    AssessmentInProcess = GetStatusCounts(statusIdsByName, wardCounts, "UNDER_UNASSESSED", "UNDER UNASSESSED", "ASSESSMENT_IN_PROCESS", "ASSESSMENT IN PROCESS")
                 };
             });
     }
@@ -661,21 +680,25 @@ public class DataEntryStageService : IDataEntryStageService
             {
                 Assessed = new StructureUnitCountDto
                 {
+                    StatusId = wardData.Select(w => w.AssessmentStatusBreakdown.Assessed.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Assessed.StructureCount),
                     UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Assessed.UnitCount)
                 },
                 Unassessed = new StructureUnitCountDto
                 {
+                    StatusId = wardData.Select(w => w.AssessmentStatusBreakdown.Unassessed.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Unassessed.StructureCount),
                     UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Unassessed.UnitCount)
                 },
                 NewlyAssessedFound = new StructureUnitCountDto
                 {
+                    StatusId = wardData.Select(w => w.AssessmentStatusBreakdown.NewlyAssessedFound.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.NewlyAssessedFound.StructureCount),
                     UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.NewlyAssessedFound.UnitCount)
                 },
                 AssessmentInProcess = new StructureUnitCountDto
                 {
+                    StatusId = wardData.Select(w => w.AssessmentStatusBreakdown.AssessmentInProcess.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.AssessmentInProcess.StructureCount),
                     UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.AssessmentInProcess.UnitCount)
                 }
@@ -743,21 +766,25 @@ public class DataEntryStageService : IDataEntryStageService
             {
                 Assessed = new StructureUnitCountDto
                 {
+                    StatusId = divisionData.Select(d => d.AssessmentStatusBreakdown.Assessed.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.Assessed.StructureCount),
                     UnitCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.Assessed.UnitCount)
                 },
                 Unassessed = new StructureUnitCountDto
                 {
+                    StatusId = divisionData.Select(d => d.AssessmentStatusBreakdown.Unassessed.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.Unassessed.StructureCount),
                     UnitCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.Unassessed.UnitCount)
                 },
                 NewlyAssessedFound = new StructureUnitCountDto
                 {
+                    StatusId = divisionData.Select(d => d.AssessmentStatusBreakdown.NewlyAssessedFound.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.NewlyAssessedFound.StructureCount),
                     UnitCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.NewlyAssessedFound.UnitCount)
                 },
                 AssessmentInProcess = new StructureUnitCountDto
                 {
+                    StatusId = divisionData.Select(d => d.AssessmentStatusBreakdown.AssessmentInProcess.StatusId).FirstOrDefault(id => id > 0),
                     StructureCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.AssessmentInProcess.StructureCount),
                     UnitCount = divisionData.Sum(d => d.AssessmentStatusBreakdown.AssessmentInProcess.UnitCount)
                 }

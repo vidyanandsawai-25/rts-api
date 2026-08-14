@@ -27,66 +27,49 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
     #region Public API Methods
 
-    /// <summary>
-    /// Gets main dashboard cards with counts and demand calculations.
-    /// </summary>
-    public async Task<MainCardsResponseDto> GetMainCardsAsync(PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
-    {
-        var baseQuery = _context.PropertyMast.AsNoTracking()
-            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo != null && p.PropertyNo != "");
-
-        baseQuery = ApplyDashboardFilters(baseQuery, searchRequest);
-
-        var assessmentStatusIds = await GetAssessmentStatusIdsAsync(cancellationToken);
-        var previouslyRegistered = await CalculatePreviouslyRegisteredAsync(cancellationToken);
-        var assessed = await CalculateByAssessmentStatusAsync(baseQuery,assessmentStatusIds.GetValueOrDefault(AssessedStatusName),true, cancellationToken);
-        var unassessed = await CalculateByAssessmentStatusAsync(baseQuery,assessmentStatusIds.GetValueOrDefault(UnassessedStatusName),false,cancellationToken);
-        var additionalRevenue = await CalculateAdditionalRevenueAsync(baseQuery, cancellationToken);
-
-        return new MainCardsResponseDto
-        {
-            PreviouslyRegistered = previouslyRegistered,
-            AssessmentApproved = new AssessmentApprovedDto
-            {
-                Assessed = assessed,
-                Unassessed = unassessed
-            },
-            AdditionalRevenueGenerated = additionalRevenue
-        };
-    }
-
-    /// <summary>
-    /// Gets workflow stage cards with property counts per stage.
-    /// </summary>
-    public async Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
+    public async Task<List<WorkflowStageProjection>> ReadWorkflowStagesAsync(
+        int? workflowStageId = null,
+        CancellationToken cancellationToken = default)
     {
         IQueryable<PropertyWorkflowStageMasterEntity> stagesBaseQuery = _context.PropertyWorkflowStageMaster
             .AsNoTracking()
             .Where(s => s.IsActive);
 
-        if (searchRequest?.WorkflowStageId.HasValue == true)
-            stagesBaseQuery = stagesBaseQuery.Where(s => s.Id == searchRequest.WorkflowStageId.Value);
+        if (workflowStageId.HasValue)
+            stagesBaseQuery = stagesBaseQuery.Where(s => s.Id == workflowStageId.Value);
 
-        var stages = await stagesBaseQuery
+        return await stagesBaseQuery
             .OrderBy(s => s.DisplayOrder)
+            .Select(s => new WorkflowStageProjection
+            {
+                WorkflowStageId = s.Id,
+                StageName = s.StageName,
+                DisplayOrder = s.DisplayOrder
+            })
             .ToListAsync(cancellationToken);
+    }
 
-        if (!stages.Any())
-            return new List<WorkflowStageCardDto>();
-
-        var stageIds = stages.Select(s => s.Id).ToList();
+    public async Task<Dictionary<int, WorkflowStageCountProjection>> ReadWorkflowStageCountsAsync(
+        IEnumerable<int> stageIds,
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedStageIds = stageIds.Distinct().ToList();
+        if (!selectedStageIds.Any())
+            return new Dictionary<int, WorkflowStageCountProjection>();
+    
         var propertiesBaseQuery = _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.IsActive && !p.MarkedForDeletion);
 
         propertiesBaseQuery = ApplyMainGridPropertyTypeFilters(propertiesBaseQuery, searchRequest);
 
-        var countsByStageId = await (
+        return await (
             from d in _context.PropertyWorkflowDetails.AsNoTracking()
             join p in propertiesBaseQuery on d.PropertyId equals p.Id
             join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
             join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
-            where stageIds.Contains(d.WorkflowStageId)
+            where selectedStageIds.Contains(d.WorkflowStageId)
                   && w.IsActive
                   && z.IsActive
                   && (searchRequest == null || !searchRequest.ZoneId.HasValue || w.ZoneId == searchRequest.ZoneId.Value)
@@ -102,38 +85,20 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         .GroupBy(x => x.WorkflowStageId)
         .Select(g => new
         {
-            StageId = g.Key,
+            WorkflowStageId = g.Key,
             PropertyCount = g.Count(),
             StructureCount = g.Count(x => x.PartitionNo == null || x.PartitionNo.Trim() == "")
         })
-        .ToDictionaryAsync(x => x.StageId, x => new
+        .ToDictionaryAsync(x => x.WorkflowStageId, x => new WorkflowStageCountProjection
         {
-            x.StructureCount,
+            WorkflowStageId = x.WorkflowStageId,
+            PropertyCount = x.PropertyCount,
+            StructureCount = x.StructureCount,
             UnitCount = x.PropertyCount
         }, cancellationToken);
-
-        var cards = new List<WorkflowStageCardDto>(stages.Count);
-
-        foreach (var stage in stages)
-        {
-            countsByStageId.TryGetValue(stage.Id, out var counts);
-
-            cards.Add(new WorkflowStageCardDto
-            {
-                StageName = stage.StageName,
-                Id = stage.Id,
-                StructureCount = counts?.StructureCount ?? 0,
-                UnitCount = counts?.UnitCount ?? 0
-            });
-        }
-
-        return cards;
     }
 
-    /// <summary>
-    /// Tracks which workflow stages a property has completed.
-    /// </summary>
-    public async Task<List<TrackStageStatusDto>> TrackStageStatusAsync(int propertyId,CancellationToken cancellationToken = default)
+    public async Task<List<WorkflowStageCompletionProjection>> ReadWorkflowStageCompletionsAsync(int propertyId,CancellationToken cancellationToken = default)
     {
         var completedStageIds = _context.PropertyWorkflowDetails
             .AsNoTracking()
@@ -146,12 +111,12 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .Where(stage => stage.IsActive)
             .OrderBy(stage => stage.DisplayOrder)
             .ThenBy(stage => stage.Id)
-            .Select(stage => new TrackStageStatusDto
+            .Select(stage => new WorkflowStageCompletionProjection
             {
                 WorkflowStageId = stage.Id,
                 StageName = stage.StageName,
                 DisplayOrder = stage.DisplayOrder,
-                IsCompleted = completedStageIds.Contains(stage.Id) ? 1 : 0
+                IsCompleted = completedStageIds.Contains(stage.Id)
             })
             .ToListAsync(cancellationToken);
     }
@@ -201,7 +166,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return (propertyCount, propertyCount - unitsOnlyCount, unitsOnlyCount);
     }
 
-    private async Task<DashboardCardBreakdownDto> CalculatePreviouslyRegisteredAsync(CancellationToken cancellationToken)
+    public async Task<DashboardCardBreakdownProjection> ReadPreviouslyRegisteredBreakdownAsync(CancellationToken cancellationToken = default)
     {
         var counts = await _context.PropertyMastOld
             .AsNoTracking()
@@ -215,7 +180,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return new DashboardCardBreakdownDto
+        return new DashboardCardBreakdownProjection
         {
             PropertyCount = counts?.PropertyCount ?? 0,
             StructureCount = counts?.StructureCount ?? 0,
@@ -224,7 +189,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         };
     }
 
-    private async Task<Dictionary<string, int>> GetAssessmentStatusIdsAsync(CancellationToken cancellationToken)
+    public async Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
     {
         var statusNames = new[] { AssessedStatusName, UnassessedStatusName };
         return await _context.PropertyAssessmentStatuses
@@ -234,17 +199,18 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
     }
 
-    private async Task<DashboardCardBreakdownDto> CalculateByAssessmentStatusAsync(
-        IQueryable<PropertyEntity> query,
+    public async Task<DashboardCardBreakdownProjection> ReadPropertyBreakdownByAssessmentStatusAsync(
         int statusId,
-        bool includeDemand,
-        CancellationToken cancellationToken)
+        PropertySearchRequestDto? searchRequest = null,
+        bool includeDemand = false,
+        CancellationToken cancellationToken = default)
     {
+        var query = BuildDashboardPropertyQuery(searchRequest);
         var statusQuery = query.Where(p => p.PropertyAssessmentStatusId == statusId);
         var (propertyCount, structureCount, unitCount) = await CountDashboardPropertiesAsync(statusQuery, cancellationToken);
         var demand = includeDemand ? await GetNewTaxTotalDemandAsync(statusQuery, cancellationToken) : 0m;
 
-        return new DashboardCardBreakdownDto
+        return new DashboardCardBreakdownProjection
         {
             PropertyCount = propertyCount,
             StructureCount = structureCount,
@@ -253,8 +219,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         };
     }
 
-    private async Task<DashboardCardBreakdownDto> CalculateAdditionalRevenueAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)
+    public async Task<DashboardCardBreakdownProjection> ReadAcdApprovedPropertyBreakdownAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default)
     {
+        var query = BuildDashboardPropertyQuery(searchRequest);
         var approvedPropertyIds = _context.PropertySignatureDetails
             .AsNoTracking()
             .Where(signature => signature.IsActive && signature.SignStatus == ApprovedByAcdStatus)
@@ -274,7 +243,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         var currentDemand = await GetNewTaxTotalDemandAsync(approvedProperties, cancellationToken);
 
-        return new DashboardCardBreakdownDto
+        return new DashboardCardBreakdownProjection
         {
             PropertyCount = counts?.PropertyCount ?? 0,
             StructureCount = counts?.StructureCount ?? 0,
@@ -325,8 +294,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             query.AssessmentTypeId,
             query.PropertyNo,
             query.OwnerName,
+            query.Search,
             query.Structure,
             query.Unit,
+            query.PendingStructure,
+            query.PendingUnit,
+            query.CompletedStructure,
+            query.CompletedUnit,
             query.PageNumber,
             query.PageSize,
             cancellationToken);
@@ -341,8 +315,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             query.AssessmentTypeId,
             query.PropertyNo,
             query.OwnerName,
+            query.Search,
             query.Structure,
             query.Unit,
+            query.PendingStructure,
+            query.PendingUnit,
+            query.CompletedStructure,
+            query.CompletedUnit,
             query.PageNumber,
             query.PageSize,
             cancellationToken);
@@ -356,8 +335,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         int? assessmentTypeId,
         string? propertyNo,
         string? ownerNameFilter,
+        string? search,
         bool? structure,
         bool? unit,
+        bool? pendingStructure,
+        bool? pendingUnit,
+        bool? completedStructure,
+        bool? completedUnit,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -454,26 +438,66 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         var propertyQuery = from pm in basePropertyQuery
                             join wd in _context.WardMaster.AsNoTracking() on pm.WardId equals wd.Id
+                            join z in _context.ZoneMaster.AsNoTracking() on wd.ZoneId equals z.Id
                             where wd.IsActive
+                                  && z.IsActive
                             select new SubGridPropertyFilterProjection
                             {
                                 PropertyId = pm.Id,
                                 PropertyAssessmentStatusId = pm.PropertyAssessmentStatusId,
                                 WardId = pm.WardId,
                                 WardNo = wd.WardNo,
+                                CategoryId = pm.CategoryId,
                                 PropertyNo = pm.PropertyNo,
                                 PartitionNo = pm.PartitionNo,
                                 OwnerName = pm.OwnerName,
+                                OccupierName = pm.OccupierName,
+                                MobileNo = pm.MobileNo,
+                                AlternateMobileNo = pm.AlternateMobileNo,
+                                OccupierMobileNo = pm.OccupierMobileNo,
+                                Address = pm.Address,
+                                FlatOrShopName = pm.FlatOrShopName,
+                                UPICId = pm.UPICId,
+                                PropertyMastOldId = pm.PropertyMastOldId,
                                 PropertyTypeId = pm.PropertyTypeId,
                                 ZoneId = wd.ZoneId,
+                                ZoneNo = z.ZoneNo,
+                                ZoneName = z.Description ?? z.ZoneNo,
                                 IsPropertyOpenPlot = pm.OpenPlot == true
                             };
 
         if (workflowStageId is int filterWorkflowStageId && filterWorkflowStageId > 0)
         {
-            propertyQuery = propertyQuery.Where(p =>
-                _context.PropertyWorkflowDetails.AsNoTracking()
-                    .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId));
+            var hasDataEntryMetricFilter = IsDataEntryStage(workflowStageName)
+                                           && (pendingStructure == true
+                                               || pendingUnit == true
+                                               || completedStructure == true
+                                               || completedUnit == true);
+
+            if (hasDataEntryMetricFilter)
+            {
+                propertyQuery = propertyQuery.Where(p =>
+                    (pendingStructure == true
+                     && !_context.PropertyWorkflowDetails.AsNoTracking()
+                         .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId)
+                     && (p.PartitionNo == null || p.PartitionNo.Trim() == ""))
+                    || (pendingUnit == true
+                        && !_context.PropertyWorkflowDetails.AsNoTracking()
+                            .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId))
+                    || (completedStructure == true
+                        && _context.PropertyWorkflowDetails.AsNoTracking()
+                            .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId)
+                        && (p.PartitionNo == null || p.PartitionNo.Trim() == ""))
+                    || (completedUnit == true
+                        && _context.PropertyWorkflowDetails.AsNoTracking()
+                            .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId)));
+            }
+            else
+            {
+                propertyQuery = propertyQuery.Where(p =>
+                    _context.PropertyWorkflowDetails.AsNoTracking()
+                        .Any(pwd => pwd.WorkflowStageId == filterWorkflowStageId && pwd.PropertyId == p.PropertyId));
+            }
         }
 
         if (zoneId is int filterZoneId && filterZoneId > 0)
@@ -494,6 +518,16 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         {
             var ownerName = ownerNameFilter.Trim();
             propertyQuery = propertyQuery.Where(p => p.OwnerName != null && p.OwnerName.Contains(ownerName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            propertyQuery = IsFormattedSubGridPropertySearch(search)
+                ? ApplySubGridFormattedPropertySearch(propertyQuery, search)
+                : ApplySubGridGlobalSearch(
+                    propertyQuery,
+                    search,
+                    hasLocationFilter: (zoneId is > 0) || (wardId is > 0));
         }
 
         var propertyIdsQuery = propertyQuery.Select(p => p.PropertyId);
@@ -520,6 +554,32 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .Take(pageSize)
             .ToListAsync(cancellationToken);
 
+        if ((!zoneId.HasValue || zoneId.Value <= 0) || !resolvedWardId.HasValue)
+        {
+            var resultContext = await propertyQuery
+                .Select(p => new
+                {
+                    p.ZoneId,
+                    p.ZoneName,
+                    p.ZoneNo,
+                    p.WardId,
+                    p.WardNo
+                })
+                .Distinct()
+                .Take(2)
+                .ToListAsync(cancellationToken);
+
+            if (resultContext.Count == 1)
+            {
+                var context = resultContext[0];
+                zoneId = context.ZoneId;
+                zoneName = context.ZoneName ?? zoneName;
+                zoneNo = context.ZoneNo ?? zoneNo;
+                resolvedWardId = context.WardId;
+                resolvedWardNo = context.WardNo;
+            }
+        }
+
         return await FetchSubGridPropertyDetailsAsync(
             workflowStageId.GetValueOrDefault(),
             workflowStageName,
@@ -533,9 +593,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             cancellationToken);
     }
 
-    private static IQueryable<SubGridPropertyFilterProjection> ApplySubGridPropertyNoFilter(
-        IQueryable<SubGridPropertyFilterProjection> query,
-        string propertyNo)
+    private static IQueryable<SubGridPropertyFilterProjection> ApplySubGridPropertyNoFilter(IQueryable<SubGridPropertyFilterProjection> query,string propertyNo)
     {
         var normalizedPropertyNo = propertyNo.Trim();
         var parsed = ParseSubGridPropertyNo(normalizedPropertyNo);
@@ -568,6 +626,310 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return query.Where(p => p.PropertyNo != null && p.PropertyNo.Contains(normalizedPropertyNo));
     }
 
+    private IQueryable<PropertyEntity> BuildDashboardPropertyQuery(PropertySearchRequestDto? searchRequest)
+    {
+        var query = _context.PropertyMast.AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo != null && p.PropertyNo != "");
+
+        return ApplyDashboardFilters(query, searchRequest);
+    }
+
+    private static IQueryable<SubGridPropertyFilterProjection> ApplySubGridFormattedPropertySearch(
+        IQueryable<SubGridPropertyFilterProjection> query,
+        string propertyNo)
+    {
+        var parsed = ParseSubGridPropertyNo(propertyNo.Trim());
+        var wardNo = parsed.WardNo;
+        var basePropertyNo = parsed.PropertyNo;
+
+        if (string.IsNullOrWhiteSpace(wardNo) || string.IsNullOrWhiteSpace(basePropertyNo))
+            return query;
+
+        if (!string.IsNullOrWhiteSpace(parsed.PartitionNo))
+        {
+            var partitionNo = parsed.PartitionNo;
+            return query.Where(p =>
+                p.WardNo == wardNo
+                && p.PropertyNo == basePropertyNo
+                && p.PartitionNo == partitionNo);
+        }
+
+        return query.Where(p =>
+            p.WardNo == wardNo
+            && p.PropertyNo == basePropertyNo);
+    }
+
+    private IQueryable<SubGridPropertyFilterProjection> ApplySubGridGlobalSearch(
+        IQueryable<SubGridPropertyFilterProjection> query,
+        string search,
+        bool hasLocationFilter)
+    {
+        var trimmedSearch = search.Trim();
+        var numericSearch = GetDigitsOnly(trimmedSearch);
+
+        if (numericSearch.Length >= 3 && IsNumericLikeSearch(trimmedSearch))
+            return ApplyNumericSubGridGlobalSearch(query, trimmedSearch, numericSearch);
+
+        var matchingCategoryIds = _context.PropertyCategoryMaster
+            .AsNoTracking()
+            .Where(category => category.IsActive
+                               && category.PropertyCategoryName != null
+                               && EF.Functions.Like(category.PropertyCategoryName, $"%{trimmedSearch}%"))
+            .Select(category => category.Id);
+
+        var matchingPropertyTypeIds = _context.PropertyTypeMasters
+            .AsNoTracking()
+            .Where(propertyType => propertyType.IsActive
+                                   && ((propertyType.PropertyDescription != null && EF.Functions.Like(propertyType.PropertyDescription, $"%{trimmedSearch}%"))
+                                       || (propertyType.Type != null && EF.Functions.Like(propertyType.Type, $"%{trimmedSearch}%"))))
+            .Select(propertyType => propertyType.Id);
+
+        var matchingAssessmentStatusIds = _context.PropertyAssessmentStatuses
+            .AsNoTracking()
+            .Where(status => status.IsActive && EF.Functions.Like(status.StatusName, $"%{trimmedSearch}%"))
+            .Select(status => status.Id);
+
+        var matchingSocietyPropertyIds = GetMatchingSocietyPropertyIds(trimmedSearch);
+        var matchingDetailPropertyIds = GetMatchingPropertyDetailPropertyIds(trimmedSearch);
+        var matchingOldPropertyIds = GetMatchingOldPropertyIds(trimmedSearch);
+        var matchingPropertyIds = matchingSocietyPropertyIds
+            .Union(matchingDetailPropertyIds)
+            .Union(GetPropertyIdsMappedToOldIds(matchingOldPropertyIds));
+
+        if (!hasLocationFilter)
+        {
+            var noLocationMatchingPropertyIds = GetMatchingPropertyIds(trimmedSearch)
+                .Union(GetMatchingLocationPropertyIds(trimmedSearch))
+                .Union(GetMatchingLookupPropertyIds(
+                    matchingCategoryIds,
+                    matchingPropertyTypeIds,
+                    matchingAssessmentStatusIds))
+                .Union(matchingPropertyIds);
+
+            return query.Where(p => noLocationMatchingPropertyIds.Contains(p.PropertyId));
+        }
+
+        return query.Where(p =>
+            EF.Functions.Like((p.WardNo ?? "") + "-" + (p.PropertyNo ?? "") + "-" + (p.PartitionNo ?? ""), $"%{trimmedSearch}%")
+            || EF.Functions.Like((p.WardNo ?? "") + "-" + (p.PropertyNo ?? ""), $"%{trimmedSearch}%")
+            || (p.WardNo != null && EF.Functions.Like(p.WardNo, $"%{trimmedSearch}%"))
+            || (p.ZoneNo != null && EF.Functions.Like(p.ZoneNo, $"%{trimmedSearch}%"))
+            || (p.ZoneName != null && EF.Functions.Like(p.ZoneName, $"%{trimmedSearch}%"))
+            || (p.PropertyNo != null && EF.Functions.Like(p.PropertyNo, $"%{trimmedSearch}%"))
+            || (p.PartitionNo != null && EF.Functions.Like(p.PartitionNo, $"%{trimmedSearch}%"))
+            || (p.OwnerName != null && EF.Functions.Like(p.OwnerName, $"%{trimmedSearch}%"))
+            || (p.OccupierName != null && EF.Functions.Like(p.OccupierName, $"%{trimmedSearch}%"))
+            || (p.MobileNo != null && EF.Functions.Like(p.MobileNo, $"%{trimmedSearch}%"))
+            || (p.AlternateMobileNo != null && EF.Functions.Like(p.AlternateMobileNo, $"%{trimmedSearch}%"))
+            || (p.OccupierMobileNo != null && EF.Functions.Like(p.OccupierMobileNo, $"%{trimmedSearch}%"))
+            || (p.Address != null && EF.Functions.Like(p.Address, $"%{trimmedSearch}%"))
+            || (p.FlatOrShopName != null && EF.Functions.Like(p.FlatOrShopName, $"%{trimmedSearch}%"))
+            || (p.UPICId != null && EF.Functions.Like(p.UPICId, $"%{trimmedSearch}%"))
+            || (p.CategoryId.HasValue && matchingCategoryIds.Contains(p.CategoryId.Value))
+            || (p.PropertyTypeId.HasValue && matchingPropertyTypeIds.Contains(p.PropertyTypeId.Value))
+            || (p.PropertyAssessmentStatusId.HasValue && matchingAssessmentStatusIds.Contains(p.PropertyAssessmentStatusId.Value))
+            || matchingPropertyIds.Contains(p.PropertyId));
+    }
+
+    private IQueryable<SubGridPropertyFilterProjection> ApplyNumericSubGridGlobalSearch(
+        IQueryable<SubGridPropertyFilterProjection> query,
+        string rawSearch,
+        string numericSearch)
+    {
+        var matchingSocietyPropertyIds = GetMatchingSocietyPropertyIds(rawSearch, numericSearch);
+        var matchingOldPropertyIds = GetMatchingOldPropertyIds(rawSearch, numericSearch);
+        var matchingPropertyIds = GetMatchingPropertyIds(rawSearch, numericSearch)
+            .Union(matchingSocietyPropertyIds)
+            .Union(GetPropertyIdsMappedToOldIds(matchingOldPropertyIds));
+
+        return query.Where(p =>
+            ((p.WardNo ?? "") + "-" + (p.PropertyNo ?? "") + "-" + (p.PartitionNo ?? "")).Contains(rawSearch)
+            || ((p.WardNo ?? "") + "-" + (p.PropertyNo ?? "")).Contains(rawSearch)
+            || matchingPropertyIds.Contains(p.PropertyId));
+    }
+
+    private IQueryable<int> GetMatchingPropertyIds(string search)
+        => _context.PropertyMast
+            .AsNoTracking()
+            .Where(property =>
+                (property.PropertyNo != null && EF.Functions.Like(property.PropertyNo, $"%{search}%"))
+                || (property.PartitionNo != null && EF.Functions.Like(property.PartitionNo, $"%{search}%"))
+                || (property.OwnerName != null && EF.Functions.Like(property.OwnerName, $"%{search}%"))
+                || (property.OccupierName != null && EF.Functions.Like(property.OccupierName, $"%{search}%"))
+                || (property.MobileNo != null && EF.Functions.Like(property.MobileNo, $"%{search}%"))
+                || (property.AlternateMobileNo != null && EF.Functions.Like(property.AlternateMobileNo, $"%{search}%"))
+                || (property.OccupierMobileNo != null && EF.Functions.Like(property.OccupierMobileNo, $"%{search}%"))
+                || (property.Address != null && EF.Functions.Like(property.Address, $"%{search}%"))
+                || (property.FlatOrShopName != null && EF.Functions.Like(property.FlatOrShopName, $"%{search}%"))
+                || (property.UPICId != null && EF.Functions.Like(property.UPICId, $"%{search}%")))
+            .Select(property => property.Id);
+
+    private IQueryable<int> GetMatchingLocationPropertyIds(string search)
+        => from property in _context.PropertyMast.AsNoTracking()
+           join ward in _context.WardMaster.AsNoTracking() on property.WardId equals ward.Id
+           join zone in _context.ZoneMaster.AsNoTracking() on ward.ZoneId equals zone.Id
+           where property.IsActive
+                 && !property.MarkedForDeletion
+                 && ward.IsActive
+                 && zone.IsActive
+                 && (EF.Functions.Like((ward.WardNo ?? "") + "-" + (property.PropertyNo ?? "") + "-" + (property.PartitionNo ?? ""), $"%{search}%")
+                     || EF.Functions.Like((ward.WardNo ?? "") + "-" + (property.PropertyNo ?? ""), $"%{search}%")
+                     || (ward.WardNo != null && EF.Functions.Like(ward.WardNo, $"%{search}%"))
+                     || (zone.ZoneNo != null && EF.Functions.Like(zone.ZoneNo, $"%{search}%"))
+                     || (zone.Description != null && EF.Functions.Like(zone.Description, $"%{search}%")))
+           select property.Id;
+
+    private IQueryable<int> GetMatchingLookupPropertyIds(
+        IQueryable<int> categoryIds,
+        IQueryable<int> propertyTypeIds,
+        IQueryable<int> assessmentStatusIds)
+        => _context.PropertyMast
+            .AsNoTracking()
+            .Where(property => property.IsActive
+                               && !property.MarkedForDeletion
+                               && ((property.CategoryId.HasValue && categoryIds.Contains(property.CategoryId.Value))
+                                   || (property.PropertyTypeId.HasValue && propertyTypeIds.Contains(property.PropertyTypeId.Value))
+                                   || (property.PropertyAssessmentStatusId.HasValue && assessmentStatusIds.Contains(property.PropertyAssessmentStatusId.Value))))
+            .Select(property => property.Id);
+
+    private IQueryable<int> GetMatchingPropertyIds(string rawSearch, string numericSearch)
+        => _context.PropertyMast
+            .AsNoTracking()
+            .Where(property =>
+                (property.PropertyNo != null && property.PropertyNo.Contains(rawSearch))
+                || (property.PartitionNo != null && property.PartitionNo.Contains(rawSearch))
+                || (property.UPICId != null && property.UPICId.Contains(rawSearch))
+                || (property.MobileNo != null
+                    && (property.MobileNo.Contains(rawSearch)
+                        || property.MobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))
+                || (property.AlternateMobileNo != null
+                    && (property.AlternateMobileNo.Contains(rawSearch)
+                        || property.AlternateMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))
+                || (property.OccupierMobileNo != null
+                    && (property.OccupierMobileNo.Contains(rawSearch)
+                        || property.OccupierMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch))))
+            .Select(property => property.Id);
+
+    private IQueryable<int> GetPropertyIdsMappedToOldIds(IQueryable<int> oldPropertyIds)
+        => _context.PropertyMast
+            .AsNoTracking()
+            .Where(property => property.PropertyMastOldId.HasValue
+                               && oldPropertyIds.Contains(property.PropertyMastOldId.Value))
+            .Select(property => property.Id)
+            .Union(_context.PropertyMapMasters
+                .AsNoTracking()
+                .Where(propertyMap => propertyMap.ParentPropertyMapId.HasValue
+                                      && oldPropertyIds.Contains(propertyMap.ParentPropertyMapId.Value))
+                .Select(propertyMap => propertyMap.Id));
+
+    private IQueryable<int> GetMatchingSocietyPropertyIds(string search)
+    {
+        return (
+            from society in _context.SocietyDetailsMast.AsNoTracking()
+            join wing in _context.WingEntity.AsNoTracking().Where(wing => wing.IsActive)
+                on society.WingId equals wing.Id into wingJoin
+            from wing in wingJoin.DefaultIfEmpty()
+            where society.PropertyId.HasValue
+                  && society.IsActive
+                  && !society.MarkedForDeletion
+                  && ((society.WingName != null && EF.Functions.Like(society.WingName, $"%{search}%"))
+                      || (society.SocietyName != null && EF.Functions.Like(society.SocietyName, $"%{search}%"))
+                      || (society.SocietyNameEnglish != null && EF.Functions.Like(society.SocietyNameEnglish, $"%{search}%"))
+                      || (society.BuilderName != null && EF.Functions.Like(society.BuilderName, $"%{search}%"))
+                      || (society.BuilderNameEnglish != null && EF.Functions.Like(society.BuilderNameEnglish, $"%{search}%"))
+                      || (society.ManagerMobileNo != null && EF.Functions.Like(society.ManagerMobileNo, $"%{search}%"))
+                      || (society.SecretaryMobileNo != null && EF.Functions.Like(society.SecretaryMobileNo, $"%{search}%"))
+                      || (society.BuilderMobileNo != null && EF.Functions.Like(society.BuilderMobileNo, $"%{search}%"))
+                      || (wing != null && wing.WingNo != null && EF.Functions.Like(wing.WingNo, $"%{search}%")))
+            select society.PropertyId!.Value
+        ).Distinct();
+    }
+
+    private IQueryable<int> GetMatchingSocietyPropertyIds(string rawSearch, string numericSearch)
+        => _context.SocietyDetailsMast
+            .AsNoTracking()
+            .Where(society => society.PropertyId.HasValue
+                              && society.IsActive
+                              && !society.MarkedForDeletion
+                              && ((society.ManagerMobileNo != null
+                                   && (society.ManagerMobileNo.Contains(rawSearch)
+                                       || society.ManagerMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))
+                                  || (society.SecretaryMobileNo != null
+                                      && (society.SecretaryMobileNo.Contains(rawSearch)
+                                          || society.SecretaryMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))
+                                  || (society.BuilderMobileNo != null
+                                      && (society.BuilderMobileNo.Contains(rawSearch)
+                                          || society.BuilderMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))))
+            .Select(society => society.PropertyId!.Value)
+            .Distinct();
+
+    private IQueryable<int> GetMatchingPropertyDetailPropertyIds(string search)
+    {
+        return (
+            from detail in _context.PropertyDetails.AsNoTracking()
+            join typeOfUse in _context.TypeOfUse.AsNoTracking().Where(typeOfUse => typeOfUse.IsActive)
+                on detail.TypeOfUseId equals typeOfUse.Id into typeOfUseJoin
+            from typeOfUse in typeOfUseJoin.DefaultIfEmpty()
+            where detail.IsActive
+                  && !detail.MarkedForDeletion
+                  && ((detail.ConstructionYear != null && EF.Functions.Like(detail.ConstructionYear, $"%{search}%"))
+                      || (detail.AssessmentYear != null && EF.Functions.Like(detail.AssessmentYear, $"%{search}%"))
+                      || (typeOfUse != null
+                          && ((typeOfUse.Description != null && EF.Functions.Like(typeOfUse.Description, $"%{search}%"))
+                              || (typeOfUse.Type != null && EF.Functions.Like(typeOfUse.Type, $"%{search}%"))
+                              || (typeOfUse.TypeOfUseCode != null && EF.Functions.Like(typeOfUse.TypeOfUseCode, $"%{search}%")))))
+            select detail.PropertyId
+        ).Distinct();
+    }
+
+    private IQueryable<int> GetMatchingOldPropertyIds(string search)
+        => _context.PropertyMastOld
+            .AsNoTracking()
+            .Where(oldProperty =>
+                EF.Functions.Like((oldProperty.OldWardNo ?? "") + "-" + (oldProperty.OldPropertyNo ?? "") + "-" + (oldProperty.OldPartitionNo ?? ""), $"%{search}%")
+                || EF.Functions.Like((oldProperty.OldWardNo ?? "") + "-" + (oldProperty.OldPropertyNo ?? ""), $"%{search}%")
+                || (oldProperty.OldWardNo != null && EF.Functions.Like(oldProperty.OldWardNo, $"%{search}%"))
+                || (oldProperty.OldPropertyNo != null && EF.Functions.Like(oldProperty.OldPropertyNo, $"%{search}%"))
+                || (oldProperty.OldPartitionNo != null && EF.Functions.Like(oldProperty.OldPartitionNo, $"%{search}%"))
+                || (oldProperty.OldEgovNo != null && EF.Functions.Like(oldProperty.OldEgovNo, $"%{search}%"))
+                || (oldProperty.OldMobileNo != null && EF.Functions.Like(oldProperty.OldMobileNo, $"%{search}%"))
+                || (oldProperty.OldOwnerName != null && EF.Functions.Like(oldProperty.OldOwnerName, $"%{search}%"))
+                || (oldProperty.OldOccupierName != null && EF.Functions.Like(oldProperty.OldOccupierName, $"%{search}%"))
+                || (oldProperty.OldAddress != null && EF.Functions.Like(oldProperty.OldAddress, $"%{search}%"))
+                || (oldProperty.OldUseType != null && EF.Functions.Like(oldProperty.OldUseType, $"%{search}%"))
+                || (oldProperty.OldConstructionYear != null && EF.Functions.Like(oldProperty.OldConstructionYear, $"%{search}%")))
+            .Select(oldProperty => oldProperty.Id);
+
+    private IQueryable<int> GetMatchingOldPropertyIds(string rawSearch, string numericSearch)
+        => _context.PropertyMastOld
+            .AsNoTracking()
+            .Where(oldProperty =>
+                (oldProperty.OldMobileNo != null
+                 && (oldProperty.OldMobileNo.Contains(rawSearch)
+                     || oldProperty.OldMobileNo.Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "").Contains(numericSearch)))
+                || (oldProperty.OldPropertyNo != null && oldProperty.OldPropertyNo.Contains(rawSearch))
+                || (oldProperty.OldPartitionNo != null && oldProperty.OldPartitionNo.Contains(rawSearch))
+                || (oldProperty.OldEgovNo != null && oldProperty.OldEgovNo.Contains(rawSearch)))
+            .Select(oldProperty => oldProperty.Id);
+
+    private static string GetDigitsOnly(string value)
+        => new(value.Where(char.IsDigit).ToArray());
+
+    private static bool IsNumericLikeSearch(string value)
+        => value.All(c => char.IsDigit(c)
+                          || char.IsWhiteSpace(c)
+                          || c is '+' or '-' or '(' or ')');
+
+    private static bool IsFormattedSubGridPropertySearch(string search)
+    {
+        var parsed = ParseSubGridPropertyNo(search.Trim());
+        return !string.IsNullOrWhiteSpace(parsed.WardNo)
+               && !string.IsNullOrWhiteSpace(parsed.PropertyNo)
+               && parsed.PropertyNo.All(char.IsDigit)
+               && (string.IsNullOrWhiteSpace(parsed.PartitionNo)
+                   || parsed.PartitionNo.All(c => char.IsDigit(c) || c == '-'));
+    }
+
     private static (string? WardNo, string? PropertyNo, string? PartitionNo) ParseSubGridPropertyNo(string propertyNo)
     {
         var parts = propertyNo
@@ -580,6 +942,9 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             _ => (null, propertyNo, null)
         };
     }
+
+    private static bool IsDataEntryStage(string workflowStageName)
+        => string.Equals(workflowStageName, "DataEntry", StringComparison.OrdinalIgnoreCase);
 
     #endregion
 
@@ -1121,17 +1486,23 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         public int? PropertyAssessmentStatusId { get; set; }
         public int WardId { get; set; }
         public string? WardNo { get; set; }
+        public int? CategoryId { get; set; }
         public int? PropertyTypeId { get; set; }
         public int ZoneId { get; set; }
         public string? ZoneNo { get; set; }
+        public string? ZoneName { get; set; }
         public bool IsPropertyOpenPlot { get; set; }
         public string? PropertyNo { get; set; }
         public string? PartitionNo { get; set; }
         public string? OwnerName { get; set; }
         public string? OccupierName { get; set; }
         public string? MobileNo { get; set; }
+        public string? AlternateMobileNo { get; set; }
+        public string? OccupierMobileNo { get; set; }
         public string? Address { get; set; }
+        public string? FlatOrShopName { get; set; }
         public string? UPICId { get; set; }
+        public int? PropertyMastOldId { get; set; }
     }
 
     #endregion

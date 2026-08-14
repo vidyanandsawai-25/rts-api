@@ -24,6 +24,7 @@ namespace NtisPlatform.Application.Helpers.AutomationDashboard
     /// </summary>
     public class StructureUnitCount
     {
+        public int StatusId { get; set; }
         public int StructureCount { get; set; }
         public int UnitCount { get; set; }
     }

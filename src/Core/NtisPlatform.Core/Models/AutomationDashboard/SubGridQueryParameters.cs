@@ -29,11 +29,26 @@ public  class SubGridQueryParameters
     [StringLength(250, ErrorMessage = "The OwnerName must not exceed 250 characters")]
     public string? OwnerName { get; set; }
 
+    [StringLength(250, ErrorMessage = "The Search must not exceed 250 characters")]
+    public string? Search { get; set; }
+
     [DefaultValue(null)]
     public bool? Structure { get; set; }
 
     [DefaultValue(null)]
     public bool? Unit { get; set; }
+
+    [DefaultValue(null)]
+    public bool? PendingStructure { get; set; }
+
+    [DefaultValue(null)]
+    public bool? PendingUnit { get; set; }
+
+    [DefaultValue(null)]
+    public bool? CompletedStructure { get; set; }
+
+    [DefaultValue(null)]
+    public bool? CompletedUnit { get; set; }
 
     private int _pageNumber = 1;
     private int _pageSize = 10;
@@ -78,11 +93,26 @@ public  class WardSubGridQueryParameters
     [StringLength(250, ErrorMessage = "The OwnerName must not exceed 250 characters")]
     public string? OwnerName { get; set; }
 
+    [StringLength(250, ErrorMessage = "The Search must not exceed 250 characters")]
+    public string? Search { get; set; }
+
     [DefaultValue(null)]
     public bool? Structure { get; set; }
 
     [DefaultValue(null)]
     public bool? Unit { get; set; }
+
+    [DefaultValue(null)]
+    public bool? PendingStructure { get; set; }
+
+    [DefaultValue(null)]
+    public bool? PendingUnit { get; set; }
+
+    [DefaultValue(null)]
+    public bool? CompletedStructure { get; set; }
+
+    [DefaultValue(null)]
+    public bool? CompletedUnit { get; set; }
 
     private int _pageNumber = 1;
     private int _pageSize = 10;

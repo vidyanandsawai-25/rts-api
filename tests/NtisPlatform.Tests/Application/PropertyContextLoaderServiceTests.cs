@@ -414,7 +414,7 @@ namespace NtisPlatform.Tests.Application
                 propertyId: propertyId,
                 certificateTypeId: 1,
                 certificateNo: "OC-123",
-                issueDate: DateTime.UtcNow,
+                issueDate: DateTime.Now,
                 propertyDetailsId: detailId);
             typeof(PropertyCertificateEntity)
                 .GetProperty(nameof(PropertyCertificateEntity.CertificateType))!

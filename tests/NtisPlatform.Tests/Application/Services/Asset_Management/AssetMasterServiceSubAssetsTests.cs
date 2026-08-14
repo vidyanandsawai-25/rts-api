@@ -301,7 +301,7 @@ public class AssetMasterServiceSubAssetsTests
             ParentAssetId = 1,
             IsActive = true,
             MarkedForDeletion = false,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 100m,
             TotalBatchValue = 100m

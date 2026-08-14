@@ -192,7 +192,9 @@ public static class WorkflowStageDataBuilder
                 {
                     Structure = WorkflowStageAssessmentStatusBuilder.CountStructures(geoSequencingProperties, p => p.PartitionNo),
                     Unit = geoSequencingProperties.Count
-                }
+                },
+                AssessedProperties = new AssessedPropertiesSimpleDto { StatusId = assessedStatusId },
+                UnassessedProperties = new UnassessedPropertiesDto { StatusId = unassessedStatusId }
             };
         }
 
@@ -257,7 +259,9 @@ public static class WorkflowStageDataBuilder
             {
                 Structure = WorkflowStageAssessmentStatusBuilder.CountStructures(geoSequencingProperties, p => p.PartitionNo),
                 Unit = geoSequencingProperties.Count
-            }
+            },
+            AssessedProperties = new AssessedPropertiesSimpleDto { StatusId = assessedStatusId },
+            UnassessedProperties = new UnassessedPropertiesDto { StatusId = unassessedStatusId }
         };
 
         if (!internalSurveyProperties.Any())
@@ -294,6 +298,120 @@ public static class WorkflowStageDataBuilder
         return wardData;
     }
 
+    public static InternalSurveyDivisionDataDto CalculateInternalSurveyDivisionTotals(List<InternalSurveyDivisionDataDto> divisionData)
+        => new()
+        {
+            DivisionName = "TOTAL",
+            GeoSequencingProperties = new GeoSequencingPropertiesDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.GeoSequencingProperties.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.GeoSequencingProperties.Unit)
+            },
+            SurveyProperties = new SurveyPropertiesDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.SurveyProperties.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.SurveyProperties.Unit)
+            },
+            PropertyType = new PropertyTypesBreakdownDto
+            {
+                Residential = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PropertyType.Residential),
+                NonResidential = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PropertyType.NonResidential),
+                Mixed = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PropertyType.Mixed),
+                PublicUtility = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PropertyType.PublicUtility),
+                UnderConstruction = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PropertyType.UnderConstruction)
+            },
+            AssessedProperties = new AssessedPropertiesSimpleDto
+            {
+                StatusId = divisionData.Select(d => d.AssessedProperties.StatusId).FirstOrDefault(id => id > 0),
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.AssessedProperties.Structure),
+                Units = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.AssessedProperties.Units)
+            },
+            UnassessedProperties = new UnassessedPropertiesDto
+            {
+                StatusId = divisionData.Select(d => d.UnassessedProperties.StatusId).FirstOrDefault(id => id > 0),
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.UnassessedProperties.Structure),
+                Units = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.UnassessedProperties.Units)
+            },
+            NewlyAssessedFound = new NewlyAssessedFoundDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.NewlyAssessedFound.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.NewlyAssessedFound.Unit)
+            },
+            AssessmentInprocess = new AssessmentInprocessDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.AssessmentInprocess.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.AssessmentInprocess.Unit)
+            },
+            PhotoCount = WorkflowStageTotalsCalculator.Sum(divisionData, d => d.PhotoCount)
+        };
+
+    public static InternalSurveyWardDataDto CalculateInternalSurveyWardTotals(List<InternalSurveyWardDataDto> wardData)
+        => new()
+        {
+            WardNo = "TOTAL",
+            GeoSequencingProperties = new GeoSequencingPropertiesDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.GeoSequencingProperties.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(wardData, w => w.GeoSequencingProperties.Unit)
+            },
+            SurveyProperties = new SurveyPropertiesDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.SurveyProperties.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(wardData, w => w.SurveyProperties.Unit)
+            },
+            PropertyType = new PropertyTypesBreakdownDto
+            {
+                Residential = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PropertyType.Residential),
+                NonResidential = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PropertyType.NonResidential),
+                Mixed = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PropertyType.Mixed),
+                PublicUtility = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PropertyType.PublicUtility),
+                UnderConstruction = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PropertyType.UnderConstruction)
+            },
+            AssessedProperties = new AssessedPropertiesSimpleDto
+            {
+                StatusId = wardData.Select(w => w.AssessedProperties.StatusId).FirstOrDefault(id => id > 0),
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.AssessedProperties.Structure),
+                Units = WorkflowStageTotalsCalculator.Sum(wardData, w => w.AssessedProperties.Units)
+            },
+            UnassessedProperties = new UnassessedPropertiesDto
+            {
+                StatusId = wardData.Select(w => w.UnassessedProperties.StatusId).FirstOrDefault(id => id > 0),
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.UnassessedProperties.Structure),
+                Units = WorkflowStageTotalsCalculator.Sum(wardData, w => w.UnassessedProperties.Units)
+            },
+            NewlyAssessedFound = new NewlyAssessedFoundDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.NewlyAssessedFound.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(wardData, w => w.NewlyAssessedFound.Unit)
+            },
+            AssessmentInprocess = new AssessmentInprocessDto
+            {
+                Structure = WorkflowStageTotalsCalculator.Sum(wardData, w => w.AssessmentInprocess.Structure),
+                Unit = WorkflowStageTotalsCalculator.Sum(wardData, w => w.AssessmentInprocess.Unit)
+            },
+            PhotoCount = WorkflowStageTotalsCalculator.Sum(wardData, w => w.PhotoCount)
+        };
+
+    public static int GetInternalSurveyWardSummaryScore(InternalSurveyWardDataDto ward)
+        => ward.GeoSequencingProperties.Structure
+           + ward.GeoSequencingProperties.Unit
+           + ward.SurveyProperties.Structure
+           + ward.SurveyProperties.Unit
+           + ward.PropertyType.Residential
+           + ward.PropertyType.NonResidential
+           + ward.PropertyType.Mixed
+           + ward.PropertyType.PublicUtility
+           + ward.PropertyType.UnderConstruction
+           + ward.AssessedProperties.Structure
+           + ward.AssessedProperties.Units
+           + ward.UnassessedProperties.Structure
+           + ward.UnassessedProperties.Units
+           + ward.NewlyAssessedFound.Structure
+           + ward.NewlyAssessedFound.Unit
+           + ward.AssessmentInprocess.Structure
+           + ward.AssessmentInprocess.Unit
+           + ward.PhotoCount;
+
     #endregion
 
     #region Mapping Helpers
@@ -323,21 +441,25 @@ public static class WorkflowStageDataBuilder
         {
             Assessed = new StructureUnitCountDto
             {
+                StatusId = breakdown.Assessed.StatusId,
                 StructureCount = breakdown.Assessed.StructureCount,
                 UnitCount = breakdown.Assessed.UnitCount
             },
             Unassessed = new StructureUnitCountDto
             {
+                StatusId = breakdown.Unassessed.StatusId,
                 StructureCount = breakdown.Unassessed.StructureCount,
                 UnitCount = breakdown.Unassessed.UnitCount
             },
             NewlyAssessedFound = new StructureUnitCountDto
             {
+                StatusId = breakdown.NewlyAssessedFound.StatusId,
                 StructureCount = breakdown.NewlyAssessedFound.StructureCount,
                 UnitCount = breakdown.NewlyAssessedFound.UnitCount
             },
             AssessmentInProcess = new StructureUnitCountDto
             {
+                StatusId = breakdown.AssessmentInProcess.StatusId,
                 StructureCount = breakdown.AssessmentInProcess.StructureCount,
                 UnitCount = breakdown.AssessmentInProcess.UnitCount
             }
@@ -348,21 +470,25 @@ public static class WorkflowStageDataBuilder
         {
             Assessed = new StructureUnitCount
             {
+                StatusId = dto.Assessed.StatusId,
                 StructureCount = dto.Assessed.StructureCount,
                 UnitCount = dto.Assessed.UnitCount
             },
             Unassessed = new StructureUnitCount
             {
+                StatusId = dto.Unassessed.StatusId,
                 StructureCount = dto.Unassessed.StructureCount,
                 UnitCount = dto.Unassessed.UnitCount
             },
             NewlyAssessedFound = new StructureUnitCount
             {
+                StatusId = dto.NewlyAssessedFound.StatusId,
                 StructureCount = dto.NewlyAssessedFound.StructureCount,
                 UnitCount = dto.NewlyAssessedFound.UnitCount
             },
             AssessmentInProcess = new StructureUnitCount
             {
+                StatusId = dto.AssessmentInProcess.StatusId,
                 StructureCount = dto.AssessmentInProcess.StructureCount,
                 UnitCount = dto.AssessmentInProcess.UnitCount
             }
@@ -371,6 +497,7 @@ public static class WorkflowStageDataBuilder
     private static AssessedPropertiesSimpleDto MapToAssessedPropertiesDto(StructureUnitCount count)
         => new()
         {
+            StatusId = count.StatusId,
             Structure = count.StructureCount,
             Units = count.UnitCount
         };
@@ -378,6 +505,7 @@ public static class WorkflowStageDataBuilder
     private static UnassessedPropertiesDto MapToUnassessedPropertiesDto(StructureUnitCount count)
         => new()
         {
+            StatusId = count.StatusId,
             Structure = count.StructureCount,
             Units = count.UnitCount
         };

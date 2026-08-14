@@ -104,7 +104,7 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
             AssetTypeId = 1,
             ParentAssetId = parentAssetId,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
         _context!.Set<AssetMasterEntity>().Add(asset);
         await _context.SaveChangesAsync();
@@ -167,7 +167,7 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
             ConstructionTypeId = 1,
             TypeOfUseId = 1,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
         _context!.Set<SubUnitsDetailsEntity>().Add(existingChildDetail);
         await _context.SaveChangesAsync();
@@ -237,8 +237,8 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
     public async Task GetByIdAsync_ResolvesNamesAndComputesSubAssetCountExcludingInactiveRooms()
     {
         var asset = await SeedAssetAsync(10);
-        var floor = new NtisPlatform.Core.Entities.FloorEntity { Description = "Ground Floor", CreatedDate = DateTime.UtcNow };
-        var constructionType = new ConstructionTypeEntity { Description = "RCC", CreatedDate = DateTime.UtcNow };
+        var floor = new NtisPlatform.Core.Entities.FloorEntity { Description = "Ground Floor", CreatedDate = DateTime.Now };
+        var constructionType = new ConstructionTypeEntity { Description = "RCC", CreatedDate = DateTime.Now };
         _context!.Set<NtisPlatform.Core.Entities.FloorEntity>().Add(floor);
         _context.Set<ConstructionTypeEntity>().Add(constructionType);
         await _context.SaveChangesAsync();
@@ -250,15 +250,15 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
             ConstructionTypeId = constructionType.Id,
             TypeOfUseId = 1,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
         _context.Set<SubUnitsDetailsEntity>().Add(detail);
         await _context.SaveChangesAsync();
 
         _context.Set<AssetRoomWiseSubmissionDetailsEntity>().AddRange(
-            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.UtcNow },
-            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.UtcNow },
-            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = false, MarkedForDeletion = true, CreatedDate = DateTime.UtcNow });
+            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.Now },
+            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.Now },
+            new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = detail.Id, IsActive = false, MarkedForDeletion = true, CreatedDate = DateTime.Now });
         await _context.SaveChangesAsync();
 
         var service = CreateService();
@@ -297,8 +297,8 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
         await SeedAssetAsync(3, parentAssetId: 1);
 
         _context!.Set<SubUnitsDetailsEntity>().AddRange(
-            new SubUnitsDetailsEntity { AssetId = 2, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CarpetAreaSqMeter = 40m, CapitalValue = 1000m, BaseValue = 800m, CreatedDate = DateTime.UtcNow },
-            new SubUnitsDetailsEntity { AssetId = 3, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CarpetAreaSqMeter = 60m, CapitalValue = 2000m, BaseValue = 1600m, CreatedDate = DateTime.UtcNow });
+            new SubUnitsDetailsEntity { AssetId = 2, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CarpetAreaSqMeter = 40m, CapitalValue = 1000m, BaseValue = 800m, CreatedDate = DateTime.Now },
+            new SubUnitsDetailsEntity { AssetId = 3, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CarpetAreaSqMeter = 60m, CapitalValue = 2000m, BaseValue = 1600m, CreatedDate = DateTime.Now });
         await _context.SaveChangesAsync();
 
         var service = CreateService();
@@ -434,11 +434,11 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
     {
         var parent = await SeedAssetAsync(1);
 
-        var oldFloorDetail = new SubUnitsDetailsEntity { AssetId = parent.Id, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CreatedDate = DateTime.UtcNow };
+        var oldFloorDetail = new SubUnitsDetailsEntity { AssetId = parent.Id, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true, CreatedDate = DateTime.Now };
         _context!.Set<SubUnitsDetailsEntity>().Add(oldFloorDetail);
         await _context.SaveChangesAsync();
 
-        var oldRoom = new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = oldFloorDetail.Id, AssetId = parent.Id, IsActive = true, CreatedDate = DateTime.UtcNow };
+        var oldRoom = new AssetRoomWiseSubmissionDetailsEntity { SubUnitsDetailsId = oldFloorDetail.Id, AssetId = parent.Id, IsActive = true, CreatedDate = DateTime.Now };
         _context.Set<AssetRoomWiseSubmissionDetailsEntity>().Add(oldRoom);
         var oldLease = new AssetLeaseRentDetailsEntity
         {
@@ -446,10 +446,10 @@ public class SubUnitsDetailsServiceIntegrationTests : IAsyncLifetime
             FloorDetailsId = oldFloorDetail.Id,
             TenantName = "Old Tenant",
             TenantMobile = "9999999999",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             SecurityDeposit = 0,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
         _context.Set<AssetLeaseRentDetailsEntity>().Add(oldLease);
         await _context.SaveChangesAsync();

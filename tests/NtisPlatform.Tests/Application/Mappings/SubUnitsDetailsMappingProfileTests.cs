@@ -137,7 +137,7 @@ public class SubUnitsDetailsMappingProfileTests
             FloorId = 1,
             ConstructionTypeId = 1,
             TypeOfUseId = 1,
-            CreatedDate = DateTime.UtcNow.AddDays(-1),
+            CreatedDate = DateTime.Now.AddDays(-1),
             CreatedBy = 5
         };
         var updateDto = new UpdateSubUnitsDetailsDto
@@ -162,7 +162,7 @@ public class SubUnitsDetailsMappingProfileTests
     [Fact]
     public void Map_UpdateDtoToEntity_IgnoresCreatedDateAndCreatedBy()
     {
-        var originalCreatedDate = DateTime.UtcNow.AddDays(-3);
+        var originalCreatedDate = DateTime.Now.AddDays(-3);
         var existingEntity = new SubUnitsDetailsEntity
         {
             Id = 1,

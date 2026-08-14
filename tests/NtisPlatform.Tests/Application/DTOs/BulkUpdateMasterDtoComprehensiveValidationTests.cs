@@ -140,30 +140,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
 
     #endregion
 
-    #region CreateBulkUpdateMasterDto - IsApprovalRequired Tests
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithNullIsApprovalRequired_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            IsApprovalRequired = null,
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    #endregion
-
     #region UpdateBulkUpdateMasterDto - Validation Tests
 
     [Fact]

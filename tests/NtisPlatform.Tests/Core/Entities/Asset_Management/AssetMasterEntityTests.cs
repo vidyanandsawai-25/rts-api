@@ -143,7 +143,7 @@ public class AssetMasterEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = new AssetMasterEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

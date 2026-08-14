@@ -53,7 +53,7 @@ public class CommonRemarkDetailsServiceTests
             RemarkTypeId = 1,
             Remark = "Test Remark",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))

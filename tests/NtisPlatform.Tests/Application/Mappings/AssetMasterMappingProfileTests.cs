@@ -375,7 +375,7 @@ public class AssetMasterMappingProfileTests
             UpdatedBy = 200
         };
 
-        var originalCreatedDate = DateTime.UtcNow.AddDays(-30);
+        var originalCreatedDate = DateTime.Now.AddDays(-30);
         var existingEntity = new AssetMasterEntity
         {
             Id = 1,
@@ -384,7 +384,7 @@ public class AssetMasterMappingProfileTests
             AssetCategoryId = 10,
             AssetTypeId = 20,
             CreatedDate = originalCreatedDate,
-            UpdatedDate = DateTime.UtcNow.AddDays(-1)
+            UpdatedDate = DateTime.Now.AddDays(-1)
         };
         var originalUpdatedDate = existingEntity.UpdatedDate;
 

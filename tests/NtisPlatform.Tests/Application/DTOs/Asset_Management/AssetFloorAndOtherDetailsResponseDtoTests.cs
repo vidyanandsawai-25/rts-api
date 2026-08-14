@@ -262,7 +262,7 @@ public class AssetFloorAndOtherDetailsResponseDtoTests
     [Fact]
     public void AssetInventoryBatchResponseDto_PropertiesGetAndSetCorrectly()
     {
-        var purchaseDate = DateTime.UtcNow;
+        var purchaseDate = DateTime.Now;
         var units = new List<AssetInventoryUnitResponseDto> { new() { AssetId = 1 } };
         var documents = new List<InventoryDocumentDto> { new() { InventoryDocumentId = 1 } };
         var dto = new AssetInventoryBatchResponseDto

@@ -14,8 +14,8 @@ public class MonthWiseDemandEntityTests
     [Fact]
     public void Properties_RoundTrip()
     {
-        var lastPaymentDate = DateTime.UtcNow.AddDays(-5);
-        var dueDate = DateTime.UtcNow.AddDays(5);
+        var lastPaymentDate = DateTime.Now.AddDays(-5);
+        var dueDate = DateTime.Now.AddDays(5);
         var entity = new MonthWiseDemandEntity
         {
             Id = 1,

@@ -122,7 +122,7 @@ public class ApartmentQCRepositoryPatchTests
     {
         var entity = new PropertyDetailsEntity { Id = 1, UpdatedBy = 0, UpdatedDate = null };
         var dict   = MakeDict(entity);
-        var before = DateTime.UtcNow.AddSeconds(-1);
+        var before = DateTime.Now.AddSeconds(-1);
 
         ApplyPatches(dict, [new UpdateApartmentQCDetailsDto { DetailId = 1, FloorId = 1 }], updatedBy: 55);
 

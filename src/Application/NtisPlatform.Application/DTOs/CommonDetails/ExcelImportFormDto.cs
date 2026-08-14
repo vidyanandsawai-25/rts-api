@@ -13,4 +13,6 @@ public class ExcelImportFormDto
 
     [Required(ErrorMessage = "File is required")]
     public IFormFile File { get; set; } = null!;
+
+    public string? Remarks { get; set; }
 }

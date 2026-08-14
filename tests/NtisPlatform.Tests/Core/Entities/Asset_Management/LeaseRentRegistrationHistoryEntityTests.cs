@@ -15,7 +15,7 @@ public class LeaseRentRegistrationHistoryEntityTests
     [Fact]
     public void Properties_RoundTrip_IdentityAndTenantSnapshot()
     {
-        var performedDate = DateTime.UtcNow;
+        var performedDate = DateTime.Now;
         var entity = new LeaseRentRegistrationHistoryEntity
         {
             Id = 1,

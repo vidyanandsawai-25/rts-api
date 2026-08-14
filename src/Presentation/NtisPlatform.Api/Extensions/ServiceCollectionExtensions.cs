@@ -86,6 +86,7 @@ public static class ServiceCollectionExtensions
     {
         // Infrastructure Layer - Database (Single deployment per organization)
         services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         // AutoMapper - scan Application assembly for all mapping profiles in NtisPlatform.Application.Mappings
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -348,6 +349,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, AssetPhotoDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, InventoryDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, ULBDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
@@ -423,6 +425,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
+        services.AddScoped<ITaxZoningRangeService, TaxZoningRangeService>();
+        services.AddScoped<IULBDocumentService, ULBDocumentService>();
+        services.AddScoped<IULBDocumentQueryService, ULBDocumentQueryService>();
+        services.AddScoped<IULBDocumentTypeService, ULBDocumentTypeService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
         services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
         services.AddScoped<IPropertyRuleEvaluationMasterService, PropertyRuleEvaluationMasterService>();
@@ -673,6 +679,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         services.AddScoped<IPropertyMappingService, PropertyMappingService>();
         services.AddScoped<IPropertyMergeService, PropertyMergeService>();
+        services.AddScoped<IPropertyMergeSingleService, PropertyMergeSingleService>();
+        services.AddScoped<IPropertySplitService, PropertySplitService>();
+        services.AddScoped<IPropertyBulkMergeService, PropertyBulkMergeService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

@@ -10,17 +10,15 @@ namespace NtisPlatform.Application.Interfaces.Master;
 public interface IMasterBasedTaxService
 {
     /// <summary>
-    /// Paged mapping rows for a tax (optionally filtered by assessment-year range and by the
-    /// linked rule — a tax can have mapping rows left over from a previously-linked "Choose
-    /// from List" rule; pass <paramref name="ruleDefinitionId"/> to see only the rows for the
-    /// rule currently selected).
+    /// Paged mapping rows for a tax, optionally filtered by assessment-year range. A tax's
+    /// mappings belong to the tax itself — changing its linked rule no longer leaves a separate,
+    /// invisible set behind, so there is nothing further to scope by.
     /// </summary>
     Task<PagedResult<TaxMasterMappingDto>> GetMappingsAsync(
         int taxId,
         int? assessmentYearRangeId,
         int pageNumber,
         int pageSize,
-        int? ruleDefinitionId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Insert/update the supplied rows transactionally. Returns rows affected.</summary>

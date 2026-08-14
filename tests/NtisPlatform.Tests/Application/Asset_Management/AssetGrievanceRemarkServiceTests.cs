@@ -558,7 +558,7 @@ public class AssetGrievanceRemarkServiceTests
     [Fact]
     public void AssetGrievanceRemarkDto_Properties_GetAndSet()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var dto = new AssetGrievanceRemarkDto
         {
             Id = 200,

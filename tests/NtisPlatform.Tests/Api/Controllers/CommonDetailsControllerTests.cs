@@ -254,7 +254,7 @@ public class CommonDetailsControllerTests
 
         var request = new FilterPropertiesByCategoryRequestDto
         {
-            UpdateCode = "PROPERTY_BASIC",
+            UpdateCode = ["PROPERTY_BASIC"],
             SearchCategory = PropertySearchCategory.WardWise,
             WardId = 1,
             PageNumber = 1,
@@ -291,7 +291,7 @@ public class CommonDetailsControllerTests
 
         var request = new FilterPropertiesByCategoryRequestDto
         {
-            UpdateCode = "PROPERTY_BASIC",
+            UpdateCode = ["PROPERTY_BASIC"],
             SearchCategory = PropertySearchCategory.ZoneWise
         };
 
@@ -314,7 +314,7 @@ public class CommonDetailsControllerTests
 
         var request = new FilterPropertiesByCategoryRequestDto
         {
-            UpdateCode = "INVALID",
+            UpdateCode = ["INVALID"],
             SearchCategory = PropertySearchCategory.WardWise,
             WardId = 1
         };
@@ -570,7 +570,7 @@ public class CommonDetailsControllerTests
 
         var result = new BulkUpdateResultDto { TotalRequested = 3, SuccessCount = 3, FailedCount = 0 };
         service.Setup(s => s.ImportPropertiesFromExcelAsync(
-                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(result);
 
         var response = await controller.ImportExcel(form, CancellationToken.None);
@@ -601,7 +601,7 @@ public class CommonDetailsControllerTests
             Errors = new List<string> { "Row 2: no property found for wardNo='MM11', propertyNo='10', partitionNo=''." }
         };
         service.Setup(s => s.ImportPropertiesFromExcelAsync(
-                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(result);
 
         var response = await controller.ImportExcel(form, CancellationToken.None);
@@ -632,7 +632,7 @@ public class CommonDetailsControllerTests
         var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
         Assert.False(response.Success);
         service.Verify(s => s.ImportPropertiesFromExcelAsync(
-            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -654,7 +654,7 @@ public class CommonDetailsControllerTests
         var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
         Assert.False(response.Success);
         service.Verify(s => s.ImportPropertiesFromExcelAsync(
-            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -693,13 +693,111 @@ public class CommonDetailsControllerTests
         };
 
         service.Setup(s => s.ImportPropertiesFromExcelAsync(
-                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ArgumentException("Update type not found"));
 
         var result = await controller.ImportExcel(form, CancellationToken.None);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
         var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
+        Assert.False(response.Success);
+        Assert.Equal("Update type not found", response.Message);
+    }
+
+    // ============== ImportExcelValidate Tests ==============
+
+    [Fact]
+    public async Task ImportExcelValidate_ReturnsOk_WhenServiceSucceeds()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        var validationResult = new ExcelValidationResultDto
+        {
+            Columns = ["wardNo", "propertyNo", "partitionNo", "ValidationRemark"],
+            Rows = [new Dictionary<string, object?> { ["wardNo"] = "MM11", ["ValidationRemark"] = "No property found" }],
+            TotalRows = 2,
+            FlaggedRowCount = 1
+        };
+        service.Setup(s => s.ValidateImportExcelAsync("UPDATE_ADDRESS", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(validationResult);
+
+        var result = await controller.ImportExcelValidate(form, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<ExcelValidationResultDto>>(okResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal(1, apiResponse.Items?.FlaggedRowCount);
+        Assert.Single(apiResponse.Items!.Rows);
+    }
+
+    [Fact]
+    public async Task ImportExcelValidate_Returns400_WhenFileIsEmpty()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", length: 0).Object
+        };
+
+        var result = await controller.ImportExcelValidate(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(response.Success);
+        service.Verify(s => s.ValidateImportExcelAsync(
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportExcelValidate_Returns400_WhenInvalidFileType()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("report.exe", "application/x-msdownload").Object
+        };
+
+        var result = await controller.ImportExcelValidate(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(response.Success);
+        service.Verify(s => s.ValidateImportExcelAsync(
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportExcelValidate_Returns400_WhenServiceThrowsArgumentException()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        service.Setup(s => s.ValidateImportExcelAsync("UPDATE_ADDRESS", It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("Update type not found"));
+
+        var result = await controller.ImportExcelValidate(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(badRequest.Value);
         Assert.False(response.Success);
         Assert.Equal("Update type not found", response.Message);
     }
@@ -732,8 +830,8 @@ public class CommonDetailsControllerTests
                 OldValue = "500",
                 NewValue = "600",
                 UpdatedColumns = "PlotArea",
-                Username = "admin",
-                UpdatedDate = DateTime.UtcNow
+                DoneBy = "admin",
+                CreatedDate = DateTime.UtcNow
             },
             new()
             {
@@ -745,8 +843,8 @@ public class CommonDetailsControllerTests
                 OldValue = "400",
                 NewValue = "450",
                 UpdatedColumns = "PlotArea",
-                Username = "admin",
-                UpdatedDate = DateTime.UtcNow
+                DoneBy = "admin",
+                CreatedDate = DateTime.UtcNow
             }
         };
 
@@ -817,6 +915,95 @@ public class CommonDetailsControllerTests
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
         Assert.Equal(bytes, fileResult.FileContents);
         Assert.StartsWith("UpdateHistory_", fileResult.FileDownloadName);
+        Assert.EndsWith(".xlsx", fileResult.FileDownloadName);
+    }
+
+    // ============== GetUpdateActivity Tests ==============
+
+    [Fact]
+    public async Task GetUpdateActivity_ReturnsOk_WithPopulatedResults()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateActivityQueryParameters
+        {
+            ActivityType = "Screen",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        var activity = new List<UpdateActivityDto>
+        {
+            new()
+            {
+                Id = 1,
+                ActivityType = "Screen",
+                ActivityStatus = "Success",
+                CreatedDate = DateTime.UtcNow,
+                DoneBy = "admin"
+            }
+        };
+        var pagedResult = new PagedResult<UpdateActivityDto>(activity, 1, 1, 10);
+
+        service.Setup(s => s.GetUpdateActivityAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetUpdateActivity(request, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = okResult.Value as ApiResponse<PagedResult<UpdateActivityDto>>;
+        Assert.NotNull(response);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Equal(1, response.Items.TotalCount);
+        Assert.Equal("1 update activity record(s) found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetUpdateActivity_ReturnsOk_WithEmptyResultSet()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateActivityQueryParameters { ActivityStatus = "Failed", PageNumber = 1, PageSize = 10 };
+        var pagedResult = new PagedResult<UpdateActivityDto>(new List<UpdateActivityDto>(), 0, 1, 10);
+
+        service.Setup(s => s.GetUpdateActivityAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetUpdateActivity(request, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = okResult.Value as ApiResponse<PagedResult<UpdateActivityDto>>;
+        Assert.NotNull(response);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Empty(response.Items.Items);
+        Assert.Equal(0, response.Items.TotalCount);
+        Assert.Equal("0 update activity record(s) found", response.Message);
+    }
+
+    // ============== ExportUpdateActivityExcel Tests ==============
+
+    [Fact]
+    public async Task ExportUpdateActivityExcel_ReturnsFile_WithXlsxContentType()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateActivityQueryParameters { ActivityType = "Screen" };
+        var bytes = new byte[] { 1, 2, 3, 4 };
+
+        service.Setup(s => s.ExportUpdateActivityToExcelAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bytes);
+
+        var result = await controller.ExportUpdateActivityExcel(request, CancellationToken.None);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        Assert.Equal(bytes, fileResult.FileContents);
+        Assert.StartsWith("UpdateActivity_", fileResult.FileDownloadName);
         Assert.EndsWith(".xlsx", fileResult.FileDownloadName);
     }
 

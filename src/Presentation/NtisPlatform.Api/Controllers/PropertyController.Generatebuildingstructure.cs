@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 
@@ -103,6 +104,54 @@ public partial class PropertyController
                 {
                     Success = false,
                     Message = "An error occurred while retrieving Ward Wise building details"
+                });
+        }
+    }
+
+    [HttpGet("getmaxpartition")]
+    [ProducesResponseType(typeof(ApiResponse<List<BuildingGenerateStructureDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetMaxPartition(int wardId, string propertyNo, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.GetMaxPartition(wardId, propertyNo, ct);
+
+            if (result == null )
+            {
+                _logger.LogWarning("No building found for the given parameters: WardId={WardId}, PropertyNo={PropertyNo}", wardId, propertyNo);
+                return Ok(new ApiResponse<MaxPartitionNoDto>
+                {
+                    Success = true,
+                    Message = "No building found for the given parameters",
+                    Items = result ?? new MaxPartitionNoDto()
+                });
+            }
+
+            return Ok(new ApiResponse<MaxPartitionNoDto>
+            {
+                Success = true,
+                Message = $"{result.MaxPartitionNo} MaxPartition found successfully",
+                Items = result
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error getting max partition: {Message}", ex.Message);
+            return BadRequest(new ApiResponse<MaxPartitionNoDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting max partition.");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<MaxPartitionNoDto>
+                {
+                    Success = false,
+                    Message = "An unexpected error occurred while getting max partition."
                 });
         }
     }

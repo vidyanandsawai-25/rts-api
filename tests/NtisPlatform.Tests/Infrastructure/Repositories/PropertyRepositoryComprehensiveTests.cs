@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Application.Services.Property;
@@ -22,7 +24,7 @@ public class PropertyRepositoryComprehensiveTests
     /// repository previously implemented directly.
     /// </summary>
     private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
-        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy(), new Mock<ITaxZoningRangeService>().Object, new Mock<ICurrentUserService>().Object);
 
     private static PropertySocietyService CreateSocietyService(ApplicationDbContext context)
         => new(new PropertySocietyRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
@@ -126,7 +128,7 @@ public class PropertyRepositoryComprehensiveTests
             IsActive = true,
             IsCurrent = true,
             Status = "ACTIVE",
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var mapDetail2 = new PropertyMapDetailEntity
@@ -140,7 +142,7 @@ public class PropertyRepositoryComprehensiveTests
             IsActive = true,
             IsCurrent = true,
             Status = "ACTIVE",
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var oldDetails1 = new PropertyDetailsOldEntity

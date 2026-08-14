@@ -127,16 +127,14 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
                 hybridResultBase[h.TaxId] = h.ResultBase;
             }
 
-            // Pick the rule whose rows were most recently touched (edited or created), not just
-            // most recently inserted (Id order) — otherwise switching back to an earlier rule and
-            // editing its existing rows would never be reflected here, since no new Ids are created.
+            // The master source comes from the tax's own linked rule. Mapping rows no longer
+            // carry a rule of their own, so there is exactly one answer per tax — no "most
+            // recently touched row wins" tie-break needed any more.
             var masterSourceByTax = await (
-                from m in _context.TaxMasterMappings.AsNoTracking()
-                where hybridTaxIds.Contains(m.TaxId) && m.RuleDefinitionId != null && m.IsActive
-                join r in _context.DynamicTaxRuleMaster.AsNoTracking() on m.RuleDefinitionId equals r.Id
-                where r.RuleType == "MASTER_BASED"
-                group new { Touched = m.UpdatedDate ?? m.CreatedDate, r.AttachedReference } by m.TaxId into g
-                select new { TaxId = g.Key, Source = g.OrderByDescending(x => x.Touched).Select(x => x.AttachedReference).First() }
+                from t in _context.TaxMaster.AsNoTracking()
+                join r in _context.DynamicTaxRuleMaster.AsNoTracking() on t.RuleDefinitionId equals r.Id
+                where hybridTaxIds.Contains(t.Id)
+                select new { TaxId = t.Id, Source = r.AttachedReference }
             ).ToListAsync(cancellationToken);
 
             foreach (var m in masterSourceByTax)
@@ -157,9 +155,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
         {
             var counts = await (
                 from c in _context.TaxConditionRules.AsNoTracking()
-                join t in _context.TaxMaster.AsNoTracking() on c.TaxId equals t.Id
                 where conditionTaxIds.Contains(c.TaxId) && c.IsActive
-                   && (c.RuleDefinitionId == null || c.RuleDefinitionId == t.RuleDefinitionId)
                 group c by c.TaxId into g
                 select new { TaxId = g.Key, Count = g.Count() }
             ).ToListAsync(cancellationToken);
@@ -358,7 +354,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
             tax.CalculationModeId = newModeRow.Id;
             tax.RuleDefinitionId = request.RuleDefinitionId;
             tax.UpdatedBy = request.UpdatedBy;
-            tax.UpdatedDate = DateTime.UtcNow;
+            tax.UpdatedDate = DateTime.Now;
 
             // One SaveChanges covers the TaxMaster update AND every staged delete. Do NOT convert
             // the deletes to ExecuteDeleteAsync: that runs as its own auto-committed statement,
@@ -402,30 +398,11 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
             _context.TaxConditionRules.RemoveRange(
                 await _context.TaxConditionRules.Where(c => c.TaxId == taxId).ToListAsync(cancellationToken));
         }
-        else if (oldTables.UsesConditionConfig && newTables.UsesConditionConfig)
-        {
-            // Kept table: drop rows scoped to a DIFFERENT rule, which would otherwise survive
-            // invisibly (the drawer and grid both scope condition rows by the tax's current rule).
-            // Null RuleDefinitionId means "applies to any rule" — left alone.
-            _context.TaxConditionRules.RemoveRange(
-                await _context.TaxConditionRules
-                    .Where(c => c.TaxId == taxId && c.RuleDefinitionId != null && c.RuleDefinitionId != newRuleDefinitionId)
-                    .ToListAsync(cancellationToken));
-        }
 
         if (oldTables.UsesMasterConfig && !newTables.UsesMasterConfig)
         {
             _context.TaxMasterMappings.RemoveRange(
                 await _context.TaxMasterMappings.Where(m => m.TaxId == taxId).ToListAsync(cancellationToken));
-        }
-        else if (oldTables.UsesMasterConfig && newTables.UsesMasterConfig)
-        {
-            // Same as above — a mode that also uses master config (e.g. Hybrid) keeps mappings
-            // carrying its own master rule's id, which is not the id the new mode reads under.
-            _context.TaxMasterMappings.RemoveRange(
-                await _context.TaxMasterMappings
-                    .Where(m => m.TaxId == taxId && m.RuleDefinitionId != null && m.RuleDefinitionId != newRuleDefinitionId)
-                    .ToListAsync(cancellationToken));
         }
 
         if (oldTables.UsesHybridConfig && !newTables.UsesHybridConfig)
@@ -507,7 +484,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
             AssessmentStatus = request.AssessmentStatus,
             OldTaxStatus = request.OldTaxStatus,
             CreatedBy = request.CreatedBy,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _context.TaxMaster.Add(tax);
@@ -653,9 +630,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
                     // vs. this read-only overview for the exact same tax.
                     var condEntities = await (
                         from c in _context.TaxConditionRules.AsNoTracking()
-                        join t in _context.TaxMaster.AsNoTracking() on c.TaxId equals t.Id
                         where ids.Contains(c.TaxId) && c.IsActive
-                           && (c.RuleDefinitionId == null || c.RuleDefinitionId == t.RuleDefinitionId)
                         select c
                     )
                         .OrderBy(c => c.TaxId).ThenBy(c => c.SortOrder).ThenBy(c => c.Id)
@@ -743,7 +718,8 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
 
                     var mapRows = await (
                         from m in mapQuery
-                        join r in _context.DynamicTaxRuleMaster.AsNoTracking() on m.RuleDefinitionId equals r.Id into rj
+                        join owner in _context.TaxMaster.AsNoTracking() on m.TaxId equals owner.Id
+                        join r in _context.DynamicTaxRuleMaster.AsNoTracking() on owner.RuleDefinitionId equals r.Id into rj
                         from rule in rj.DefaultIfEmpty()
                         orderby m.TaxId, m.Id
                         select new

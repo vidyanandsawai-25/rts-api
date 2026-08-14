@@ -33,12 +33,11 @@ public class MasterBasedTaxController : ControllerBase
         [FromQuery] int? assessmentYearRangeId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
-        [FromQuery] int? ruleDefinitionId = null,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _service.GetMappingsAsync(taxId, assessmentYearRangeId, pageNumber, pageSize, ruleDefinitionId, cancellationToken);
+            var result = await _service.GetMappingsAsync(taxId, assessmentYearRangeId, pageNumber, pageSize, cancellationToken);
             return Ok(result);
         }
         catch (Exception ex)

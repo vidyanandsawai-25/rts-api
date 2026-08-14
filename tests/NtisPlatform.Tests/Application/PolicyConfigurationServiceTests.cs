@@ -60,7 +60,7 @@ public class PolicyConfigurationServiceTests
         Unit         = "INR",
         IsActive     = true,
         CreatedBy    = 1,
-        CreatedDate  = DateTime.UtcNow
+        CreatedDate  = DateTime.Now
     };
 
     // ──────────────────────── GetByIdAsync ────────────────────────────────────
@@ -425,7 +425,7 @@ public class PolicyConfigurationServiceTests
                        dest.PolicyValue  = src.PolicyValue;
                        dest.Unit         = src.Unit;
                        dest.UpdatedBy    = src.UpdatedBy;
-                       dest.UpdatedDate  = DateTime.UtcNow;
+                       dest.UpdatedDate  = DateTime.Now;
                    });
 
         _mockMapper.Setup(m => m.Map<PolicyConfigurationDto>(It.IsAny<PolicyConfigurationEntity>()))

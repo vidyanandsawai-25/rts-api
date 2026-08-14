@@ -11,6 +11,8 @@ public class SubFloorDto
     public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
+    public int? SequenceNo { get; set; }
+
 }
 
 public class CreateSubFloorDto
@@ -26,6 +28,8 @@ public class CreateSubFloorDto
     public decimal? SubFloorPercentage { get; set; }
     public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
+    public int? SequenceNo { get; set; }
+
 }
 
 public class UpdateSubFloorDto
@@ -42,5 +46,7 @@ public class UpdateSubFloorDto
     public decimal? SubFloorPercentage { get; set; }
     public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
+    public int? SequenceNo { get; set; }
+
 
 }

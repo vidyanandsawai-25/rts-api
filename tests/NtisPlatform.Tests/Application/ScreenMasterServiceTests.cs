@@ -170,8 +170,8 @@ public class ScreenMasterServiceTests
         // Arrange
         var entities = new List<ScreenMasterEntity>
         {
-            new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Dashboard", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow },
-            new() { Id = 2, ScreenCode = "SCR002", ScreenName = "Users", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow }
+            new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Dashboard", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.Now },
+            new() { Id = 2, ScreenCode = "SCR002", ScreenName = "Users", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable

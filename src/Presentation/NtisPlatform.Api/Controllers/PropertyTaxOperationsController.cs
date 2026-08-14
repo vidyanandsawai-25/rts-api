@@ -97,7 +97,7 @@ public class PropertyTaxOperationsController : ControllerBase
         }
 
         Response.ContentType = "text/csv; charset=utf-8";
-        var fileName = $"preview_{downloadType.ToLowerInvariant()}_{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+        var fileName = $"preview_{downloadType.ToLowerInvariant()}_{DateTime.Now:yyyyMMddHHmmss}.csv";
         Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
 
         await _service.WritePreviewExportCsvToStreamAsync(Response.Body, request, downloadType, ct);

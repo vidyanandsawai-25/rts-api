@@ -68,7 +68,7 @@ public class AssetFieldDefinitionServiceTests
             DisplayOrder = 1,
             IsActive = isActive,
             CreatedBy = 1,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null
         };
@@ -92,7 +92,7 @@ public class AssetFieldDefinitionServiceTests
             DisplayOrder = 1,
             IsActive = true,
             MarkedForDeletion = true,
-            MarkedForDeletionDate = DateTime.UtcNow
+            MarkedForDeletionDate = DateTime.Now
         };
         Assert.Equal(1, entity.Id);
         Assert.Equal(2, entity.AssetCategoryId);

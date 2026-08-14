@@ -169,7 +169,7 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
             .ToListAsync(cancellationToken);
 
         // Prepare entities
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var entitiesToAdd = new List<PropertyMapDetailEntity>();
         var entitiesToUpdate = new List<PropertyMapDetailEntity>();
         foreach (var propertyOld in propertyMastOld)
@@ -245,7 +245,7 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
             // First, delete any existing CANCELLED records for cleanup
             var deletedRows = await _propertyMapDetailRepository.GetQueryable()
                 .Where(p => p.PropertyMapId == propertyMapId
@@ -367,7 +367,7 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
             {
-                var updateTime = DateTime.UtcNow;
+                var updateTime = DateTime.Now;
                 var newPropertyNo = BuildPropertyNumber(propertyMast.WardNo, propertyMast.PropertyNo, propertyMast.PartitionNo);
                 var updateCount = await _propertyMapDetailRepository.GetQueryable()
                     .Where(pmd => pmd.Status == PropertyMapStatus.Draft

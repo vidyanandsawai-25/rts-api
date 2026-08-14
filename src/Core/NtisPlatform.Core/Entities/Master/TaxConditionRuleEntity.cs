@@ -17,9 +17,6 @@ public class TaxConditionRuleEntity : BaseEntity
     [Required]
     public int TaxId { get; set; }
 
-    /// <summary>Optional FK → PTIS.DynamicTaxRuleMaster (the rule slot this row belongs to).</summary>
-    public int? RuleDefinitionId { get; set; }
-
     /// <summary>Evaluation order — ascending. Every row in order is evaluated and every match
     /// contributes to the total unless a matching row upstream has <see cref="StopFurtherProcessing"/>
     /// set.</summary>
@@ -90,5 +87,4 @@ public class TaxConditionRuleEntity : BaseEntity
     // ── Navigation ──────────────────────────────────────────────────────────────
     public TaxMasterEntity? Tax { get; set; }
     public TaxMasterEntity? ReferenceTax { get; set; }
-    public DynamicTaxRuleEntity? RuleDefinition { get; set; }
 }

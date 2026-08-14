@@ -34,7 +34,7 @@ public class TwoFactorRecoveryCodeRepository : Repository<TwoFactorRecoveryCodeE
         var rowsAffected = await _context.Set<TwoFactorRecoveryCodeEntity>()
             .Where(c => c.Id == recoveryCodeId && c.UsedAt == null && c.RevokedAt == null)
             .ExecuteUpdateAsync(setter => setter
-                .SetProperty(c => c.UsedAt, DateTime.UtcNow),
+                .SetProperty(c => c.UsedAt, DateTime.Now),
                 cancellationToken);
 
         return rowsAffected == 1;
@@ -45,7 +45,7 @@ public class TwoFactorRecoveryCodeRepository : Repository<TwoFactorRecoveryCodeE
         await _context.Set<TwoFactorRecoveryCodeEntity>()
             .Where(c => c.UserId == userId && c.UsedAt == null && c.RevokedAt == null)
             .ExecuteUpdateAsync(setter => setter
-                .SetProperty(c => c.RevokedAt, DateTime.UtcNow),
+                .SetProperty(c => c.RevokedAt, DateTime.Now),
                 cancellationToken);
     }
 

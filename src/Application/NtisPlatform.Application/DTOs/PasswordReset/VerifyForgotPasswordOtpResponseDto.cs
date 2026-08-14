@@ -14,5 +14,5 @@ public class VerifyForgotPasswordOtpResponseDto
     /// <summary>
     /// UTC expiry of <see cref="ResetToken"/>.
     /// </summary>
-    public DateTime? ResetTokenExpiresAtUtc { get; set; }
+    public DateTime? ResetTokenExpiresAt { get; set; }
 }

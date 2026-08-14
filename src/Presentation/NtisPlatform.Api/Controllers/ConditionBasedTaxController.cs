@@ -34,14 +34,13 @@ public class ConditionBasedTaxController : ControllerBase
     [ProducesResponseType(typeof(PagedResult<TaxConditionRuleDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRules(
         [FromQuery] int taxId,
-        [FromQuery] int? ruleDefinitionId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 100,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _service.GetByTaxAsync(taxId, ruleDefinitionId, pageNumber, pageSize, cancellationToken);
+            var result = await _service.GetByTaxAsync(taxId, pageNumber, pageSize, cancellationToken);
             return Ok(result);
         }
         catch (Exception ex) when (LogUnhandled(ex, "Error retrieving condition rules for tax {TaxId}", taxId))

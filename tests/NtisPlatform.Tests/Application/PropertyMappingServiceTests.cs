@@ -691,7 +691,7 @@ public class PropertyMappingServiceTests
                 Status = PropertyMapStatus.Active,
                 IsActive = true,
                 IsCurrent = true,
-                UpdatedDate = DateTime.UtcNow
+                UpdatedDate = DateTime.Now
             }
         };
 
@@ -904,7 +904,7 @@ public class PropertyMappingServiceTests
             new() { Id = 2, PropertyIdOld = 200, PropertyIdNew = 10, Status = PropertyMapStatus.Draft, UpdatedBy = 1, IsActive = true },
             new() { Id = 3, PropertyIdOld = 300, PropertyIdNew = 10, Status = PropertyMapStatus.Draft, UpdatedBy = 1, IsActive = true },
             // Active merge for 200 -> 11
-            new() { Id = 4, PropertyIdOld = 200, PropertyIdNew = 11, Status = PropertyMapStatus.Active, IsActive = true, IsCurrent = true, UpdatedDate = DateTime.UtcNow }
+            new() { Id = 4, PropertyIdOld = 200, PropertyIdNew = 11, Status = PropertyMapStatus.Active, IsActive = true, IsCurrent = true, UpdatedDate = DateTime.Now }
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());

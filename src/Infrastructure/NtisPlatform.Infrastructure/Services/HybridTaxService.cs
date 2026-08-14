@@ -71,14 +71,14 @@ public class HybridTaxService : IHybridTaxService
                 TaxId = config.TaxId,
                 IsActive = true,
                 CreatedBy = config.UpdatedBy,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
             _context.TaxHybridConfigs.Add(entity);
         }
         else
         {
             entity.UpdatedBy = config.UpdatedBy;
-            entity.UpdatedDate = DateTime.UtcNow;
+            entity.UpdatedDate = DateTime.Now;
         }
 
         entity.EvaluationPriority = config.EvaluationPriority;

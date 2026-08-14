@@ -54,10 +54,8 @@ public class InternalSurveyDivisionDataDto
     public int PhotoCount { get; set; }
 }
 
-public class InternalSurveyWardDataDto
+public class InternalSurveyWardDataDto : AutomationDashboardWardDisplayDto
 {
-    public int WardId { get; set; }
-    public string WardNo { get; set; } = string.Empty;
     public GeoSequencingPropertiesDto GeoSequencingProperties { get; set; } = new();
     public SurveyPropertiesDto SurveyProperties { get; set; } = new();
     public PropertyTypesBreakdownDto PropertyType { get; set; } = new();
@@ -91,6 +89,7 @@ public class SurveyPropertiesDto
 /// </summary>
 public class AssessedPropertiesSimpleDto
 {
+    public int StatusId { get; set; }
     public int Structure { get; set; }
     public int Units { get; set; }
 }
@@ -100,6 +99,7 @@ public class AssessedPropertiesSimpleDto
 /// </summary>
 public class UnassessedPropertiesDto
 {
+    public int StatusId { get; set; }
     public int Structure { get; set; }
     public int Units { get; set; }
 }

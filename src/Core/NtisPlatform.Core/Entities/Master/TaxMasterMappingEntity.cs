@@ -15,9 +15,6 @@ public class TaxMasterMappingEntity : BaseEntity
     [Required]
     public int TaxId { get; set; }
 
-    /// <summary>Optional FK → PTIS.DynamicTaxRuleMaster (the rule this mapping belongs to).</summary>
-    public int? RuleDefinitionId { get; set; }
-
     /// <summary>Master record key this row maps (property-type id, owner-type value, type-of-use code, …).</summary>
     [Required]
     [Column(TypeName = "nvarchar(50)")]
@@ -47,5 +44,4 @@ public class TaxMasterMappingEntity : BaseEntity
 
     // ── Navigation ──────────────────────────────────────────────────────────────
     public TaxMasterEntity? Tax { get; set; }
-    public DynamicTaxRuleEntity? RuleDefinition { get; set; }
 }

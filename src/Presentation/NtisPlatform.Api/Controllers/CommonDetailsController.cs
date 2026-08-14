@@ -289,7 +289,7 @@ public class CommonDetailsController : ControllerBase
         {
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
             await using var stream = form.File.OpenReadStream();
-            var result = await _service.ImportPropertiesFromExcelAsync(form.UpdateCode, stream, userId, ipAddress, ct);
+            var result = await _service.ImportPropertiesFromExcelAsync(form.UpdateCode, stream, userId, ipAddress, form.Remarks, ct);
 
             return Ok(new ApiResponse<BulkUpdateResultDto>
             {
@@ -304,6 +304,43 @@ public class CommonDetailsController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new ApiResponse<BulkUpdateResultDto> { Success = false, Message = ex.Message });
+        }
+    }
+
+    [HttpPost("import-excel-validate")]
+    [Consumes("multipart/form-data")]
+    [EnableRateLimiting("fileupload")]
+    [ProducesResponseType(typeof(ApiResponse<ExcelValidationResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ImportExcelValidate([FromForm] ExcelImportFormDto form, CancellationToken ct)
+    {
+        if (form.File is null || form.File.Length == 0)
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+        if (!_fileValidationHelper.IsValidFileType(form.File.ContentType, form.File.FileName))
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = _fileValidationHelper.GetInvalidFileTypeMessage()
+            });
+
+        try
+        {
+            await using var stream = form.File.OpenReadStream();
+            var result = await _service.ValidateImportExcelAsync(form.UpdateCode, stream, ct);
+
+            return Ok(new ApiResponse<ExcelValidationResultDto>
+            {
+                Success = result.FlaggedRowCount == 0,
+                Message = result.FlaggedRowCount == 0
+                    ? $"All {result.TotalRows} row(s) are valid"
+                    : $"{result.FlaggedRowCount} of {result.TotalRows} row(s) have issues",
+                Items = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
         }
     }
 
@@ -336,6 +373,43 @@ public class CommonDetailsController : ControllerBase
         {
             var bytes = await _service.ExportUpdateHistoryToExcelAsync(request, ct);
             var fileName = $"UpdateHistory_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+    }
+
+    [HttpGet("update-activity")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetUpdateActivity([FromQuery] UpdateActivityQueryParameters request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GetUpdateActivityAsync(request, ct);
+            return Ok(new ApiResponse<PagedResult<UpdateActivityDto>>
+            {
+                Success = true,
+                Items = result,
+                Message = $"{result.TotalCount} update activity record(s) found"
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+    }
+
+    [HttpGet("update-activity/export-excel")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExportUpdateActivityExcel([FromQuery] UpdateActivityQueryParameters request, CancellationToken ct)
+    {
+        try
+        {
+            var bytes = await _service.ExportUpdateActivityToExcelAsync(request, ct);
+            var fileName = $"UpdateActivity_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
             return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         catch (ArgumentException ex)

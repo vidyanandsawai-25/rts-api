@@ -249,9 +249,7 @@ public class ReferenceValidationService : IReferenceValidationService
 
         config.ForEntity<DynamicTaxRuleEntity>()
             .CheckReferences(
-                ("Tax Master", (ctx, id) => ctx.TaxMaster.Where(t => t.RuleDefinitionId == id).Cast<object>()),
-                ("Tax Master Mapping", (ctx, id) => ctx.TaxMasterMappings.Where(m => m.RuleDefinitionId == id).Cast<object>()),
-                ("Tax Condition Rule", (ctx, id) => ctx.TaxConditionRules.Where(c => c.RuleDefinitionId == id).Cast<object>())
+                ("Tax Master", (ctx, id) => ctx.TaxMaster.Where(t => t.RuleDefinitionId == id).Cast<object>())
             );
 
         // AssetGrievanceRemarkMasterEntity is a leaf entity - no other entity currently has a FK to it.

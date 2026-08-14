@@ -20,7 +20,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
     }
 
     [Fact]
-    public async Task GetMainCardsAsync_CalculatesPreviouslyRegisteredFromPropertyMastOld()
+    public async Task ReadPreviouslyRegisteredBreakdownAsync_CalculatesPreviouslyRegisteredFromPropertyMastOld()
     {
         using var context = CreateContext();
         var createdDate = new DateTime(2026, 1, 1);
@@ -78,16 +78,16 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         await context.SaveChangesAsync();
         var repository = new AutomationDashboardRepository(context);
 
-        var result = await repository.GetMainCardsAsync(cancellationToken: CancellationToken.None);
+        var result = await repository.ReadPreviouslyRegisteredBreakdownAsync(CancellationToken.None);
 
-        Assert.Equal(3, result.PreviouslyRegistered.PropertyCount);
-        Assert.Equal(2, result.PreviouslyRegistered.StructureCount);
-        Assert.Equal(3, result.PreviouslyRegistered.UnitCount);
-        Assert.Equal(1750m, result.PreviouslyRegistered.Demand);
+        Assert.Equal(3, result.PropertyCount);
+        Assert.Equal(2, result.StructureCount);
+        Assert.Equal(3, result.UnitCount);
+        Assert.Equal(1750m, result.Demand);
     }
 
     [Fact]
-    public async Task GetMainCardsAsync_CalculatesAdditionalRevenueFromAcdApprovedSignatures()
+    public async Task ReadAcdApprovedPropertyBreakdownAsync_CalculatesAdditionalRevenueFromAcdApprovedSignatures()
     {
         using var context = CreateContext();
         var createdDate = new DateTime(2026, 1, 1);
@@ -186,16 +186,16 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         await context.SaveChangesAsync();
         var repository = new AutomationDashboardRepository(context);
 
-        var result = await repository.GetMainCardsAsync(cancellationToken: CancellationToken.None);
+        var result = await repository.ReadAcdApprovedPropertyBreakdownAsync(cancellationToken: CancellationToken.None);
 
-        Assert.Equal(2, result.AdditionalRevenueGenerated.PropertyCount);
-        Assert.Equal(1, result.AdditionalRevenueGenerated.StructureCount);
-        Assert.Equal(2, result.AdditionalRevenueGenerated.UnitCount);
-        Assert.Equal(1250m, result.AdditionalRevenueGenerated.Demand);
+        Assert.Equal(2, result.PropertyCount);
+        Assert.Equal(1, result.StructureCount);
+        Assert.Equal(2, result.UnitCount);
+        Assert.Equal(1250m, result.Demand);
     }
 
     [Fact]
-    public async Task TrackStageStatusAsync_ReturnsActiveStagesWithCompletionFlags()
+    public async Task ReadWorkflowStageCompletionsAsync_ReturnsActiveStagesWithCompletionFlags()
     {
         using var context = CreateContext();
         var createdDate = new DateTime(2026, 1, 1);
@@ -260,15 +260,15 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         await context.SaveChangesAsync();
         var repository = new AutomationDashboardRepository(context);
 
-        var result = await repository.TrackStageStatusAsync(100, CancellationToken.None);
+        var result = await repository.ReadWorkflowStageCompletionsAsync(100, CancellationToken.None);
 
         Assert.Equal(new[] { 1, 2 }, result.Select(x => x.WorkflowStageId));
-        Assert.Equal(1, result[0].IsCompleted);
-        Assert.Equal(0, result[1].IsCompleted);
+        Assert.True(result[0].IsCompleted);
+        Assert.False(result[1].IsCompleted);
     }
 
     [Fact]
-    public async Task GetWorkflowCardsAsync_UsesGridStructureAndUnitCounting()
+    public async Task ReadWorkflowStageCountsAsync_UsesGridStructureAndUnitCounting()
     {
         using var context = CreateContext();
         var createdDate = new DateTime(2026, 1, 1);
@@ -417,9 +417,13 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         await context.SaveChangesAsync();
         var repository = new AutomationDashboardRepository(context);
 
-        var result = await repository.GetWorkflowCardsAsync(null, CancellationToken.None);
+        var stages = await repository.ReadWorkflowStagesAsync(cancellationToken: CancellationToken.None);
+        var result = await repository.ReadWorkflowStageCountsAsync(
+            stages.Select(s => s.WorkflowStageId),
+            null,
+            CancellationToken.None);
 
-        var card = Assert.Single(result);
+        var card = Assert.Single(result.Values);
         Assert.Equal(1, card.StructureCount);
         Assert.Equal(3, card.UnitCount);
     }
@@ -709,6 +713,414 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         Assert.Equal(3, unitResult.TotalCount);
         Assert.Equal(new[] { 100, 101, 102 }, allResult.Properties.Select(p => p.Id).ToArray());
         Assert.Equal(3, allResult.TotalCount);
+    }
+
+    public static TheoryData<string, int[]> DataEntrySubGridMetricFilterCases => new()
+    {
+        { nameof(SubGridQueryParameters.PendingStructure), new[] { 402 } },
+        { nameof(SubGridQueryParameters.PendingUnit), new[] { 402, 403 } },
+        { nameof(SubGridQueryParameters.CompletedStructure), new[] { 400 } },
+        { nameof(SubGridQueryParameters.CompletedUnit), new[] { 400, 401 } }
+    };
+
+    [Theory]
+    [MemberData(nameof(DataEntrySubGridMetricFilterCases))]
+    public async Task GetSubGridDataAsync_FiltersDataEntryCompletedAndPendingMetricRows(
+        string filterName,
+        int[] expectedPropertyIds)
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 2,
+            StageName = "DataEntry",
+            DisplayOrder = 2,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 14,
+            ZoneNo = "MM",
+            Description = "MM",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 21,
+            WardNo = "D1",
+            ZoneId = 14,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(400, 21, "1", "", "Completed Structure", createdDate),
+            CreateSubGridProperty(401, 21, "1", "1", "Completed Unit", createdDate),
+            CreateSubGridProperty(402, 21, "2", "", "Pending Structure", createdDate),
+            CreateSubGridProperty(403, 21, "2", "1", "Pending Unit", createdDate));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(900, 400, 2, createdDate),
+            CreateWorkflowDetail(901, 401, 2, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+        var query = new SubGridQueryParameters
+        {
+            ZoneId = 14,
+            WorkflowStageId = 2,
+            PageNumber = 1,
+            PageSize = 10
+        };
+        typeof(SubGridQueryParameters).GetProperty(filterName)!.SetValue(query, true);
+
+        var result = await repository.GetSubGridDataAsync(query, CancellationToken.None);
+
+        Assert.Equal(expectedPropertyIds, result.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(expectedPropertyIds.Length, result.TotalCount);
+    }
+
+    public static TheoryData<string, int[]> SubGridGlobalSearchCases => new()
+    {
+        { "rahul", new[] { 301 } },
+        { "98765", new[] { 302 } },
+        { "D1-31", new[] { 301 } },
+        { "sagar niwas", new[] { 301 } },
+        { "commercial", new[] { 302 } },
+        { "wing-a", new[] { 301 } },
+        { "builder prime", new[] { 301 } },
+        { "office", new[] { 302 } }
+    };
+
+    [Theory]
+    [MemberData(nameof(SubGridGlobalSearchCases))]
+    public async Task GetSubGridDataAsync_GlobalSearchFiltersAcrossReturnedColumns(
+        string search,
+        int[] expectedPropertyIds)
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 14,
+            ZoneNo = "MM",
+            Description = "MM",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 21,
+            WardNo = "D1",
+            ZoneId = 14,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyCategoryMaster.Add(new PropertyCategoryEntity
+        {
+            Id = 1,
+            PropertyCategoryName = "Individual",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyTypeMasters.AddRange(
+            CreatePropertyType(11, "Residential", "R", createdDate),
+            CreatePropertyType(12, "Commercial", "C", createdDate));
+        context.TypeOfUse.AddRange(
+            CreateTypeOfUse(901, "R", "R", "Residential", createdDate),
+            CreateTypeOfUse(902, "C", "C", "Office", createdDate));
+        context.WingEntity.Add(new WingEntity
+        {
+            Id = 501,
+            WingNo = "Wing-A",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(301, 21, "31", "", "Rahul Patil", createdDate, 11),
+            CreateSubGridProperty(302, 21, "32", "", "Other Owner", createdDate, 12));
+        var firstProperty = context.PropertyMast.Local.Single(p => p.Id == 301);
+        firstProperty.CategoryId = 1;
+        firstProperty.Address = "Opp Sagar Niwas";
+        firstProperty.MobileNo = "11111";
+        firstProperty.FlatOrShopName = "Flat 101";
+        var secondProperty = context.PropertyMast.Local.Single(p => p.Id == 302);
+        secondProperty.Address = "Market Road";
+        secondProperty.MobileNo = "9876543210";
+        context.SocietyDetailsMast.Add(new SocietyDetailsEntity
+        {
+            Id = 601,
+            PropertyId = 301,
+            WingId = 501,
+            BuilderName = "Builder Prime",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = createdDate
+        });
+        context.PropertyDetails.AddRange(
+            CreatePropertyDetail(701, 301, 901, createdDate),
+            CreatePropertyDetail(702, 302, 902, createdDate));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(801, 301, 1, createdDate),
+            CreateWorkflowDetail(802, 302, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                ZoneId = 14,
+                WorkflowStageId = 1,
+                Search = search,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        Assert.Equal(expectedPropertyIds, result.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(expectedPropertyIds.Length, result.TotalCount);
+    }
+
+    [Theory]
+    [InlineData("Rahul", 301)]
+    [InlineData("9876543210", 302)]
+    [InlineData("5551234", 303)]
+    [InlineData("7778888", 304)]
+    [InlineData("Sagar Niwas", 305)]
+    [InlineData("Mahadev", 305)]
+    [InlineData("SHRI. PRAFULL M. SHAH,SHRI. PRAFULL M. SHAH", 306)]
+    public async Task GetSubGridDataAsync_GlobalSearchWorksWithoutZoneId(string search, int expectedPropertyId)
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.AddRange(
+            new ZoneEntity
+            {
+                Id = 14,
+                ZoneNo = "MM",
+                Description = "MM",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new ZoneEntity
+            {
+                Id = 15,
+                ZoneNo = "NK",
+                Description = "Naupada Kopri",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.WardMaster.AddRange(
+            new WardEntity
+            {
+                Id = 21,
+                WardNo = "D1",
+                ZoneId = 14,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new WardEntity
+            {
+                Id = 22,
+                WardNo = "D2",
+                ZoneId = 15,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(301, 21, "31", "", "Rahul Patil", createdDate, 11),
+            CreateSubGridProperty(302, 22, "32", "", "Other Owner", createdDate, 12),
+            CreateSubGridProperty(303, 22, "33", "", "Alternate Owner", createdDate, 12),
+            CreateSubGridProperty(304, 22, "34", "", "Occupier Owner", createdDate, 12),
+            CreateSubGridProperty(305, 22, "35", "", "Address Owner", createdDate, 12),
+            CreateSubGridProperty(306, 22, "36", "", "Prafull Owner", createdDate, 12));
+        var secondProperty = context.PropertyMast.Local.Single(p => p.Id == 302);
+        secondProperty.MobileNo = "98765-43210";
+        var thirdProperty = context.PropertyMast.Local.Single(p => p.Id == 303);
+        thirdProperty.AlternateMobileNo = "555 1234";
+        var fourthProperty = context.PropertyMast.Local.Single(p => p.Id == 304);
+        fourthProperty.OccupierMobileNo = "(777) 8888";
+        var fifthProperty = context.PropertyMast.Local.Single(p => p.Id == 305);
+        fifthProperty.Address = "Opp Sagar Niwas";
+        fifthProperty.OccupierName = "Mahadev Patil";
+        var sixthProperty = context.PropertyMast.Local.Single(p => p.Id == 306);
+        sixthProperty.OccupierName = "SHRI. PRAFULL M. SHAH,SHRI. PRAFULL M. SHAH";
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(801, 301, 1, createdDate),
+            CreateWorkflowDetail(802, 302, 1, createdDate),
+            CreateWorkflowDetail(803, 303, 1, createdDate),
+            CreateWorkflowDetail(804, 304, 1, createdDate),
+            CreateWorkflowDetail(805, 305, 1, createdDate),
+            CreateWorkflowDetail(806, 306, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                WorkflowStageId = 1,
+                Search = search,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        var property = Assert.Single(result.Properties);
+        Assert.Equal(expectedPropertyId, property.Id);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(property.WardId, result.WardId);
+        Assert.Equal(property.WardNo, result.WardNo);
+        Assert.True(result.ZoneId > 0);
+    }
+
+    [Fact]
+    public async Task GetSubGridDataAsync_GlobalSearchByZoneNoWorksWithoutZoneId()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.AddRange(
+            new ZoneEntity
+            {
+                Id = 14,
+                ZoneNo = "MM",
+                Description = "MM",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new ZoneEntity
+            {
+                Id = 15,
+                ZoneNo = "NK",
+                Description = "Naupada Kopri",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.WardMaster.AddRange(
+            new WardEntity
+            {
+                Id = 21,
+                WardNo = "D1",
+                ZoneId = 14,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new WardEntity
+            {
+                Id = 22,
+                WardNo = "D2",
+                ZoneId = 15,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(301, 21, "31", "", "MM Owner", createdDate, 11),
+            CreateSubGridProperty(302, 22, "32", "", "NK Owner One", createdDate, 12),
+            CreateSubGridProperty(303, 22, "33", "", "NK Owner Two", createdDate, 12));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(801, 301, 1, createdDate),
+            CreateWorkflowDetail(802, 302, 1, createdDate),
+            CreateWorkflowDetail(803, 303, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                WorkflowStageId = 1,
+                Search = "NK",
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        Assert.Equal(new[] { 302, 303 }, result.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(15, result.ZoneId);
+        Assert.Equal("NK", result.ZoneNo);
+        Assert.Equal(22, result.WardId);
+        Assert.Equal("D2", result.WardNo);
+    }
+
+    [Fact]
+    public async Task GetSubGridDataAsync_SearchFormattedPropertyNoUsesFastPropertyFilter()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 14,
+            ZoneNo = "UK",
+            Description = "UK",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 21,
+            WardNo = "UK2",
+            ZoneId = 14,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(301, 21, "39", "", "Main Owner", createdDate, 11),
+            CreateSubGridProperty(302, 21, "39", "1", "Partition Owner", createdDate, 11),
+            CreateSubGridProperty(303, 21, "40", "", "Other Owner", createdDate, 11));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(801, 301, 1, createdDate),
+            CreateWorkflowDetail(802, 302, 1, createdDate),
+            CreateWorkflowDetail(803, 303, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                WorkflowStageId = 1,
+                Search = "UK2-39",
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        Assert.Equal(new[] { 301, 302 }, result.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(14, result.ZoneId);
+        Assert.Equal("UK", result.ZoneNo);
+        Assert.Equal(21, result.WardId);
+        Assert.Equal("UK2", result.WardNo);
     }
 
     public static TheoryData<int, int[]> PropertyTypeCategoryFilterCases => new()

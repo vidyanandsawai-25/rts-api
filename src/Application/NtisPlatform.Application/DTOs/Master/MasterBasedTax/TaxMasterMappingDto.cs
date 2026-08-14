@@ -11,7 +11,6 @@ public class TaxMasterMappingDto
     [Range(1, int.MaxValue, ErrorMessage = "MasterBasedTax_TaxId_Invalid")]
     public int TaxId { get; set; }
 
-    public int? RuleDefinitionId { get; set; }
     public string MasterKey { get; set; } = null!;
     public string? DisplayValue { get; set; }
 
@@ -30,7 +29,6 @@ public class SaveMasterMappingRequest
     [Range(1, int.MaxValue, ErrorMessage = "MasterBasedTax_TaxId_Invalid")]
     public int TaxId { get; set; }
 
-    public int? RuleDefinitionId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "MasterBasedTax_AssessmentYearRangeId_Invalid")]
     public int AssessmentYearRangeId { get; set; }
@@ -46,14 +44,6 @@ public class BulkApplyMasterMappingRequest
 {
     [Range(1, int.MaxValue, ErrorMessage = "MasterBasedTax_TaxId_Invalid")]
     public int TaxId { get; set; }
-
-    /// <summary>
-    /// Scopes the bulk-apply to rows belonging to this rule only. A Hybrid tax can have more
-    /// than one rule's mapping rows coexisting at the same TaxId+year (see the unique index on
-    /// TaxMasterMapping) — without this, bulk-applying while one rule is selected would also
-    /// overwrite a different rule's rows at the same year.
-    /// </summary>
-    public int? RuleDefinitionId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "MasterBasedTax_AssessmentYearRangeId_Invalid")]
     public int AssessmentYearRangeId { get; set; }

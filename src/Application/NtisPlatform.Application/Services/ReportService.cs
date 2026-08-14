@@ -75,7 +75,7 @@ public class ReportService : IReportService
                 "Reporting:PlatformBaseUrl is not configured. The worker cannot call back this " +
                 "platform instance without knowing its URL. Set it in appsettings.");
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var reportRequestId = Guid.NewGuid();
         var entity = new ReportRequestEntity
         {

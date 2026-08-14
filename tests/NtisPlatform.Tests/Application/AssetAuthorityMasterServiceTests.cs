@@ -60,7 +60,7 @@ public class AssetAuthorityMasterServiceTests
             State = "MH",
             IsActive = isActive,
             CreatedBy = 1,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null
         };
@@ -78,7 +78,7 @@ public class AssetAuthorityMasterServiceTests
             State = "C",
             IsActive = true,
             MarkedForDeletion = true,
-            MarkedForDeletionDate = DateTime.UtcNow
+            MarkedForDeletionDate = DateTime.Now
         };
         Assert.Equal(1, entity.Id);
         Assert.Equal("A", entity.AuthorityCode);

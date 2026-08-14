@@ -22,8 +22,8 @@ public class PropertyPhotoTypeDtoValidationTests
             Description = "Front facade of the property",
             DisplayOrder = 1,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
-            UpdatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Assert

@@ -18,7 +18,21 @@ public class PropertyControllerBasicDetailsTests
         var propertyService = new Mock<IPropertyService>();
         service = new Mock<IPropertyBasicDetailsService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(propertyService, logger, service);
+        var controller = PropertyControllerTestHelper.CreateController(propertyService, logger, service);
+
+        var claims = new List<System.Security.Claims.Claim>
+        {
+            new(System.Security.Claims.ClaimTypes.NameIdentifier, "1")
+        };
+        var identity = new System.Security.Claims.ClaimsIdentity(claims, "TestAuthType");
+        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(identity);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = claimsPrincipal }
+        };
+
+        return controller;
     }
 
     [Fact]

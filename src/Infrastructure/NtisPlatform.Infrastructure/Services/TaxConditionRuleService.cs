@@ -142,7 +142,6 @@ public class TaxConditionRuleService : ITaxConditionRuleService
 
     public async Task<PagedResult<TaxConditionRuleDto>> GetByTaxAsync(
         int taxId,
-        int? ruleDefinitionId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default)
@@ -150,11 +149,6 @@ public class TaxConditionRuleService : ITaxConditionRuleService
         var query = _context.TaxConditionRules
             .AsNoTracking()
             .Where(c => c.TaxId == taxId);
-
-        if (ruleDefinitionId.HasValue)
-        {
-            query = query.Where(c => c.RuleDefinitionId == ruleDefinitionId.Value);
-        }
 
         query = query.OrderBy(c => c.SortOrder).ThenBy(c => c.Id);
 
@@ -174,7 +168,6 @@ public class TaxConditionRuleService : ITaxConditionRuleService
         {
             Id = c.Id,
             TaxId = c.TaxId,
-            RuleDefinitionId = c.RuleDefinitionId,
             SortOrder = c.SortOrder,
             Conditions = ParseConditions(c.ConditionsJson),
             AssessmentYearRangeId = c.AssessmentYearRangeId,
@@ -293,7 +286,7 @@ public class TaxConditionRuleService : ITaxConditionRuleService
 
         var existingPersistedQuery = _context.TaxConditionRules
             .AsNoTracking()
-            .Where(c => c.TaxId == request.TaxId && c.RuleDefinitionId == request.RuleDefinitionId);
+            .Where(c => c.TaxId == request.TaxId);
 
         if (updatingIds.Count > 0)
         {
@@ -345,9 +338,7 @@ public class TaxConditionRuleService : ITaxConditionRuleService
             // an insert instead of silently overwriting that other tax's row.
             var ids = request.Rows.Where(r => r.Id > 0).Select(r => r.Id).ToList();
             var existingById = await _context.TaxConditionRules
-                .Where(c => ids.Contains(c.Id)
-                         && c.TaxId == request.TaxId
-                         && c.RuleDefinitionId == request.RuleDefinitionId)
+                .Where(c => ids.Contains(c.Id) && c.TaxId == request.TaxId)
                 .ToDictionaryAsync(c => c.Id, cancellationToken);
 
             var affected = 0;
@@ -357,7 +348,6 @@ public class TaxConditionRuleService : ITaxConditionRuleService
 
                 if (row.Id > 0 && existingById.TryGetValue(row.Id, out var entity))
                 {
-                    entity.RuleDefinitionId = request.RuleDefinitionId;
                     entity.SortOrder = row.SortOrder;
                     entity.ConditionsJson = conditionsJson;
                     entity.AssessmentYearRangeId = row.AssessmentYearRangeId;
@@ -377,7 +367,6 @@ public class TaxConditionRuleService : ITaxConditionRuleService
                     entity = new TaxConditionRuleEntity
                     {
                         TaxId = request.TaxId,
-                        RuleDefinitionId = request.RuleDefinitionId,
                         SortOrder = row.SortOrder,
                         ConditionsJson = conditionsJson,
                         AssessmentYearRangeId = row.AssessmentYearRangeId,
@@ -489,10 +478,7 @@ public class TaxConditionRuleService : ITaxConditionRuleService
 
         var rows = await (
                  from c in _context.TaxConditionRules.AsNoTracking()
-                 join t in _context.TaxMaster.AsNoTracking() on c.TaxId equals t.Id
-                 where c.TaxId == request.TaxId
-                    && c.IsActive
-                    && (c.RuleDefinitionId == null || c.RuleDefinitionId == t.RuleDefinitionId)
+                 where c.TaxId == request.TaxId && c.IsActive
                  orderby c.SortOrder, c.Id
                  select c)
             .ToListAsync(cancellationToken);

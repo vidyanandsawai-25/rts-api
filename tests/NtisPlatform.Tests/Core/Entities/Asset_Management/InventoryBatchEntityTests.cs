@@ -121,7 +121,7 @@ public class InventoryBatchEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = new InventoryBatchEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

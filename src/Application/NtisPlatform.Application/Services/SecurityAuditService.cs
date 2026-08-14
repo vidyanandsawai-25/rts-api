@@ -39,7 +39,7 @@ public class SecurityAuditService : ISecurityAuditService
             IpAddress = ipAddress,
             UserAgent = userAgent,
             Detail = detail,
-            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
+            CreatedAt = _timeProvider.GetLocalNow().DateTime
         };
 
         await _repository.AddAsync(entry, cancellationToken);

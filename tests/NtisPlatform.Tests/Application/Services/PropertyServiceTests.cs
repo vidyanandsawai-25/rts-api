@@ -206,6 +206,80 @@ public class PropertyServiceTests
 
     #endregion
 
+    #region GetMaxPartition Tests
+
+    [Fact]
+    public async Task GetMaxPartition_DelegatesToRepositoryAndReturnsResult()
+    {
+        // Arrange
+        var expected = new MaxPartitionNoDto
+        {
+            WardNo = "W001",
+            PropertyNo = "P001",
+            Category = "Residential",
+            MaxPartitionNo = "12"
+        };
+        _mockPropertyRepository
+            .Setup(x => x.GetMaxPartition(1, "P001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        var result = await _service.GetMaxPartition(1, "P001");
+
+        // Assert
+        Assert.Same(expected, result);
+        _mockPropertyRepository.Verify(
+            x => x.GetMaxPartition(1, "P001", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetMaxPartition_WhenRepositoryReturnsNull_ReturnsNull()
+    {
+        // Arrange
+        _mockPropertyRepository
+            .Setup(x => x.GetMaxPartition(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MaxPartitionNoDto?)null);
+
+        // Act
+        var result = await _service.GetMaxPartition(999, "P999");
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetMaxPartition_PassesCancellationTokenToRepository()
+    {
+        // Arrange
+        using var cts = new CancellationTokenSource();
+        _mockPropertyRepository
+            .Setup(x => x.GetMaxPartition(2, "P002", cts.Token))
+            .ReturnsAsync(new MaxPartitionNoDto { MaxPartitionNo = "1" });
+
+        // Act
+        var result = await _service.GetMaxPartition(2, "P002", cts.Token);
+
+        // Assert
+        Assert.NotNull(result);
+        _mockPropertyRepository.Verify(x => x.GetMaxPartition(2, "P002", cts.Token), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetMaxPartition_WhenRepositoryThrows_PropagatesException()
+    {
+        // Arrange
+        _mockPropertyRepository
+            .Setup(x => x.GetMaxPartition(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _service.GetMaxPartition(1, "P001"));
+        Assert.Equal("boom", ex.Message);
+    }
+
+    #endregion
+
     #region CreatePropertiesFromRangeAsync Tests
 
     /// <summary>

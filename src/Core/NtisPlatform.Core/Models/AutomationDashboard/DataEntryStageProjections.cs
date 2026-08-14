@@ -3,20 +3,16 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// <summary>
 /// Property row used for Data Entry dashboard stage aggregation.
 /// </summary>
-public  class DataEntryStagePropertyProjection
+public class DataEntryStagePropertyProjection : AutomationDashboardStagePropertyZoneDto
 {
-    public int PropertyId { get; set; }
-    public int WorkflowStageId { get; set; }
-    public int ZoneId { get; set; }
     public string? PartitionNo { get; set; }
 }
 
 /// <summary>
 /// Data Entry grid count row grouped by zone.
 /// </summary>
-public  class DataEntryZoneCountProjection
+public class DataEntryZoneCountProjection : AutomationDashboardZoneKeyDto
 {
-    public int ZoneId { get; set; }
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }
@@ -24,29 +20,24 @@ public  class DataEntryZoneCountProjection
 /// <summary>
 /// Property id that has a completed photo or plan.
 /// </summary>
-public  class DataEntryCompletedPhotoProjection
+public class DataEntryCompletedPhotoProjection : AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public int PhotoTypeId { get; set; }
 }
 
 /// <summary>
 /// Property type source row used for Data Entry dashboard type grouping.
 /// </summary>
-public  class DataEntryPropertyTypeSourceProjection
+public class DataEntryPropertyTypeSourceProjection : AutomationDashboardPropertyZoneDto
 {
-    public int PropertyId { get; set; }
-    public int ZoneId { get; set; }
     public string? PropertyType { get; set; }
 }
 
 /// <summary>
 /// Property use source row used for Data Entry dashboard type grouping.
 /// </summary>
-public  class DataEntryPropertyUseSourceProjection
+public class DataEntryPropertyUseSourceProjection : AutomationDashboardPropertyZoneDto
 {
-    public int PropertyId { get; set; }
-    public int ZoneId { get; set; }
     public string? Type { get; set; }
     public string? TypeOfUseCode { get; set; }
 }
@@ -54,9 +45,8 @@ public  class DataEntryPropertyUseSourceProjection
 /// <summary>
 /// Assessment status count row grouped by zone and status.
 /// </summary>
-public  class DataEntryAssessmentStatusCountProjection
+public class DataEntryAssessmentStatusCountProjection : AutomationDashboardZoneKeyDto
 {
-    public int ZoneId { get; set; }
     public int StatusId { get; set; }
     public int PropertyCount { get; set; }
     public int UnitsOnlyCount { get; set; }
@@ -106,11 +96,8 @@ public  class DataEntryWardWiseSummaryProjection
     public Dictionary<string, int> AssessmentStatusIdsByName { get; set; } = new();
 }
 
-public  class DataEntryWardStageProjection
+public class DataEntryWardStageProjection : AutomationDashboardStagePropertyWardDto
 {
-    public int PropertyId { get; set; }
-    public int WorkflowStageId { get; set; }
-    public int WardId { get; set; }
     public string? PartitionNo { get; set; }
     public int? PropertyTypeId { get; set; }
     public int? CategoryId { get; set; }
@@ -118,9 +105,8 @@ public  class DataEntryWardStageProjection
     public int? PropertyAssessmentStatusId { get; set; }
 }
 
-public  class DataEntryWardCountProjection
+public class DataEntryWardCountProjection : AutomationDashboardWardKeyDto
 {
-    public int WardId { get; set; }
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }

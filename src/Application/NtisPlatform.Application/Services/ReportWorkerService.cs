@@ -87,7 +87,7 @@ public class ReportWorkerService : IReportWorkerService
             || entity.RequestedByUserId != claimedUserId
             || entity.SltConsumed
             || entity.SltExpiresAt is null
-            || entity.SltExpiresAt.Value <= DateTime.UtcNow
+            || entity.SltExpiresAt.Value <= DateTime.Now
             // Defense-in-depth: ensure this platform instance only services its own tenant's rows.
             || (_options.OrganizationId > 0 && entity.OrganizationId != _options.OrganizationId))
         {

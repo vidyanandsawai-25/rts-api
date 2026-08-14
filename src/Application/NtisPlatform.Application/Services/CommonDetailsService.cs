@@ -29,6 +29,7 @@ public class CommonDetailsService : ICommonDetailsService
     private readonly IRepository<BulkUpdateMasterEntity> _masterRepo;
     private readonly IRepository<BulkUpdateFieldConfigEntity> _fieldConfigRepo;
     private readonly IRepository<BulkUpdateHistoryEntity> _historyRepo;
+    private readonly IRepository<BulkUpdateActivityEntity, int> _activityRepo;
     private readonly IRepository<PropertyEntity> _propertyRepo;
     private readonly IRepository<WardEntity> _wardRepo;
     private readonly IRepository<SocietyDetailsEntity> _societyRepo;
@@ -45,6 +46,7 @@ public class CommonDetailsService : ICommonDetailsService
         IRepository<BulkUpdateMasterEntity> masterRepo,
         IRepository<BulkUpdateFieldConfigEntity> fieldConfigRepo,
         IRepository<BulkUpdateHistoryEntity> historyRepo,
+        IRepository<BulkUpdateActivityEntity, int> activityRepo,
         IRepository<PropertyEntity> propertyRepo,
         IRepository<WardEntity> wardRepo,
         IRepository<SocietyDetailsEntity> societyRepo,
@@ -60,6 +62,7 @@ public class CommonDetailsService : ICommonDetailsService
         _masterRepo = masterRepo;
         _fieldConfigRepo = fieldConfigRepo;
         _historyRepo = historyRepo;
+        _activityRepo = activityRepo;
         _propertyRepo = propertyRepo;
         _wardRepo = wardRepo;
         _societyRepo = societyRepo;
@@ -84,8 +87,7 @@ public class CommonDetailsService : ICommonDetailsService
                 UpdateCode = m.UpdateCode,
                 UpdateName = m.UpdateName,
                 ReferenceTableName = m.ReferenceTableName,
-                IsActive = m.IsActive,
-                IsApprovalRequired = m.IsApprovalRequired
+                IsActive = m.IsActive
             })
             .ToListAsync(ct);
     }
@@ -101,7 +103,8 @@ public class CommonDetailsService : ICommonDetailsService
                         Id = st.Id,
                         TableName = mm != null && !string.IsNullOrEmpty(mm.ModuleName)
                             ? mm.ModuleName + " " + st.TableAliasName
-                            : st.TableAliasName
+                            : st.TableAliasName,
+                        ReferenceTableName = st.TableName
                     };
 
         return await query.ToListAsync(ct);
@@ -114,7 +117,8 @@ public class CommonDetailsService : ICommonDetailsService
             .Select(std => new SourceTableFieldLookupDto
             {
                 Id = std.Id,
-                TableFieldName = string.IsNullOrWhiteSpace(std.DisplayName) ? std.FieldName : std.DisplayName
+                TableFieldName = string.IsNullOrWhiteSpace(std.DisplayName) ? std.FieldName : std.DisplayName,
+                FieldName = std.FieldName
             })
             .ToListAsync(ct);
     }
@@ -155,7 +159,6 @@ public class CommonDetailsService : ICommonDetailsService
                 UpdateName = request.UpdateName.Trim(),
                 ReferenceTableName = sourceTable.TableName,
                 IsActive = true,
-                IsApprovalRequired = request.IsApprovalRequired,
                 CreatedBy = createdBy,
                 CreatedDate = DateTime.Now
             };
@@ -203,7 +206,6 @@ public class CommonDetailsService : ICommonDetailsService
                     UpdateCode = master.UpdateCode,
                     UpdateName = master.UpdateName,
                     ReferenceTableName = master.ReferenceTableName,
-                    IsApprovalRequired = master.IsApprovalRequired,
                     IsActive = master.IsActive,
                     CreatedDate = master.CreatedDate,
                     UpdatedDate = master.UpdatedDate
@@ -396,28 +398,50 @@ public class CommonDetailsService : ICommonDetailsService
     public async Task<PagedResult<PropertyPreviewDto>> FilterPropertiesByCategoryAsync(
         FilterPropertiesByCategoryRequestDto request, CancellationToken ct)
     {
-        var (targetTable, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
+        var updateCodes = request.UpdateCode
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (updateCodes.Count == 0)
+            throw new ArgumentException("At least one UpdateCode is required.");
+
+        var contexts = new List<(string TargetTable, List<string> SafeColumns)>();
+        foreach (var code in updateCodes)
+            contexts.Add(await ResolveUpdateCodeContextAsync(code, ct));
 
         var searchResult = await _propertySearchService.SearchByCategoryAsync(request, ct);
         var propertyIds = searchResult.Items.Select(p => p.PropertyId).ToList();
 
-        var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
-            && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+        // When a target table IS PropertyMast, current values must come from the full PropertyEntity
+        // row - PropertySearchByCategoryResponseDto only carries a narrow projection (Zone/Ward/
+        // PartType/Category/etc.), not every bulk-update-configurable field. Unlike FilterPropertiesAsync
+        // (whose own paged query already returns the full entity), this path has to load it separately,
+        // keyed by the resolved PropertyIds. Preload each distinct target table only once, even if
+        // several UpdateCodes share one.
+        var propertyEntitiesById = new Dictionary<int, PropertyEntity>();
+        var loadedPropertyMast = false;
+        var relatedEntitiesByTable = new Dictionary<string, Dictionary<int, object>>(StringComparer.OrdinalIgnoreCase);
 
-        // When the target table IS PropertyMast, current values must come from the full
-        // PropertyEntity row - PropertySearchByCategoryResponseDto only carries a narrow projection
-        // (Zone/Ward/PartType/Category/etc.), not every bulk-update-configurable field. Unlike
-        // FilterPropertiesAsync (whose own paged query already returns the full entity), this path
-        // has to load it separately, keyed by the resolved PropertyIds.
-        var propertyEntitiesById = isPropertyMast
-            ? await _propertyRepo.GetQueryable()
-                .Where(pm => propertyIds.Contains(pm.Id))
-                .ToDictionaryAsync(pm => pm.Id, ct)
-            : new Dictionary<int, PropertyEntity>();
-
-        var relatedEntities = isPropertyMast
-            ? new Dictionary<int, object>()
-            : await LoadTargetEntitiesAsync(targetTable, propertyIds, ct);
+        foreach (var (targetTable, _) in contexts)
+        {
+            var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
+                && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+            if (isPropertyMast)
+            {
+                if (!loadedPropertyMast)
+                {
+                    propertyEntitiesById = await _propertyRepo.GetQueryable()
+                        .Where(pm => propertyIds.Contains(pm.Id))
+                        .ToDictionaryAsync(pm => pm.Id, ct);
+                    loadedPropertyMast = true;
+                }
+            }
+            else if (!relatedEntitiesByTable.ContainsKey(targetTable))
+            {
+                relatedEntitiesByTable[targetTable] = await LoadTargetEntitiesAsync(targetTable, propertyIds, ct);
+            }
+        }
 
         var items = searchResult.Items.Select(p =>
         {
@@ -428,11 +452,16 @@ public class CommonDetailsService : ICommonDetailsService
                 PropertyNo = p.PropertyNo ?? string.Empty,
                 PartitionNo = p.PartitionNo ?? string.Empty,
             };
-            object? source = isPropertyMast
-                ? propertyEntitiesById.GetValueOrDefault(p.PropertyId)
-                : relatedEntities.GetValueOrDefault(p.PropertyId);
-            if (source != null)
-                PopulateCurrentValues(dto, source, safeColumns);
+            foreach (var (targetTable, safeColumns) in contexts)
+            {
+                var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
+                    && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+                object? source = isPropertyMast
+                    ? propertyEntitiesById.GetValueOrDefault(p.PropertyId)
+                    : relatedEntitiesByTable[targetTable].GetValueOrDefault(p.PropertyId);
+                if (source != null)
+                    PopulateCurrentValues(dto, source, safeColumns); // later UpdateCodes overwrite earlier ones on a shared field name
+            }
             return dto;
         }).ToList();
 
@@ -486,6 +515,61 @@ public class CommonDetailsService : ICommonDetailsService
         }
     }
 
+    /// <summary>
+    /// Inserts the BulkUpdateActivity row up front, before the properties transaction begins, and
+    /// commits it immediately via its own SaveChangesAsync call (no explicit transaction wraps it).
+    /// This ordering is required by FK_BulkUpdateHistory_BulkUpdateActivity - History rows written
+    /// inside the properties transaction reference this row's Id, so the parent row must already
+    /// exist in the database before that transaction starts. Starts pessimistically as "Failed" so a
+    /// process crash between here and <see cref="FinalizeActivityAsync"/> still leaves a correct record.
+    /// </summary>
+    private async Task<BulkUpdateActivityEntity> BeginActivityAsync(
+        string activityType, string? updateName, int updatedBy,
+        string? ipAddress, string? remarks, int records, DateTime startTime, CancellationToken ct)
+    {
+        var user = await _userRepo.GetByIdAsync(updatedBy, ct);
+        var activity = new BulkUpdateActivityEntity
+        {
+            ActivityType = activityType,
+            ActivityStatus = "Failed",
+            DateAndTime = startTime,
+            Records = records,
+            IPAddress = ipAddress,
+            Remarks = remarks,
+            UpdateName = updateName,
+            DoneBy = user?.UserName,
+            StartTime = startTime,
+        };
+        await _activityRepo.AddAsync(activity, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return activity;
+    }
+
+    /// <summary>
+    /// Updates the previously-inserted activity row with its outcome. Uses UpdateAsync (not the
+    /// tracked instance directly) because the properties transaction's per-property catch may have
+    /// already called DiscardChanges() (ChangeTracker.Clear()), detaching <paramref name="activity"/>.
+    /// </summary>
+    private async Task FinalizeActivityAsync(
+        BulkUpdateActivityEntity activity, bool success, string activityRemark, DateTime endTime, CancellationToken ct)
+    {
+        try
+        {
+            activity.ActivityStatus = success ? "Success" : "Failed";
+            activity.ActivityRemark = activityRemark;
+            activity.EndTime = endTime;
+            activity.Duration = (int)Math.Round((endTime - (activity.StartTime ?? endTime)).TotalSeconds);
+            await _activityRepo.UpdateAsync(activity, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to finalize BulkUpdateActivity {ActivityId}", activity.Id);
+        }
+    }
+
+    private static string FormatActivityRemark(string updateCode, string message) => $"[{updateCode}] {message}";
+
     public async Task<BulkUpdateResultDto> BulkUpdateAsync(
         BulkUpdateRequestDto request, int updatedBy, string? ipAddress, CancellationToken ct)
     {
@@ -493,6 +577,16 @@ public class CommonDetailsService : ICommonDetailsService
             .FirstOrDefaultAsync(m => m.UpdateCode == request.UpdateCode && m.IsActive, ct)
             ?? throw new ArgumentException($"Update type '{request.UpdateCode}' not found.");
 
+        // Activity is created up front (before validation) so that even a request rejected by
+        // validation still leaves a Failed BulkUpdateActivity row with the rejection reason as
+        // ActivityRemark - "record every attempt" isn't limited to failures inside the transaction.
+        var propertyIds = request.PropertyIds;
+        var startTime = DateTime.Now;
+        var activity = await BeginActivityAsync("Screen", master.UpdateName, updatedBy,
+            ipAddress, request.Remarks, propertyIds.Count, startTime, ct);
+
+        try
+        {
         var fieldConfigs = await GetFormFieldsAsync(request.UpdateCode, ct);
 
         // Normalize to a case-insensitive dictionary once so that all downstream lookups
@@ -529,8 +623,8 @@ public class CommonDetailsService : ICommonDetailsService
                 $"Configured field name(s) are not mapped to a property on entity '{target.EntityType.Name}': " +
                 string.Join(", ", unmappedFields));
 
-        var propertyIds = request.PropertyIds;
         var result = new BulkUpdateResultDto { UpdateCode = request.UpdateCode, TotalRequested = propertyIds.Count };
+        var hadFailures = false;
 
         await _unitOfWork.BeginTransactionAsync(ct);
         try
@@ -578,13 +672,13 @@ public class CommonDetailsService : ICommonDetailsService
 
                     await _historyRepo.AddAsync(new BulkUpdateHistoryEntity
                     {
+                        ActivityId = activity.Id,
                         BulkUpdateMasterId = master.Id,
-                        PropertyId = propertyId,
+                        PropertyId = (int)propertyId,
                         OldValue = oldValue,
                         NewValue = newValueJson,
                         UpdatedColumns = updatedColumnsStr,
                         UpdatedBy = updatedBy,
-                        IpAddress = ipAddress,
                         UpdatedDate = now,
                         CreatedDate = now,
                     }, ct);
@@ -602,7 +696,12 @@ public class CommonDetailsService : ICommonDetailsService
 
             if (result.FailedCount > 0)
             {
+                hadFailures = true;
                 await _unitOfWork.RollbackTransactionAsync(ct);
+                // Properties that succeeded before the failure left their BulkUpdateHistoryEntity rows
+                // tracked as Added (rollback only undoes the DB transaction, not the change tracker) -
+                // discard them so the FinalizeActivityAsync save below doesn't resurrect and persist them.
+                _unitOfWork.DiscardChanges();
                 result.Errors.Insert(0,
                     $"Transaction rolled back — no properties were updated. " +
                     $"{result.SuccessCount} of {result.TotalRequested} processed before the error(s) occurred, " +
@@ -619,10 +718,21 @@ public class CommonDetailsService : ICommonDetailsService
         catch
         {
             await _unitOfWork.RollbackTransactionAsync(ct);
+            _unitOfWork.DiscardChanges();
             throw;
         }
 
+        var remark = FormatActivityRemark(request.UpdateCode, hadFailures
+            ? string.Join("; ", result.Errors)
+            : $"Updated {result.SuccessCount} of {result.TotalRequested} propert{(result.TotalRequested == 1 ? "y" : "ies")} successfully.");
+        await FinalizeActivityAsync(activity, !hadFailures, remark, DateTime.Now, ct);
         return result;
+        }
+        catch (Exception ex)
+        {
+            await FinalizeActivityAsync(activity, false, FormatActivityRemark(request.UpdateCode, ex.Message), DateTime.Now, ct);
+            throw;
+        }
     }
 
     public async Task<List<BulkUpdateResultDto>> BulkUpdateBatchAsync(
@@ -707,20 +817,19 @@ public class CommonDetailsService : ICommonDetailsService
         return stream.ToArray();
     }
 
-    public async Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(string updateCode, Stream fileStream, int updatedBy, string? ipAddress, CancellationToken ct)
+    /// <summary>
+    /// Resolves the value columns present in an uploaded sheet and matches every wardNo/propertyNo/
+    /// partitionNo identity to at most one candidate <c>PropertyMast</c> row, keyed by <see cref="IdentityKey"/>.
+    /// Shared by <see cref="ImportPropertiesFromExcelAsync"/> (which applies updates for matched rows) and
+    /// <see cref="ValidateImportExcelAsync"/> (which only reports problems) - both need the identical
+    /// column-resolution and candidate-matching logic so a row flagged as clean/invalid means the same
+    /// thing in both places.
+    /// </summary>
+    private async Task<(List<BulkUpdateFieldConfigDto> PresentConfigs, List<string> ValueFieldNames,
+        Dictionary<string, List<long>> IdsByKey)> PrepareExcelMatchContextAsync(
+        BulkUpdateTarget target, List<BulkUpdateFieldConfigDto> fieldConfigs,
+        List<string> headers, List<ExcelRow> excelRows, CancellationToken ct)
     {
-        var master = await _masterRepo.GetQueryable()
-            .FirstOrDefaultAsync(m => m.UpdateCode == updateCode && m.IsActive, ct)
-            ?? throw new ArgumentException($"Update type '{updateCode}' not found.");
-
-        var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
-
-        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName ?? string.Empty, out var target))
-            throw new InvalidOperationException(
-                $"Update type '{updateCode}' references an unrecognized table '{master.ReferenceTableName}'. " +
-                "Add it to BulkUpdateTargetRegistry if this table is intentionally supported.");
-
-        var (headers, excelRows) = ExcelImportHelper.Read(fileStream);
         var headerSet = new HashSet<string>(
             headers.Where(h => !string.IsNullOrWhiteSpace(h)), StringComparer.OrdinalIgnoreCase);
 
@@ -746,7 +855,6 @@ public class CommonDetailsService : ICommonDetailsService
                 $"Configured field name(s) are not mapped to a property on entity '{target.EntityType.Name}': " +
                 string.Join(", ", unmappedFields));
 
-        var result = new BulkUpdateResultDto { UpdateCode = updateCode, TotalRequested = excelRows.Count };
         if (excelRows.Count == 0)
             throw new ArgumentException("The uploaded file has no data rows.");
 
@@ -791,15 +899,46 @@ public class CommonDetailsService : ICommonDetailsService
         if (propertyNos.Count > 0)
             candidatesQuery = candidatesQuery.Where(x => x.PropertyNo != null && propertyNos.Contains(x.PropertyNo));
 
-        // Filter by PartitionNo when the Excel data has partition numbers.
+        // Filter by PartitionNo when the Excel data has partition numbers, but keep blank-partition
+        // ("Main Property") candidates in scope too - the file may legitimately mix Main and
+        // Partition rows in one upload.
         if (partitionNos.Count > 0)
-            candidatesQuery = candidatesQuery.Where(x => x.PartitionNo != null && partitionNos.Contains(x.PartitionNo));
+            candidatesQuery = candidatesQuery.Where(x =>
+                string.IsNullOrWhiteSpace(x.PartitionNo) || partitionNos.Contains(x.PartitionNo));
 
         var candidates = await candidatesQuery.ToListAsync(ct);
 
         var idsByKey = candidates
             .GroupBy(x => IdentityKey(x.WardNo, x.PropertyNo, x.PartitionNo))
             .ToDictionary(g => g.Key, g => g.Select(x => Convert.ToInt64(x.Id)).ToList());
+
+        return (presentConfigs, valueFieldNames, idsByKey);
+    }
+
+    public async Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(string updateCode, Stream fileStream, int updatedBy, string? ipAddress, string? remarks, CancellationToken ct)
+    {
+        var master = await _masterRepo.GetQueryable()
+            .FirstOrDefaultAsync(m => m.UpdateCode == updateCode && m.IsActive, ct)
+            ?? throw new ArgumentException($"Update type '{updateCode}' not found.");
+
+        var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
+
+        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName ?? string.Empty, out var target))
+            throw new InvalidOperationException(
+                $"Update type '{updateCode}' references an unrecognized table '{master.ReferenceTableName}'. " +
+                "Add it to BulkUpdateTargetRegistry if this table is intentionally supported.");
+
+        var (headers, excelRows) = ExcelImportHelper.Read(fileStream);
+        var startTime = DateTime.Now;
+        var activity = await BeginActivityAsync("Excel", master.UpdateName, updatedBy,
+            ipAddress, remarks, excelRows.Count, startTime, ct);
+
+        try
+        {
+        var (presentConfigs, valueFieldNames, idsByKey) =
+            await PrepareExcelMatchContextAsync(target, fieldConfigs, headers, excelRows, ct);
+
+        var result = new BulkUpdateResultDto { UpdateCode = updateCode, TotalRequested = excelRows.Count };
 
         // Validate + resolve every row up front. All-or-nothing: touch the DB only if all rows are clean.
         var errors = new List<string>();
@@ -849,10 +988,12 @@ public class CommonDetailsService : ICommonDetailsService
             result.FailedCount = excelRows.Count - rowUpdates.Count;
             result.Errors.Add("No changes were applied — fix the listed row error(s) and re-upload (all-or-nothing).");
             result.Errors.AddRange(errors);
+            await FinalizeActivityAsync(activity, false, FormatActivityRemark(updateCode, string.Join("; ", result.Errors)), DateTime.Now, ct);
             return result;
         }
 
         await _unitOfWork.BeginTransactionAsync(ct);
+        var hadFailures = false;
         try
         {
             var propertyIds = rowUpdates.Select(u => u.PropertyId).ToList();
@@ -890,13 +1031,13 @@ public class CommonDetailsService : ICommonDetailsService
 
                     await _historyRepo.AddAsync(new BulkUpdateHistoryEntity
                     {
+                        ActivityId = activity.Id,
                         BulkUpdateMasterId = master.Id,
-                        PropertyId = propertyId,
+                        PropertyId = (int)propertyId,
                         OldValue = oldValue,
                         NewValue = JsonSerializer.Serialize(values),
                         UpdatedColumns = string.Join(",", fieldsToUpdate),
                         UpdatedBy = updatedBy,
-                        IpAddress = ipAddress,
                         UpdatedDate = now,
                         CreatedDate = now,
                     }, ct);
@@ -914,7 +1055,12 @@ public class CommonDetailsService : ICommonDetailsService
 
             if (result.FailedCount > 0)
             {
+                hadFailures = true;
                 await _unitOfWork.RollbackTransactionAsync(ct);
+                // Rows that succeeded before the failure left their BulkUpdateHistoryEntity tracked as
+                // Added (rollback only undoes the DB transaction, not the change tracker) - discard them
+                // so the FinalizeActivityAsync save below doesn't resurrect and persist them.
+                _unitOfWork.DiscardChanges();
                 result.Errors.Insert(0,
                     "Transaction rolled back — no properties were updated; all changes were reverted.");
                 result.SuccessCount = 0;
@@ -928,10 +1074,105 @@ public class CommonDetailsService : ICommonDetailsService
         catch
         {
             await _unitOfWork.RollbackTransactionAsync(ct);
+            _unitOfWork.DiscardChanges();
             throw;
         }
 
+        var remark = FormatActivityRemark(updateCode, hadFailures
+            ? string.Join("; ", result.Errors)
+            : $"Updated {result.SuccessCount} of {result.TotalRequested} propert{(result.TotalRequested == 1 ? "y" : "ies")} successfully.");
+        await FinalizeActivityAsync(activity, !hadFailures, remark, DateTime.Now, ct);
         return result;
+        }
+        catch (Exception ex)
+        {
+            await FinalizeActivityAsync(activity, false, FormatActivityRemark(updateCode, ex.Message), DateTime.Now, ct);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Dry-run counterpart to <see cref="ImportPropertiesFromExcelAsync"/>: runs the identical
+    /// identity-matching and field-validation checks against the uploaded sheet, but never touches the
+    /// database - no property updates, no BulkUpdateHistory/BulkUpdateActivity rows. Returns only the
+    /// rows that would fail, each carrying a ValidationRemark explaining why.
+    /// </summary>
+    public async Task<ExcelValidationResultDto> ValidateImportExcelAsync(string updateCode, Stream fileStream, CancellationToken ct)
+    {
+        var master = await _masterRepo.GetQueryable()
+            .FirstOrDefaultAsync(m => m.UpdateCode == updateCode && m.IsActive, ct)
+            ?? throw new ArgumentException($"Update type '{updateCode}' not found.");
+
+        var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
+
+        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName ?? string.Empty, out var target))
+            throw new InvalidOperationException(
+                $"Update type '{updateCode}' references an unrecognized table '{master.ReferenceTableName}'. " +
+                "Add it to BulkUpdateTargetRegistry if this table is intentionally supported.");
+
+        var (headers, excelRows) = ExcelImportHelper.Read(fileStream);
+
+        var (presentConfigs, valueFieldNames, idsByKey) =
+            await PrepareExcelMatchContextAsync(target, fieldConfigs, headers, excelRows, ct);
+
+        var flaggedRows = new List<(ExcelRow Row, List<string> Issues)>();
+
+        foreach (var row in excelRows)
+        {
+            var wardNo = row.Cells.GetValueOrDefault("wardNo")?.Trim();
+            var propertyNo = row.Cells.GetValueOrDefault("propertyNo")?.Trim();
+            var partitionNo = row.Cells.GetValueOrDefault("partitionNo")?.Trim();
+            var issues = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(wardNo) || string.IsNullOrWhiteSpace(propertyNo))
+            {
+                issues.Add("wardNo and propertyNo are required.");
+            }
+            else
+            {
+                var key = IdentityKey(wardNo, propertyNo, partitionNo);
+                if (!idsByKey.TryGetValue(key, out var ids))
+                    issues.Add($"No property found for wardNo='{wardNo}', propertyNo='{propertyNo}', partitionNo='{partitionNo}'.");
+                else if (ids.Count > 1)
+                    issues.Add($"Multiple properties match wardNo='{wardNo}', propertyNo='{propertyNo}', partitionNo='{partitionNo}'.");
+            }
+
+            var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var field in valueFieldNames)
+                values[field] = row.Cells.GetValueOrDefault(field);
+
+            issues.AddRange(ValidateFieldValues(presentConfigs, values));
+
+            if (issues.Count > 0)
+                flaggedRows.Add((row, issues));
+        }
+
+        var columns = new List<string> { "wardNo", "propertyNo", "partitionNo" };
+        columns.AddRange(valueFieldNames);
+        columns.Add("ValidationRemark");
+
+        var rows = flaggedRows.Select(fr =>
+        {
+            var (row, issues) = fr;
+            var rowData = new Dictionary<string, object?>
+            {
+                ["wardNo"] = row.Cells.GetValueOrDefault("wardNo"),
+                ["propertyNo"] = row.Cells.GetValueOrDefault("propertyNo"),
+                ["partitionNo"] = row.Cells.GetValueOrDefault("partitionNo"),
+            };
+            foreach (var field in valueFieldNames)
+                rowData[field] = row.Cells.GetValueOrDefault(field);
+            rowData["ValidationRemark"] = string.Join("; ", issues);
+            return rowData;
+        }).ToList();
+
+        return new ExcelValidationResultDto
+        {
+            Columns = columns,
+            Rows = rows,
+            TotalRows = excelRows.Count,
+            FlaggedRowCount = flaggedRows.Count
+        };
     }
 
     public async Task<PagedResult<UpdateHistoryDto>> GetUpdateHistoryAsync(
@@ -941,16 +1182,22 @@ public class CommonDetailsService : ICommonDetailsService
             from h in _historyRepo.GetQueryable()
             join m in _masterRepo.GetQueryable() on h.BulkUpdateMasterId equals m.Id into mj
             from m in mj.DefaultIfEmpty()
-            join pm in _propertyRepo.GetQueryable() on h.PropertyId equals (long)pm.Id into pmj
+            join pm in _propertyRepo.GetQueryable() on h.PropertyId equals pm.Id into pmj
             from pm in pmj.DefaultIfEmpty()
             join w in _wardRepo.GetQueryable()
                 on (pm != null ? (int?)pm.WardId : null) equals (int?)w.Id into wj
             from w in wj.DefaultIfEmpty()
-            join u in _userRepo.GetQueryable()                
-                on(h.UpdatedBy ?? h.CreatedBy) equals(int ?)u.Id into uj
+            join u in _userRepo.GetQueryable()
+                on(h.CreatedBy ?? h.UpdatedBy) equals(int ?)u.Id into uj
             from u in uj.DefaultIfEmpty()
-            select new { h, m, pm, w, u };
+            join a in _activityRepo.GetQueryable() on h.ActivityId equals a.Id into aj
+            from a in aj.DefaultIfEmpty()
+            select new { h, m, pm, w, u, a };
 
+        if (request.Id.HasValue)
+            query = query.Where(x => x.h.Id == request.Id.Value);
+        if (request.ActivityId.HasValue)
+            query = query.Where(x => x.h.ActivityId == request.ActivityId.Value);
         if (!string.IsNullOrWhiteSpace(request.UpdateName))
             query = query.Where(x => x.m != null && x.m.UpdateName == request.UpdateName);
         if (!string.IsNullOrWhiteSpace(request.WardNo))
@@ -959,10 +1206,24 @@ public class CommonDetailsService : ICommonDetailsService
             query = query.Where(x => x.pm != null && x.pm.PropertyNo == request.PropertyNo);
         if (!string.IsNullOrWhiteSpace(request.PartitionNo))
             query = query.Where(x => x.pm != null && x.pm.PartitionNo == request.PartitionNo);
+        if (!string.IsNullOrWhiteSpace(request.Property))
+        {
+            var propertyTerm = request.Property.Trim();
+            query = query.Where(x =>
+                (((x.w != null ? x.w.WardNo : null) ?? "") + "-" +
+                 ((x.pm != null ? x.pm.PropertyNo : null) ?? "") + "-" +
+                 ((x.pm != null ? x.pm.PartitionNo : null) ?? "")).Contains(propertyTerm));
+        }
         if (!string.IsNullOrWhiteSpace(request.UpdatedColumns))
             query = query.Where(x => x.h.UpdatedColumns != null && x.h.UpdatedColumns.Contains(request.UpdatedColumns));
-        if (!string.IsNullOrWhiteSpace(request.Username))
-            query = query.Where(x => x.u != null && x.u.UserName == request.Username);
+        if (request.IsActive.HasValue)
+            query = query.Where(x => x.h.IsActive == request.IsActive.Value);
+        if (!string.IsNullOrWhiteSpace(request.DoneBy))
+            query = query.Where(x => x.u != null && x.u.UserName == request.DoneBy);
+        if (!string.IsNullOrWhiteSpace(request.ActivityType))
+            query = query.Where(x => x.a != null && x.a.ActivityType == request.ActivityType);
+        if (!string.IsNullOrWhiteSpace(request.ActivityStatus))
+            query = query.Where(x => x.a != null && x.a.ActivityStatus == request.ActivityStatus);
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
@@ -973,11 +1234,12 @@ public class CommonDetailsService : ICommonDetailsService
                  ((x.pm != null ? x.pm.PartitionNo : null) ?? "")).Contains(term)
                 || (x.m != null && x.m.UpdateName != null && x.m.UpdateName.Contains(term))
                 || (x.h.UpdatedColumns != null && x.h.UpdatedColumns.Contains(term))
-                || (x.h.Remarks != null && x.h.Remarks.Contains(term))
+                || (x.a != null && x.a.Remarks != null && x.a.Remarks.Contains(term))
+                || (x.a != null && x.a.ActivityRemark != null && x.a.ActivityRemark.Contains(term))
                 || (x.u != null && x.u.UserName != null && x.u.UserName.Contains(term)));
         }
 
-        query = query.OrderByDescending(x => x.h.UpdatedDate ?? x.h.CreatedDate).ThenByDescending(x => x.h.Id);
+        query = query.OrderByDescending(x => x.h.CreatedDate ?? x.h.UpdatedDate).ThenByDescending(x => x.h.Id);
 
         var totalCount = await query.CountAsync(ct);
 
@@ -999,6 +1261,7 @@ public class CommonDetailsService : ICommonDetailsService
             .Select(x => new UpdateHistoryDto
             {
                 Id = x.h.Id,
+                PropertyId = x.h.PropertyId,
                 UpdateName = x.m != null ? x.m.UpdateName : null,
                 WardNo = x.w != null ? x.w.WardNo : null,
                 PropertyNo = x.pm != null ? x.pm.PropertyNo : null,
@@ -1006,10 +1269,20 @@ public class CommonDetailsService : ICommonDetailsService
                 OldValue = x.h.OldValue,
                 NewValue = x.h.NewValue,
                 UpdatedColumns = x.h.UpdatedColumns,
-                Remarks = x.h.Remarks,
-                IPAddress = x.h.IpAddress,
-                Username = x.u != null ? x.u.UserName : null,
-                UpdatedDate = x.h.UpdatedDate ?? x.h.CreatedDate
+                IsActive = x.h.IsActive,
+                Remarks = x.a != null ? x.a.Remarks : null,
+                IPAddress = x.a != null ? x.a.IPAddress : null,
+                DoneBy = x.u != null ? x.u.UserName : null,
+                CreatedDate = x.h.CreatedDate ?? x.h.UpdatedDate,
+                ActivityId = x.h.ActivityId,
+                ActivityType = x.a != null ? x.a.ActivityType : null,
+                ActivityStatus = x.a != null ? x.a.ActivityStatus : null,
+                ActivityDoneBy = x.a != null ? x.a.DoneBy : null,
+                Records = x.a != null ? x.a.Records : null,
+                StartTime = x.a != null ? x.a.StartTime : null,
+                EndTime = x.a != null ? x.a.EndTime : null,
+                Duration = x.a != null ? x.a.Duration : null,
+                ActivityRemark = x.a != null ? x.a.ActivityRemark : null
             })
             .ToListAsync(ct);
 
@@ -1026,12 +1299,18 @@ public class CommonDetailsService : ICommonDetailsService
         // Export the full filtered set (ignore paging).
         var unpagedRequest = new UpdateHistoryQueryParameters
         {
+            Id = request.Id,
+            ActivityId = request.ActivityId,
             UpdateName = request.UpdateName,
             WardNo = request.WardNo,
             PropertyNo = request.PropertyNo,
             PartitionNo = request.PartitionNo,
+            Property = request.Property,
             UpdatedColumns = request.UpdatedColumns,
-            Username = request.Username,
+            IsActive = request.IsActive,
+            DoneBy = request.DoneBy,
+            ActivityType = request.ActivityType,
+            ActivityStatus = request.ActivityStatus,
             SearchTerm = request.SearchTerm,
             PageNumber = 1,
             PageSize = -1
@@ -1040,8 +1319,10 @@ public class CommonDetailsService : ICommonDetailsService
 
         var headers = new[]
         {
-            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo", "Property",
-            "OldValue", "NewValue", "UpdatedColumns", "Remarks", "IPAddress", "Username", "UpdatedDate"
+            "Id", "UpdateName", "PropertyId", "WardNo", "PropertyNo", "PartitionNo", "Property",
+            "OldValue", "NewValue", "UpdatedColumns", "IsActive", "Remarks", "IPAddress", "DoneBy", "CreatedDate",
+            "ActivityId", "ActivityType", "ActivityStatus", "ActivityDoneBy", "Records", "StartTime", "EndTime", "Duration",
+            "ActivityRemark"
         };
 
         using var workbook = new XLWorkbook();
@@ -1060,9 +1341,141 @@ public class CommonDetailsService : ICommonDetailsService
             var item = rows[r];
             object?[] values =
             {
-                item.Id, item.UpdateName, item.WardNo, item.PropertyNo, item.PartitionNo, item.Property,
-                item.OldValue, item.NewValue, item.UpdatedColumns, item.Remarks,
-                item.IPAddress, item.Username, item.UpdatedDate
+                item.Id, item.UpdateName, item.PropertyId, item.WardNo, item.PropertyNo, item.PartitionNo, item.Property,
+                item.OldValue, item.NewValue, item.UpdatedColumns, item.IsActive, item.Remarks,
+                item.IPAddress, item.DoneBy, item.CreatedDate,
+                item.ActivityId, item.ActivityType, item.ActivityStatus, item.ActivityDoneBy,
+                item.Records, item.StartTime, item.EndTime, item.Duration,
+                item.ActivityRemark
+            };
+            for (var c = 0; c < values.Length; c++)
+            {
+                var v = values[c] is string s && s.Length > 0 && "=+-@".Contains(s[0]) ? "'" + s : values[c];
+                SetCellValue(worksheet.Cell(r + 2, c + 1), v);
+            }
+        }
+
+        worksheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<PagedResult<UpdateActivityDto>> GetUpdateActivityAsync(
+        UpdateActivityQueryParameters request, CancellationToken ct)
+    {
+        var query = _activityRepo.GetQueryable();
+
+        if (request.Id.HasValue)
+            query = query.Where(a => a.Id == request.Id.Value);
+        if (!string.IsNullOrWhiteSpace(request.ActivityType))
+            query = query.Where(a => a.ActivityType == request.ActivityType);
+        if (!string.IsNullOrWhiteSpace(request.ActivityStatus))
+            query = query.Where(a => a.ActivityStatus == request.ActivityStatus);
+        if (request.CreatedDateFrom.HasValue)
+            query = query.Where(a => a.DateAndTime >= request.CreatedDateFrom.Value);
+        if (request.CreatedDateTo.HasValue)
+            query = query.Where(a => a.DateAndTime <= request.CreatedDateTo.Value);
+        if (!string.IsNullOrWhiteSpace(request.DoneBy))
+            query = query.Where(a => a.DoneBy == request.DoneBy);
+        if (!string.IsNullOrWhiteSpace(request.Remarks))
+            query = query.Where(a => a.Remarks != null && a.Remarks.Contains(request.Remarks));
+        if (!string.IsNullOrWhiteSpace(request.ActivityRemark))
+            query = query.Where(a => a.ActivityRemark != null && a.ActivityRemark.Contains(request.ActivityRemark));
+
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var term = request.SearchTerm.Trim();
+            query = query.Where(a =>
+                (a.UpdateName != null && a.UpdateName.Contains(term))
+                || (a.DoneBy != null && a.DoneBy.Contains(term))
+                || (a.Remarks != null && a.Remarks.Contains(term))
+                || (a.ActivityRemark != null && a.ActivityRemark.Contains(term)));
+        }
+
+        query = query.OrderByDescending(a => a.DateAndTime).ThenByDescending(a => a.Id);
+
+        var totalCount = await query.CountAsync(ct);
+
+        int pageNumber, pageSize;
+        if (request.PageSize == -1)
+        {
+            pageNumber = 1;
+            pageSize = totalCount > 0 ? totalCount : 1;
+        }
+        else
+        {
+            pageNumber = request.PageNumber;
+            pageSize = request.PageSize;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
+        var items = await query.Select(a => new UpdateActivityDto
+        {
+            Id = a.Id,
+            ActivityType = a.ActivityType,
+            ActivityStatus = a.ActivityStatus,
+            CreatedDate = a.DateAndTime,
+            Records = a.Records,
+            IPAddress = a.IPAddress,
+            Remarks = a.Remarks,
+            UpdateName = a.UpdateName,
+            DoneBy = a.DoneBy,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            Duration = a.Duration,
+            ActivityRemark = a.ActivityRemark
+        }).ToListAsync(ct);
+
+        return new PagedResult<UpdateActivityDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<byte[]> ExportUpdateActivityToExcelAsync(
+        UpdateActivityQueryParameters request, CancellationToken ct)
+    {
+        // Export the full filtered set (ignore paging).
+        var unpagedRequest = new UpdateActivityQueryParameters
+        {
+            Id = request.Id,
+            ActivityType = request.ActivityType,
+            ActivityStatus = request.ActivityStatus,
+            CreatedDateFrom = request.CreatedDateFrom,
+            CreatedDateTo = request.CreatedDateTo,
+            DoneBy = request.DoneBy,
+            Remarks = request.Remarks,
+            ActivityRemark = request.ActivityRemark,
+            SearchTerm = request.SearchTerm,
+            PageNumber = 1,
+            PageSize = -1
+        };
+        var paged = await GetUpdateActivityAsync(unpagedRequest, ct);
+
+        var headers = new[]
+        {
+            "Id", "ActivityType", "ActivityStatus", "CreatedDate", "Records", "IPAddress",
+            "Remarks", "UpdateName", "DoneBy", "StartTime", "EndTime", "Duration", "ActivityRemark"
+        };
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("UpdateActivity");
+
+        for (var c = 0; c < headers.Length; c++)
+        {
+            var cell = worksheet.Cell(1, c + 1);
+            cell.Value = headers[c];
+            cell.Style.Font.Bold = true;
+        }
+
+        var rows = paged.Items.ToList();
+        for (var r = 0; r < rows.Count; r++)
+        {
+            var item = rows[r];
+            object?[] values =
+            {
+                item.Id, item.ActivityType, item.ActivityStatus, item.CreatedDate,
+                item.Records, item.IPAddress, item.Remarks, item.UpdateName, item.DoneBy,
+                item.StartTime, item.EndTime, item.Duration, item.ActivityRemark
             };
             for (var c = 0; c < values.Length; c++)
             {

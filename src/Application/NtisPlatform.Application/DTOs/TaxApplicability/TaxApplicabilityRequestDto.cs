@@ -13,9 +13,9 @@ public class TaxApplicabilityRequestDto : BaseQueryParameters
     public int PropertyId { get; set; }
 
     /// <summary>
-    /// Financial Year identifier
+    /// Assessment Year Range identifier
     /// </summary>
-    public int FinancialYearId { get; set; }
+    public int AssessmentYearRangeId { get; set; }
 
     /// <summary>
     /// Type of Use identifier (from PTIS.TypeOfUseMaster)

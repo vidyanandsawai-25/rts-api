@@ -24,8 +24,8 @@ public class ConfigValueMasterDtoValidationTests
             ModuleId = 3,
             Value = "Test Configuration Value",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
-            UpdatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Assert

@@ -50,6 +50,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
     public DbSet<WardEntity> WardMaster { get; set; } = null!;
+    public DbSet<TaxZoningRangeEntity> TaxZoningRange { get; set; } = null!;
+    public DbSet<ULBDocumentTypeEntity> ULBDocumentType { get; set; } = null!;
+    public DbSet<ULBDocumentEntity> ULBDocument { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<PropertyRuleEvaluationMasterEntity> PropertyRuleEvaluationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
@@ -158,6 +161,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateMasterEntity> BulkUpdateMasters { get; set; } = null!;
     public DbSet<BulkUpdateFieldConfigEntity> BulkUpdateFieldConfigs { get; set; } = null!;
     public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
+    public DbSet<BulkUpdateActivityEntity> BulkUpdateActivity { get; set; } = null!;
     public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
 
@@ -693,6 +697,101 @@ public class ApplicationDbContext : DbContext
                 .WithOne(a => a.Ward)
                 .HasForeignKey(a => a.WardId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxZoningRange configuration
+        modelBuilder.Entity<TaxZoningRangeEntity>(entity =>
+        {
+            entity.ToTable("TaxZoningRange", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.TaxZoneId).IsRequired();
+            entity.Property(e => e.FromPropertyNo).HasMaxLength(10);
+            entity.Property(e => e.ToPropertyNo).HasMaxLength(10);
+            entity.Property(e => e.AssignEntireWard).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ZoneDescription).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.Ward)
+                .WithMany()
+                .HasForeignKey(e => e.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxZone)
+                .WithMany()
+                .HasForeignKey(e => e.TaxZoneId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.WardId)
+                .HasDatabaseName("IX_TaxZoningRange_Ward")
+                .HasFilter("[MarkedForDeletion] = 0");
+
+            entity.HasIndex(e => new { e.WardId, e.TaxZoneId })
+                .HasDatabaseName("IX_TaxZoningRange_WardZone")
+                .HasFilter("[MarkedForDeletion] = 0");
+        });
+
+        // ULBDocumentType configuration
+        modelBuilder.Entity<ULBDocumentTypeEntity>(entity =>
+        {
+            entity.ToTable("ULBDocumentType", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DocumentTypeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => e.DocumentTypeCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_ULBDocumentType_DocumentTypeCode");
+        });
+
+        // ULBDocument configuration
+        modelBuilder.Entity<ULBDocumentEntity>(entity =>
+        {
+            entity.ToTable("ULBDocument", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ULBDocumentTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.DocumentTitle).HasMaxLength(250);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.ULBDocumentType)
+                .WithMany()
+                .HasForeignKey(e => e.ULBDocumentTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.ULBDocumentTypeId)
+                .HasDatabaseName("IX_ULBDocument_ULBDocumentTypeId");
+
+            entity.HasIndex(e => e.IsLatest)
+                .HasDatabaseName("IX_ULBDocument_IsLatest")
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
@@ -3236,7 +3335,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.MasterKey).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DisplayValue).HasMaxLength(200);
             entity.Property(e => e.AssessmentYearRangeId).IsRequired();
@@ -3248,23 +3346,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            // Scoped by RuleDefinitionId (not just Tax+Year+Key): a tax â€” especially a HYBRID
-            // one â€” can have more than one "Choose from List" rule attached to it over time,
-            // and each rule's master-key vocabulary (e.g. OwnerType categories vs PropertyType
-            // ids) is its own independent namespace. Without RuleDefinitionId in the key, two
-            // unrelated rules attached to the same tax that happen to reuse a key string (e.g.
-            // both have an "Ex. Militry Soldier"/"Self" entry) at the same Assessment Year could
-            // never coexist, blocking Save/Seed with an opaque unique-constraint violation.
-            entity.HasIndex(e => new { e.TaxId, e.RuleDefinitionId, e.AssessmentYearRangeId, e.MasterKey })
+            // Natural key is (Tax, Year, MasterKey). RuleDefinitionId was previously part of this
+            // key so a tax could hold mapping sets from several rules at once; that is no longer
+            // supported — a tax's mappings belong to the tax, and switching its rule no longer
+            // leaves a second, invisible set behind. One consequence to be aware of: two rules
+            // whose master-key vocabularies overlap can no longer both be configured on the same
+            // tax at the same year.
+            entity.HasIndex(e => new { e.TaxId, e.AssessmentYearRangeId, e.MasterKey })
                   .IsUnique()
-                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Rule_Year_Key");
+                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Year_Key");
             entity.HasOne(e => e.Tax)
                   .WithMany()
                   .HasForeignKey(e => e.TaxId)
-                  .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.RuleDefinition)
-                  .WithMany()
-                  .HasForeignKey(e => e.RuleDefinitionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -3275,7 +3368,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.ConditionsJson).IsRequired().HasColumnType("nvarchar(max)");
             entity.Property(e => e.AssessmentYearRangeId);
@@ -3304,10 +3396,6 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.ReferenceTax)
                   .WithMany()
                   .HasForeignKey(e => e.ReferenceTaxId)
-                  .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.RuleDefinition)
-                  .WithMany()
-                  .HasForeignKey(e => e.RuleDefinitionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -4015,7 +4103,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200).HasColumnName("GroupName");
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
@@ -4048,18 +4136,36 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
         });
 
+        modelBuilder.Entity<BulkUpdateActivityEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateActivity", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ActivityStatus).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.DateAndTime).IsRequired().HasColumnName("CreatedDateTime").HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.Records).HasColumnName("RecordCount");
+            entity.Property(e => e.IPAddress).HasColumnName("ClientIpAddress").HasMaxLength(100);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.UpdateName).HasColumnName("GroupName").HasMaxLength(200);
+            entity.Property(e => e.DoneBy).HasColumnName("ExecutedBy").HasMaxLength(200);
+            entity.Property(e => e.StartTime).HasColumnName("StartDateTime").HasColumnType("datetime");
+            entity.Property(e => e.EndTime).HasColumnName("EndDateTime").HasColumnType("datetime");
+            entity.Property(e => e.Duration).HasColumnName("DurationInSeconds");
+            entity.Property(e => e.ActivityRemark).HasMaxLength(1000);
+        });
+
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
         {
             entity.ToTable("BulkUpdateHistory", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityId).HasColumnName("ActivityID").IsRequired();
             entity.Property(e => e.BulkUpdateMasterId).IsRequired();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.OldValue).HasMaxLength(4000);
+            entity.Property(e => e.NewValue).HasMaxLength(4000);
+            entity.Property(e => e.UpdatedColumns).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
@@ -4070,31 +4176,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.BulkUpdateMasterId)
                 .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateMaster")
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<BulkUpdateActivityEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ActivityId)
+                .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateActivity")
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
-            // Note: IsActive, CreatedBy, CreatedDate exist in the DB table but are not yet on
-            // BulkUpdateHistoryEntity — add those properties to the entity to map them here.
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.BulkUpdateMasterId).IsRequired();
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
+            entity.HasIndex(e => e.ActivityId).HasDatabaseName("IX_BulkUpdateHistory_ActivityID");
         });
 
         modelBuilder.Entity<PropertyTaxJobEntity>(entity =>
@@ -4183,46 +4272,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.JobId).HasDatabaseName("IX_PropertyTaxJobDetail_JobId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyTaxJobDetail_PropertyId");
             entity.HasIndex(e => new { e.JobId, e.Status }).HasDatabaseName("IX_PropertyTaxJobDetail_JobId_Status");
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasOne<BulkUpdateMasterEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.BulkUpdateMasterId)
-                .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateMaster")
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
-            // Note: IsActive, CreatedBy, CreatedDate exist in the DB table but are not yet on
-            // BulkUpdateHistoryEntity — add those properties to the entity to map them here.
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.BulkUpdateMasterId).IsRequired();
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
 
         // ApplyTaxesMaster configuration
@@ -7599,6 +7648,40 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+        });
+
+        // MergeDetails configuration
+        modelBuilder.Entity<MergeDetailEntity>(entity =>
+        {
+            entity.ToTable("MergeDetails", "GSMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd().UseIdentityColumn(1, 1);
+            entity.Property(e => e.PropertyMapDetailId).IsRequired();
+            entity.Property(e => e.OwnerName).HasMaxLength(1000).IsUnicode(true);
+            entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000).IsUnicode(false);
+            entity.Property(e => e.OccupierName).HasMaxLength(1000).IsUnicode(true);
+            entity.Property(e => e.OccupierNameEnglish).HasMaxLength(1000).IsUnicode(false);
+            entity.Property(e => e.MobileNo).HasMaxLength(13).IsUnicode(false);
+            entity.Property(e => e.Address).HasMaxLength(500).IsUnicode(true);
+            entity.Property(e => e.AddressEnglish).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.BuilderName).HasMaxLength(200).IsUnicode(true);
+            entity.Property(e => e.BuilderNameEnglish).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.FlatOrShopNo).HasMaxLength(100).IsUnicode(true);
+            entity.Property(e => e.FlatOrShopNoEnglish).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.FlatOrShopName).HasMaxLength(200).IsUnicode(true);
+            entity.Property(e => e.FlatOrShopNameEnglish).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired();
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime2(0)").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).IsRequired(false).HasColumnType("datetime2(0)");
+
+            // Foreign key
+            entity.HasOne(e => e.PropertyMapDetail)
+                .WithOne(e => e.MergeDetail)
+                .HasForeignKey<MergeDetailEntity>(e => e.PropertyMapDetailId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MergeDetails_PropertyMapDetail");
+
         });
     }
 }

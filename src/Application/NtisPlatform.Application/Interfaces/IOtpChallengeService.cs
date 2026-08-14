@@ -21,7 +21,7 @@ public static class OtpChallengePurpose
 /// to the client — only its hash is persisted server-side. The one-time code itself is never
 /// returned here; it was already sent to the user via email/SMS.
 /// </summary>
-public sealed record OtpChallengeResult(string ChallengeId, DateTime ExpiresAtUtc);
+public sealed record OtpChallengeResult(string ChallengeId, DateTime ExpiresAt);
 
 /// <summary>
 /// Why an OTP verification attempt did not succeed.

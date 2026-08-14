@@ -17,10 +17,10 @@ public class LeaseRentBillTransactionDtoTests
     [Fact]
     public void LeaseRentBillTransactionDto_PropertiesGetAndSetCorrectly()
     {
-        var paymentDate = DateTime.UtcNow;
-        var cancelledDate = DateTime.UtcNow.AddDays(-1);
-        var chequeDate = DateTime.UtcNow.AddDays(-2);
-        var createdDate = DateTime.UtcNow.AddDays(-10);
+        var paymentDate = DateTime.Now;
+        var cancelledDate = DateTime.Now.AddDays(-1);
+        var chequeDate = DateTime.Now.AddDays(-2);
+        var createdDate = DateTime.Now.AddDays(-10);
         var dto = new LeaseRentBillTransactionDto
         {
             Id = 1,
@@ -137,7 +137,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -155,7 +155,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -176,7 +176,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -200,7 +200,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -221,7 +221,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 1999,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -245,7 +245,7 @@ public class LeaseRentBillTransactionDtoTests
             TotalMonthlyRentAmount = -1m,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -268,7 +268,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 0m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -289,7 +289,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 0.01m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -307,7 +307,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Bitcoin",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -328,7 +328,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = string.Empty,
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success"
         };
 
@@ -369,7 +369,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success",
             PayerMobile = "abc123"
         };
@@ -392,7 +392,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success",
             PayerMobile = new string('9', 21)
         };
@@ -414,7 +414,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success",
             PayerEmail = "not-an-email"
         };
@@ -436,7 +436,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Success",
             PayerEmail = new string('a', 95) + "@test.com"
         };
@@ -458,7 +458,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = "Unknown"
         };
 
@@ -479,7 +479,7 @@ public class LeaseRentBillTransactionDtoTests
             FinanceYear = 2025,
             PaidAmount = 100m,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PaymentStatus = string.Empty
         };
 

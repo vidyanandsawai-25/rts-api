@@ -17,7 +17,7 @@ public class AssetRoomWiseSubmissionDetailsDtoTests
     [Fact]
     public void AssetRoomWiseSubmissionDetailsDto_PropertiesGetAndSetCorrectly()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var dto = new AssetRoomWiseSubmissionDetailsDto
         {
             Id = 1,

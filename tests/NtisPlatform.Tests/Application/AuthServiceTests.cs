@@ -231,7 +231,7 @@ public class AuthServiceTests
             TwoFactorEnabled = true
         };
 
-        var expiresAt = DateTime.UtcNow.AddMinutes(5);
+        var expiresAt = DateTime.Now.AddMinutes(5);
 
         _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
@@ -248,7 +248,7 @@ public class AuthServiceTests
         Assert.True(result.Success);
         Assert.True(result.RequiresTwoFactor);
         Assert.Equal("opaque-challenge-id", result.ChallengeId);
-        Assert.Equal(expiresAt, result.ChallengeExpiresAtUtc);
+        Assert.Equal(expiresAt, result.ChallengeExpiresAt);
         Assert.Null(result.Token);
         Assert.Null(result.RefreshToken);
 

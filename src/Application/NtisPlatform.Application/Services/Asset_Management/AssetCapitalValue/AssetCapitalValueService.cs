@@ -109,7 +109,7 @@ public partial class AssetCapitalValueService : IAssetCapitalValueService
         if (details != null)
         {
             details.CapitalValue = capitalValue;
-            details.UpdatedDate = DateTime.UtcNow;
+            details.UpdatedDate = DateTime.Now;
         }
     }
 }

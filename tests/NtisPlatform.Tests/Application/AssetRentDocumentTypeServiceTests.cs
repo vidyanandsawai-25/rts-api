@@ -48,7 +48,7 @@ public class AssetRentDocumentTypeServiceTests
     [Fact]
     public void EntityAndDtos_Properties_GetSet_WorksCorrectly()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var entity = new AssetRentDocumentTypeEntity
         {
             Id = 1,

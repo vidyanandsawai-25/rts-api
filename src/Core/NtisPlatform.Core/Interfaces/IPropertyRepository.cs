@@ -59,6 +59,7 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of generated property structures or null if validation fails</returns>
     Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
+    Task<MaxPartitionNoDto?> GetMaxPartition(int wardId, string propertyNo, CancellationToken cancellationToken = default);
 
     Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default);
     Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default);

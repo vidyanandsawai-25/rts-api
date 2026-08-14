@@ -26,7 +26,7 @@ public class AssetPhotoEntityTests
     [Fact]
     public void InternalConstructor_SetsProperties()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var entity = new AssetPhotoEntity(10, 2, 100, true, 1, "Remarks", true, now, 5);
 
         Assert.Equal(10, entity.AssetId);
@@ -44,7 +44,7 @@ public class AssetPhotoEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = AssetPhotoEntity.Create(10, 2);
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

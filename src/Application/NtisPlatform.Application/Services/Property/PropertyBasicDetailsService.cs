@@ -1,4 +1,5 @@
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -22,17 +23,23 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
     private readonly IMasterRepository _masterRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPropertyMutationInvariantPolicy _invariantPolicy;
+    private readonly ITaxZoningRangeService _taxZoningRangeService;
+    private readonly ICurrentUserService _currentUserService;
 
     public PropertyBasicDetailsService(
         IPropertyBasicDetailsRepository repository,
         IMasterRepository masterRepository,
         IUnitOfWork unitOfWork,
-        IPropertyMutationInvariantPolicy invariantPolicy)
+        IPropertyMutationInvariantPolicy invariantPolicy,
+        ITaxZoningRangeService taxZoningRangeService,
+        ICurrentUserService currentUserService)
     {
         _repository = repository;
         _masterRepository = masterRepository;
         _unitOfWork = unitOfWork;
         _invariantPolicy = invariantPolicy;
+        _taxZoningRangeService = taxZoningRangeService;
+        _currentUserService = currentUserService;
     }
 
     public Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
@@ -43,6 +50,8 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
         UpdatePropertyBasicDetailsDto dto,
         CancellationToken cancellationToken = default)
     {
+        var userId = _currentUserService.GetCurrentUserId();
+
         // Step 1: Load the property. A missing property is reported as null (→ 404).
         var property = await _repository.GetActivePropertyAsync(propertyId, cancellationToken);
         if (property == null) return null;
@@ -52,6 +61,11 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
 
         // Step 3: Validate foreign keys (business rule). Messages preserved for the API contract.
         await ValidateForeignKeysAsync(dto, cancellationToken);
+
+        // Capture old zone before any field is overwritten — needed for reconciliation below.
+        var oldTaxZoneId = property.TaxZoneId;
+        var propertyNo = property.PropertyNo ?? string.Empty;
+        var wardId = property.WardId;
 
         // Single timestamp: every entity field in this operation uses the same value.
         var now = DateTime.Now;
@@ -83,7 +97,24 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
             throw;
         }
 
-        // Step 8: Return updated data via the read path (AsNoTracking projection).
+        // Step 8: If the tax zone changed, reconcile TaxZoningRange — trim/split the old range
+        // and create a new single-property range for the new zone. Runs outside the main
+        // transaction so a reconciliation failure doesn't roll back the property save.
+        if (dto.TaxZoneId != oldTaxZoneId && !string.IsNullOrWhiteSpace(propertyNo))
+        {
+            try
+            {
+                await _taxZoningRangeService.ReconcilePropertyZoneChangeAsync(
+                    propertyId, wardId, propertyNo, dto.TaxZoneId, userId, cancellationToken);
+            }
+            catch
+            {
+                // Gracefully catch and swallow any reconciliation exceptions so a bookkeeping 
+                // failure does not rollback or fail the successful property details save.
+            }
+        }
+
+        // Step 9: Return updated data via the read path (AsNoTracking projection).
         return await _repository.GetBasicDetailsAsync(propertyId, cancellationToken);
     }
 

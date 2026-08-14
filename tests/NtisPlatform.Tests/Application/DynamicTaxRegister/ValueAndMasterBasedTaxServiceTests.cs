@@ -174,7 +174,6 @@ public class MasterBasedTaxServiceTests
     private static SaveMasterMappingRequest Request(params TaxMasterMappingDto[] rows) => new()
     {
         TaxId = TaxId,
-        RuleDefinitionId = RuleDefinitionId,
         Rows = [.. rows],
     };
 
@@ -300,18 +299,17 @@ public class MasterBasedTaxServiceTests
         context.TaxMasterMappings.AddRange(
             new TaxMasterMappingEntity
             {
-                Id = 1, TaxId = TaxId, RuleDefinitionId = RuleDefinitionId, MasterKey = "12",
+                Id = 1, TaxId = TaxId, MasterKey = "12",
                 AssessmentYearRangeId = YearRangeId, ResultMode = "FIXED", ResultBase = "NONE", ResultValue = 100m,
             },
             new TaxMasterMappingEntity
             {
-                Id = 2, TaxId = 999, RuleDefinitionId = RuleDefinitionId, MasterKey = "12",
+                Id = 2, TaxId = 999, MasterKey = "12",
                 AssessmentYearRangeId = YearRangeId, ResultMode = "FIXED", ResultBase = "NONE", ResultValue = 100m,
             });
         await context.SaveChangesAsync();
 
-        var page = await service.GetMappingsAsync(
-            TaxId, assessmentYearRangeId: null, pageNumber: 1, pageSize: 10, ruleDefinitionId: RuleDefinitionId);
+        var page = await service.GetMappingsAsync(TaxId, assessmentYearRangeId: null, pageNumber: 1, pageSize: 10);
 
         Assert.Equal(1, page.TotalCount);
         Assert.All(page.Items, r => Assert.Equal(TaxId, r.TaxId));

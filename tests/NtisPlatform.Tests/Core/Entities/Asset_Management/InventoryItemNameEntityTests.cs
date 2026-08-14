@@ -14,7 +14,7 @@ public class InventoryItemNameEntityTests
     [Fact]
     public void Properties_RoundTrip()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var entity = new InventoryItemNameEntity
         {
             Id = 1,
@@ -60,7 +60,7 @@ public class InventoryItemNameEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = new InventoryItemNameEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

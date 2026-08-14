@@ -186,9 +186,9 @@ namespace NtisPlatform.Application.Services.Asset_Management
                     .Where(y => y.HasValue && y.Value > 0)
                     .Min();
 
-                if (oldestYearParsed.HasValue && oldestYearParsed.Value <= DateTime.UtcNow.Year)
+                if (oldestYearParsed.HasValue && oldestYearParsed.Value <= DateTime.Now.Year)
                 {
-                    dto.AssetLife = DateTime.UtcNow.Year - oldestYearParsed.Value;
+                    dto.AssetLife = DateTime.Now.Year - oldestYearParsed.Value;
                 }
                 else
                 {
@@ -321,7 +321,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
             try
             {
                 entity.IsActive = false;
-                entity.CreatedDate = DateTime.UtcNow;
+                entity.CreatedDate = DateTime.Now;
 
                 var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
                 if (!validationResult.IsValid)
@@ -369,7 +369,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                             FieldName = field.FieldName,
                             FieldValue = field.FieldValue,
                             CreatedBy = createDto.CreatedBy,
-                            CreatedDate = DateTime.UtcNow,
+                            CreatedDate = DateTime.Now,
                             IsActive = false,
                             MarkedForDeletion = false,
                             MarkedForDeletionDate = null
@@ -582,7 +582,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                 var oldTypeId = entity.AssetTypeId;
 
                 _mapper.Map(updateDto, entity);
-                entity.UpdatedDate = DateTime.UtcNow;
+                entity.UpdatedDate = DateTime.Now;
 
                 var assetNoRegenerated = false;
                 if (oldCategoryId != entity.AssetCategoryId || oldTypeId != entity.AssetTypeId || string.IsNullOrWhiteSpace(entity.AssetNo))
@@ -643,7 +643,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                         InChargeEmail       = updateDto.InChargeEmail,
                         IsActive = true,
                         CreatedBy = updateDto.UpdatedBy,
-                        CreatedDate = DateTime.UtcNow,
+                        CreatedDate = DateTime.Now,
                         MarkedForDeletion = false,
                         MarkedForDeletionDate = null
                     };
@@ -705,7 +705,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                             targetFieldValue.IsActive = true;
                             targetFieldValue.MarkedForDeletion = false;
                             targetFieldValue.MarkedForDeletionDate = null;
-                            targetFieldValue.UpdatedDate = DateTime.UtcNow;
+                            targetFieldValue.UpdatedDate = DateTime.Now;
                             targetFieldValue.UpdatedBy = updateDto.UpdatedBy;
                             await _fieldValueRepository.UpdateAsync(targetFieldValue, cancellationToken);
                         }
@@ -718,7 +718,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                                 FieldName = fieldDto.FieldName,
                                 FieldValue = fieldDto.FieldValue,
                                 CreatedBy = updateDto.UpdatedBy,
-                                CreatedDate = DateTime.UtcNow,
+                                CreatedDate = DateTime.Now,
                                 IsActive = true,
                                 MarkedForDeletion = false,
                                 MarkedForDeletionDate = null
@@ -857,8 +857,8 @@ namespace NtisPlatform.Application.Services.Asset_Management
                     cancellationToken.ThrowIfCancellationRequested();
                     fieldValue.IsActive = false;
                     fieldValue.MarkedForDeletion = true;
-                    fieldValue.MarkedForDeletionDate = DateTime.UtcNow;
-                    fieldValue.UpdatedDate = DateTime.UtcNow;
+                    fieldValue.MarkedForDeletionDate = DateTime.Now;
+                    fieldValue.UpdatedDate = DateTime.Now;
                     await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
                 }
 
@@ -868,14 +868,14 @@ namespace NtisPlatform.Application.Services.Asset_Management
                 {
                     details.IsActive = false;
                     details.MarkedForDeletion = true;
-                    details.MarkedForDeletionDate = DateTime.UtcNow;
-                    details.UpdatedDate = DateTime.UtcNow;
+                    details.MarkedForDeletionDate = DateTime.Now;
+                    details.UpdatedDate = DateTime.Now;
                     await _detailsRepository.UpdateAsync(details, cancellationToken);
                 }
 
                 entity.MarkedForDeletion = true;
-                entity.MarkedForDeletionDate = DateTime.UtcNow;
-                entity.UpdatedDate = DateTime.UtcNow;
+                entity.MarkedForDeletionDate = DateTime.Now;
+                entity.UpdatedDate = DateTime.Now;
                 await _repository.DeleteAsync(entity, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -926,7 +926,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                 InChargeEmail       = dto.InChargeEmail,
                 IsActive       = true,
                 CreatedBy      = userId,
-                CreatedDate    = DateTime.UtcNow,
+                CreatedDate    = DateTime.Now,
                 MarkedForDeletion = false
             };
 
@@ -961,7 +961,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
             d.InChargeMobile      = dto.InChargeMobile;
             d.InChargeEmail       = dto.InChargeEmail;
             d.UpdatedBy      = userId;
-            d.UpdatedDate    = DateTime.UtcNow;
+            d.UpdatedDate    = DateTime.Now;
         }
 
         private async Task<PagedResult<AssetMasterDto>> GetAllInternalAsync(AssetMasterQueryParameters queryParameters, CancellationToken cancellationToken)
@@ -1186,7 +1186,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                     .GroupBy(x => x.ParentAssetId)
                     .ToDictionary(g => g.Key, g => g.Min(x => x.Year!.Value));
 
-                int currentYear = DateTime.UtcNow.Year;
+                int currentYear = DateTime.Now.Year;
                 foreach (var item in items)
                 {
                     if (imageMap.TryGetValue(item.Id, out var documentId))

@@ -161,15 +161,16 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
     /// </summary>
     public async Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
     {
-        var statuses = new[] { "ASSESSED", "UNASSESSED", "PARTIALLY_ASSESSED", "UNDER_UNASSESSED" };
-
         var results = await _context.PropertyAssessmentStatuses
             .AsNoTracking()
-            .Where(s => s.IsActive && statuses.Contains(s.StatusName.ToUpper()))
-            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
+            .Where(s => s.IsActive)
+            .Select(s => new { s.Id, s.StatusName })
             .ToListAsync(cancellationToken);
 
-        return results.ToDictionary(s => s.StatusName, s => s.Id);
+        return results
+            .Where(s => IsTrackedAssessmentStatus(s.StatusName))
+            .GroupBy(s => NormalizeStatusName(s.StatusName))
+            .ToDictionary(g => g.Key, g => g.First().Id);
     }
 
     /// <summary>
@@ -1107,13 +1108,31 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
 
     private async Task<Dictionary<string, int>> ReadAssessmentStatusIdsByNameAsync(CancellationToken cancellationToken)
     {
-        var statusNames = new[] { "ASSESSED", "UNASSESSED", "PARTIALLY_ASSESSED", "UNDER_UNASSESSED" };
-        return await _context.PropertyAssessmentStatuses
+        var statuses = await _context.PropertyAssessmentStatuses
             .AsNoTracking()
-            .Where(s => s.IsActive && statusNames.Contains(s.StatusName.ToUpper()))
-            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
-            .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
+            .Where(s => s.IsActive)
+            .Select(s => new { s.Id, s.StatusName })
+            .ToListAsync(cancellationToken);
+
+        return statuses
+            .Where(s => IsTrackedAssessmentStatus(s.StatusName))
+            .GroupBy(s => NormalizeStatusName(s.StatusName))
+            .ToDictionary(g => g.Key, g => g.First().Id);
     }
+
+    private static bool IsTrackedAssessmentStatus(string statusName)
+    {
+        var normalized = NormalizeStatusName(statusName);
+        return normalized is "ASSESSED"
+            or "UNASSESSED"
+            or "PARTIALLYASSESSED"
+            or "NEWLYASSESSEDFOUND"
+            or "UNDERUNASSESSED"
+            or "ASSESSMENTINPROCESS";
+    }
+
+    private static string NormalizeStatusName(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     private Task<int> GetInternalSurveyStageIdAsync(CancellationToken cancellationToken)
         => GetStageIdByNameAsync(InternalSurveyStageName, cancellationToken);

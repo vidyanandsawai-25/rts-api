@@ -30,7 +30,7 @@ public class SecurityAuditLogRepositoryTests
             EventType = "TwoFactorEnabled",
             UserId = 1,
             Success = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now
         };
 
         await repository.AddAsync(entry);
@@ -48,8 +48,8 @@ public class SecurityAuditLogRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new SecurityAuditLogRepository(context);
 
-        await repository.AddAsync(new SecurityAuditLogEntity { EventType = "A", Success = true, CreatedAt = DateTime.UtcNow });
-        await repository.AddAsync(new SecurityAuditLogEntity { EventType = "B", Success = false, CreatedAt = DateTime.UtcNow });
+        await repository.AddAsync(new SecurityAuditLogEntity { EventType = "A", Success = true, CreatedAt = DateTime.Now });
+        await repository.AddAsync(new SecurityAuditLogEntity { EventType = "B", Success = false, CreatedAt = DateTime.Now });
 
         var count = await context.SecurityAuditLogs.CountAsync();
         Assert.Equal(2, count);

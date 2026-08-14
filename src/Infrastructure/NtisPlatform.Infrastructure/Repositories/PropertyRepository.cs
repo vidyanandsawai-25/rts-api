@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Utilities;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -809,7 +811,38 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     }
 
+    public async Task<MaxPartitionNoDto?> GetMaxPartition(int wardId, string propertyNo, CancellationToken cancellationToken = default)
+    {
+        var buildingProperties = await (
+                    from pm in _context.PropertyMast
+                    join pcm in _context.PropertyCategoryMaster
+                        on pm.CategoryId equals pcm.Id
+                    join wm in _context.WardMaster
+                        on pm.WardId equals wm.Id
+                    where pm.WardId == wardId
+                          && pm.PropertyNo == propertyNo
+                          && pm.IsActive
+                          && !pm.MarkedForDeletion
+                          && wm.IsActive
+                          && pcm.IsActive
+                    select new MaxPartitionNoDto
+                    {
+                        WardNo = wm.WardNo,
+                        PropertyNo = pm.PropertyNo,
+                        Category = pcm.PropertyCategoryName,
+                        MaxPartitionNo = pm.PartitionNo
+                    }
+                ).ToListAsync(cancellationToken);
 
+                        var result = buildingProperties
+                            .OrderByDescending(
+                                x => x.MaxPartitionNo,
+                                NaturalStringComparer.Instance)
+                            .FirstOrDefault();
+
+        return result;
+
+    }
     public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
     {
         var amenityProperties = await (

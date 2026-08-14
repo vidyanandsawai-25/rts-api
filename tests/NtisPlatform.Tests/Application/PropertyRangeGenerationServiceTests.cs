@@ -826,7 +826,7 @@ namespace NtisPlatform.Tests.Application
                 WidthMtr = (double?)10.0m,
                 TotalAreaSqMtr = (double?)155.0m,
                 CreatedBy = 1,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>

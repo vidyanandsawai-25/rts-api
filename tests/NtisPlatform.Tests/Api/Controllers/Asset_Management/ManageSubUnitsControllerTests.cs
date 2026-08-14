@@ -230,7 +230,7 @@ public class ManageSubUnitsControllerTests
         await controller.CreateChildAsset(dto, CancellationToken.None);
 
         Assert.NotNull(capturedDto);
-        Assert.Equal(DateTime.UtcNow.Year.ToString(), capturedDto!.AssessmentYear);
+        Assert.Equal(DateTime.Now.Year.ToString(), capturedDto!.AssessmentYear);
     }
 
     [Fact]

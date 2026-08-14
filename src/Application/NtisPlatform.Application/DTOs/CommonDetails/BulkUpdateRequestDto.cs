@@ -14,4 +14,6 @@ public class BulkUpdateRequestDto
     [Required(ErrorMessage = "BulkUpdate_UpdateData_Required")]
     [MinLength(1, ErrorMessage = "BulkUpdate_UpdateData_Required")]
     public Dictionary<string, object?> UpdateData { get; set; } = [];
+
+    public string? Remarks { get; set; }
 }

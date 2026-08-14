@@ -4,43 +4,8 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// Response DTO for common workflow stage property details sub-grid.
 /// Shows all properties for a specific zone and workflow stage with new vs old property details comparison.
 /// </summary>
-public class SubGridPDDataDto
+public class SubGridPDDataDto : AutomationDashboardSubGridScopeDto
 {
-    /// <summary>
-    /// Workflow stage ID.
-    /// </summary>
-    public int WorkflowStageId { get; set; }
-
-    /// <summary>
-    /// Workflow stage name.
-    /// </summary>
-    public string WorkflowStageName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Zone ID
-    /// </summary>
-    public int ZoneId { get; set; }
-
-    /// <summary>
-    /// Zone name/division name
-    /// </summary>
-    public string ZoneName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Zone number from ZoneMaster.
-    /// </summary>
-    public string ZoneNo { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Ward ID when the sub-grid is scoped ward-wise.
-    /// </summary>
-    public int? WardId { get; set; }
-
-    /// <summary>
-    /// Ward number/name when the sub-grid is scoped ward-wise.
-    /// </summary>
-    public string? WardNo { get; set; }
-
     /// <summary>
     /// List of property details
     /// </summary>
@@ -55,13 +20,8 @@ public class SubGridPDDataDto
 /// <summary>
 /// Property details for common workflow stage sub-grid including new vs old comparison.
 /// </summary>
-public class SubGridPropertyDetailsDto
+public class SubGridPropertyDetailsDto : AutomationDashboardPropertyKeyDto
 {
-    /// <summary>
-    /// Property ID
-    /// </summary>
-    public int PropertyId { get; set; }
-
     /// <summary>
     /// Ward ID linked with the property.
     /// </summary>
@@ -156,22 +116,8 @@ public class SubGridPropertyDetailsDto
 /// <summary>
 /// Response DTO for pending Assessment properties that need QC checklist flags.
 /// </summary>
-public class PendingAssessmentSubGridPDDataDto
+public class PendingAssessmentSubGridPDDataDto : AutomationDashboardSubGridScopeDto
 {
-    public int WorkflowStageId { get; set; }
-
-    public string WorkflowStageName { get; set; } = string.Empty;
-
-    public int ZoneId { get; set; }
-
-    public string ZoneName { get; set; } = string.Empty;
-
-    public string ZoneNo { get; set; } = string.Empty;
-
-    public int? WardId { get; set; }
-
-    public string? WardNo { get; set; }
-
     public List<PendingAssessmentSubGridPropertyDetailsDto> Properties { get; set; } = new();
 
     public int TotalCount { get; set; }

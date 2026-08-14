@@ -806,7 +806,7 @@ public class SocietyDetailsEntityTests
     public void SocietyDetailsEntity_AllProperties_GetSet_WorksCorrectly()
     {
         // Arrange & Act
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var entity = new SocietyDetailsEntity
         {
             Id = 1,

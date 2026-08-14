@@ -19,13 +19,16 @@ public class AutomationDashboardGridResponseTests
         repository.Setup(x => x.ReadZonesAsync(null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<(int ZoneId, string ZoneName, string ZoneNo)> { (14, "Zone 14", "Z14") });
         repository.Setup(x => x.ReadStagePropertiesForZonesAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>(), It.IsAny<DashboardGridQueryParameters?>()))
-            .ReturnsAsync(new List<GeoSequencingStagePropertyProjection>());
+            .ReturnsAsync(new List<GeoSequencingStagePropertyProjection>
+            {
+                new() { PropertyId = 100, ZoneId = 14, AssessmentStatusId = 1, PartitionNo = "" }
+            });
         repository.Setup(x => x.ReadPropertyUsesForZonesAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>(), It.IsAny<DashboardGridQueryParameters?>()))
             .ReturnsAsync(new List<GeoSequencingPropertyUseProjection>());
         repository.Setup(x => x.ReadRegisteredCountsByZoneAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>(), It.IsAny<DashboardGridQueryParameters?>()))
             .ReturnsAsync(new Dictionary<int, int> { [14] = 10 });
         repository.Setup(x => x.ReadAssessmentStatusIdsByNameAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<string, int>());
+            .ReturnsAsync(new Dictionary<string, int> { ["ASSESSED"] = 1, ["UNASSESSED"] = 2 });
 
         var logger = new Mock<ILogger<GeoSequencingStageService>>();
         var service = new GeoSequencingStageService(repository.Object, logger.Object);
@@ -33,6 +36,8 @@ public class AutomationDashboardGridResponseTests
         var result = await service.GetGeoSequencingGridDataAsync(new DashboardGridQueryParameters { WorkflowStageId = 1 }, CancellationToken.None);
 
         Assert.Equal("Z14", result.Zones.Single().ZoneNo);
+        Assert.Equal(1, result.Zones.Single().AssessmentStatusBreakdown.Assessed.StatusId);
+        Assert.Equal(2, result.Zones.Single().AssessmentStatusBreakdown.Unassessed.StatusId);
     }
 
     [Fact]
@@ -57,6 +62,8 @@ public class AutomationDashboardGridResponseTests
         var result = await service.GetInternalSurveyGridDataAsync(new DashboardGridQueryParameters { WorkflowStageId = 2 }, CancellationToken.None);
 
         Assert.Equal("Z14", result.DivisionData.Single().ZoneNo);
+        Assert.Equal(1, result.DivisionData.Single().AssessedProperties.StatusId);
+        Assert.Equal(2, result.DivisionData.Single().UnassessedProperties.StatusId);
     }
 
     [Fact]
@@ -85,15 +92,20 @@ public class AutomationDashboardGridResponseTests
         repository.Setup(x => x.ReadPropertyUsesAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<CancellationToken>(), It.IsAny<DashboardGridQueryParameters>()))
             .ReturnsAsync(new List<DataEntryPropertyUseSourceProjection>());
         repository.Setup(x => x.ReadAssessmentStatusIdsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<string, int>());
+            .ReturnsAsync(new Dictionary<string, int> { ["ASSESSED"] = 1, ["UNASSESSED"] = 2 });
         repository.Setup(x => x.ReadAssessmentStatusCountsAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<CancellationToken>(), It.IsAny<DashboardGridQueryParameters>()))
-            .ReturnsAsync(new List<DataEntryAssessmentStatusCountProjection>());
+            .ReturnsAsync(new List<DataEntryAssessmentStatusCountProjection>
+            {
+                new() { ZoneId = 14, StatusId = 1, PropertyCount = 1, UnitsOnlyCount = 0 }
+            });
 
         var service = new DataEntryStageService(repository.Object, logger.Object);
 
         var result = await service.GetDataEntryGridDataAsync(new DashboardGridQueryParameters { WorkflowStageId = 3 }, CancellationToken.None);
 
         Assert.Equal("Z14", result.DivisionData.Single().ZoneNo);
+        Assert.Equal(1, result.DivisionData.Single().AssessmentStatusBreakdown.Assessed.StatusId);
+        Assert.Equal(2, result.DivisionData.Single().AssessmentStatusBreakdown.Unassessed.StatusId);
     }
 
     [Fact]

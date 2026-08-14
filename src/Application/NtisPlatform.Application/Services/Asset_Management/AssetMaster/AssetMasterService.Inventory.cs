@@ -94,7 +94,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                     InvoiceDate = batch.InvoiceDate,
                     InvoiceFileName = batch.InvoiceFileName,
                     PhotoFileName = batch.PhotoFileName,
-                    CreatedDate = batch.CreatedDate ?? DateTime.UtcNow,
+                    CreatedDate = batch.CreatedDate ?? DateTime.Now,
                     Names = new InventoryLookupNamesDto
                     {
                         InventoryType = categories.TryGetValue(batch.InventoryItemCategoryId, out var c) ? c : string.Empty,

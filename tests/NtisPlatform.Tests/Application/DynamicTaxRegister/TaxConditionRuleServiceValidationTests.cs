@@ -373,7 +373,7 @@ public class TaxConditionRuleServiceValidationTests
             DynamicTaxTestContext.ConditionRule(2, TaxId, sortOrder: 2));
         await h.Context.SaveChangesAsync();
 
-        var page = await h.Service.GetByTaxAsync(TaxId, ruleDefinitionId: null, pageNumber: 1, pageSize: 10);
+        var page = await h.Service.GetByTaxAsync(TaxId, pageNumber: 1, pageSize: 10);
 
         Assert.Equal([1, 2, 3], page.Items.Select(r => r.SortOrder));
     }
@@ -389,7 +389,7 @@ public class TaxConditionRuleServiceValidationTests
             DynamicTaxTestContext.ConditionRule(2, TaxId, sortOrder: 2, isActive: false));
         await h.Context.SaveChangesAsync();
 
-        var page = await h.Service.GetByTaxAsync(TaxId, ruleDefinitionId: null, pageNumber: 1, pageSize: 10);
+        var page = await h.Service.GetByTaxAsync(TaxId, pageNumber: 1, pageSize: 10);
 
         Assert.Equal(2, page.TotalCount);
     }
@@ -403,7 +403,7 @@ public class TaxConditionRuleServiceValidationTests
             DynamicTaxTestContext.ConditionRule(2, OtherTaxId, sortOrder: 1));
         await h.Context.SaveChangesAsync();
 
-        var page = await h.Service.GetByTaxAsync(TaxId, ruleDefinitionId: null, pageNumber: 1, pageSize: 10);
+        var page = await h.Service.GetByTaxAsync(TaxId, pageNumber: 1, pageSize: 10);
 
         Assert.Equal(1, page.TotalCount);
         Assert.All(page.Items, r => Assert.Equal(TaxId, r.TaxId));

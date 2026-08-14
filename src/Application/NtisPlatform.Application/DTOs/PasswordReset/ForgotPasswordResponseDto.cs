@@ -18,5 +18,5 @@ public class ForgotPasswordResponseDto
     /// <summary>
     /// UTC expiry of the OTP challenge. Only present when <see cref="ChallengeId"/> is present.
     /// </summary>
-    public DateTime? ChallengeExpiresAtUtc { get; set; }
+    public DateTime? ChallengeExpiresAt { get; set; }
 }

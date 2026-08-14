@@ -833,7 +833,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                     // Audit
                     IsActive    = false,               // activated when details are fully configured
                     CreatedBy   = dto.CreatedBy,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 };
 
                 await _assetRepository.AddAsync(childAsset, cancellationToken);
@@ -859,7 +859,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                         MinusYesNo     = false,
                         IsActive       = true,
                         CreatedBy      = dto.CreatedBy,
-                        CreatedDate    = DateTime.UtcNow
+                        CreatedDate    = DateTime.Now
                     };
                     await _roomWiseRepository.AddAsync(roomWiseDetail, cancellationToken);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -963,7 +963,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
 
             // Update audit fields
             existingAsset.UpdatedBy = dto.CreatedBy;
-            existingAsset.UpdatedDate = DateTime.UtcNow;
+            existingAsset.UpdatedDate = DateTime.Now;
 
             await _assetRepository.UpdateAsync(existingAsset, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -1055,7 +1055,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                 resolvedFloorDetail.BuiltUpAreaSqFeet  = builtupSqFt;
                 resolvedFloorDetail.IsRented           = dto.RentInformation != null;
                 resolvedFloorDetail.UpdatedBy          = dto.CreatedBy;
-                resolvedFloorDetail.UpdatedDate        = DateTime.UtcNow;
+                resolvedFloorDetail.UpdatedDate        = DateTime.Now;
 
                 await _floorDetailsRepository.UpdateAsync(resolvedFloorDetail, cancellationToken);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -1073,11 +1073,11 @@ public class ManageSubUnitsService : IManageSubUnitsService
                     SubFloorId        = dto.SubFloorId,
                     // Fall back to AssessmentYear (not the current real-world year) when construction
                     // year is omitted (e.g. Open Space submissions, where "construction year" doesn't
-                    // apply). Falling back to DateTime.UtcNow.Year made property age = AssessmentYear -
+                    // apply). Falling back to DateTime.Now.Year made property age = AssessmentYear -
                     // CurrentYear, which goes negative — and permanently fails CV calculation — for any
                     // assessment year before the current calendar year.
-                    ConstructionYear  = dto.ConstructionYear ?? dto.AssessmentYear ?? DateTime.UtcNow.Year.ToString(),
-                    AssessmentYear    = dto.AssessmentYear ?? DateTime.UtcNow.Year.ToString(),
+                    ConstructionYear  = dto.ConstructionYear ?? dto.AssessmentYear ?? DateTime.Now.Year.ToString(),
+                    AssessmentYear    = dto.AssessmentYear ?? DateTime.Now.Year.ToString(),
                     ConstructionTypeId = dto.ConstructionTypeId ?? 1,
                     TypeOfUseId       = dto.TypeOfUseId ?? 1,
                     SubTypeOfUseId    = dto.SubTypeOfUseId,
@@ -1088,7 +1088,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                     IsRented           = dto.RentInformation != null,
                     IsActive           = true,
                     CreatedBy          = dto.CreatedBy,
-                    CreatedDate        = DateTime.UtcNow
+                    CreatedDate        = DateTime.Now
                 };
 
                 await _floorDetailsRepository.AddAsync(resolvedFloorDetail, cancellationToken);
@@ -1182,7 +1182,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                         // Audit
                         IsActive = true,
                         CreatedBy = dto.CreatedBy,
-                        CreatedDate = DateTime.UtcNow
+                        CreatedDate = DateTime.Now
                     };
 
                     await _roomWiseRepository.AddAsync(newRoomWiseDetail, cancellationToken);
@@ -1202,7 +1202,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                                 Shape = offset.Shape ?? "Rectangle",
                                 IsActive = true,
                                 CreatedBy = dto.CreatedBy ?? 1,
-                                CreatedDate = DateTime.UtcNow
+                                CreatedDate = DateTime.Now
                             };
 
                             await _minusRepository.AddAsync(minusEntity, cancellationToken);
@@ -1275,7 +1275,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
 
                     // Rent Information
                     LeaseType         = leaseType,                  // NOT NULL in new schema
-                    LeaseStartDate    = dto.RentInformation.LeaseStart ?? DateTime.UtcNow,
+                    LeaseStartDate    = dto.RentInformation.LeaseStart ?? DateTime.Now,
                     LeaseEndDate      = dto.RentInformation.LeaseEnd,
                     Duration          = dto.RentInformation.Duration ?? calculatedDuration,
                     PaymentFrequency  = dto.RentInformation.RentFrequency ?? "Monthly",
@@ -1291,7 +1291,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
 
                     IsActive    = true,
                     CreatedBy   = dto.CreatedBy,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 };
 
                 await _leaseRentDetailsRepository.AddAsync(newLeaseRentDetail, cancellationToken);
@@ -1668,7 +1668,7 @@ public class ManageSubUnitsService : IManageSubUnitsService
                         OccupancyStatus = "Vacant",
                         IsActive        = false,   // activated when user fully configures the unit
                         CreatedBy       = dto.CreatedBy,
-                        CreatedDate     = DateTime.UtcNow
+                        CreatedDate     = DateTime.Now
                     };
 
                     await _assetRepository.AddAsync(childAsset, cancellationToken);
@@ -1684,14 +1684,14 @@ public class ManageSubUnitsService : IManageSubUnitsService
                         FloorId           = floorId,
                         SubFloorId        = null,
                         ConstructionYear  = dto.ConstructionYear,
-                        AssessmentYear    = DateTime.UtcNow.Year.ToString(),
+                        AssessmentYear    = DateTime.Now.Year.ToString(),
                         ConstructionTypeId = dto.ConstructionTypeId,
                         TypeOfUseId       = dto.TypeOfUseId,
                         SubTypeOfUseId    = dto.SubTypeOfUseId,
                         IsRented          = false,
                         IsActive          = true,
                         CreatedBy         = dto.CreatedBy,
-                        CreatedDate       = DateTime.UtcNow
+                        CreatedDate       = DateTime.Now
                     };
 
                     await _subUnitsDetailsRepository.AddAsync(subUnitsDetail, cancellationToken);

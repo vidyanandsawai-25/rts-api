@@ -106,9 +106,9 @@ public class SubUnitsDetailsDtoTests
     [Fact]
     public void SubUnitsDetailsDto_PropertiesGetAndSetCorrectly()
     {
-        var createdDate = DateTime.UtcNow.AddDays(-10);
-        var updatedDate = DateTime.UtcNow;
-        var deletionDate = DateTime.UtcNow.AddDays(1);
+        var createdDate = DateTime.Now.AddDays(-10);
+        var updatedDate = DateTime.Now;
+        var deletionDate = DateTime.Now.AddDays(1);
         var names = new SubUnitsDetailsNamesDto { AssetName = "Building A" };
         var roomDetails = new List<RoomDetailDto> { new() { RoomNo = "R-1" } };
 
@@ -689,7 +689,7 @@ public class SubUnitsDetailsDtoTests
     [Fact]
     public void Update_MarkedForDeletionAndDate_GetAndSetCorrectly()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var dto = new UpdateSubUnitsDetailsDto
         {
             AssetId = 1,

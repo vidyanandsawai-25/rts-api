@@ -33,6 +33,7 @@ public class MfaChallengeServiceTests
     public MfaChallengeServiceTests()
     {
         _timeProviderMock.Setup(x => x.GetUtcNow()).Returns(Now);
+        _timeProviderMock.Setup(x => x.LocalTimeZone).Returns(TimeZoneInfo.Utc);
         _secretProtectorMock.Setup(x => x.Unprotect(It.IsAny<string>())).Returns((string s) => s.Replace("enc:", string.Empty));
         _passwordHasherMock.Setup(x => x.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()))
             .Returns((string plain, string hash) => hash == $"hash:{plain}");
@@ -82,7 +83,7 @@ public class MfaChallengeServiceTests
         Assert.NotEqual(challenge.ChallengeId, captured!.ChallengeHash);
         Assert.Equal("mfa-login", captured.Purpose);
         Assert.Equal(1, captured.UserId);
-        Assert.Equal(Now.UtcDateTime.AddMinutes(5), challenge.ExpiresAtUtc);
+        Assert.Equal(Now.UtcDateTime.AddMinutes(5), challenge.ExpiresAt);
         _challengeRepositoryMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

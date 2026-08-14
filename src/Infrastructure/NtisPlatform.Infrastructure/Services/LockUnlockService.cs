@@ -71,6 +71,7 @@ public class LockUnlockService : ILockUnlockService
                 (x.Screen.ScreenName != null && x.Screen.ScreenName.ToLower().Contains(searchTerm)) ||
                 (x.Screen.ScreenNameLocal != null && x.Screen.ScreenNameLocal.ToLower().Contains(searchTerm)) ||
                 (x.Module != null && x.Module.ModuleName != null && x.Module.ModuleName.ToLower().Contains(searchTerm)) ||
+                (x.Module != null && x.Module.ModuleLabel != null && x.Module.ModuleLabel.ToLower().Contains(searchTerm)) ||                
                 (x.Module != null && x.Module.ModuleNameLocal != null && x.Module.ModuleNameLocal.ToLower().Contains(searchTerm)));
         }
 
@@ -210,6 +211,7 @@ public class LockUnlockService : ILockUnlockService
                 WardNo = p.WardNo ?? string.Empty,
                 PropertyNo = p.PropertyNo ?? string.Empty,
                 PartitionNo = p.PartitionNo ?? string.Empty,
+                Property = p.Property ?? string.Empty,
                 IsLocked = lockedScreens.Count > 0,
                 LockedScreens = lockedScreens,
             };
@@ -317,7 +319,7 @@ public class LockUnlockService : ILockUnlockService
                 MERGE [PTIS].[PropertyScreenLock] WITH (HOLDLOCK) AS target
                 USING (SELECT p.Id AS PropertyId, s.Id AS LockableScreenId FROM Props p CROSS JOIN Screens s) AS source
                     ON target.PropertyId = source.PropertyId AND target.LockableScreenId = source.LockableScreenId
-                WHEN MATCHED THEN UPDATE SET
+                WHEN MATCHED AND (target.IsLocked <> {shouldLock} OR target.MarkedForDeletion = 1 OR target.IsActive = 0) THEN UPDATE SET
                     IsLocked = {shouldLock},
                     MarkedForDeletion = 0,
                     MarkedForDeletionDate = NULL,
@@ -351,11 +353,15 @@ public class LockUnlockService : ILockUnlockService
             throw;
         }
 
-        // Every pair in the cross join is always matched-or-inserted, so a successful MERGE always
-        // affects validPropertyIds.Count * validScreenIds.Count rows; the remainder are pairs lost to
-        // invalid/inactive property or screen ids (already reported in result.Errors above).
+        // Every valid pair is exactly one of {inserted, updated, already-correct} - the MERGE's
+        // WHEN MATCHED guard skips (and doesn't count) rows that already match the requested
+        // action, so `affected` only reflects pairs that actually changed. The rest of the valid
+        // pairs were therefore already in the desired state; the remainder beyond that are pairs
+        // lost to invalid/inactive property or screen ids (already reported in result.Errors above).
+        var validPairs = validPropertyIds.Count * validScreenIds.Count;
         result.SuccessCount = affected;
-        result.FailedCount = result.TotalRequested - affected;
+        result.AlreadyInStateCount = validPairs - affected;
+        result.FailedCount = result.TotalRequested - validPairs;
 
         return result;
     }
@@ -425,6 +431,7 @@ public class LockUnlockService : ILockUnlockService
         var now = DateTime.Now;
         var shouldLock = action == ActionLock;
         var missingPairs = new List<PropertyScreenLockEntity>();
+        var updatedCount = 0;
 
         await using var tx = await _context.Database.BeginTransactionAsync(ct);
         try
@@ -436,19 +443,23 @@ public class LockUnlockService : ILockUnlockService
                 // Find which (property, screen) pairs in this chunk already have a lock row, so
                 // the update phase only runs when there's something to update, and the insert
                 // phase (below) knows which pairs are missing (must avoid violating
-                // UQ_PropertyScreenLock_Property_Screen).
+                // UQ_PropertyScreenLock_Property_Screen). IsLocked/MarkedForDeletion/IsActive are
+                // pulled too so pairs already in the requested state (and not soft-deleted/inactive)
+                // can be skipped instead of rewritten.
                 var existingPairs = await _context.PropertyScreenLocks
                     .Where(l => chunkIds.Contains(l.PropertyId) && validScreenIds.Contains(l.LockableScreenId))
-                    .Select(l => new { l.PropertyId, l.LockableScreenId })
+                    .Select(l => new { l.PropertyId, l.LockableScreenId, l.IsLocked, l.MarkedForDeletion, l.IsActive })
                     .ToListAsync(ct);
 
-                // Update phase: one set-based UPDATE for every existing pair - no entity
-                // loading/tracking. Skipped entirely when nothing exists yet for this chunk
-                // (e.g. first-time locking a batch of properties that never had a lock row).
-                if (existingPairs.Count > 0)
+                // Update phase: one set-based UPDATE for only the pairs that actually need a
+                // change - pairs already matching the requested action (and active, not
+                // soft-deleted) are left untouched and counted as AlreadyInStateCount instead.
+                var needsUpdate = existingPairs.Any(p => p.IsLocked != shouldLock || p.MarkedForDeletion || !p.IsActive);
+                if (needsUpdate)
                 {
-                    await _context.PropertyScreenLocks
-                        .Where(l => chunkIds.Contains(l.PropertyId) && validScreenIds.Contains(l.LockableScreenId))
+                    updatedCount += await _context.PropertyScreenLocks
+                        .Where(l => chunkIds.Contains(l.PropertyId) && validScreenIds.Contains(l.LockableScreenId)
+                            && (l.IsLocked != shouldLock || l.MarkedForDeletion || !l.IsActive))
                         .ExecuteUpdateAsync(s => s
                             .SetProperty(l => l.IsLocked, shouldLock)
                             .SetProperty(l => l.MarkedForDeletion, false)
@@ -504,8 +515,12 @@ public class LockUnlockService : ILockUnlockService
             throw;
         }
 
-        result.SuccessCount = propertyIds.Count * validScreenIds.Count;
-        result.FailedCount = totalRequested - result.SuccessCount;
+        // Every valid pair is exactly one of {inserted, updated, already-correct}, so
+        // AlreadyInStateCount falls out without an extra query.
+        var validPairs = propertyIds.Count * validScreenIds.Count;
+        result.SuccessCount = updatedCount + missingPairs.Count;
+        result.AlreadyInStateCount = validPairs - result.SuccessCount;
+        result.FailedCount = totalRequested - validPairs;
         return result;
     }
 }

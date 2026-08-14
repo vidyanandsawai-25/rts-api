@@ -1253,7 +1253,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 2000.50m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var policyTaxCV2 = new PolicyTaxDetailsCVEntity
@@ -1264,7 +1264,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 750.25m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         context.PropertyMast.Add(property);
@@ -1315,7 +1315,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 1800.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         // Policy CV 2024
@@ -1327,7 +1327,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 2000.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         context.PropertyMast.Add(property);
@@ -1373,7 +1373,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 2000.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var inactiveTax = new PolicyTaxDetailsCVEntity
@@ -1384,7 +1384,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 500.00m,
             IsActive = false, // Inactive tax (should be filtered out anyway)
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         // Add all entities to context so they can be queried
@@ -1433,7 +1433,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 2000.00m,
             IsActive = true,
             MarkedForDeletion = true, // Tax also marked for deletion (should be filtered anyway)
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         // Add all entities to context so they can be queried
@@ -1488,7 +1488,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 1000.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var policyTaxCV2 = new PolicyTaxDetailsCVEntity
@@ -1499,7 +1499,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 1000.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var policyTaxTotal = new PolicyTaxDetailsCVEntity
@@ -1510,7 +1510,7 @@ public class PropertyRepositoryTaxDetailsTests
             TaxAmount = 2000.00m,
             IsActive = true,
             MarkedForDeletion = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         context.PropertyMast.Add(property);

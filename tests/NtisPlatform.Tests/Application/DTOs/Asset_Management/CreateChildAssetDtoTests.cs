@@ -130,8 +130,8 @@ public class CreateChildAssetDtoTests
         var dto = new RentInformationDto
         {
             LeaseRentType = "Monthly",
-            LeaseStart = DateTime.UtcNow,
-            LeaseEnd = DateTime.UtcNow.AddYears(1),
+            LeaseStart = DateTime.Now,
+            LeaseEnd = DateTime.Now.AddYears(1),
             Duration = 12,
             RentFrequency = "Monthly",
             RentAmount = 5000m,
@@ -446,8 +446,8 @@ public class CreateChildAssetDtoTests
     [Fact]
     public void RenterDetailsDto_PropertiesGetAndSetCorrectly()
     {
-        var fromDate = DateTime.UtcNow;
-        var toDate = DateTime.UtcNow.AddYears(1);
+        var fromDate = DateTime.Now;
+        var toDate = DateTime.Now.AddYears(1);
         var dto = new RenterDetailsDto
         {
             Id = 1,
@@ -574,7 +574,7 @@ public class CreateChildAssetDtoTests
     [Fact]
     public void SubUnitResponseDto_PropertiesGetAndSetCorrectly()
     {
-        var createdDate = DateTime.UtcNow;
+        var createdDate = DateTime.Now;
         var dto = new SubUnitResponseDto
         {
             Id = 1,

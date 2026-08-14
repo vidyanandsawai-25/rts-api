@@ -34,6 +34,7 @@ public class TwoFactorAuthenticationServiceTests
     public TwoFactorAuthenticationServiceTests()
     {
         _timeProviderMock.Setup(x => x.GetUtcNow()).Returns(Now);
+        _timeProviderMock.Setup(x => x.LocalTimeZone).Returns(TimeZoneInfo.Utc);
 
         // Protector is a pass-through for tests — the "encrypted" value is just a prefixed marker.
         _secretProtectorMock.Setup(x => x.Protect(It.IsAny<string>())).Returns((string s) => $"enc:{s}");

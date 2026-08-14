@@ -23,23 +23,8 @@ public class GeoSequencingWardWiseSummaryResponseDto
 /// <summary>
 /// Zone-wise data for Geo-Sequencing grid
 /// </summary>
-public class GeoSequencingZoneDataDto
+public class GeoSequencingZoneDataDto : AutomationDashboardZoneDisplayDto
 {
-    /// <summary>
-    /// Zone ID
-    /// </summary>
-    public int ZoneId { get; set; }
-
-    /// <summary>
-    /// Zone name/division name
-    /// </summary>
-    public string ZoneName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Zone number from ZoneMaster.
-    /// </summary>
-    public string ZoneNo { get; set; } = string.Empty;
-
     /// <summary>
     /// Total registered properties in this zone
     /// </summary>
@@ -61,10 +46,8 @@ public class GeoSequencingZoneDataDto
     public AssessmentStatusBreakdownDto AssessmentStatusBreakdown { get; set; } = new();
 }
 
-public class GeoSequencingWardDataDto
+public class GeoSequencingWardDataDto : AutomationDashboardWardDisplayDto
 {
-    public int WardId { get; set; }
-    public string WardNo { get; set; } = string.Empty;
     public int RegisteredProperties { get; set; }
     public GeoSequencedPropertiesDto GeoSequencedProperties { get; set; } = new();
     public PropertyTypesBreakdownDto PropertyTypeBreakdown { get; set; } = new();
@@ -142,6 +125,7 @@ public class AssessmentStatusBreakdownDto
 /// </summary>
 public class StructureUnitCountDto
 {
+    public int StatusId { get; set; }
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }
