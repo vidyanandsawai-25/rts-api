@@ -620,7 +620,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 CreatedBy = dto.UpdatedBy
             });
 
-            
+
             //No Need to Assign Next Officier IF Application Is Rejevted Or Approved
             application.UserId = dto.UpdatedBy;
             application.ApplicationStatus = ApplicationStatus.Approved;
@@ -744,7 +744,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 IsReverted = false,
                 IsActive = true,
                 CreatedBy = dto.UpdatedBy
-            }); 
+            });
 
         //No Need to Assign Next Officier IF Application Is Rejevted Or Approved
             application.UserId = dto.UpdatedBy;
