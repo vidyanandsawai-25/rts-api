@@ -209,6 +209,10 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
         if (normalized.Length == 0 || HashChallengeToken(normalized) != challenge.ChallengeHash)
         {
             var outcome = await _challengeRepository.RecordFailedAttemptAsync(challenge.Id, _options.MaximumVerificationAttempts, cancellationToken);
+            if (outcome == MfaChallengeFailureOutcome.NowLocked)
+            {
+                await _userRepository.IncrementOtpChallengeLockoutAsync(userId, cancellationToken);
+            }
             var eventType = outcome == MfaChallengeFailureOutcome.NowLocked
                 ? SecurityAuditEventType.MfaChallengeLocked
                 : SecurityAuditEventType.MfaVerificationFailed;
@@ -233,6 +237,7 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
 
         var recoveryCodes = await IssueRecoveryCodesAsync(userId, cancellationToken);
 
+        await _userRepository.ResetOtpChallengeLockoutAsync(userId, cancellationToken);
         await _auditService.RecordAsync(SecurityAuditEventType.TwoFactorEnabled, userId, success: true, cancellationToken: cancellationToken);
         await _auditService.RecordAsync(SecurityAuditEventType.TwoFactorEmailVerificationConfirmed, userId, success: true, cancellationToken: cancellationToken);
         _logger.LogInformation("Two-factor authentication enabled for user {UserId} (email-verified)", userId);

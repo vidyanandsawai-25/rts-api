@@ -52,17 +52,17 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
         }
     }
 
-    public async Task IncrementFailedLoginCountAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<FailedLoginIncrementResult> IncrementFailedLoginCountAsync(int userId, CancellationToken cancellationToken = default)
     {
-        // Get lockout policy from security settings 
-        var maxAttempts = await _securitySettings.GetAsync<int>("MaxFailedAttempts", 5, cancellationToken);
-        var lockoutMinutes = await _securitySettings.GetAsync<int>("LockoutDurationMinutes", 30, cancellationToken);
+        // Get lockout policy from security settings
+        var maxAttempts = await _securitySettings.GetAsync<int>("MAXFAILEDATTEMPTS", 5, cancellationToken);
+        var lockoutMinutes = await _securitySettings.GetAsync<int>("LOCKOUTDURATIONMINUTES", 30, cancellationToken);
 
         // Fetch user to update
         var user = await _context.UserMasters
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
-        if (user == null) return;
+        if (user == null) return new FailedLoginIncrementResult(0, null);
 
         var newFailedCount = (user.FailedLoginCount ?? 0) + 1;
         var newLockedUntil = newFailedCount >= maxAttempts ? DateTime.Now.AddMinutes(lockoutMinutes) : (DateTime?)null;
@@ -70,6 +70,8 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
         user.FailedLoginCount = newFailedCount;
         user.LockedUntilAt = newLockedUntil;
         await _context.SaveChangesAsync(cancellationToken);
+
+        return new FailedLoginIncrementResult(Math.Max(0, maxAttempts - newFailedCount), newLockedUntil);
     }
 
     public async Task ResetFailedLoginCountAsync(int userId, CancellationToken cancellationToken = default)
@@ -156,8 +158,34 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
 
         user.PasswordHash = newPasswordHash;
         user.MustChangePassword = false;
+        user.PasswordChangedAt = DateTime.Now;
         user.SecurityStamp = newSecurityStamp;
         await _context.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    public async Task IncrementOtpChallengeLockoutAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var maxLockouts = await _securitySettings.GetAsync<int>("MAXOTPCHALLENGELOCKOUTS", 3, cancellationToken);
+        var lockoutMinutes = await _securitySettings.GetAsync<int>("OTPCHALLENGELOCKOUTDURATIONMINUTES", 15, cancellationToken);
+        var now = DateTime.Now;
+
+        await _context.UserMasters
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(u => u.OtpChallengeFailCount, u => (u.OtpChallengeFailCount ?? 0) + 1)
+                .SetProperty(u => u.OtpChallengeLockedUntilAt, u =>
+                    (u.OtpChallengeFailCount ?? 0) + 1 >= maxLockouts ? now.AddMinutes(lockoutMinutes) : u.OtpChallengeLockedUntilAt),
+                cancellationToken);
+    }
+
+    public async Task ResetOtpChallengeLockoutAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        await _context.UserMasters
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(u => u.OtpChallengeFailCount, 0)
+                .SetProperty(u => u.OtpChallengeLockedUntilAt, (DateTime?)null),
+                cancellationToken);
     }
 }

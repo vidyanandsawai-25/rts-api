@@ -52,9 +52,12 @@ public class EmailSettingsProvider : IEmailSettingsProvider
 
         // Query config tables
         // Join: ConfigCategoryMaster -> ConfigKeyMaster -> ConfigValueMaster
+        // CategoryCode comparison uses ToUpper() on both sides (translated to SQL UPPER(), same
+        // pattern as UserRepository.GetByUsernameAsync) so this doesn't depend on DB collation.
+        var categoryCodeUpper = CategoryCode.ToUpper();
         var configValues = await (
             from cat in _context.ConfigCategoryMasters
-            where cat.CategoryCode == CategoryCode && cat.IsActive
+            where cat.CategoryCode.ToUpper() == categoryCodeUpper && cat.IsActive
             join key in _context.ConfigKeyMasters on cat.Id equals key.CategoryId
             where key.IsActive
             join val in _context.ConfigValueMasters on key.Id equals val.ConfigKeyId
@@ -72,43 +75,37 @@ public class EmailSettingsProvider : IEmailSettingsProvider
             throw new InvalidOperationException($"Email settings category '{CategoryCode}' not found in configuration tables");
         }
 
+        // Case-insensitive lookup — ConfigCode casing conventions vary (e.g. SMTPHOST vs
+        // SmtpHost); matching this to how ISecuritySettingsService resolves SECURITY_AUTH keys.
+        var configMap = configValues
+            .Where(c => !string.IsNullOrWhiteSpace(c.ConfigCode))
+            .ToDictionary(c => c.ConfigCode!, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
         // Build settings DTO
         var settings = new EmailSettingsDto();
         var missingKeys = new List<string>();
 
-        foreach (var config in configValues)
+        if (configMap.TryGetValue(SmtpHostKey, out var smtpHost))
+            settings.SmtpHost = smtpHost ?? string.Empty;
+        if (configMap.TryGetValue(SmtpPortKey, out var smtpPortRaw))
         {
-            switch (config.ConfigCode)
-            {
-                case SmtpHostKey:
-                    settings.SmtpHost = config.Value ?? string.Empty;
-                    break;
-                case SmtpPortKey:
-                    if (int.TryParse(config.Value, out var port))
-                        settings.SmtpPort = port;
-                    else
-                        _logger.LogWarning("Invalid SmtpPort value: {Value}", config.Value);
-                    break;
-                case SmtpUserNameKey:
-                    settings.SmtpUserName = config.Value ?? string.Empty;
-                    break;
-                case SmtpPasswordKey:
-                    settings.SmtpPassword = config.Value ?? string.Empty;
-                    break;
-                case FromEmailKey:
-                    settings.FromEmail = config.Value ?? string.Empty;
-                    break;
-                case FromNameKey:
-                    settings.FromName = config.Value ?? string.Empty;
-                    break;
-                case SecureSocketOptionsKey:
-                    settings.SecureSocketOptions = config.Value ?? "Auto";
-                    break;
-                case LoginUrlKey:
-                    settings.LoginUrl = config.Value;
-                    break;
-            }
+            if (int.TryParse(smtpPortRaw, out var port))
+                settings.SmtpPort = port;
+            else
+                _logger.LogWarning("Invalid SmtpPort value: {Value}", smtpPortRaw);
         }
+        if (configMap.TryGetValue(SmtpUserNameKey, out var smtpUserName))
+            settings.SmtpUserName = smtpUserName ?? string.Empty;
+        if (configMap.TryGetValue(SmtpPasswordKey, out var smtpPassword))
+            settings.SmtpPassword = smtpPassword ?? string.Empty;
+        if (configMap.TryGetValue(FromEmailKey, out var fromEmail))
+            settings.FromEmail = fromEmail ?? string.Empty;
+        if (configMap.TryGetValue(FromNameKey, out var fromName))
+            settings.FromName = fromName ?? string.Empty;
+        if (configMap.TryGetValue(SecureSocketOptionsKey, out var secureSocketOptions))
+            settings.SecureSocketOptions = secureSocketOptions ?? "Auto";
+        if (configMap.TryGetValue(LoginUrlKey, out var loginUrl))
+            settings.LoginUrl = loginUrl;
 
         // Validate required settings
         if (string.IsNullOrWhiteSpace(settings.SmtpHost))
@@ -140,5 +137,12 @@ public class EmailSettingsProvider : IEmailSettingsProvider
         _logger.LogInformation("Email settings loaded and cached successfully");
 
         return settings;
+    }
+
+    public Task RefreshCacheAsync(CancellationToken cancellationToken = default)
+    {
+        _cache.Remove(CacheKey);
+        _logger.LogInformation("Email settings cache cleared.");
+        return Task.CompletedTask;
     }
 }

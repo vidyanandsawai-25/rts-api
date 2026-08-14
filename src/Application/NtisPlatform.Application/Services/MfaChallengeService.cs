@@ -58,13 +58,20 @@ public class MfaChallengeService : IMfaChallengeService
         _logger = logger;
     }
 
-    public async Task<MfaLoginChallenge> CreateLoginChallengeAsync(
+    public async Task<MfaChallengeCreationResult> CreateLoginChallengeAsync(
         int userId,
         string? ipAddress,
         string? userAgent,
         CancellationToken cancellationToken = default)
     {
         var now = _timeProvider.GetLocalNow().DateTime;
+
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+        if (user?.OtpChallengeLockedUntilAt is { } lockedUntil && lockedUntil > now)
+        {
+            return MfaChallengeCreationResult.Failed(ChallengeCreationFailureReason.AccountThrottled);
+        }
+
         var expiresAt = now.AddMinutes(_options.ChallengeLifetimeMinutes);
 
         var rawToken = GenerateChallengeToken();
@@ -84,7 +91,7 @@ public class MfaChallengeService : IMfaChallengeService
         await _challengeRepository.AddAsync(challenge, cancellationToken);
         await _challengeRepository.SaveChangesAsync(cancellationToken);
 
-        return new MfaLoginChallenge(rawToken, expiresAt);
+        return MfaChallengeCreationResult.Succeeded(new MfaLoginChallenge(rawToken, expiresAt));
     }
 
     public async Task<MfaVerificationResult> VerifyLoginChallengeAsync(
@@ -139,6 +146,7 @@ public class MfaChallengeService : IMfaChallengeService
 
             if (outcome == MfaChallengeFailureOutcome.NowLocked)
             {
+                await _userRepository.IncrementOtpChallengeLockoutAsync(user.Id, cancellationToken);
                 await _auditService.RecordAsync(SecurityAuditEventType.MfaChallengeLocked, user.Id, success: false, cancellationToken: cancellationToken);
                 _logger.LogWarning("MFA challenge locked for user {UserId} after too many failed attempts", user.Id);
                 return MfaVerificationResult.Failed(MfaVerificationFailureReason.ChallengeLocked);
@@ -158,6 +166,7 @@ public class MfaChallengeService : IMfaChallengeService
         }
 
         await _userRepository.ResetFailedLoginCountAsync(user.Id, cancellationToken);
+        await _userRepository.ResetOtpChallengeLockoutAsync(user.Id, cancellationToken);
 
         var loginResponse = await _authTokenIssuer.IssueAsync(user, "mfa", cancellationToken);
 

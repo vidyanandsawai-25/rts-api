@@ -89,20 +89,47 @@ public class AuthService : IAuthService
 
         if (!isPasswordValid)
         {
-            // Increment failed login count
-            await _userRepository.IncrementFailedLoginCountAsync(user.Id, cancellationToken);
+            var increment = await _userRepository.IncrementFailedLoginCountAsync(user.Id, cancellationToken);
             _logger.LogWarning("Failed login attempt for user: {UserId}", user.Id);
-            return new LoginResponseDto { Success = false, Message = "Invalid username or password" };
+
+            if (increment.LockedUntil.HasValue)
+            {
+                return new LoginResponseDto { Success = false, Message = $"Account is locked until {increment.LockedUntil.Value:u}. Please try again later." };
+            }
+
+            return new LoginResponseDto
+            {
+                Success = false,
+                Message = "Invalid username or password",
+                RemainingLoginAttempts = increment.RemainingAttempts
+            };
         }
 
-        // Check if user must change password
+        // Check if user must change password. Success is deliberately true here (not false) so
+        // this reaches the client as a normal 200 response with RequiresPasswordChange set —
+        // same pattern as the RequiresTwoFactor branches below — rather than being discarded by
+        // the controller's generic Unauthorized(...) path for Success=false responses.
         if (user.MustChangePassword)
         {
             _logger.LogInformation("User {UserId} must change password before proceeding", user.Id);
             return new LoginResponseDto
             {
-                Success = false,
+                Success = true,
                 Message = "You must change your password before logging in. Please contact administrator.",
+                RequiresPasswordChange = true
+            };
+        }
+
+        // Check password expiry (0 or unset disables the check).
+        var passwordExpiryDays = await _securitySettings.GetAsync("PASSWORDEXPIRYDAYS", 90, cancellationToken);
+        if (passwordExpiryDays > 0 && user.PasswordChangedAt.HasValue &&
+            (DateTime.Now - user.PasswordChangedAt.Value).TotalDays >= passwordExpiryDays)
+        {
+            _logger.LogInformation("User {UserId} password has expired", user.Id);
+            return new LoginResponseDto
+            {
+                Success = true,
+                Message = "Your password has expired. Please reset it to continue.",
                 RequiresPasswordChange = true
             };
         }
@@ -111,12 +138,30 @@ public class AuthService : IAuthService
         await _userRepository.ResetFailedLoginCountAsync(user.Id, cancellationToken);
         await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
 
-        // 2FA-enabled accounts do not get an access/refresh token yet — a short-lived challenge
-        // must be verified first via IMfaChallengeService.
-        if (user.TwoFactorEnabled)
-        {
-            var challenge = await _mfaChallengeService.CreateLoginChallengeAsync(user.Id, ipAddress: null, userAgent: null, cancellationToken);
+        // 2FALOGIN is the master switch for 2FA enforcement at login — an admin can flip it off
+        // to suspend 2FA org-wide (e.g. an incident, a rollout phase) without touching any
+        // individual user's TwoFactorEnabled enrollment. Nobody gets challenged while it's off,
+        // TOTP-enrolled or not; flipping it back on immediately resumes enforcement for everyone,
+        // exactly as configured, since no per-user state was changed.
+        var twoFactorLoginEnabled = await _securitySettings.GetAsync("2FALOGIN", false, cancellationToken);
 
+        if (twoFactorLoginEnabled && user.TwoFactorEnabled)
+        {
+            // Per-user TOTP enrollment — a short-lived challenge must be verified first via
+            // IMfaChallengeService before an access/refresh token is issued.
+            var creation = await _mfaChallengeService.CreateLoginChallengeAsync(user.Id, ipAddress: null, userAgent: null, cancellationToken);
+            if (!creation.Success)
+            {
+                _logger.LogWarning("MFA challenge creation throttled for user {UserId}", user.Id);
+                return new LoginResponseDto
+                {
+                    Success = false,
+                    Throttled = true,
+                    Message = "Too many recent failed verification attempts. Please try again later."
+                };
+            }
+
+            var challenge = creation.Challenge!;
             _logger.LogInformation("Password verified for user {UserId}; awaiting MFA verification", user.Id);
 
             return new LoginResponseDto
@@ -132,30 +177,53 @@ public class AuthService : IAuthService
             };
         }
 
-        // No per-user TOTP enrollment — fall back to the config-driven (SECURITY_AUTH) OTP layer
-        // if the organization has switched it on. This makes 2FA mandatory org-wide instead of
-        // leaving unenrolled users with no second factor at all.
-        if (await _securitySettings.GetAsync("2FALOGIN", false, cancellationToken))
+        if (twoFactorLoginEnabled && !user.TwoFactorEnabled)
         {
+            // No per-user TOTP enrollment — fall back to the config-driven (SECURITY_AUTH) OTP
+            // layer. This makes 2FA mandatory org-wide instead of leaving unenrolled users with
+            // no second factor at all.
             var sendEmail = await _securitySettings.GetAsync("LOGINOTPONMAIL", false, cancellationToken);
-            var sendSms = await _securitySettings.GetAsync("LoginOtpOnSms", false, cancellationToken);
+            var sendSms = await _securitySettings.GetAsync("LOGINOTPONSMS", false, cancellationToken);
 
-            var otpChallenge = await _otpChallengeService.CreateAsync(
-                user, OtpChallengePurpose.LoginOtp, sendEmail, sendSms, ipAddress: null, userAgent: null, cancellationToken);
-
-            _logger.LogInformation("Password verified for user {UserId}; awaiting login OTP verification", user.Id);
-
-            return new LoginResponseDto
+            if (!sendEmail && !sendSms)
             {
-                Success = true,
-                RequiresTwoFactor = true,
-                TwoFactorMethod = "otp",
-                ChallengeId = otpChallenge.ChallengeId,
-                ChallengeExpiresAt = otpChallenge.ExpiresAt,
-                UserId = user.Id,
-                Username = user.UserName,
-                Message = "One-time verification code sent"
-            };
+                // No delivery channel is configured — there's no way to actually send a code.
+                // Don't block every login on a misconfiguration; log it and fall through to a
+                // normal password-only login instead.
+                _logger.LogWarning(
+                    "2FALOGIN is enabled but neither LOGINOTPONMAIL nor LOGINOTPONSMS is on; skipping OTP step for user {UserId}.",
+                    user.Id);
+            }
+            else
+            {
+                var creation = await _otpChallengeService.CreateAsync(
+                    user, OtpChallengePurpose.LoginOtp, sendEmail, sendSms, ipAddress: null, userAgent: null, cancellationToken);
+                if (!creation.Success)
+                {
+                    _logger.LogWarning("Login OTP challenge creation throttled for user {UserId}", user.Id);
+                    return new LoginResponseDto
+                    {
+                        Success = false,
+                        Throttled = true,
+                        Message = "Too many recent failed verification attempts. Please try again later."
+                    };
+                }
+
+                var otpChallenge = creation.Challenge!;
+                _logger.LogInformation("Password verified for user {UserId}; awaiting login OTP verification", user.Id);
+
+                return new LoginResponseDto
+                {
+                    Success = true,
+                    RequiresTwoFactor = true,
+                    TwoFactorMethod = "otp",
+                    ChallengeId = otpChallenge.ChallengeId,
+                    ChallengeExpiresAt = otpChallenge.ExpiresAt,
+                    UserId = user.Id,
+                    Username = user.UserName,
+                    Message = "One-time verification code sent"
+                };
+            }
         }
 
         _logger.LogInformation("Successful login for user: {UserId}", user.Id);

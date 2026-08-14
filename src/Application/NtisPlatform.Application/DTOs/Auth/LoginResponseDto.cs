@@ -49,7 +49,7 @@ public class LoginResponseDto
     public string? ChallengeId { get; set; }
 
     /// <summary>
-    /// UTC expiry of the MFA challenge. Only present when <see cref="RequiresTwoFactor"/> is true.
+    /// Expiry of the MFA challenge, in server-local time (no UTC offset). Only present when <see cref="RequiresTwoFactor"/> is true.
     /// </summary>
     public DateTime? ChallengeExpiresAt { get; set; }
 
@@ -61,4 +61,22 @@ public class LoginResponseDto
     /// their usual landing page.
     /// </summary>
     public bool RequiresTwoFactorSetup { get; set; }
+
+    /// <summary>
+    /// True when the password was correct but a new MFA/OTP challenge could not be issued because
+    /// this account recently exhausted too many challenges (see the "MaxOtpChallengeLockouts"
+    /// SECURITY_AUTH setting). <see cref="Success"/> is false when this is true — the client
+    /// should surface <see cref="Message"/> and let the user retry after the cooldown.
+    /// </summary>
+    public bool Throttled { get; set; }
+
+    /// <summary>
+    /// Number of further wrong-password attempts allowed before the account locks. Only present
+    /// when this attempt's password was wrong and the account is not yet locked (i.e.
+    /// <see cref="Success"/> is false, <see cref="Message"/> is a generic invalid-credentials
+    /// message, and the account isn't locked). Lets the client show "N attempts remaining"
+    /// instead of a flat error. Not set once the account actually locks — <see cref="Message"/>
+    /// carries the lockout time in that case instead.
+    /// </summary>
+    public int? RemainingLoginAttempts { get; set; }
 }

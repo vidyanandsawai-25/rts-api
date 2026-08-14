@@ -77,14 +77,43 @@ public class MfaChallengeServiceTests
             .Callback<MfaChallengeEntity, CancellationToken>((c, _) => captured = c)
             .ReturnsAsync((MfaChallengeEntity c, CancellationToken _) => c);
 
-        var challenge = await _service.CreateLoginChallengeAsync(1, "127.0.0.1", "test-agent");
+        var creation = await _service.CreateLoginChallengeAsync(1, "127.0.0.1", "test-agent");
 
+        Assert.True(creation.Success);
+        var challenge = creation.Challenge!;
         Assert.NotNull(captured);
         Assert.NotEqual(challenge.ChallengeId, captured!.ChallengeHash);
         Assert.Equal("mfa-login", captured.Purpose);
         Assert.Equal(1, captured.UserId);
         Assert.Equal(Now.UtcDateTime.AddMinutes(5), challenge.ExpiresAt);
         _challengeRepositoryMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateLoginChallengeAsync_WhenAccountThrottled_ReturnsAccountThrottledWithoutCreatingChallenge()
+    {
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserEntity { Id = 1, OtpChallengeLockedUntilAt = Now.UtcDateTime.AddMinutes(5) });
+
+        var creation = await _service.CreateLoginChallengeAsync(1, "127.0.0.1", "test-agent");
+
+        Assert.False(creation.Success);
+        Assert.Equal(ChallengeCreationFailureReason.AccountThrottled, creation.FailureReason);
+        _challengeRepositoryMock.Verify(x => x.AddAsync(It.IsAny<MfaChallengeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateLoginChallengeAsync_WhenThrottleWindowHasPassed_CreatesChallengeNormally()
+    {
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new UserEntity { Id = 1, OtpChallengeLockedUntilAt = Now.UtcDateTime.AddMinutes(-5) });
+        _challengeRepositoryMock
+            .Setup(x => x.AddAsync(It.IsAny<MfaChallengeEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((MfaChallengeEntity c, CancellationToken _) => c);
+
+        var creation = await _service.CreateLoginChallengeAsync(1, "127.0.0.1", "test-agent");
+
+        Assert.True(creation.Success);
     }
 
     private void SetUpChallengeLookup(MfaChallengeEntity challenge)
@@ -175,6 +204,7 @@ public class MfaChallengeServiceTests
         Assert.Same(loginResponse, result.LoginResponse);
         _challengeRepositoryMock.Verify(x => x.TryConsumeAsync(challenge.Id, It.IsAny<CancellationToken>()), Times.Once);
         _userRepositoryMock.Verify(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(x => x.ResetOtpChallengeLockoutAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -211,6 +241,7 @@ public class MfaChallengeServiceTests
 
         Assert.False(result.Success);
         Assert.Equal(MfaVerificationFailureReason.ChallengeLocked, result.FailureReason);
+        _userRepositoryMock.Verify(x => x.IncrementOtpChallengeLockoutAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

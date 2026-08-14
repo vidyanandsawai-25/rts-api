@@ -149,6 +149,7 @@ public class UserService : BaseCommonCrudService<
         var userEntity = _mapper.Map<UserEntity>(createDto);
         userEntity.PasswordHash = _passwordHasher.HashPassword(temporaryPassword);
         userEntity.MustChangePassword = true;
+        userEntity.PasswordChangedAt = DateTime.Now;
         userEntity.CreatedDate = DateTime.Now;
         userEntity.CreatedBy = createDto.CreatedBy;
 
@@ -321,6 +322,7 @@ public class UserService : BaseCommonCrudService<
 
         entity.PasswordHash = _passwordHasher.HashPassword(_passwordGenerator.Generate());
         entity.MustChangePassword = true;
+        entity.PasswordChangedAt = DateTime.Now;
         entity.UpdatedBy = dto.UpdatedBy;
         entity.UpdatedDate = DateTime.Now;
 

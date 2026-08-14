@@ -24,6 +24,22 @@ public static class OtpChallengePurpose
 public sealed record OtpChallengeResult(string ChallengeId, DateTime ExpiresAt);
 
 /// <summary>
+/// Result of attempting to create a new OTP challenge.
+/// </summary>
+public sealed class OtpChallengeCreationResult
+{
+    public bool Success { get; init; }
+    public ChallengeCreationFailureReason? FailureReason { get; init; }
+    public OtpChallengeResult? Challenge { get; init; }
+
+    public static OtpChallengeCreationResult Succeeded(OtpChallengeResult challenge) =>
+        new() { Success = true, Challenge = challenge };
+
+    public static OtpChallengeCreationResult Failed(ChallengeCreationFailureReason reason) =>
+        new() { Success = false, FailureReason = reason };
+}
+
+/// <summary>
 /// Why an OTP verification attempt did not succeed.
 /// </summary>
 public enum OtpVerificationFailureReason
@@ -70,9 +86,11 @@ public interface IOtpChallengeService
     /// <summary>
     /// Generates a one-time code, persists a hashed challenge under the given purpose, and sends
     /// the raw code via the requested channel(s). At least one of <paramref name="sendEmail"/> /
-    /// <paramref name="sendSms"/> must be true.
+    /// <paramref name="sendSms"/> must be true. Fails with
+    /// <see cref="ChallengeCreationFailureReason.AccountThrottled"/> if the account has recently
+    /// exhausted too many challenges.
     /// </summary>
-    Task<OtpChallengeResult> CreateAsync(
+    Task<OtpChallengeCreationResult> CreateAsync(
         NtisPlatform.Core.Entities.Master.UserEntity user,
         string purpose,
         bool sendEmail,

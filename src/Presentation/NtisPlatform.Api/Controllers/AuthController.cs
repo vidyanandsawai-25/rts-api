@@ -55,6 +55,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
@@ -68,8 +69,14 @@ public class AuthController : ControllerBase
 
             if (!response.Success)
             {
+                if (response.Throttled)
+                {
+                    _logger.LogWarning("Login throttled for username: {Username}", request.Username);
+                    return StatusCode(StatusCodes.Status423Locked, new { message = response.Message });
+                }
+
                 _logger.LogWarning("Failed login attempt for username: {Username}", request.Username);
-                return Unauthorized(new { message = response.Message });
+                return Unauthorized(new { message = response.Message, remainingLoginAttempts = response.RemainingLoginAttempts });
             }
 
             _logger.LogInformation("Successful login for user: {Username}", request.Username);

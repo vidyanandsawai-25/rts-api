@@ -194,6 +194,10 @@ public class AutoMapperValidationTest
                 // ITwoFactorAuthenticationService/TwoFactorController and never exposed through any
                 // AutoMapper-mapped DTO (status is returned via TwoFactorStatusResponseDto, built by hand).
                 "TwoFactorEnabled", "TwoFactorSecretEncrypted", "TwoFactorEnabledAt", "SecurityStamp", "TwoFactorRequired",
+                // UserEntity password-expiry / account-level OTP throttle fields - same category as
+                // the two-factor fields above: internal auth-flow state, never exposed through a
+                // mapped DTO (LoginResponseDto.RequiresPasswordChange/Throttled are built by hand).
+                "PasswordChangedAt", "OtpChallengeFailCount", "OtpChallengeLockedUntilAt",
                 // TaxMasterEntity.RuleDefinition - navigation property to the selected DynamicTaxRuleEntity
                 // (EF Core managed); CreateTaxMasterDto/UpdateTaxMasterDto only carry RuleDefinitionId.
                 "RuleDefinition"

@@ -329,7 +329,7 @@ public class CommonDetailsControllerTests
         Assert.False(response.Success);
         Assert.Equal("Update type not found", response.Message);
     }
-
+ 
     // ============== Update (BulkUpdate) Tests ==============
 
     [Fact]
@@ -829,9 +829,8 @@ public class CommonDetailsControllerTests
                 PartitionNo = "",
                 OldValue = "500",
                 NewValue = "600",
-                UpdatedColumns = "PlotArea",
-                DoneBy = "admin",
-                CreatedDate = DateTime.UtcNow
+                UpdatedColumns = "PlotArea"
+                 
             },
             new()
             {
@@ -842,9 +841,7 @@ public class CommonDetailsControllerTests
                 PartitionNo = "",
                 OldValue = "400",
                 NewValue = "450",
-                UpdatedColumns = "PlotArea",
-                DoneBy = "admin",
-                CreatedDate = DateTime.UtcNow
+                UpdatedColumns = "PlotArea" 
             }
         };
 
