@@ -58,7 +58,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
 
         // -------------------------------------------------------------------------------------
-        //--------RTS Application Submit Logic is Here SOLUTION PROPERTY WATER TRADE -----------       
+        //--------RTS Application Submit Logic is Here SOLUTION PROPERTY WATER TRADE -----------
         // -------------------------------------------------------------------------------------
 
         if (createDto.DepartmentId==1||createDto.DepartmentId==2||createDto.DepartmentId==3)
@@ -97,7 +97,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 {
                     firstFieldValue.FieldDefinitionId = data.Id;
                 }
-            
+
             existingModuleService.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
             {
                 ApprovalFlowId = approvalFlowData?.ApprovalFlowId??0,
@@ -161,5 +161,5 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
- 
+
 }
