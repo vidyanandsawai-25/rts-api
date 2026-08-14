@@ -24,4 +24,16 @@ namespace NtisPlatform.Api.Controllers;
         public Task<IActionResult> Create([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
             => this.ExecuteCreate(_service, dto, _logger, ct);
 
+
+
+    ///// <summary>
+    ///// this api work only for property tax reade water application
+    ///// </summary>
+    ///// <param name="dto"></param>
+    ///// <param name="ct"></param>
+    ///// <returns></returns>
+    //[HttpPost]
+    //public Task<IActionResult> CreateAsync([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
+    //       => this.ExecuteCreate(_service, dto, _logger, ct);
+
 }

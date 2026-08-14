@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 
+
 namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
@@ -43,6 +44,15 @@ public class DocumentAuthorizationService : IDocumentAuthorizationService
         if (document != null)
         {
             _logger.LogDebug("Document {DocumentGuid} access granted to uploader {UserId}",
+                documentGuid, userId);
+            return true;
+        }
+
+
+        // Step 1b: Grant access to any authenticated user (logged-in user)
+        if (userId > 0)
+        {
+            _logger.LogInformation("Document {DocumentGuid} access granted to authenticated user {UserId}",
                 documentGuid, userId);
             return true;
         }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.Interfaces;
@@ -33,7 +34,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationDashboardCardsCountDto>
         {
             Success = true,
-            Message = "Dashboard cards retrieved successfully",
+            Message = "Dashboard Cards Retrieved Successfully",
             Items = result
         });
     }
@@ -51,7 +52,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<PagedResult< RTSApplicationDashboardDetailsDto>>
         {
             Success = true,
-            Message = "Application details retrieved successfully",
+            Message = "Application Details Retrieved Successfully",
             Items = result
         });
     }
@@ -77,7 +78,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationViewDetailsDto>
         {
             Success = true,
-            Message = "Application details retrieved successfully",
+            Message = "Application Details Retrieved Successfully",
             Items = result
         });
     }
@@ -99,7 +100,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<ApplicationApprovalStageDetailsDto>
         {
             Success = true,
-            Message = "Approval stages retrieved successfully",
+            Message = "Approval Stages Retrieved Successfully",
             Items = result
         });
     }
@@ -121,10 +122,9 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<CurrentApprovalOfficerDto>
         {
             Success = true,
-            Message = "RTS Application Approval Officer retrieved successfully",
+            Message = "RTS Application Approval Officer Retrieved Successfully",
             Items = result
         });
-
     }
 
 
@@ -140,7 +140,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
-            Message = "Documents Verify Successfully",
+            Message = "Documents Verified Successfully",
             Items = result
         });
     }
@@ -157,11 +157,10 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
-            Message = "Application Verify And Sent To Approve Successfully",
+            Message = result.Status==ApplicationStatus.Approved ? "Application Approved Successfully" : "Application Verified And Forwarded Successfully",
             Items = result
         });
     }
-
 
     [AllowAnonymous]
     [HttpPut("{applicationId}/verify-and-correct")]
@@ -174,7 +173,7 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
-            Message = " Application Verify And Correct Changes Successfully",
+            Message = "Application Corrected Successfully",
             Items = result
         });
     }
@@ -212,10 +211,8 @@ public class RTSApplicationApprovalController : ControllerBase
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
-            Message = "Application Revert Successfully",
+            Message = "Application Reverted Successfully",
             Items = result
         });
     }
-
-
 }
