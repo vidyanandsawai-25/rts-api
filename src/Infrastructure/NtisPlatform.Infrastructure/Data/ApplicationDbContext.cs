@@ -2430,6 +2430,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TwoFactorRequired).IsRequired().HasDefaultValue(false);
         });
 
+        // ── Password expiry / account-level OTP lockout: new UserMaster columns ─
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.Property(e => e.PasswordChangedAt);
+            entity.Property(e => e.OtpChallengeFailCount).HasDefaultValue(0);
+            entity.Property(e => e.OtpChallengeLockedUntilAt);
+        });
+
         // ── TwoFactorRecoveryCode ────────────────────────────────────────────
         modelBuilder.Entity<TwoFactorRecoveryCodeEntity>(entity =>
         {

@@ -23,7 +23,7 @@ public interface IPagedReportDataProvider : IReportDataProvider
     /// Returns one page of rows for the given section. For non-paginated sections, page 1 returns
     /// the whole section with HasMore = false.
     /// </summary>
-    Task<ReportDataPage> GetDataPageAsync(
+    Task<ReportDataPage> GetDataPageAsync(Guid reportRequestId,
         Dictionary<string, string> parameters,
         string section,
         int page,

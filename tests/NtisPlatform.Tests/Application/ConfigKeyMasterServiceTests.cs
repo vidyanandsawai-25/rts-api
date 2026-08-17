@@ -2,6 +2,7 @@ using AutoMapper;
 using Moq;
 using MockQueryable;
 using NtisPlatform.Application.DTOs.Master.ConfigKeyMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -13,6 +14,8 @@ public class ConfigKeyMasterServiceTests
     private readonly Mock<IRepository<ConfigKeyMasterEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<ISecuritySettingsService> _mockSecuritySettings = new();
+    private readonly Mock<IEmailSettingsProvider> _mockEmailSettings = new();
     private readonly ConfigKeyMasterService _service;
 
     public ConfigKeyMasterServiceTests()
@@ -38,7 +41,9 @@ public class ConfigKeyMasterServiceTests
         _service = new ConfigKeyMasterService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            _mockMapper.Object);
+            _mockMapper.Object,
+            _mockSecuritySettings.Object,
+            _mockEmailSettings.Object);
     }
 
     #region GetByIdAsync Tests
@@ -191,7 +196,9 @@ public class ConfigKeyMasterServiceTests
         var service = new ConfigKeyMasterService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockSecuritySettings.Object,
+            _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -233,7 +240,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -278,7 +285,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -316,7 +323,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -349,7 +356,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -393,7 +400,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -431,7 +438,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -472,7 +479,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -755,7 +762,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -797,7 +804,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {
@@ -847,7 +854,7 @@ public class ConfigKeyMasterServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
-        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockSecuritySettings.Object, _mockEmailSettings.Object);
 
         var queryParams = new ConfigKeyMasterQueryParameters
         {

@@ -1,6 +1,7 @@
 using AutoMapper;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -17,6 +18,8 @@ public class ConfigValueMasterServiceTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<IConfigurationProvider> _configurationProviderMock;
+    private readonly Mock<ISecuritySettingsService> _securitySettingsMock = new();
+    private readonly Mock<IEmailSettingsProvider> _emailSettingsMock = new();
     private readonly ConfigValueMasterService _service;
 
     public ConfigValueMasterServiceTests()
@@ -31,7 +34,9 @@ public class ConfigValueMasterServiceTests
         _service = new ConfigValueMasterService(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _mapperMock.Object
+            _mapperMock.Object,
+            _securitySettingsMock.Object,
+            _emailSettingsMock.Object
         );
     }
 

@@ -9,6 +9,7 @@ using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Application.Models;
 namespace NtisPlatform.Application.Services;
 
 public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetailEntity, PropertyMergeSingleDto, CreatePropertyMergeSingleDto, UpdatePropertyMergeSingleDto, PropertyMergeSingleQueryParameters, int>, IPropertyMergeSingleService
@@ -20,6 +21,9 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
     private readonly IRepository<WardEntity, int> _wardRepository;
     private readonly IRepository<SocietyDetailsEntity, int> _societyRepository;
     private readonly IRepository<MergeDetailEntity, int> _mergeDetailRepository;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
+    private readonly IRepository<WingEntity, int> _wingMasterRepository;
+    private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
     private readonly new IUnitOfWork _unitOfWork;
     private readonly ILogger<PropertyMergeSingleService> _logger;
     private readonly IMapper _mapper;
@@ -32,6 +36,9 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         IRepository<WardEntity, int> wardRepository,
         IRepository<SocietyDetailsEntity, int> societyRepository,
         IRepository<MergeDetailEntity, int> mergeDetailRepository,
+        IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
+        IRepository<WingEntity, int> wingMasterRepository,
+        IRepository<PropertyAssessmentEntity, int> assessmentRepository,
         IUnitOfWork unitOfWork,
         ILogger<PropertyMergeSingleService> logger,
         IMapper mapper) : base(propertyMapDetailRepository, unitOfWork, mapper)
@@ -43,6 +50,9 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         _wardRepository = wardRepository;
         _societyRepository = societyRepository;
         _mergeDetailRepository = mergeDetailRepository;
+        _propertyTypeRepository = propertyTypeRepository;
+        _wingMasterRepository = wingMasterRepository;
+        _assessmentRepository = assessmentRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _mapper = mapper;
@@ -259,7 +269,8 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             return new PropertyMergeSingleDto
             {
                 Success = true,
-                Message = $"Old property no {oldPropertyNo} merge successful in new property no {newPropertyNo}"
+                Message = $"Old property no {oldPropertyNo} merge successful in new property no {newPropertyNo}",
+                Data = null
             };
         }
         catch (Exception ex)
@@ -520,7 +531,8 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             return new PropertyMergeSingleDto
             {
                 Success = true,
-                Message = $"Old properties {string.Join(", ", oldPropertyNos)} demerged successfully from new property no : {newPropertyNo}"
+                Message = $"Old properties {string.Join(", ", oldPropertyNos)} demerged successfully from new property no : {newPropertyNo}",
+                Data = null
             };
         }
         catch (Exception ex)
@@ -530,6 +542,117 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             throw;
         }
     }
+
+    public override async Task<PagedResult<PropertyMergeSingleDto>> GetAllAsync(PropertyMergeSingleQueryParameters queryParams, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var propertyKey = await (
+           from pm in _repository.GetQueryable().AsNoTracking()
+           join societyTemp in _societyRepository.GetQueryable().AsNoTracking()
+               on pm.SocietyDetailId equals societyTemp.Id
+               into societyGroup
+           from propertySociety in societyGroup.DefaultIfEmpty()
+           where pm.Id == queryParams.PropertyId && pm.IsActive && !pm.MarkedForDeletion
+           select new { pm.WardId, pm.PropertyNo, SocietyName = propertySociety != null ? propertySociety.SocietyName : null })
+           .FirstOrDefaultAsync(cancellationToken);
+
+            if (propertyKey is null)
+            {
+                var emptyDto = new PropertyMergeSingleDto
+                {
+                    Success = false,
+                    Message = "Property not found",
+                    Data = new List<PropertyDetailsDto>()
+                };
+                return new PagedResult<PropertyMergeSingleDto>(new List<PropertyMergeSingleDto> { emptyDto }, 0, queryParams.PageNumber, queryParams.PageSize);
+            }
+
+            var query =
+                from pm in _repository.GetQueryable().AsNoTracking()
+                join ward in _wardRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
+                    on pm.WardId equals ward.Id
+                join societyTemp in _societyRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
+                    on pm.SocietyDetailId equals societyTemp.Id
+                    into societyGroup
+                from society in societyGroup.DefaultIfEmpty()
+                join propertyTypeTemp in _propertyTypeRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
+                    on pm.PropertyTypeId equals propertyTypeTemp.Id
+                    into propertyTypeGroup
+                from propertyType in propertyTypeGroup.DefaultIfEmpty()
+                join wingTemp in _wingMasterRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
+                    on society.WingId equals wingTemp.Id
+                    into wingGroup
+                from wing in wingGroup.DefaultIfEmpty()
+                where
+                    pm.WardId == propertyKey.WardId &&
+                    pm.PropertyNo == propertyKey.PropertyNo &&
+                    pm.IsActive && !pm.MarkedForDeletion &&
+                    pm.PartitionNo != null &&
+                    pm.PartitionNo != string.Empty &&
+                    (wing == null || pm.PartitionNo != wing.WingNo) &&
+                    (propertyType == null || propertyType.PartType != "Amenity") &&
+                    (string.IsNullOrWhiteSpace(queryParams.WingName) || (society.WingName ?? string.Empty).Trim() == queryParams.WingName.Trim()) &&
+                    !_propertyMapDetailRepository.GetQueryable()
+                        .Any(map => map.PropertyIdNew == pm.Id && map.IsActive && map.Status == PropertyMapStatus.Active)
+
+                select new PropertyDetailsDto
+                {
+                    PropertyId = pm.Id,
+                    WardNo = ward.WardNo,
+                    PropertyNo = pm.PropertyNo,
+                    PartitionNo = pm.PartitionNo,
+                    OwnerName = pm.OwnerName,
+                    OccupierName = pm.OccupierName,
+                    Address = pm.Address,
+                    MobileNo = pm.MobileNo,
+                    Type = pm.Type,
+                    SocietyName = propertyKey.SocietyName,
+                    WingName = society != null ? society.WingName : null,
+                    FlatOrShopName = pm.FlatOrShopName,
+                    FlatOrShopNo = pm.FlatOrShopNo,
+                    PropertyTypeDescription = propertyType != null ? propertyType.PropertyDescription : null,
+                    BHK = _assessmentRepository.GetQueryable()
+                        .Where(detail => detail.PropertyId == pm.Id && detail.IsActive && !detail.MarkedForDeletion)
+                        .OrderByDescending(detail => detail.Id)
+                        .Select(detail => detail.BHK)
+                        .FirstOrDefault(),
+                };
+
+            var totalCount = await query.CountAsync(cancellationToken);
+            var orderedQuery = query.OrderBy(x => x.PropertyId);
+            List<PropertyDetailsDto> items;
+
+            if (queryParams.PageSize <= 0)
+            {
+                items = await orderedQuery.ToListAsync(cancellationToken);
+            }
+            else
+            {
+                items = await orderedQuery
+                    .Skip((queryParams.PageNumber - 1) * queryParams.PageSize)
+                    .Take(queryParams.PageSize)
+                    .ToListAsync(cancellationToken);
+            }
+
+            var resultDto = new PropertyMergeSingleDto
+            {
+                Success = items.Count > 0 ? true : false,
+                Message = items.Count > 0 ? $"Found {totalCount} new property unmerge detail(s)" : "No new property unmerge details found",
+                Data = items
+            };
+
+            return new PagedResult<PropertyMergeSingleDto>(new List<PropertyMergeSingleDto> { resultDto },
+                totalCount, queryParams.PageSize <= 0 ? 1 : queryParams.PageNumber,
+                queryParams.PageSize <= 0 ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving unmerged property details with query parameters: {@QueryParams}", queryParams);
+            throw;
+        }
+    }
+
 
     private static string BuildPropertyNumber(params string?[] propertyNumberParts)
     {

@@ -12,7 +12,7 @@ public class VerifyForgotPasswordOtpResponseDto
     public string? ResetToken { get; set; }
 
     /// <summary>
-    /// UTC expiry of <see cref="ResetToken"/>.
+    /// Expiry of <see cref="ResetToken"/>, in server-local time (no UTC offset).
     /// </summary>
     public DateTime? ResetTokenExpiresAt { get; set; }
 }

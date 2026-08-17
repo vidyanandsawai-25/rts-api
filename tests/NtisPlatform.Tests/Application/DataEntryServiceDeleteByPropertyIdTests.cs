@@ -317,4 +317,73 @@ public class DataEntryServiceDeleteByPropertyIdTests
     }
 
     #endregion
+
+    #region DeleteByPropertyIdAsync — IsOpenPlot Filtered
+
+    [Fact]
+    public async Task DeleteByPropertyIdAsync_WithIsOpenPlotTrue_DoesNotDeletePlotRecordOrRoomWiseService()
+    {
+        // Arrange — one plot record (IsOpenPlot = true), one normal record (IsOpenPlot = false)
+        var entities = new List<PropertyDetailsEntity>
+        {
+            new() { Id = 10, PropertyId = 5, IsActive = true, IsOpenPlot = true },
+            new() { Id = 11, PropertyId = 5, IsActive = true, IsOpenPlot = false }
+        };
+
+        _repositoryMock.Setup(r => r.GetQueryable())
+            .Returns(entities.BuildMock());
+        _repositoryMock.Setup(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _renterDetailServiceMock.Setup(s => s.DeleteByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _renterMastServiceMock.Setup(s => s.DeleteByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _roomWiseServiceMock.Setup(s => s.DeleteByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _ruleLogServiceMock.Setup(s => s.DeleteByPropertyDetailsIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.DeleteByPropertyIdAsync(5);
+
+        // Assert — returns true because entity 11 was deleted
+        Assert.True(result);
+
+        // Plot record (Id = 10) was NOT deleted
+        _repositoryMock.Verify(r => r.DeleteAsync(10, It.IsAny<CancellationToken>()), Times.Never);
+        _renterDetailServiceMock.Verify(s => s.DeleteByPropertyIdAsync(10, It.IsAny<CancellationToken>()), Times.Never);
+        _renterMastServiceMock.Verify(s => s.DeleteByPropertyIdAsync(10, It.IsAny<CancellationToken>()), Times.Never);
+        _roomWiseServiceMock.Verify(s => s.DeleteByPropertyIdAsync(10, It.IsAny<CancellationToken>()), Times.Never);
+
+        // Non-plot record (Id = 11) WAS deleted (including cascade deletes)
+        _repositoryMock.Verify(r => r.DeleteAsync(11, It.IsAny<CancellationToken>()), Times.Once);
+        _renterDetailServiceMock.Verify(s => s.DeleteByPropertyIdAsync(11, It.IsAny<CancellationToken>()), Times.Once);
+        _renterMastServiceMock.Verify(s => s.DeleteByPropertyIdAsync(11, It.IsAny<CancellationToken>()), Times.Once);
+        _roomWiseServiceMock.Verify(s => s.DeleteByPropertyIdAsync(11, It.IsAny<CancellationToken>()), Times.Once);
+        _ruleLogServiceMock.Verify(s => s.DeleteByPropertyDetailsIdAsync(11, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteByPropertyIdAsync_AllRecordsAreOpenPlot_ReturnsFalseAndDeletesNothing()
+    {
+        // Arrange — all records have IsOpenPlot = true
+        var entities = new List<PropertyDetailsEntity>
+        {
+            new() { Id = 10, PropertyId = 5, IsActive = true, IsOpenPlot = true }
+        };
+
+        _repositoryMock.Setup(r => r.GetQueryable())
+            .Returns(entities.BuildMock());
+
+        // Act
+        var result = await _service.DeleteByPropertyIdAsync(5);
+
+        // Assert — returns false as no records were deleted
+        Assert.False(result);
+        _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _roomWiseServiceMock.Verify(s => s.DeleteByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
 }

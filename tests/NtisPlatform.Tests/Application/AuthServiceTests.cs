@@ -237,9 +237,11 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("2FALOGIN", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _mfaChallengeServiceMock
             .Setup(x => x.CreateLoginChallengeAsync(1, null, null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new MfaLoginChallenge("opaque-challenge-id", expiresAt));
+            .ReturnsAsync(MfaChallengeCreationResult.Succeeded(new MfaLoginChallenge("opaque-challenge-id", expiresAt)));
 
         // Act
         var result = await _authService.LoginAsync(request);
@@ -309,7 +311,7 @@ public class AuthServiceTests
         _passwordHasherMock.Setup(x => x.VerifyPassword("WrongPassword", "$2a$12$hashedpassword"))
             .Returns(false);
         _userRepositoryMock.Setup(x => x.IncrementFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new FailedLoginIncrementResult(2, null));
 
         // Act
         var result = await _authService.LoginAsync(request);
@@ -318,10 +320,49 @@ public class AuthServiceTests
         Assert.False(result.Success);
         Assert.Null(result.Token);
         Assert.Equal("Invalid username or password", result.Message);
+        Assert.Equal(2, result.RemainingLoginAttempts);
 
         // Verify failed login count was incremented
         _userRepositoryMock.Verify(x => x.IncrementFailedLoginCountAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _userRepositoryMock.Verify(x => x.ResetFailedLoginCountAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithInvalidPasswordOnFinalAttempt_ReturnsLockoutMessageNotRemainingAttempts()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "WrongPassword"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            FailedLoginCount = 4
+        };
+
+        var lockedUntil = DateTime.Now.AddMinutes(30);
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("WrongPassword", "$2a$12$hashedpassword"))
+            .Returns(false);
+        _userRepositoryMock.Setup(x => x.IncrementFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new FailedLoginIncrementResult(0, lockedUntil));
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert — the account just locked on this attempt, so the message should say so, not
+        // "0 attempts remaining".
+        Assert.False(result.Success);
+        Assert.Contains("locked until", result.Message);
+        Assert.Null(result.RemainingLoginAttempts);
     }
 
     #endregion
@@ -683,7 +724,7 @@ public class AuthServiceTests
     #region MustChangePassword Tests
 
     [Fact]
-    public async Task LoginAsync_WithMustChangePassword_ReturnsFailureWithFlag()
+    public async Task LoginAsync_WithMustChangePassword_ReturnsSuccessWithRequiresPasswordChangeFlag()
     {
         // Arrange
         var request = new LoginRequestDto
@@ -710,10 +751,245 @@ public class AuthServiceTests
         var result = await _authService.LoginAsync(request);
 
         // Assert
-        Assert.False(result.Success);
+        // Success is deliberately true (not false) so the response actually reaches the client as
+        // 200 OK with RequiresPasswordChange set, instead of being discarded by the controller's
+        // generic Unauthorized(...) path for Success=false responses (same pattern as RequiresTwoFactor).
+        Assert.True(result.Success);
         Assert.True(result.RequiresPasswordChange);
         Assert.Contains("must change your password", result.Message);
         Assert.Null(result.Token);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithExpiredPassword_ReturnsSuccessWithRequiresPasswordChangeFlag()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            MustChangePassword = false,
+            PasswordChangedAt = DateTime.Now.AddDays(-91)
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("PASSWORDEXPIRYDAYS", 90, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(90);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.True(result.RequiresPasswordChange);
+        Assert.Contains("password has expired", result.Message);
+        Assert.Null(result.Token);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithRecentPassword_DoesNotTriggerExpiry()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            MustChangePassword = false,
+            PasswordChangedAt = DateTime.Now.AddDays(-1)
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("PASSWORDEXPIRYDAYS", 90, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(90);
+        SetUpSuccessfulTokenIssuance(user);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.False(result.RequiresPasswordChange);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WithNullPasswordChangedAt_SkipsExpiryCheck()
+    {
+        // Arrange — accounts that predate this feature and haven't reset their password since.
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            MustChangePassword = false,
+            PasswordChangedAt = null
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("PASSWORDEXPIRYDAYS", 90, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(90);
+        SetUpSuccessfulTokenIssuance(user);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.False(result.RequiresPasswordChange);
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenMfaChallengeCreationThrottled_ReturnsThrottledFailure()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            TwoFactorEnabled = true
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("2FALOGIN", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mfaChallengeServiceMock
+            .Setup(x => x.CreateLoginChallengeAsync(1, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MfaChallengeCreationResult.Failed(ChallengeCreationFailureReason.AccountThrottled));
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.True(result.Throttled);
+        Assert.Null(result.Token);
+        _authTokenIssuerMock.Verify(x => x.IssueAsync(It.IsAny<UserEntity>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_With2FALoginEnabledButNoDeliveryChannel_LogsInNormallyInsteadOfThrowing()
+    {
+        // Arrange — 2FALOGIN is on but an admin never enabled LOGINOTPONMAIL/LOGINOTPONSMS. This
+        // must not block every login in the organization with a 500; it should just skip the OTP
+        // step since there's no way to actually deliver a code.
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            TwoFactorEnabled = false
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("2FALOGIN", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("LOGINOTPONMAIL", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _securitySettingsMock.Setup(x => x.GetAsync("LOGINOTPONSMS", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        SetUpSuccessfulTokenIssuance(user);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.False(result.RequiresTwoFactor);
+        Assert.NotNull(result.Token);
+        _otpChallengeServiceMock.Verify(
+            x => x.CreateAsync(It.IsAny<UserEntity>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task LoginAsync_With2FALoginDisabled_SkipsTotpChallengeEvenWhenUserIsEnrolled()
+    {
+        // Arrange — 2FALOGIN is the master switch: an admin can flip it off to suspend 2FA
+        // enforcement org-wide (e.g. during an incident) without touching any individual user's
+        // TwoFactorEnabled enrollment. A TOTP-enrolled user must NOT be challenged while it's off.
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            TwoFactorEnabled = true
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _securitySettingsMock.Setup(x => x.GetAsync("2FALOGIN", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        SetUpSuccessfulTokenIssuance(user);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.False(result.RequiresTwoFactor);
+        Assert.NotNull(result.Token);
+        _mfaChallengeServiceMock.Verify(
+            x => x.CreateLoginChallengeAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     #endregion

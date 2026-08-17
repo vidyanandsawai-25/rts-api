@@ -21,6 +21,7 @@ public class OtpChallengeService : IOtpChallengeService
     private const string DefaultCompanyName = "NTIS Platform";
 
     private readonly IMfaChallengeRepository _challengeRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly ISmsService _smsService;
@@ -30,6 +31,7 @@ public class OtpChallengeService : IOtpChallengeService
 
     public OtpChallengeService(
         IMfaChallengeRepository challengeRepository,
+        IUserRepository userRepository,
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
         ISmsService smsService,
@@ -38,6 +40,7 @@ public class OtpChallengeService : IOtpChallengeService
         ILogger<OtpChallengeService> logger)
     {
         _challengeRepository = challengeRepository;
+        _userRepository = userRepository;
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
         _smsService = smsService;
@@ -46,7 +49,7 @@ public class OtpChallengeService : IOtpChallengeService
         _logger = logger;
     }
 
-    public async Task<OtpChallengeResult> CreateAsync(
+    public async Task<OtpChallengeCreationResult> CreateAsync(
         UserEntity user,
         string purpose,
         bool sendEmail,
@@ -55,6 +58,12 @@ public class OtpChallengeService : IOtpChallengeService
         string? userAgent,
         CancellationToken cancellationToken = default)
     {
+        var now = _timeProvider.GetLocalNow().DateTime;
+        if (user.OtpChallengeLockedUntilAt is { } lockedUntil && lockedUntil > now)
+        {
+            return OtpChallengeCreationResult.Failed(ChallengeCreationFailureReason.AccountThrottled);
+        }
+
         if (!sendEmail && !sendSms)
         {
             _logger.LogError(
@@ -64,7 +73,6 @@ public class OtpChallengeService : IOtpChallengeService
                 $"Cannot create an OTP challenge for purpose '{purpose}': no delivery channel is enabled. Check the corresponding SECURITY_AUTH config flags.");
         }
 
-        var now = _timeProvider.GetLocalNow().DateTime;
         var expiresAt = now.AddMinutes(_options.LifetimeMinutes);
 
         var rawChallengeId = ChallengeTokenHasher.GenerateToken();
@@ -101,7 +109,7 @@ public class OtpChallengeService : IOtpChallengeService
 
         _logger.LogInformation("OTP challenge created for user {UserId}, purpose '{Purpose}', channel '{Channel}'", user.Id, purpose, channel);
 
-        return new OtpChallengeResult(rawChallengeId, expiresAt);
+        return OtpChallengeCreationResult.Succeeded(new OtpChallengeResult(rawChallengeId, expiresAt));
     }
 
     public async Task<OtpVerificationResult> VerifyAsync(
@@ -146,6 +154,7 @@ public class OtpChallengeService : IOtpChallengeService
 
             if (outcome == MfaChallengeFailureOutcome.NowLocked)
             {
+                await _userRepository.IncrementOtpChallengeLockoutAsync(challenge.UserId, cancellationToken);
                 _logger.LogWarning("OTP challenge locked for user {UserId}, purpose '{Purpose}', after too many failed attempts", challenge.UserId, purpose);
                 return OtpVerificationResult.Failed(OtpVerificationFailureReason.ChallengeLocked);
             }
@@ -161,6 +170,7 @@ public class OtpChallengeService : IOtpChallengeService
             return OtpVerificationResult.Failed(OtpVerificationFailureReason.ChallengeConsumed);
         }
 
+        await _userRepository.ResetOtpChallengeLockoutAsync(challenge.UserId, cancellationToken);
         _logger.LogInformation("OTP verification succeeded for user {UserId}, purpose '{Purpose}'", challenge.UserId, purpose);
 
         return OtpVerificationResult.Succeeded(challenge.UserId);

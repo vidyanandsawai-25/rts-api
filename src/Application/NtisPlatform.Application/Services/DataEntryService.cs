@@ -273,7 +273,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     public async Task<bool> DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         var entities = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && x.IsOpenPlot != true)
             .ToListAsync(cancellationToken);
 
         if (!entities.Any())
@@ -282,6 +282,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            bool anyDeleted = false;
             foreach (var entity in entities)
             {
                 // Soft-delete parent via repository (sets IsActive = false internally)
@@ -298,10 +299,12 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
                 {
                     await _ruleLogService.DeleteByPropertyDetailsIdAsync(entity.Id, cancellationToken);
                 }
+
+                anyDeleted = true;
             }
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-            return true;
+            return anyDeleted;
         }
         catch
         {

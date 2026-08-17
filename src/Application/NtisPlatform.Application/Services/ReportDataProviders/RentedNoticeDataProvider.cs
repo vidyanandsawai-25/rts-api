@@ -1,52 +1,66 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Reporting;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.ReportDataProviders
 {
-    
+
     public class RentedNoticeDataProvider : IPagedReportDataProvider
     {
         public const string MainSection = "main";
 
         public string ProviderCode => "RentedNoticeDataProvider";
 
-        private readonly IReportDataRepository<PropertyEntity>           _propertyRepository;
-        private readonly IReportDataRepository<WardEntity>               _wardRepository;
-        private readonly IReportDataRepository<SocietyDetailsEntity>     _societyRepository;
-        private readonly IReportDataRepository<TypeOfUseEntity>          _typeOfUseRepository;
-        private readonly IReportDataRepository<PropertyMastOldEntity>    _propertyMastOldRepository;
+        private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
+        private readonly IReportDataRepository<WardEntity> _wardRepository;
+        private readonly IReportDataRepository<SocietyDetailsEntity> _societyRepository;
+        private readonly IReportDataRepository<TypeOfUseEntity> _typeOfUseRepository;
+        private readonly IReportDataRepository<PropertyMastOldEntity> _propertyMastOldRepository;
         private readonly IReportDataRepository<PropertyTypeMasterEntity> _propertyTypeRepository;
-        private readonly IReportDataRepository<TransMastEntity>          _transmastRepository;
-        private readonly IReportDataRepository<TaxMasterEntity>          _taxMastRepository;
-        private readonly IReportDataRepository<ULBMasterEntity>          _ulbMasterRepository;
-        private readonly IReportDataRepository<UserEntity>               _userRepository;
+        private readonly IReportDataRepository<TransMastEntity> _transmastRepository;
+        private readonly IReportDataRepository<TaxMasterEntity> _taxMastRepository;
+        private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
+        private readonly IReportDataRepository<UserEntity> _userRepository;
+        private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
+        private readonly IReportDataRepository<TransMastEntity> _transRepository;
+        private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
+        private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
 
         public RentedNoticeDataProvider(
-            IReportDataRepository<PropertyEntity>           propertyRepository,
-            IReportDataRepository<WardEntity>               wardRepository,
-            IReportDataRepository<SocietyDetailsEntity>     societyRepository,
-            IReportDataRepository<TypeOfUseEntity>          typeOfUseRepository,
-            IReportDataRepository<PropertyMastOldEntity>    propertyMastOldRepository,
+            IReportDataRepository<PropertyEntity> propertyRepository,
+            IReportDataRepository<WardEntity> wardRepository,
+            IReportDataRepository<SocietyDetailsEntity> societyRepository,
+            IReportDataRepository<TypeOfUseEntity> typeOfUseRepository,
+            IReportDataRepository<PropertyMastOldEntity> propertyMastOldRepository,
             IReportDataRepository<PropertyTypeMasterEntity> propertyTypeRepository,
-            IReportDataRepository<TransMastEntity>          transmastRepository,
-            IReportDataRepository<TaxMasterEntity>          taxMastRepository,
-            IReportDataRepository<ULBMasterEntity>          ulbMasterRepository,
-            IReportDataRepository<UserEntity>               userRepository)
+            IReportDataRepository<TransMastEntity> transmastRepository,
+            IReportDataRepository<TaxMasterEntity> taxMastRepository,
+            IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
+            IReportDataRepository<UserEntity> userRepository,
+            IReportDataRepository<YearMasterEntity> yearRepository,
+            IReportDataRepository<TransMastEntity> transRepository,
+            IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
+            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
         {
-            _propertyRepository        = propertyRepository;
-            _wardRepository            = wardRepository;
-            _societyRepository         = societyRepository;
-            _typeOfUseRepository       = typeOfUseRepository;
+            _propertyRepository = propertyRepository;
+            _wardRepository = wardRepository;
+            _societyRepository = societyRepository;
+            _typeOfUseRepository = typeOfUseRepository;
             _propertyMastOldRepository = propertyMastOldRepository;
-            _propertyTypeRepository    = propertyTypeRepository;
-            _transmastRepository       = transmastRepository;
-            _taxMastRepository         = taxMastRepository;
-            _ulbMasterRepository       = ulbMasterRepository;
-            _userRepository            = userRepository;
+            _propertyTypeRepository = propertyTypeRepository;
+            _transmastRepository = transmastRepository;
+            _taxMastRepository = taxMastRepository;
+            _ulbMasterRepository = ulbMasterRepository;
+            _userRepository = userRepository;
+            _yearRepository = yearRepository;
+            _transRepository = transRepository;
+            _ReportRequestRepository = reportRequestRepository;
+            _propertyMapDetailRepository = propertyMapDetailRepository;
         }
 
         // Static — never runs a query (avoids any heavy query executing on the authenticate request).
@@ -58,53 +72,208 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         public async Task<object> GetDataAsync(
             Dictionary<string, string> parameters, CancellationToken ct = default)
         {
-            var (rows, _) = await BuildPageAsync(parameters, skip: 0, take: int.MaxValue, ct);
+            var financeYear = ParseFinanceYear(parameters);
+            var (rows, _) = await BuildPageAsync(Guid.Empty, parameters, skip: 0, take: int.MaxValue, ct);
             return rows;
         }
 
         public async Task<ReportDataPage> GetDataPageAsync(
+            Guid reportRequestId,
             Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
         {
-            if (page     < 1)  page     = 1;
+            var financeYear = ParseFinanceYear(parameters);
+            if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 100;
 
-            var (rows, hasMore) = await BuildPageAsync(parameters, (page - 1) * pageSize, pageSize, ct);
+            var (rows, hasMore) = await BuildPageAsync(reportRequestId, parameters, (page - 1) * pageSize, pageSize, ct);
             return new ReportDataPage
             {
-                Section    = MainSection,
-                Page       = page,
-                PageSize   = pageSize,
+                Section = MainSection,
+                Page = page,
+                PageSize = pageSize,
                 TotalCount = -1,
-                HasMore    = hasMore,
-                Rows       = rows,
+                HasMore = hasMore,
+                Rows = rows,
             };
         }
+        private static short ParseFinanceYear(Dictionary<string, string> parameters)
+        {
+            parameters.TryGetValue("financeYear", out var financeYearStr);
+            short.TryParse(financeYearStr, out var financeYear);
+            return financeYear;
+        }
+        private IQueryable<YearMasterEntity> BaseQuery(short financeYear) => _yearRepository.GetQueryable()
+         .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
 
         private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
+            Guid reportRequestId,
             Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
         {
-            // --- Parse parameters ---
-            parameters.TryGetValue("propertyId", out var propertyIdStr);
-            parameters.TryGetValue("userId",     out var userIdStr);
-            int.TryParse(propertyIdStr, out var propertyId);
-            int.TryParse(userIdStr,     out var userId);
+            parameters.TryGetValue("ownerId", out var ownerIdText);
 
-            var rows = await BuildMainRowAsync(propertyId, userId, ct);
+            var ownerIds = string.IsNullOrWhiteSpace(ownerIdText) ? new List<int>() : ownerIdText
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+            // --- Parse parameters ---
+            parameters.TryGetValue("zoneId", out var zoneIdText);
+            int.TryParse(zoneIdText, out var zoneId);
+
+            parameters.TryGetValue("wardId", out var wardIdText);
+            int.TryParse(wardIdText, out var wardId);
+
+            parameters.TryGetValue("propertyNo", out var propertyNoText);
+            propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
+
+            parameters.TryGetValue("partitionNo", out var partitionNoText);
+            partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
+
+            var financeYear = ParseFinanceYear(parameters);
+            int activeYearId = 0;
+            if (financeYear != 0)
+            {
+                activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
+            }
+
+
+            parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+            int.TryParse(assessmentStatusText, out var assessmentStatus);
+
+
+            // ------ FROM Property - TO Property Number Range Filter Parameters ------
+            parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+            fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+                ? null
+                : fromPropertyNoText.Trim();
+
+            parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+            toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+                ? null
+                : toPropertyNoText.Trim();
+
+
+
+            parameters.TryGetValue("Type", out var type);
+            type = string.IsNullOrWhiteSpace(type)
+                ? null
+                : type.Trim().ToUpper();
+
+            parameters.TryGetValue("propertyTypeId", out var propertyTypeIdText);
+            int.TryParse(propertyTypeIdText, out var propertyTypeId);
+
+            parameters.TryGetValue("PropertyDescription", out var propertyDescription);
+            propertyDescription = string.IsNullOrWhiteSpace(propertyDescription) ? null : propertyDescription.Trim();
+
+
+            // propertyId accepts a single value OR comma-separated list: "101,202,303" propertyid means owenerid
+            parameters.TryGetValue("propertyId", out var propertyIdStr);
+            parameters.TryGetValue("userId", out var userIdStr);
+
+            // Split on commas, parse each token, deduplicate, drop invalid entries.
+            var propertyIds = (propertyIdStr ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            if (ownerIds.Count > 0)
+            {
+                propertyIds.AddRange(ownerIds);
+                propertyIds = propertyIds.Distinct().ToList();
+            }
+
+            // If no explicit propertyIds are provided, resolve them via filters
+            if (propertyIds.Count == 0)
+            {
+                var query =
+                    from p in _propertyRepository.GetQueryable()
+                    join w in _wardRepository.GetQueryable() on p.WardId equals w.Id into wj
+                    from w in wj.DefaultIfEmpty()
+
+                        // ---------------- JOIN PropertyTypeMaster ----------------
+                    join pt in _propertyTypeRepository.GetQueryable()
+                        on p.PropertyTypeId equals pt.Id into ptj
+                    from pt in ptj.DefaultIfEmpty()
+
+                    where p.IsActive && !p.MarkedForDeletion
+                          && (zoneId == 0 || w.ZoneId == zoneId)
+                          && (wardId == 0 || p.WardId == wardId)
+                          && (propertyNoText == null || p.PropertyNo == propertyNoText)
+                          && (partitionNoText == null || p.PartitionNo == partitionNoText)
+
+                          && (assessmentStatus == 0 || p.PropertyAssessmentStatusId == assessmentStatus)
+
+                          && (string.IsNullOrEmpty(type) || p.Type == type)
+                          && (propertyTypeId == 0 || p.PropertyTypeId == propertyTypeId)
+                          && (string.IsNullOrEmpty(propertyDescription) || pt.PropertyDescription == propertyDescription)
+
+                    select p;
+
+                // APPLY TransMast constraint SERVER-SIDE only when caller requested financeYear
+                if (financeYear != 0 && activeYearId > 0)
+                {
+                    var transQ = _transRepository.GetQueryable()
+                        .Where(t => t.FinanceYearId == activeYearId)
+                        .Select(t => t.PropertyId);
+
+                    query = query.Where(p => transQ.Contains(p.Id));
+                }
+
+                var propertyList = await query.Select(p => new { p.Id, p.PropertyNo }).ToListAsync(ct);
+
+                int ParseLeadingInt(string? str)
+                {
+                    if (string.IsNullOrWhiteSpace(str)) return 0;
+                    int num = 0;
+                    for (int i = 0; i < str.Length; i++)
+                    {
+                        if (char.IsDigit(str[i]))
+                        {
+                            num = num * 10 + (str[i] - '0');
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    return num;
+                }
+
+                if (int.TryParse(fromPropertyNoText, out var fromPropNo))
+                {
+                    propertyList = propertyList.Where(p => ParseLeadingInt(p.PropertyNo) >= fromPropNo).ToList();
+                }
+                if (int.TryParse(toPropertyNoText, out var toPropNo))
+                {
+                    propertyList = propertyList.Where(p => ParseLeadingInt(p.PropertyNo) <= toPropNo).ToList();
+                }
+
+                propertyIds = propertyList.Select(p => p.Id).ToList();
+            }
+
+            var rows = await BuildMainRowsAsync(propertyIds, reportRequestId, ct);
 
             // Apply skip/take.
             var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
-            var paged       = rows.Skip(skip).Take(takePlusOne).ToList();
-            var hasMore     = take != int.MaxValue && paged.Count > take;
+            var paged = rows.Skip(skip).Take(takePlusOne).ToList();
+            var hasMore = take != int.MaxValue && paged.Count > take;
             if (hasMore) paged = paged.Take(take).ToList();
 
             return (paged, hasMore);
         }
 
-        private async Task<List<object>> BuildMainRowAsync(int propertyId, int userId, CancellationToken ct)
+        private async Task<List<object>> BuildMainRowsAsync(List<int> propertyIds, Guid reportRequestId, CancellationToken ct)
         {
-            // 1a. Property
-            var property = await _propertyRepository.GetQueryable()
-                .Where(p => p.Id == propertyId)
+            if (propertyIds == null || propertyIds.Count == 0)
+                return new List<object>();
+
+            // 1a. Properties
+            var properties = await _propertyRepository.GetQueryable()
+                .Where(p => propertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
                 .Select(p => new
                 {
                     p.Id,
@@ -122,76 +291,122 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     p.FlatOrShopNo,
                     p.FlatOrShopName,
                     p.PropertyTypeId,
-                    p.PropertyMastOldId,
+                    p.PropertyAssessmentStatusId,
                 })
-                .FirstOrDefaultAsync(ct);
+                .ToListAsync(ct);
 
-            if (property == null)
+            if (!properties.Any())
                 return new List<object>();
 
-            // 1b. Ward: JOIN PTIS.WardMaster ON WardId = Id to get WardNo
-            string? wardNo = null;
-            if (property.WardId is int wid and > 0)
+            // 1b. Unique ward IDs -> WardNo map
+            var uniqueWardIds = properties
+                .Select(p => p.WardId)
+                .Where(wid => wid > 0)
+                .Distinct()
+                .ToList();
+
+            var wardMap = new Dictionary<int, string?>();
+            foreach (var wid in uniqueWardIds)
             {
-                wardNo = await _wardRepository.GetQueryable()
+                var wardNo = await _wardRepository.GetQueryable()
                     .Where(w => w.Id == wid)
                     .Select(w => w.WardNo)
                     .FirstOrDefaultAsync(ct);
+                wardMap[wid] = wardNo;
             }
 
-            // 1b. Society details (LEFT JOIN on PropertyId)
-            var society = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId == propertyId)
+            // 1c. Society details map
+            var societyDetails = await _societyRepository.GetQueryable()
+                .Where(sd => sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value))
                 .Select(sd => new
                 {
+                    PropertyId = sd.PropertyId!.Value,
                     sd.WingId,
                     sd.WingName,
                     sd.SocietyName,
                     sd.SocietyAddress,
                 })
-                .FirstOrDefaultAsync(ct);
+                .ToListAsync(ct);
 
-            // 1c. Type-of-use (LEFT JOIN on PM.PropertyTypeId = TUM.Id)
-            var typeOfUse = property.PropertyTypeId.HasValue
-                ? await _typeOfUseRepository.GetQueryable()
-                    .Where(t => t.Id == property.PropertyTypeId.Value)
+            var societyMap = societyDetails.GroupBy(s => s.PropertyId)
+                                           .ToDictionary(g => g.Key, g => g.First());
+
+            // 1d. Unique type-of-use IDs -> TypeOfUse map
+            var uniqueTypeIds = properties
+                .Select(p => p.PropertyTypeId)
+                .Where(tid => tid.HasValue && tid.Value > 0)
+                .Select(tid => tid!.Value)
+                .Distinct()
+                .ToList();
+
+            var typeOfUseMap = new Dictionary<int, dynamic>();
+            foreach (var tid in uniqueTypeIds)
+            {
+                var typeOfUse = await _typeOfUseRepository.GetQueryable()
+                    .Where(t => t.Id == tid)
                     .Select(t => new
                     {
                         t.Description,
                         t.TypeOfUseCode,
                     })
-                    .FirstOrDefaultAsync(ct)
-                : null;
+                    .FirstOrDefaultAsync(ct);
+                if (typeOfUse != null)
+                {
+                    typeOfUseMap[tid] = typeOfUse;
+                }
+            }
 
-            // 1d. PropertyMastOld (LEFT JOIN on PM.PropertyMastOldId = PMO.Id)
-            //     Returns OldWardNo, OldPropertyNo, OldPartitionNo
-            var propertyOld = property.PropertyMastOldId.HasValue
-                ? await _propertyMastOldRepository.GetQueryable()
-                    .Where(o => o.Id == property.PropertyMastOldId.Value)
+            // 1e. Map new property IDs to old property IDs via PropertyMapDetail
+            var propertyMappings = await _propertyMapDetailRepository.GetQueryable()
+                .Where(pmd => pmd.PropertyIdNew.HasValue && propertyIds.Contains(pmd.PropertyIdNew.Value) && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+                .Select(pmd => new { pmd.PropertyIdNew, pmd.PropertyIdOld })
+                .ToListAsync(ct);
+
+            var newToOldIdMap = propertyMappings
+                .Where(m => m.PropertyIdNew.HasValue && m.PropertyIdOld.HasValue)
+                .GroupBy(m => m.PropertyIdNew!.Value)
+                .ToDictionary(g => g.Key, g => g.First().PropertyIdOld!.Value);
+
+            var uniqueOldIds = newToOldIdMap.Values.Distinct().ToList();
+
+            var oldMap = new Dictionary<int, dynamic>();
+            foreach (var oid in uniqueOldIds)
+            {
+                var oldObj = await _propertyMastOldRepository.GetQueryable()
+                    .Where(o => o.Id == oid)
                     .Select(o => new
                     {
                         o.OldWardNo,
                         o.OldPropertyNo,
                         o.OldPartitionNo,
                     })
-                    .FirstOrDefaultAsync(ct)
-                : null;
+                    .FirstOrDefaultAsync(ct);
+                if (oldObj != null)
+                {
+                    oldMap[oid] = oldObj;
+                }
+            }
 
-            // 1e. PropertyTypeMaster (LEFT JOIN on PM.PropertyTypeId = PTM.Id)
-            //     Returns PropertyDescription, Type, PartType
-            var propertyType = property.PropertyTypeId.HasValue
-                ? await _propertyTypeRepository.GetQueryable()
-                    .Where(pt => pt.Id == property.PropertyTypeId.Value)
+            // 1f. Unique PropertyTypeId -> PropertyTypeMaster map
+            var propertyTypeMap = new Dictionary<int, dynamic>();
+            foreach (var tid in uniqueTypeIds)
+            {
+                var pType = await _propertyTypeRepository.GetQueryable()
+                    .Where(pt => pt.Id == tid)
                     .Select(pt => new
                     {
                         pt.PropertyDescription,
                         pt.Type,
                         pt.PartType,
                     })
-                    .FirstOrDefaultAsync(ct)
-                : null;
+                    .FirstOrDefaultAsync(ct);
+                if (pType != null)
+                {
+                    propertyTypeMap[tid] = pType;
+                }
+            }
 
-            // 1f. ULB Master — SELECT from [CORE].[UlbMaster] (first/only row)
+            // 1g. ULB Master (single row)
             var ulb = await _ulbMasterRepository.GetQueryable()
                 .Select(u => new
                 {
@@ -210,109 +425,152 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // 1g. User: select from [CORE].[UserMaster] where Id = @userId
-            var user = await _userRepository.GetQueryable()
-                .Where(u => u.Id == userId)
-                .Select(u => new
-                {
-                    u.Id,
-                    u.UserName,
-                    u.FirstName,
-                    u.MiddleName,
-                    u.LastName,
-                    u.UserCode,
-                    u.Email,
-                    u.MobileNo,
-                })
+            // 1h. User (single row)
+            var requestedByUserId = await _ReportRequestRepository.GetQueryable()
+                .Where(r => r.ReportRequestId == reportRequestId)
+                .Select(r => (int?)r.RequestedByUserId)
                 .FirstOrDefaultAsync(ct);
 
-            // 1h. TransMast pivot
-            var taxRows = await (
-                from tm  in _transmastRepository.GetQueryable().Where(t => t.PropertyId == propertyId)
+            var user = requestedByUserId == null
+                ? null
+                : await _userRepository.GetQueryable()
+                    .Where(u => u.Id == requestedByUserId.Value)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.UserName,
+                        u.UserCode,
+                        u.Email,
+                        u.MobileNo,
+                    })
+                    .FirstOrDefaultAsync(ct);
+
+            // 1i. TransMast pivot
+            var taxRowsAll = await (
+                from tm in _transmastRepository.GetQueryable().Where(t => propertyIds.Contains(t.PropertyId))
                 join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
                 orderby tam.DisplayOrder
                 select new
                 {
+                    tm.PropertyId,
                     tam.TaxCode,
                     tam.TaxName,
-                    RVorCV = tm.CalculationType,
-                    RVorCVValue = tm.CalculationValue,
+                    tm.RVorCV,
+                    tm.RVorCVValue,
                     tm.TaxAmount,
                 }
             ).ToListAsync(ct);
 
-            var row = new Dictionary<string, object?>
-            {
-                // Property fields
-                ["propertyId"]               = property.Id,
-                ["propertyNo"]               = property.PropertyNo,
-                ["wardId"]                   = property.WardId,
-                ["wardNo"]                   = wardNo,
-                ["partitionNo"]              = property.PartitionNo,
-                ["upicId"]                   = property.UPICId,
-                ["subZoneNo"]                = property.SubZoneNo,
-                ["mobileNo"]                 = property.MobileNo,
-                ["ownerTitle"]               = property.OwnerTitle,
-                ["occupierTitle"]            = property.OccupierTitle,
-                ["ownerName"]                = property.OwnerName,
-                ["occupierName"]             = property.OccupierName,
-                ["address"]                  = property.Address,
-                ["flatOrShopNo"]             = property.FlatOrShopNo,
-                ["flatOrShopName"]           = property.FlatOrShopName,
-                // Society details
-                ["wingId"]                   = society?.WingId,
-                ["wingName"]                 = society?.WingName,
-                ["societyName"]              = society?.SocietyName,
-                ["societyAddress"]           = society?.SocietyAddress,
-                // Type-of-use (TypeOfUseMaster)
-                ["typeOfUseDesc"]            = typeOfUse?.Description,
-                ["typeOfUseCode"]            = typeOfUse?.TypeOfUseCode,
-                // Old property data (PTIS.PropertyMastOld)
-                ["oldWardNo"]                = propertyOld?.OldWardNo,
-                ["oldPropertyNo"]            = propertyOld?.OldPropertyNo,
-                ["oldPartitionNo"]           = propertyOld?.OldPartitionNo,
-                // Property type master (PTIS.PropertyTypeMaster)
-                ["propertyDescription"]      = propertyType?.PropertyDescription,
-                ["propertyType"]             = propertyType?.Type,
-                ["propertyPartType"]         = propertyType?.PartType,
-                // User Master fields (CORE.UserMaster)
-                ["userId"]                   = user?.Id,
-                ["userName"]                 = user?.UserName,
-                ["firstName"]                = user?.FirstName,
-                ["middleName"]               = user?.MiddleName,
-                ["lastName"]                 = user?.LastName,
-                ["userCode"]                 = user?.UserCode,
-                ["userEmail"]                = user?.Email,
-                ["userMobileNo"]             = user?.MobileNo,
-                // ULB Master fields (CORE.UlbMaster)
-                ["ulbCode"]                  = ulb?.UlbCode,
-                ["ulbName"]                  = ulb?.UlbName,
-                ["ulbNameLocal"]             = ulb?.UlbNameLocal,
-                ["ulbLogo"]                  = ulb?.UlbLogo,
-                ["ulbEmailId"]               = ulb?.EmailId,
-                ["ulbMobileNo"]              = ulb?.MobileNo,
-                ["ulbAlternateMobileNo"]     = ulb?.AlternateMobileNo,
-                ["ulbWebsiteUrl"]            = ulb?.WebsiteUrl,
-                ["ulbAddress"]               = ulb?.UlbAddress,
-                ["ulbState"]                 = ulb?.State,
-                ["ulbDistrict"]              = ulb?.District,
-                ["ulbPinCode"]               = ulb?.PinCode,
-            };
+            var taxRowsByProperty = taxRowsAll.GroupBy(t => t.PropertyId)
+                                              .ToDictionary(g => g.Key, g => g.ToList());
 
-            // Pivot TransMast rows into dynamic columns on the same main row.
-            foreach (var tax in taxRows)
-            {
-                var safeCode = (tax.TaxCode?.Trim().Length > 0
-                                    ? tax.TaxCode
-                                    : tax.TaxName ?? "UNKNOWN")
-                               .Replace(' ', '_');
+            var allRows = new List<object>();
 
-                row[$"Transmast_{safeCode}"]   = tax.TaxAmount;
-                row[$"RVorCV_{safeCode}"]      = tax.RVorCV;
-                row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+            foreach (var property in properties)
+            {
+                string? wardNo = null;
+                if (wardMap.ContainsKey(property.WardId))
+                {
+                    wardNo = wardMap[property.WardId];
+                }
+
+                var society = societyMap.ContainsKey(property.Id) ? societyMap[property.Id] : null;
+
+                var typeOfUse = property.PropertyTypeId.HasValue && typeOfUseMap.ContainsKey(property.PropertyTypeId.Value)
+                    ? typeOfUseMap[property.PropertyTypeId.Value]
+                    : null;
+
+                dynamic? propertyOld = null;
+                if (newToOldIdMap.TryGetValue(property.Id, out var oldId) && oldMap.ContainsKey(oldId))
+                {
+                    propertyOld = oldMap[oldId];
+                }
+
+                var propertyType = property.PropertyTypeId.HasValue && propertyTypeMap.ContainsKey(property.PropertyTypeId.Value)
+                    ? propertyTypeMap[property.PropertyTypeId.Value]
+                    : null;
+
+                System.Collections.IEnumerable taxRows = Array.Empty<object>();
+                if (taxRowsByProperty.ContainsKey(property.Id))
+                {
+                    taxRows = taxRowsByProperty[property.Id];
+                }
+
+                var row = new Dictionary<string, object?>
+                {
+                    // Property fields
+                    ["propertyId"] = property.Id,
+                    ["propertyNo"] = property.PropertyNo,
+                    ["wardId"] = property.WardId,
+                    ["wardNo"] = wardNo,
+                    ["partitionNo"] = property.PartitionNo,
+                    ["upicId"] = property.UPICId,
+                    ["subZoneNo"] = property.SubZoneNo,
+                    ["mobileNo"] = property.MobileNo,
+                    ["ownerTitle"] = property.OwnerTitle,
+                    ["occupierTitle"] = property.OccupierTitle,
+                    ["ownerName"] = property.OwnerName,
+                    ["occupierName"] = property.OccupierName,
+                    ["address"] = property.Address,
+                    ["flatOrShopNo"] = property.FlatOrShopNo,
+                    ["flatOrShopName"] = property.FlatOrShopName,
+                    // Society details 
+                    ["wingId"] = society?.WingId,
+                    ["wingName"] = society?.WingName,
+                    ["societyName"] = society?.SocietyName,
+                    ["societyAddress"] = society?.SocietyAddress,
+                    // Type-of-use (TypeOfUseMaster)
+                    ["typeOfUseDesc"] = typeOfUse?.Description,
+                    ["typeOfUseCode"] = typeOfUse?.TypeOfUseCode,
+                    // Old property data (PTIS.PropertyMastOld)
+                    ["oldWardNo"] = propertyOld?.OldWardNo,
+                    ["oldPropertyNo"] = propertyOld?.OldPropertyNo,
+                    ["oldPartitionNo"] = propertyOld?.OldPartitionNo,
+                    // Property type master (PTIS.PropertyTypeMaster)
+                    ["propertyDescription"] = propertyType?.PropertyDescription,
+                    ["propertyType"] = propertyType?.Type,
+                    ["propertyPartType"] = propertyType?.PartType,
+                    // User Master fields (CORE.UserMaster)
+                    ["userId"] = user?.Id,
+                    ["userName"] = user?.UserName,
+                    ["userCode"] = user?.UserCode,
+                    ["userEmail"] = user?.Email,
+                    ["userMobileNo"] = user?.MobileNo,
+                    // ULB Master fields (CORE.UlbMaster)
+                    ["ulbCode"] = ulb?.UlbCode,
+                    ["ulbName"] = ulb?.UlbName,
+                    ["ulbNameLocal"] = ulb?.UlbNameLocal,
+                    ["ulbLogo"] = ulb?.UlbLogo,
+                    ["ulbEmailId"] = ulb?.EmailId,
+                    ["ulbMobileNo"] = ulb?.MobileNo,
+                    ["ulbAlternateMobileNo"] = ulb?.AlternateMobileNo,
+                    ["ulbWebsiteUrl"] = ulb?.WebsiteUrl,
+                    ["ulbAddress"] = ulb?.UlbAddress,
+                    ["ulbState"] = ulb?.State,
+                    ["ulbDistrict"] = ulb?.District,
+                    ["ulbPinCode"] = ulb?.PinCode,
+                    ["financeYear"] = "",
+                    ["assessmentStatus"] = property.PropertyAssessmentStatusId,
+                    ["FlatInfo"] = $"{property.FlatOrShopNo}-{property.FlatOrShopName}",
+                    ["occupierFullName"] = $"{property.OccupierTitle} {property.OccupierName}".Trim(),
+                    ["ownerFullName"] = $"{property.OwnerTitle} {property.OwnerName}".Trim(),
+                };
+
+                foreach (dynamic tax in taxRows)
+                {
+                    string? taxCode = tax.TaxCode;
+                    string? taxName = tax.TaxName;
+                    string safeCode = (!string.IsNullOrWhiteSpace(taxCode) ? taxCode : (!string.IsNullOrWhiteSpace(taxName) ? taxName : "UNKNOWN")).Replace(' ', '_');
+
+                    row[$"Transmast_{safeCode}"] = tax.TaxAmount;
+                    row[$"RVorCV_{safeCode}"] = tax.RVorCV;
+                    row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+                }
+
+                allRows.Add(row);
             }
 
-            return new List<object> { row };
+            return allRows;
         }
     }
 }

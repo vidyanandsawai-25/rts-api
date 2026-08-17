@@ -112,7 +112,7 @@ public class PasswordResetService : IPasswordResetService
         }
 
         var method = request.Method.Trim();
-        var challenge = string.Equals(method, ForgotPasswordMethodNames.Authenticator, StringComparison.OrdinalIgnoreCase)
+        var creation = string.Equals(method, ForgotPasswordMethodNames.Authenticator, StringComparison.OrdinalIgnoreCase)
             ? await CreateAuthenticatorChallengeAsync(user, cancellationToken)
             : await _otpChallengeService.CreateAsync(
                 user,
@@ -122,6 +122,16 @@ public class PasswordResetService : IPasswordResetService
                 ipAddress: null,
                 userAgent: null,
                 cancellationToken);
+
+        if (!creation.Success)
+        {
+            // Account is throttled — same generic response as "account doesn't exist" above.
+            // Must not reveal throttling state, or an attacker could use it to enumerate accounts.
+            _logger.LogWarning("Forgot-password challenge suppressed for user {UserId}: account is throttled.", user.Id);
+            return new ForgotPasswordResponseDto { Success = true, Message = GenericSentMessage };
+        }
+
+        var challenge = creation.Challenge!;
 
         await _auditService.RecordAsync(SecurityAuditEventType.ForgotPasswordOtpRequested, user.Id, success: true, cancellationToken: cancellationToken);
         _logger.LogInformation("Forgot-password challenge created for user {UserId} via '{Method}'", user.Id, method);
@@ -173,9 +183,14 @@ public class PasswordResetService : IPasswordResetService
     /// <c>MfaChallengeService.CreateLoginChallengeAsync</c>, bypassing <see cref="IOtpChallengeService"/>
     /// since there is no code to hash or deliver.
     /// </summary>
-    private async Task<OtpChallengeResult> CreateAuthenticatorChallengeAsync(UserEntity user, CancellationToken cancellationToken)
+    private async Task<OtpChallengeCreationResult> CreateAuthenticatorChallengeAsync(UserEntity user, CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetLocalNow().DateTime;
+        if (user.OtpChallengeLockedUntilAt is { } lockedUntil && lockedUntil > now)
+        {
+            return OtpChallengeCreationResult.Failed(ChallengeCreationFailureReason.AccountThrottled);
+        }
+
         var expiresAt = now.AddMinutes(_options.LifetimeMinutes);
         var rawChallengeId = ChallengeTokenHasher.GenerateToken();
 
@@ -194,7 +209,7 @@ public class PasswordResetService : IPasswordResetService
         await _challengeRepository.AddAsync(challenge, cancellationToken);
         await _challengeRepository.SaveChangesAsync(cancellationToken);
 
-        return new OtpChallengeResult(rawChallengeId, expiresAt);
+        return OtpChallengeCreationResult.Succeeded(new OtpChallengeResult(rawChallengeId, expiresAt));
     }
 
     public async Task<VerifyForgotPasswordOtpResponseDto> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequestDto request, CancellationToken cancellationToken = default)
@@ -290,13 +305,20 @@ public class PasswordResetService : IPasswordResetService
             var outcome = await _challengeRepository.RecordFailedAttemptAsync(challenge.Id, _options.MaximumVerificationAttempts, cancellationToken);
             if (outcome == MfaChallengeFailureOutcome.NowLocked)
             {
+                await _userRepository.IncrementOtpChallengeLockoutAsync(challenge.UserId, cancellationToken);
                 _logger.LogWarning("Forgot-password authenticator challenge locked for user {UserId} after too many failed attempts", challenge.UserId);
             }
 
             return false;
         }
 
-        return await _challengeRepository.TryConsumeAsync(challenge.Id, cancellationToken);
+        var consumed = await _challengeRepository.TryConsumeAsync(challenge.Id, cancellationToken);
+        if (consumed)
+        {
+            await _userRepository.ResetOtpChallengeLockoutAsync(challenge.UserId, cancellationToken);
+        }
+
+        return consumed;
     }
 
     public async Task<ResetPasswordResponseDto> ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default)

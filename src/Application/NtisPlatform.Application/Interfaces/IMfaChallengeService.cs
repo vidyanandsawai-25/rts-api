@@ -9,6 +9,35 @@ namespace NtisPlatform.Application.Interfaces;
 public sealed record MfaLoginChallenge(string ChallengeId, DateTime ExpiresAt);
 
 /// <summary>
+/// Why a new MFA/OTP challenge could not be issued. Shared by <see cref="IMfaChallengeService"/>
+/// and <see cref="IOtpChallengeService"/> — both represent the same account-level throttle.
+/// </summary>
+public enum ChallengeCreationFailureReason
+{
+    /// <summary>
+    /// This account has had too many challenges revoked for exhausting their attempt limit
+    /// recently; new challenges cannot be issued until the throttle window passes.
+    /// </summary>
+    AccountThrottled
+}
+
+/// <summary>
+/// Result of attempting to create a new login MFA challenge.
+/// </summary>
+public sealed class MfaChallengeCreationResult
+{
+    public bool Success { get; init; }
+    public ChallengeCreationFailureReason? FailureReason { get; init; }
+    public MfaLoginChallenge? Challenge { get; init; }
+
+    public static MfaChallengeCreationResult Succeeded(MfaLoginChallenge challenge) =>
+        new() { Success = true, Challenge = challenge };
+
+    public static MfaChallengeCreationResult Failed(ChallengeCreationFailureReason reason) =>
+        new() { Success = false, FailureReason = reason };
+}
+
+/// <summary>
 /// Why an MFA login-challenge verification attempt did not succeed. Lets the controller map to
 /// the correct HTTP status code without leaking account-existence details.
 /// </summary>
@@ -55,8 +84,10 @@ public interface IMfaChallengeService
 {
     /// <summary>
     /// Creates a new login MFA challenge for a user whose password has already been verified.
+    /// Fails with <see cref="ChallengeCreationFailureReason.AccountThrottled"/> if the account has
+    /// recently exhausted too many challenges.
     /// </summary>
-    Task<MfaLoginChallenge> CreateLoginChallengeAsync(
+    Task<MfaChallengeCreationResult> CreateLoginChallengeAsync(
         int userId,
         string? ipAddress,
         string? userAgent,

@@ -63,6 +63,12 @@ public class UserEntity : BaseEntity, IHardDeletable
     [MaxLength(255)]
     public string? PasswordHash { get; set; }
 
+    /// <summary>
+    /// When the password was last set (initial creation, admin reset, or self-service reset).
+    /// Used to enforce password expiry (see the "PasswordExpiryDays" SECURITY_AUTH setting).
+    /// </summary>
+    public DateTime? PasswordChangedAt { get; set; }
+
     // IHardDeletable
     // IsActive is inherited from BaseEntity.
     // When DeleteAsync runs: IsActive = false + MarkedForDeletion = true + MarkedForDeletionDate = now.
@@ -98,6 +104,20 @@ public class UserEntity : BaseEntity, IHardDeletable
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
 
+    /// <summary>
+    /// Incremented each time an MFA/OTP challenge for this user gets revoked for exhausting its
+    /// attempt limit (see MfaChallengeFailureOutcome.NowLocked). Reset to 0 on successful
+    /// verification. Distinct from a single challenge's own FailedAttemptCount — this tracks
+    /// repeated code-guessing against the account across multiple challenges.
+    /// </summary>
+    public int? OtpChallengeFailCount { get; set; }
+
+    /// <summary>
+    /// Set when OtpChallengeFailCount reaches the MaxOtpChallengeLockouts threshold. While in the
+    /// future, new MFA/OTP challenges cannot be issued for this account.
+    /// </summary>
+    public DateTime? OtpChallengeLockedUntilAt { get; set; }
+
     // Two-factor authentication (TOTP) — owned by the 2FA flow, never exposed directly in DTOs
 
     /// <summary>
@@ -115,7 +135,7 @@ public class UserEntity : BaseEntity, IHardDeletable
     public string? TwoFactorSecretEncrypted { get; set; }
 
     /// <summary>
-    /// UTC timestamp when 2FA was successfully enabled (first code verified).
+    /// Timestamp when 2FA was successfully enabled (first code verified), in server-local time.
     /// </summary>
     public DateTime? TwoFactorEnabledAt { get; set; }
 
