@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
@@ -26,4 +26,8 @@ public class GlobalSurveyWardAllocationEntity : BaseEntity
 
     [ForeignKey(nameof(WardId))]
     public virtual WardEntity? Ward { get; set; }
+    public int? OldWardId { get; set; }
+
+    [ForeignKey(nameof(OldWardId))]
+    public virtual OldWardMasterEntity? OldWard { get; set; }
 }

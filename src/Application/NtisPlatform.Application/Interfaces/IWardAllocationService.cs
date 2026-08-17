@@ -49,4 +49,8 @@ public interface IWardAllocationService : ICommonCrudService<
         CancellationToken cancellationToken = default);
 
     Task<bool> IsUserDeallocatedAsync(int userId, CancellationToken cancellationToken = default);
+
+    Task<List<OldWardByWardDto>> GetOldWardsByWardIdAsync(
+    int wardId,
+    CancellationToken cancellationToken = default);
 }

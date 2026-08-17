@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.wardallocation;
 
@@ -7,8 +7,7 @@ namespace NtisPlatform.Application.DTOs.wardallocation;
 /// </summary>
 public class WardAllocationDto : BaseDtos
 {
-    public int Id { get; set; }
-
+  
     public int UserId { get; set; }
     public string? EmployeeName { get; set; }
     public string? EmpCode { get; set; }
@@ -25,7 +24,12 @@ public class WardAllocationDto : BaseDtos
     public int WardId { get; set; }
     public string? WardNo { get; set; }
 
-    public bool IsActive { get; set; }
+    public int? OldWardId { get; set; }
+
+    public string? OldWardNo { get; set; }
+
+    public string? OldZoneName { get; set; }
+
 }
 
 /// <summary>
@@ -52,6 +56,8 @@ public class CreateWardAllocationDto : CreateBaseDtos
     [Required(ErrorMessage = "WardAllocation_WardId_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "WardAllocation_WardId_Invalid")]
     public int WardId { get; set; }
+
+    public int? OldWardId { get; set; }
 
     public bool IsActive { get; set; } = true;
 }
@@ -80,8 +86,6 @@ public class UpdateWardAllocationDto : UpdateBaseDtos
     [Required(ErrorMessage = "WardAllocation_WardId_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "WardAllocation_WardId_Invalid")]
     public int WardId { get; set; }
-
-    public bool IsActive { get; set; }
 }
 
 /// <summary>
@@ -141,6 +145,8 @@ public class ZoneWardAllocationDto
     [Required(ErrorMessage = "WardAllocation_WardIds_Required")]
     [MinLength(1, ErrorMessage = "WardAllocation_WardIds_AtLeastOne")]
     public List<int> WardIds { get; set; } = new();
+
+    public int? OldWardId { get; set; }
 }
 
 /// <summary>
@@ -228,4 +234,16 @@ public class AllocatedWardByUserDto
     public int ZoneId { get; set; }
     public int WardId { get; set; }
     public string? WardNo { get; set; }
+    public int? OldWardId { get; set; }
+    public string? OldWardNo { get; set; }
+    public string? OldZoneName { get; set; }
+}
+
+public class OldWardByWardDto
+{
+    public int OldWardId { get; set; }
+
+    public string? OldWardNo { get; set; }
+
+    public string? OldZoneName { get; set; }
 }

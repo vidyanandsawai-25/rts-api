@@ -67,6 +67,9 @@ public class PropertyServiceSurveySearchTests
     private readonly Mock<IRepository<PropertyTypeMasterEntity, int>>
         _mockPropertyTypeRepository;
 
+    private readonly Mock<IRepository<OldWardMasterEntity, int>>
+        _mockOldWardMasterRepository;
+
     private readonly Mock<IPropertyRuleApplicationLogService>
         _mockRuleLogService;
 
@@ -134,6 +137,9 @@ public class PropertyServiceSurveySearchTests
         _mockRuleLogService =
             new Mock<IPropertyRuleApplicationLogService>();
 
+        _mockOldWardMasterRepository =
+            new Mock<IRepository<OldWardMasterEntity, int>>();
+
         _mockFeatureFlags
             .Setup(x => x.Value)
             .Returns(new FeatureFlagsOptions());
@@ -152,6 +158,7 @@ public class PropertyServiceSurveySearchTests
             _mockRoomWiseRepository.Object,
             _mockAssessmentRepository.Object,
             _mockWardAllocationRepository.Object,
+            _mockOldWardMasterRepository.Object,
             _mockPropertyMapMasterRepository.Object,
             _mockPropertyMapDetailRepository.Object,
             _mockWingRepository.Object,
@@ -187,7 +194,8 @@ public class PropertyServiceSurveySearchTests
         IEnumerable<PropertyMapMasterEntity>? propertyMapMasters = null,
         IEnumerable<PropertyMapDetailEntity>? propertyMapDetails = null,
         IEnumerable<UserEntity>? users = null,
-        IEnumerable<GlobalSurveyWardAllocationEntity>? wardAllocations = null)
+        IEnumerable<GlobalSurveyWardAllocationEntity>? wardAllocations = null,
+        IEnumerable<OldWardMasterEntity>? oldWards = null)
     {
         _mockPropertyRepository
             .Setup(x => x.GetQueryable())
@@ -232,6 +240,10 @@ public class PropertyServiceSurveySearchTests
         _mockWardAllocationRepository
             .Setup(x => x.GetQueryable())
             .Returns(BuildMockDbQuery(wardAllocations ?? []));
+
+        _mockOldWardMasterRepository
+            .Setup(x => x.GetQueryable())
+            .Returns(BuildMockDbQuery(oldWards ?? []));
     }
 
     private void SetupEmptyRepositories()
@@ -526,12 +538,17 @@ Status = "NEW",
         var request = new PropertySurveySearchQueryParameters
         {
             WardNo = "W1",
-Status = "OLD",
+            Status = "OLD",
             PageNumber = 1,
-            PageSize = 10
+            PageSize = 10,
+            UserId = 1
         };
 
-        SetupEmptyRepositories();
+        SetupSurveySearchRepositories(
+            wards: new List<WardEntity> { new WardEntity { Id = 1, WardNo = "W1", IsActive = true } },
+            wardAllocations: new List<GlobalSurveyWardAllocationEntity> { new GlobalSurveyWardAllocationEntity { UserId = 1, WardId = 1, OldWardId = 2, IsActive = true } },
+            oldWards: new List<OldWardMasterEntity> { new OldWardMasterEntity { Id = 2, OldWardNo = "W1-OLD", IsActive = true } }
+        );
 
         await _service.SearchSurveyPropertiesAsync(
             request,

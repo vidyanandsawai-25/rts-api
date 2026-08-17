@@ -2,6 +2,8 @@
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.wardallocation;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Services;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -503,5 +505,32 @@ public class WardAllocationController : ControllerBase
                         "An error occurred while retrieving allocated wards."
                 });
         }
+    }
+
+    /// <summary>
+    /// Gets all old wards mapped to the specified ward.
+    /// </summary>
+    [HttpGet("wards/{wardId:int}/old-wards")]
+    [ProducesResponseType(
+        typeof(ApiResponse<List<OldWardByWardDto>>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetOldWardsByWardId(
+        int wardId,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service
+            .GetOldWardsByWardIdAsync(
+                wardId,
+                cancellationToken);
+
+        return Ok(new ApiResponse<List<OldWardByWardDto>>
+        {
+            Success = true,
+            Message = result.Count == 0
+                ? "No old wards found for the selected ward."
+                : "Old wards fetched successfully.",
+            Items = result
+        });
     }
 }

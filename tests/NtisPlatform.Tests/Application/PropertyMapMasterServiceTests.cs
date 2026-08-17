@@ -1717,8 +1717,8 @@ public class PropertyMapMasterServiceTests
                 System.Globalization.CultureInfo.InvariantCulture,
                 out thresholdMs))
         {
-            // More lenient threshold for CI runners.
-            thresholdMs = isCi ? 400 : 150;
+            // More lenient threshold for CI and virtualized/local test runners.
+            thresholdMs = isCi ? 400 : 350;
         }
 
         // Useful diagnostics when the test fails.

@@ -72,6 +72,7 @@ public class PropertyServiceTests
             _mockRoomWiseRepository.Object,
             _mockAssessmentRepository.Object,
             new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object,
+            new Mock<IRepository<OldWardMasterEntity, int>>().Object,
             new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
             new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,

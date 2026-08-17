@@ -57,6 +57,7 @@ public partial class PropertyService
     private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
     private readonly IRepository<OwnerTypeMasterEntity, int> _ownerTypeRepository;
     private readonly IRepository<WingEntity, int> _wingRepository;
+    private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
 
 
     public PropertyService(
@@ -73,6 +74,7 @@ public partial class PropertyService
         IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository,
         IRepository<PropertyAssessmentEntity, int> assessmentRepository,
         IRepository<GlobalSurveyWardAllocationEntity, int> wardAllocationRepository,
+        IRepository<OldWardMasterEntity, int> oldWardMasterRepository,
         IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<WingEntity, int> wingMasterRepository,
@@ -113,6 +115,7 @@ public partial class PropertyService
         _communicationRepository = communicationRepository;
         _wingRepository = wingRepository;
         _wingMasterRepository = wingMasterRepository;
+        _oldWardMasterRepository = oldWardMasterRepository;
     }
 
 

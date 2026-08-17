@@ -295,6 +295,16 @@ var results = await ApplyPagination(
             PropertySurveySearchQueryParameters request,
             CancellationToken cancellationToken)
     {
+
+        var allocatedOldWardNumbers =
+        await GetAllocatedOldWardNumbersAsync(
+        request,
+        cancellationToken);
+
+        if (allocatedOldWardNumbers.Count == 0)
+        {
+            return EmptySurveyResponse();
+        }
         if (request.PropertyType == SurveyPropertyType.Apartment)
         {
             return await SearchOldPropertiesGroupedBySocietyAsync(
@@ -303,8 +313,9 @@ var results = await ApplyPagination(
         }
 
         var oldPropertyQuery = BuildOldPropertyQuery(
-            request,
-            requireSociety: false);
+    request,
+    allocatedOldWardNumbers,
+    requireSociety: false);
 
         var oldResultQuery = oldPropertyQuery
     .OrderBy(property => property.OldSocietyName)
@@ -344,7 +355,7 @@ var results = await ApplyPagination(
         TotalArea = (double?)property.OldConstructionArea
     });
 
-var results = await ApplyPagination(
+    var results = await ApplyPagination(
         oldResultQuery,
         request)
     .ToListAsync(cancellationToken);
@@ -476,13 +487,25 @@ var results = await ApplyPagination(
     }
 
     private async Task<PropertySurveySearchPaginatedResponseDto>
-        SearchOldPropertiesGroupedBySocietyAsync(
-            PropertySurveySearchQueryParameters request,
-            CancellationToken cancellationToken)
+    SearchOldPropertiesGroupedBySocietyAsync(
+        PropertySurveySearchQueryParameters request,
+        CancellationToken cancellationToken)
     {
+
+        var allocatedOldWardNumbers =
+       await GetAllocatedOldWardNumbersAsync(
+           request,
+           cancellationToken);
+
+        if (allocatedOldWardNumbers.Count == 0)
+        {
+            return EmptySurveyResponse();
+        }
+
         var matchingPropertiesQuery = BuildOldPropertyQuery(
-            request,
-            requireSociety: true);
+    request,
+    allocatedOldWardNumbers,
+    requireSociety: true);
 
         var matchedSocietyNames = await matchingPropertiesQuery
             .Select(property => property.OldSocietyName)
@@ -495,19 +518,14 @@ var results = await ApplyPagination(
             return EmptySurveyResponse();
         }
 
-        var wardNoExact = request.WardNo!;
-        var wardNoNumeric = ExtractNumericPart(wardNoExact);
-
         var allSocietyPropertiesQuery = _propertyOldRepository
             .GetQueryable()
             .AsNoTracking()
             .Where(property =>
                 property.IsActive &&
                 !property.MarkedForDeletion &&
-                (
-                    property.OldWardNo == wardNoExact ||
-                    property.OldWardNo == wardNoNumeric
-                ) &&
+                property.OldWardNo != null &&
+                allocatedOldWardNumbers.Contains(property.OldWardNo) &&
                 matchedSocietyNames.Contains(
                     property.OldSocietyName));
 
@@ -942,25 +960,23 @@ var results = await ApplyPagination(
         };
     }
 
-    private IQueryable<PropertyMastOldEntity>
-        BuildOldPropertyQuery(
-            PropertySurveySearchQueryParameters request,
-            bool requireSociety)
+    private IQueryable<PropertyMastOldEntity> BuildOldPropertyQuery(
+     PropertySurveySearchQueryParameters request,
+     IReadOnlyCollection<string> allocatedOldWardNumbers,
+     bool requireSociety)
     {
         var wardNoExact = request.WardNo!;
         var wardNoNumeric =
             ExtractNumericPart(wardNoExact);
 
         var query = _propertyOldRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(property =>
-                property.IsActive &&
-                !property.MarkedForDeletion &&
-                (
-                    property.OldWardNo == wardNoExact ||
-                    property.OldWardNo == wardNoNumeric
-                ));
+     .GetQueryable()
+     .AsNoTracking()
+     .Where(property =>
+         property.IsActive &&
+         !property.MarkedForDeletion &&
+         property.OldWardNo != null &&
+         allocatedOldWardNumbers.Contains(property.OldWardNo));
 
         if (requireSociety)
         {
@@ -1102,58 +1118,146 @@ var results = await ApplyPagination(
     }
 
     private async Task<Dictionary<int, PropertySurveySearchResponseDto>>
-        GetNewPropertiesByOldPropertyIdAsync(
-            IReadOnlyCollection<int> oldPropertyIds,
-            CancellationToken cancellationToken)
+    GetNewPropertiesByOldPropertyIdAsync(
+        IReadOnlyCollection<int> oldPropertyIds,
+        CancellationToken cancellationToken)
     {
         if (oldPropertyIds.Count == 0)
         {
             return new Dictionary<int, PropertySurveySearchResponseDto>();
         }
 
-        var propertyIdsByOldPropertyId = await _propertyRepository
+        // Step 1:
+        // Resolve Old PropertyId -> New PropertyId
+        // using PTIS.PropertyMapDetail.
+        var mappings = await _propertyMapDetailRepository
             .GetQueryable()
             .AsNoTracking()
-            .Where(property =>
-                property.IsActive &&
-                !property.MarkedForDeletion &&
-                property.PropertyMastOldId.HasValue &&
+            .Where(mapDetail =>
+                mapDetail.IsActive &&
+                mapDetail.PropertyIdOld.HasValue &&
                 oldPropertyIds.Contains(
-                    property.PropertyMastOldId.Value))
-            .Select(property => new
+                    mapDetail.PropertyIdOld.Value) &&
+                mapDetail.PropertyIdNew.HasValue)
+            .GroupBy(mapDetail =>
+                mapDetail.PropertyIdOld!.Value)
+            .Select(group => new
             {
-                property.Id,
-                OldPropertyId = property.PropertyMastOldId!.Value
+                OldPropertyId = group.Key,
+
+                NewPropertyId = group
+                    .OrderByDescending(mapDetail =>
+                        mapDetail.CreatedDate)
+                    .Select(mapDetail =>
+                        mapDetail.PropertyIdNew)
+                    .FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
-        var newPropertyIds = propertyIdsByOldPropertyId
-            .Select(x => x.Id)
+        var newPropertyIds = mappings
+            .Where(x => x.NewPropertyId.HasValue)
+            .Select(x => x.NewPropertyId!.Value)
             .Distinct()
             .ToList();
 
+        if (newPropertyIds.Count == 0)
+        {
+            return new Dictionary<int, PropertySurveySearchResponseDto>();
+        }
+
+        // Step 2:
+        // Fetch actual NEW property details from PropertyMast.
         var newProperties = await BuildNewPropertyReferenceQuery()
-    .Where(property =>
-        property.PropertyId.HasValue &&
-        newPropertyIds.Contains(property.PropertyId.Value))
-    .ToListAsync(cancellationToken);
+            .Where(property =>
+                property.PropertyId.HasValue &&
+                newPropertyIds.Contains(
+                    property.PropertyId.Value))
+            .ToListAsync(cancellationToken);
 
         var newPropertyDictionary = newProperties
-            .GroupBy(property => property.PropertyId)
+            .Where(property =>
+                property.PropertyId.HasValue)
+            .GroupBy(property =>
+                property.PropertyId!.Value)
             .ToDictionary(
                 group => group.Key,
-                group => group.First());
+                group => group
+                    .OrderByDescending(property =>
+                        property.PropertyId)
+                    .First());
 
-        return propertyIdsByOldPropertyId
-            .Where(x =>
-                newPropertyDictionary.ContainsKey(x.Id))
-            .GroupBy(x => x.OldPropertyId)
+        // Step 3:
+        // Build:
+        // OldPropertyId -> New Property DTO
+        return mappings
+            .Where(mapping =>
+                mapping.NewPropertyId.HasValue &&
+                newPropertyDictionary.ContainsKey(
+                    mapping.NewPropertyId.Value))
             .ToDictionary(
-                group => group.Key,
-                group => newPropertyDictionary[
-                    group.OrderByDescending(x => x.Id)
-                        .First()
-                        .Id]);
+                mapping => mapping.OldPropertyId,
+                mapping =>
+                    newPropertyDictionary[
+                        mapping.NewPropertyId!.Value]);
+    }
+
+    private async Task<List<string>> GetAllocatedOldWardNumbersAsync(
+    PropertySurveySearchQueryParameters request,
+    CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.WardNo) || !request.UserId.HasValue)
+        {
+            return [];
+        }
+
+        var wardNo = request.WardNo.Trim();
+
+        // Step 1: Resolve current WardNo -> WardId(s)
+        var wardIds = await _wardRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(ward =>
+                ward.IsActive &&
+                ward.WardNo != null &&
+                ward.WardNo == wardNo)
+            .Select(ward => ward.Id)
+            .ToListAsync(cancellationToken);
+
+        if (wardIds.Count == 0)
+        {
+            return [];
+        }
+
+        // Step 2: Get OldWardId(s) allocated to this user + current ward
+        var oldWardIds = await _wardAllocationRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(allocation =>
+                allocation.UserId == request.UserId.Value &&
+                allocation.IsActive &&
+                wardIds.Contains(allocation.WardId) &&
+                allocation.OldWardId.HasValue)
+            .Select(allocation =>
+                allocation.OldWardId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (oldWardIds.Count == 0)
+        {
+            return [];
+        }
+
+        // Step 3: Resolve OldWardId -> OldWardNo
+        return await _oldWardMasterRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(oldWard =>
+                oldWardIds.Contains(oldWard.Id) &&
+                oldWard.IsActive &&
+                oldWard.OldWardNo != null)
+            .Select(oldWard => oldWard.OldWardNo!)
+            .Distinct()
+            .ToListAsync(cancellationToken);
     }
 
     private IQueryable<PropertySurveySearchResponseDto>
