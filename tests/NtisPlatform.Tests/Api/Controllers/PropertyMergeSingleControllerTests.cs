@@ -92,4 +92,23 @@ public class PropertyMergeSingleControllerTests
         apiResponse.Message.Should().Be("Record not found for Update ");
         apiResponse.Items.Should().BeNull();
     }
+
+    [Fact]
+    public async Task GetUnMergePropertyDetailsAsync_Success_ReturnsOk()
+    {
+        // Arrange
+        var queryParams = new PropertyMergeSingleQueryParameters();
+        var pagedResult = new PagedResult<PropertyMergeSingleDto>(new List<PropertyMergeSingleDto>(), 0, 1, 10);
+
+        _mockPropertyMergeSingleService
+            .Setup(s => s.GetAllAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.GetUnMergePropertyDetailsAsync(queryParams, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().NotBeNull();
+    }
 }

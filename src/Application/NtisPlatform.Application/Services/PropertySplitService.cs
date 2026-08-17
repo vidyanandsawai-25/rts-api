@@ -6,6 +6,7 @@ using NtisPlatform.Application.DTOs.PropertySplit;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -322,7 +323,8 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             return new PropertySplitDto
             {
                 Success = true,
-                Message =$"Old property no {oldPropertyNo} successfully merged into {mergedNewPropertyNumbers.Count} new properties: {string.Join(", ", mergedNewPropertyNumbers)}"
+                Message =$"Old property no {oldPropertyNo} successfully merged into {mergedNewPropertyNumbers.Count} new properties: {string.Join(", ", mergedNewPropertyNumbers)}",
+                Data = null
             };
         }
         catch (Exception ex)
@@ -641,13 +643,93 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             return new PropertySplitDto
             {
                 Success = true,
-                Message =$"New properties {string.Join(", ", newPropertyNos)} demerged successfully from old property no : {oldPropertyNo}"
+                Message =$"New properties {string.Join(", ", newPropertyNos)} demerged successfully from old property no : {oldPropertyNo}",
+                Data = null
             };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,"Split demerge failed OldProperty:{OldPropertyId} NewProperties:{NewPropertyIds}",dto.PropertyOldId,dto.PropertyIds != null ? string.Join(",", dto.PropertyIds) : null);    
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public override async Task<PagedResult<PropertySplitDto>> GetAllAsync(PropertySplitQueryParameters queryParams, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var propertyMapQuery = _propertyMapDetailRepository.GetQueryable().AsNoTracking();
+            var oldPropertyQuery = _propertyOldRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion);
+
+            // get Society name
+            var societyQuery = (from map in propertyMapQuery
+                                join oldProperty in oldPropertyQuery
+                                    on map.PropertyIdOld equals oldProperty.Id
+                                where map.PropertyIdNew == queryParams.PropertyId
+                                      && map.IsActive && map.Status == PropertyMapStatus.Draft
+                                      && oldProperty.OldSocietyName != null
+                                select oldProperty.OldSocietyName
+                               ).Distinct();
+
+            var query = from oldProperty in oldPropertyQuery
+                        join societyName in societyQuery
+                            on oldProperty.OldSocietyName equals societyName
+                        where !propertyMapQuery.Any(map => map.PropertyIdOld == oldProperty.Id && map.IsActive && map.Status == PropertyMapStatus.Active) &&
+                              (string.IsNullOrWhiteSpace(queryParams.WingName) || (oldProperty.OldWing ?? string.Empty).Trim() == queryParams.WingName.Trim())
+
+                        select new PropertyDetailsOldDto
+                        {
+                            PropertyOldId = oldProperty.Id,
+                            OldWardNo = oldProperty.OldWardNo,
+                            OldPropertyNo = oldProperty.OldPropertyNo,
+                            OldPartitionNo = oldProperty.OldPartitionNo,
+                            OldOwnerName = oldProperty.OldOwnerName,
+                            OldOccupierName = oldProperty.OldOccupierName,
+                            OldAddress = oldProperty.OldAddress,
+                            OldFlatOrShopNumber = oldProperty.OldFlatOrShopNumber,
+                            OldWing = oldProperty.OldWing,
+                            OldSocietyName = oldProperty.OldSocietyName,
+                            OldRV = oldProperty.OldRV,
+                            OldGeneralTax = oldProperty.OldGeneralTax,
+                            OldTotalTax = oldProperty.OldTotalTax,
+                            OldConstructionYear = oldProperty.OldConstructionYear == null ? null : Convert.ToInt32(oldProperty.OldConstructionYear),
+                            OldConstructionArea = oldProperty.OldConstructionArea,
+                            OldUseType = oldProperty.OldUseType,
+                            OldMobileNo = oldProperty.OldMobileNo
+                        };
+
+            var totalCount = await query.CountAsync(cancellationToken);
+            var orderedQuery = query.OrderBy(x => x.PropertyOldId);
+            List<PropertyDetailsOldDto> items;
+
+            if (queryParams.PageSize <= 0)
+            {
+                items = await orderedQuery.ToListAsync(cancellationToken);
+            }
+            else
+            {
+                items = await orderedQuery
+                    .Skip((queryParams.PageNumber - 1) * queryParams.PageSize)
+                    .Take(queryParams.PageSize)
+                    .ToListAsync(cancellationToken);
+            }
+
+            var resultDto = new PropertySplitDto
+            {
+                Success = items.Count > 0 ? true : false,
+                Message = items.Count > 0 ? $"Found {totalCount} old property unmerge detail(s)" : "No old property unmerge details found",
+                Data = items
+            };
+
+            return new PagedResult<PropertySplitDto>(new List<PropertySplitDto> { resultDto },
+                totalCount,
+                queryParams.PageSize <= 0 ? 1 : queryParams.PageNumber,
+                queryParams.PageSize <= 0 ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving unmerged property details with query parameters: {@QueryParams}", queryParams);
             throw;
         }
     }

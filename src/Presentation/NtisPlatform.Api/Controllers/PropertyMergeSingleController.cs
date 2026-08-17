@@ -27,4 +27,8 @@ public class PropertyMergeSingleController : ControllerBase
     [HttpPut]
     public Task<IActionResult> PropertyMergeSingleUpdateAsync([FromBody] UpdatePropertyMergeSingleDto dto, CancellationToken cancellationToken = default)
         => this.ExecuteUpdate(_propertyMergeSingleService, dto.PropertyId, dto, _logger, cancellationToken);
+
+    [HttpGet]
+    public Task<IActionResult> GetUnMergePropertyDetailsAsync([FromQuery] PropertyMergeSingleQueryParameters queryParameters, CancellationToken ct)
+    => this.ExecuteGetAllPaged(_propertyMergeSingleService, queryParameters, _logger, ct);
 }

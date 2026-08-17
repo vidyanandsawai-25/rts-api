@@ -26,4 +26,8 @@ public class PropertySplitController : ControllerBase
     [HttpPut]
     public Task<IActionResult> PropertySplitUpdateAsync([FromBody] UpdatePropertySplitDto dto, CancellationToken cancellationToken = default)
         => this.ExecuteUpdate(_propertySplitService, dto.PropertyOldId, dto, _logger, cancellationToken);
+
+    [HttpGet]
+    public Task<IActionResult> GetUnMergePropertyDetailsAsync([FromQuery] PropertySplitQueryParameters queryParameters, CancellationToken ct)
+=> this.ExecuteGetAllPaged(_propertySplitService, queryParameters, _logger, ct);
 }

@@ -92,4 +92,23 @@ public class PropertySplitControllerTests
         apiResponse.Message.Should().Be("Record not found for Update ");
         apiResponse.Items.Should().BeNull();
     }
+
+    [Fact]
+    public async Task GetUnMergePropertyDetailsAsync_Success_ReturnsOk()
+    {
+        // Arrange
+        var queryParams = new PropertySplitQueryParameters();
+        var pagedResult = new PagedResult<PropertySplitDto>(new List<PropertySplitDto>(), 0, 1, 10);
+
+        _mockPropertySplitService
+            .Setup(s => s.GetAllAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.GetUnMergePropertyDetailsAsync(queryParams, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().NotBeNull();
+    }
 }
