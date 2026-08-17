@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
+namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
 public class RTSApplicationVerificationDto
 {
@@ -34,4 +34,9 @@ public class CurrentApprovalOfficerDto
     public bool CanPay { get; set; }
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
+
+    public int? ServiceId { get; set; }
+    public string? ServiceName { get; set; }
+    public decimal? ServiceFees { get; set; }
+    public bool FeesRequired { get; set; }
 }

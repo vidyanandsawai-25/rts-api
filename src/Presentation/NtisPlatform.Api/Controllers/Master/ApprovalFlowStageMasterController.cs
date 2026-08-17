@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
@@ -24,6 +25,7 @@ public class ApprovalFlowStageMasterController : ControllerBase
     /// <summary>
     /// Get all ApprovalFlowStage Masters with filtering, sorting, and pagination
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] ApprovalFlowStageMasterQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -31,6 +33,7 @@ public class ApprovalFlowStageMasterController : ControllerBase
     /// <summary>
     /// Get ApprovalFlowStage Master by ID
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);

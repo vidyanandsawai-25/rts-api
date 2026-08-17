@@ -1,5 +1,6 @@
 using AutoMapper;
 using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Application.Mappings;
@@ -15,5 +16,13 @@ public class ApprovalFlowMasterProfile : Profile
         CreateMap<ApprovalFlowStageMasterEntity, ApprovalFlowStageMasterDto>();
         CreateMap<CreateApprovalFlowStageMasterDto, ApprovalFlowStageMasterEntity>();
         CreateMap<UpdateApprovalFlowStageMasterDto, ApprovalFlowStageMasterEntity>();
+
+        CreateMap<RTSApprovalFlowMasterEntity, ApprovalFlowMasterDto>();
+        CreateMap<CreateApprovalFlowMasterDto, RTSApprovalFlowMasterEntity>();
+        CreateMap<UpdateApprovalFlowMasterDto, RTSApprovalFlowMasterEntity>();
+
+        CreateMap<RTSApprovalFlowStageMasterEntity, ApprovalFlowStageMasterDto>();
+        CreateMap<CreateApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>();
+        CreateMap<UpdateApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>();
     }
 }

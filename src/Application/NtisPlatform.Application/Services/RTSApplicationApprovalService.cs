@@ -355,8 +355,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 application.ApplicationNo,
                 application.ApplicationStatus,
                 application.ApprovalFlowId,
-                application.CurrentApprovalFlowStageId
-
+                application.CurrentApprovalFlowStageId,
+                application.ServiceId,
+                ServiceName = application.Service != null ? application.Service.ServiceName : null,
+                ServiceFees = application.Service != null ? application.Service.Fees : null,
+                FeesRequired = application.Service != null && application.Service.FeesRequired
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -454,8 +457,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanReturn = currentStage.CanReturn,
             CanPay = currentStage.CanPay,
             CanEdit = currentStage.CanEdit,
-            CanViewNoteSheet = currentStage.CanViewNoteSheet
+            CanViewNoteSheet = currentStage.CanViewNoteSheet,
 
+            ServiceId = result.ServiceId,
+            ServiceName = result.ServiceName,
+            ServiceFees = result.ServiceFees,
+            FeesRequired = result.FeesRequired
         };
     }
 

@@ -30,6 +30,15 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     }
     public override async Task<RTSApplicationDetailsDto> CreateAsync(CreateRTSApplicationDetailsDto createDto, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(createDto.SessionId))
+        {
+            var sessionValidation = await _sessionService.ValidateAndUpdateSessionAsync(createDto.SessionId, cancellationToken);
+            if (!sessionValidation.Success)
+            {
+                createDto.SessionId = null;
+            }
+        }
+
         var approvalFlowData = await _approvalFlowRepository
             .GetQueryable()
             .AsNoTracking()

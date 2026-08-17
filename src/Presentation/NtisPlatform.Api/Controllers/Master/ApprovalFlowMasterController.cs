@@ -25,6 +25,7 @@ public class ApprovalFlowMasterController : ControllerBase
     /// <summary>
     /// Get all ApprovalFlow Masters with filtering, sorting, and pagination
     /// </summary>
+    [AllowAnonymous]
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] ApprovalFlowMasterQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -32,6 +33,7 @@ public class ApprovalFlowMasterController : ControllerBase
     /// <summary>
     /// Get ApprovalFlow Master by ID
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);

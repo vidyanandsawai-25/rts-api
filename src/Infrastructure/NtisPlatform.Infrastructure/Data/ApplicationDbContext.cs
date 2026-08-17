@@ -235,8 +235,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<AssetConditionMasterEntity> AssetConditionMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
-    public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
+    public DbSet<RTSPaymentStatusMasterEntity> RTSPaymentStatusMasters { get; set; } = null!;
+    public DbSet<RTSPaymentModeMasterEntity> RTSPaymentModeMasters { get; set; } = null!;
+    public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
+    public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
+    public DbSet<RTSPaymentWebhookLogEntity> RTSPaymentWebhookLogs { get; set; } = null!;
 
     // Property Sign-off Module
     public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
@@ -6098,6 +6102,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id)
                 .ValueGeneratedOnAdd();
 
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedBy);
+            entity.Ignore(e => e.UpdatedDate);
+            entity.Ignore(e => e.IsActive);
+
             entity.Property(e => e.ApprovalFlowId)
                 .IsRequired();
 
@@ -6187,6 +6197,136 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<RTSPaymentStatusMasterEntity>(entity =>
+        {
+            entity.ToTable("PaymentStatusMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StatusCode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.StatusNameEn).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.StatusNameMr).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.BadgeColor).HasMaxLength(30).HasDefaultValue("bg-blue-50 text-blue-700");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(1);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
+
+        modelBuilder.Entity<RTSPaymentModeMasterEntity>(entity =>
+        {
+            entity.ToTable("PaymentModeMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ModeCode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.ModeNameEn).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ModeNameMr).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IconName).HasMaxLength(50).HasDefaultValue("CreditCard");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
+
+        modelBuilder.Entity<RTSPaymentGatewayConfigEntity>(entity =>
+        {
+            entity.ToTable("PaymentGatewayConfig", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.GatewayCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.GatewayName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.MerchantId).HasMaxLength(100);
+            entity.Property(e => e.KeyId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SecretKey).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.WebhookSecret).HasMaxLength(200);
+            entity.Property(e => e.ServiceUrl).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("INR");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.IsDefault).HasDefaultValue(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+        });
+
+        modelBuilder.Entity<RTSPaymentTransactionEntity>(entity =>
+        {
+            entity.ToTable("PaymentTransaction", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.TransactionNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.ApplicationNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.GatewayConfigId).IsRequired();
+            entity.Property(e => e.PaymentStatusId).IsRequired();
+
+            entity.Property(e => e.BaseAmount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.LateFeeAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.DiscountAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("INR");
+
+            entity.Property(e => e.GatewayOrderId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.GatewayPaymentId).HasMaxLength(100);
+            entity.Property(e => e.GatewaySignature).HasMaxLength(500);
+            entity.Property(e => e.GatewayFee).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GatewayTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.BankRefNo).HasMaxLength(100);
+            entity.Property(e => e.PayerVpaOrAccount).HasMaxLength(150);
+            entity.Property(e => e.ReceiptNo).HasMaxLength(100);
+            entity.Property(e => e.ReceiptDate).HasColumnType("datetime");
+            entity.Property(e => e.PaymentDate).HasColumnType("datetime");
+            entity.Property(e => e.GatewayResponseJson);
+            entity.Property(e => e.FailureReason).HasMaxLength(500);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.GatewayConfig)
+                .WithMany()
+                .HasForeignKey(e => e.GatewayConfigId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PaymentStatus)
+                .WithMany()
+                .HasForeignKey(e => e.PaymentStatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PaymentMode)
+                .WithMany()
+                .HasForeignKey(e => e.PaymentModeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RTSPaymentWebhookLogEntity>(entity =>
+        {
+            entity.ToTable("PaymentWebhookLog", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.EventId).HasMaxLength(100);
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SignatureHeader).HasMaxLength(255);
+            entity.Property(e => e.PayloadJson).IsRequired();
+            entity.Property(e => e.IsSignatureValid).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsProcessed).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ReceivedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.ProcessedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.GatewayConfig)
+                .WithMany()
+                .HasForeignKey(e => e.GatewayConfigId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
         //----------------------------------------------------------------
         //--------------------RTSEND Api work ------------------------

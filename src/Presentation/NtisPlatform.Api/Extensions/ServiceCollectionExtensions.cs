@@ -626,6 +626,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSServiceService, RTSServiceService>();
         services.AddScoped<IRTSCitizenSessionService, RTSCitizenSessionService>();
         services.AddScoped<IRTSApplicationApprovalService, RTSApplicationApprovalService>();
+        services.AddScoped<IRTSPaymentService, RTSPaymentService>();
 
 
 
