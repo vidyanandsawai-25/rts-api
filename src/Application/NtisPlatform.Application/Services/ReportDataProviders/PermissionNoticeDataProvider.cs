@@ -1,9 +1,10 @@
-﻿using NtisPlatform.Application.DTOs.Report;
+﻿using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Reporting;
 using NtisPlatform.Core.Interfaces;
-using Microsoft.EntityFrameworkCore;
 
 namespace NtisPlatform.Application.Services.ReportDataProviders;
 
@@ -12,6 +13,7 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
     public const string MainSection = "main";
     public const string DetailSection = "CollectionReport";
     public const string ImageParamsSection = "_reportImageParams";
+
     public string ProviderCode => "PermissionNoticeDataProvider";
 
     private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
@@ -21,6 +23,10 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<WingEntity> _wingRepository;
     private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
     private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
+    private readonly IReportDataRepository<UserEntity> _userRepository;
+    private readonly IReportingRepository<ReportRequestEntity, Guid> _reportRequestRepository;
+    private readonly IReportDataRepository<TransMastEntity> _transRepository;
+    private readonly IReportDataRepository<PropertyTypeMasterEntity> _propertyTypeMasterRepository;
 
     public PermissionNoticeDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
@@ -29,7 +35,11 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         IReportDataRepository<SocietyDetailsEntity> societyRepository,
         IReportDataRepository<WingEntity> wingRepository,
         IReportDataRepository<YearMasterEntity> yearRepository,
-        IReportDataRepository<ULBMasterEntity> ulbMasterRepository)
+        IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
+        IReportDataRepository<UserEntity> userRepository,
+        IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
+        IReportDataRepository<TransMastEntity> transRepository,
+        IReportDataRepository<PropertyTypeMasterEntity> propertyTypeMasterRepository)
     {
         _propertyRepository = propertyRepository;
         _zoneRepository = zoneRepository;
@@ -38,32 +48,73 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         _wingRepository = wingRepository;
         _yearRepository = yearRepository;
         _ulbMasterRepository = ulbMasterRepository;
+        _userRepository = userRepository;
+        _reportRequestRepository = reportRequestRepository;
+        _transRepository = transRepository;
+        _propertyTypeMasterRepository = propertyTypeMasterRepository;
     }
 
-    public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
+    public IReadOnlyList<ReportSectionDescriptor> GetSections()
     {
+        return new[]
+        {
             new ReportSectionDescriptor(ImageParamsSection, false),
             new ReportSectionDescriptor(MainSection, false),
-            new ReportSectionDescriptor(DetailSection, true),
+            new ReportSectionDescriptor(DetailSection, true)
         };
+    }
 
-    public async Task<object> GetDataAsync(Dictionary<string, string> parameters, CancellationToken ct = default)
+    public async Task<object> GetDataAsync(
+        Dictionary<string, string> parameters,
+        CancellationToken ct = default)
     {
-        var (rows, _) = await BuildPageAsync(parameters, 0, int.MaxValue, ct);
+        var (rows, _) = await BuildPageAsync(
+            Guid.Empty,
+            parameters,
+            skip: 0,
+            take: int.MaxValue,
+            ct);
+
         return rows;
     }
 
-    public async Task<ReportDataPage> GetDataPageAsync(
-    Dictionary<string, string> parameters,
-    string section,
-    int page,
-    int pageSize,
-    CancellationToken ct = default)
+    public Task<ReportDataPage> GetDataPageAsync(
+        Dictionary<string, string> parameters,
+        string section,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
     {
-        if (page < 1) page = 1;
-        if (pageSize <= 0) pageSize = 100;
+        return GetDataPageAsync(
+            Guid.Empty,
+            parameters,
+            section,
+            page,
+            pageSize,
+            ct);
+    }
 
-        if (section.Equals(ImageParamsSection, StringComparison.OrdinalIgnoreCase))
+    public async Task<ReportDataPage> GetDataPageAsync(
+        Guid reportRequestId,
+        Dictionary<string, string> parameters,
+        string section,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        if (pageSize <= 0)
+        {
+            pageSize = 100;
+        }
+
+        if (section.Equals(
+                ImageParamsSection,
+                StringComparison.OrdinalIgnoreCase))
         {
             return new ReportDataPage
             {
@@ -76,10 +127,21 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
             };
         }
 
-        if (section.Equals(MainSection, StringComparison.OrdinalIgnoreCase) ||
-            section.Equals(DetailSection, StringComparison.OrdinalIgnoreCase))
+        if (section.Equals(
+                MainSection,
+                StringComparison.OrdinalIgnoreCase)
+            || section.Equals(
+                DetailSection,
+                StringComparison.OrdinalIgnoreCase))
         {
-            var (rows, hasMore) = await BuildPageAsync(parameters, (page - 1) * pageSize, pageSize, ct);
+            var skip = (page - 1) * pageSize;
+
+            var (rows, hasMore) = await BuildPageAsync(
+                reportRequestId,
+                parameters,
+                skip,
+                pageSize,
+                ct);
 
             return new ReportDataPage
             {
@@ -103,112 +165,366 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         };
     }
 
-    private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+    private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
+        Guid reportRequestId,
+        Dictionary<string, string> parameters,
+        int skip,
+        int take,
+        CancellationToken ct)
     {
-        parameters.TryGetValue("zoneId", out var zoneIdText);
-        int.TryParse(zoneIdText, out var zoneId);
+        /*
+         * Parse request parameters
+         */
 
-        parameters.TryGetValue("wardId", out var wardIdText);
-        int.TryParse(wardIdText, out var wardId);
+        parameters.TryGetValue("ownerId", out var ownerIdText);
 
-        parameters.TryGetValue("propertyNo", out var propertyNoText);
-        propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
+        var ownerIds = string.IsNullOrWhiteSpace(ownerIdText)
+            ? new List<int>()
+            : ownerIdText
+                .Split(
+                    ',',
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Select(x =>
+                    int.TryParse(x.Trim(), out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
 
-        parameters.TryGetValue("partitionNo", out var partitionNoText);
-        partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
+        int.TryParse(GetParameter(parameters, "zoneId"), out var zoneId);
 
-        var activeYearId = await _yearRepository.GetQueryable()
-            .Where(x => x.IsActive)
-            .Select(x => x.Id)
+        int.TryParse(GetParameter(parameters, "wardId"), out var wardId);
+
+        var propertyNoText = GetParameter(parameters, "propertyNo");
+
+        var fromPropertyNoText = GetParameter(parameters, "fromPropertyNo");
+
+        var toPropertyNoText = GetParameter(parameters, "toPropertyNo");
+
+        var partitionNoText = GetParameter(parameters, "partitionNo");
+
+        int.TryParse(GetParameter(parameters, "assessmentStatus"), out var assessmentStatus);
+
+        var type = GetParameter(parameters, "Type")?.ToUpperInvariant();
+
+        int.TryParse(GetParameter(parameters, "propertyTypeId"), out var propertyTypeId);
+
+        var propertyDescription = GetParameter(parameters, "PropertyDescription");
+
+        var financeYear = ParseFinanceYear(parameters);
+
+        /*
+         * Resolve the selected financial year only when it is provided.
+         */
+
+        var activeYearId = 0;
+
+        if (financeYear != 0)
+        {
+            activeYearId = await BaseQuery(financeYear)
+                .Select(x => x.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        /*
+         * Resolve the user who requested the report.
+         */
+
+        var requestedByUserId = await _reportRequestRepository
+            .GetQueryable()
+            .Where(r =>
+                r.ReportRequestId == reportRequestId)
+            .Select(r => (int?)r.RequestedByUserId)
             .FirstOrDefaultAsync(ct);
 
-        // ---------------- PROPERTY QUERY ----------------
+        var user = requestedByUserId.HasValue
+            ? await GetUserInfoAsync(
+                requestedByUserId.Value,
+                ct)
+            : null;
+
+        /*
+         * Create the base property query.
+         */
+
         var propQuery =
-            from pm in _propertyRepository.GetQueryable()
+            from property in _propertyRepository.GetQueryable()
 
-            join zm in _zoneRepository.GetQueryable() on pm.TaxZoneId equals zm.Id into zmj
-            from zm in zmj.DefaultIfEmpty()
+            join propertyType in
+                _propertyTypeMasterRepository.GetQueryable()
+                on property.PropertyTypeId equals propertyType.Id
+                into propertyTypeJoin
 
-            join wm in _wardRepository.GetQueryable() on pm.WardId equals wm.Id into wmj
-            from wm in wmj.DefaultIfEmpty()
+            from propertyType in propertyTypeJoin.DefaultIfEmpty()
 
-            join sdm in _societyRepository.GetQueryable() on pm.Id equals sdm.PropertyId into sdmj
-            from sdm in sdmj.DefaultIfEmpty()
+            join ward in _wardRepository.GetQueryable()
+                on property.WardId equals ward.Id
+                into wardJoin
 
-            from ulb in _ulbMasterRepository.GetQueryable()
-                .Where(x => x.IsActive)
+            from ward in wardJoin.DefaultIfEmpty()
+
+            join zone in _zoneRepository.GetQueryable()
+                on ward.ZoneId equals zone.Id
+                into zoneJoin
+
+            from zone in zoneJoin.DefaultIfEmpty()
+
+            from society in _societyRepository
+                .GetQueryable()
+                .Where(s => s.PropertyId == property.Id)
+                .OrderBy(s => s.Id)
                 .Take(1)
+                .DefaultIfEmpty()
 
+            from ulb in _ulbMasterRepository
+                .GetQueryable()
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.Id)
+                .Take(1)
+                .DefaultIfEmpty()
 
-            where pm.IsActive
-                  && (zoneId == 0 || wm.ZoneId == zoneId)
-                  && (wardId == 0 || pm.WardId == wardId)
-                  && (propertyNoText == null || pm.PropertyNo == propertyNoText)
-                  && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+            where property.IsActive
+                  && !property.MarkedForDeletion
 
-            orderby pm.PropertyNo, pm.PartitionNo
+                  && (ownerIds.Count == 0 || ownerIds.Contains(property.Id))
+
+                  && (zoneId == 0 || ward.ZoneId == zoneId)
+
+                  && (wardId == 0 || property.WardId == wardId)
+
+                  && (propertyNoText == null || property.PropertyNo == propertyNoText)
+
+                  && (partitionNoText == null || property.PartitionNo == partitionNoText)
+
+                  && (assessmentStatus == 0
+                      || property.PropertyAssessmentStatusId == assessmentStatus)
+
+                  && (string.IsNullOrEmpty(type) || propertyType.Type == type)
+
+                  && (propertyTypeId == 0 || propertyType.Id == propertyTypeId)
+
+                  && (string.IsNullOrEmpty(propertyDescription) || propertyType.PropertyDescription == propertyDescription)
 
             select new
             {
-                pm.Id,
-                pm.OwnerName,
-                pm.Address,
-                pm.PropertyNo,
-                pm.PartitionNo,
-                pm.PlotNo,
-                pm.Location,
-                zm.Description,
-                wm.WardNo,
-                sdm.SocietyName,
+                property.Id,
+                property.OwnerName,
+                property.Address,
+                property.PropertyNo,
+                property.PartitionNo,
+                property.PlotNo,
+                property.Location,
+                property.WardId,
+                property.FlatOrShopNo,
+                property.PropertyAssessmentStatusId,
 
-                // ----------------ULB----------------
-                ulb.UlbName,
-                ulb.UlbAddress,
-                ulb.State,
-                ulb.EmailId,
-                ulb.MobileNo
+                WardNo = ward.WardNo,
+                ZoneId = ward.ZoneId,
+                ZoneDescription = zone.Description,
+
+                SocietyName = society.SocietyName,
+
+                PropertyType = propertyType.Type,
+                propertyType.PropertyDescription,
+
+                UlbName = ulb.UlbName,
+                UlbAddress = ulb.UlbAddress,
+                UlbEmail = ulb.EmailId,
+                UlbMobile = ulb.MobileNo,
+                UlbState = ulb.State
             };
 
-        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        /*
+         * Apply the finance-year transaction filter only when the
+         * caller explicitly supplies a financial year.
+         */
 
-        var props = await propQuery.Skip(skip).Take(takePlusOne).ToListAsync(ct);
-
-        var hasMore = take != int.MaxValue && props.Count > take;
-        if (hasMore) props = props.Take(take).ToList();
-
-        var ids = props.Select(x => x.Id).ToList();
-
-        // ---------------- FINAL ROW ----------------
-        var rows = props.Select(p =>
+        if (financeYear != 0 && activeYearId > 0)
         {
-            var row = new Dictionary<string, object?>
+            var transactionPropertyIds = _transRepository
+                .GetQueryable()
+                .Where(t =>
+                    t.FinanceYearId == activeYearId)
+                .Select(t => t.PropertyId);
+
+            propQuery = propQuery.Where(property =>
+                transactionPropertyIds.Contains(property.Id));
+        }
+
+        /*
+         * Load all properties matching the main filters.
+         *
+         * The From/To range is applied after materialization because
+         * PropertyNo can contain either numeric or alphanumeric data.
+         * This follows WarrentNoticeDataProvider behavior.
+         */
+
+        var properties = await propQuery
+            .Distinct()
+            .OrderBy(x => x.PropertyNo)
+            .ThenBy(x => x.PartitionNo)
+            .ToListAsync(ct);
+
+        /*
+         * Apply inclusive From Property Number.
+         */
+
+        if (int.TryParse(
+                fromPropertyNoText,
+                out var fromPropertyNo))
+        {
+            properties = properties
+                .Where(x =>
+                    int.TryParse(
+                        x.PropertyNo,
+                        out var currentPropertyNo)
+                    && currentPropertyNo >= fromPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(
+                     fromPropertyNoText))
+        {
+            properties = properties
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        fromPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+        }
+
+        /*
+         * Apply inclusive To Property Number.
+         */
+
+        if (int.TryParse(
+                toPropertyNoText,
+                out var toPropertyNo))
+        {
+            properties = properties
+                .Where(x =>
+                    int.TryParse(
+                        x.PropertyNo,
+                        out var currentPropertyNo)
+                    && currentPropertyNo <= toPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(
+                     toPropertyNoText))
+        {
+            properties = properties
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        toPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) <= 0)
+                .ToList();
+        }
+
+        /*
+         * Apply paging after the From/To range is selected.
+         */
+
+        var takePlusOne = take == int.MaxValue
+            ? int.MaxValue
+            : take + 1;
+
+        var fetched = properties
+            .Skip(skip)
+            .Take(takePlusOne)
+            .ToList();
+
+        var hasMore =
+            take != int.MaxValue
+            && fetched.Count > take;
+
+        if (hasMore)
+        {
+            fetched = fetched
+                .Take(take)
+                .ToList();
+        }
+
+        /*
+         * Create report rows.
+         */
+
+        var rows = fetched
+            .Select(property =>
             {
-                ["OwnerId"] = p.Id,
-                ["MarathiOwnerName"] = p.OwnerName,
-                ["MarathiOwnerAddress"] = p.Address,
-                ["PropertyNo"] = p.PropertyNo,
-                ["PartitionNo"] = p.PartitionNo,
-                ["PlotNo"] = p.PlotNo,
-                ["Location"] = p.Location,
+                var row = new Dictionary<string, object?>
+                {
+                    ["OwnerId"] = property.Id,
+                    ["OwnerName"] = property.OwnerName,
+                    ["MarathiOwnerAddress"] = property.Address,
+                    ["PropertyNo"] = property.PropertyNo,
+                    ["PartitionNo"] = property.PartitionNo,
+                    ["NodeDescription"] = property.ZoneDescription,
+                    ["wardNo"] = property.WardNo,
+                    ["MarathiSocietyName"] = property.SocietyName,
+                    ["FlatOrShopNo"] = property.FlatOrShopNo,
+                    ["CouncilName"] = property.UlbName,
+                    ["CouncilAddress"] = property.UlbAddress,
+                    ["CouncilEmailId"] = property.UlbEmail,
+                    ["CouncilMobileNo"] = property.UlbMobile,
+                    ["CouncilState"] = property.UlbState,
+                    ["userName"] = user?.UserName,
+                    ["zoneId"] = property.ZoneId,
+                    ["wardId"] = property.WardId
+                };
 
-                ["NodeDescription"] = p.Description,
-                ["wardNo"] = p.WardNo,
-                ["MarathiSocietyName"] = p.SocietyName,
-
-                // ---------------- ULB ----------------
-                ["CouncilName"] = p.UlbName,
-                ["CouncilAddress"] = p.UlbAddress,
-                ["CouncilState"] = p.State,
-                ["CouncilEmailId"] = p.EmailId,
-                ["CouncilMobileNo"] = p.MobileNo,
-
-                ["zoneId"] = " ",
-                ["wardId"] = " ",
-            };
-
-            return (object)row;
-        }).ToList();
+                return (object)row;
+            })
+            .ToList();
 
         return (rows, hasMore);
+    }
+
+    private static string? GetParameter(
+        IDictionary<string, string> parameters,
+        string key)
+    {
+        if (!parameters.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
+    }
+
+    private static short ParseFinanceYear(IDictionary<string, string> parameters)
+    {
+        var financeYearText = GetParameter(
+            parameters,
+            "financeYear");
+
+        short.TryParse(financeYearText, out var financeYear);
+
+        return financeYear;
+    }
+
+    private IQueryable<YearMasterEntity> BaseQuery(short financeYear)
+    {
+        return _yearRepository
+            .GetQueryable()
+            .Where(year =>
+                financeYear == 0
+                    ? year.IsActive
+                    : year.Year == financeYear);
+    }
+
+    private sealed record UserInfo(int RequestedByUserId, int Id, string UserName);
+
+    private Task<UserInfo?> GetUserInfoAsync(int requestedByUserId, CancellationToken ct)
+    {
+        return _userRepository
+            .GetQueryable()
+            .Where(user =>
+                user.Id == requestedByUserId)
+            .Select(user =>
+                new UserInfo(
+                    requestedByUserId,
+                    user.Id,
+                    user.UserName))
+            .FirstOrDefaultAsync(ct);
     }
 }

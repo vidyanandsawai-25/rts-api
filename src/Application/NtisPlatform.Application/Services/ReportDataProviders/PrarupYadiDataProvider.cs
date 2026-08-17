@@ -1,8 +1,11 @@
+using System;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Reporting;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.ReportDataProviders
@@ -25,6 +28,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         public const string MainSection = "main";
         public const string PropertyDetailsSection = "propertyDetails";
         public const string TaxDetailsSection = "taxDetails";
+        public const string PrarupYadiFormDetailsSection = "PrarupYadiFormDetails";
+        public const string ReportDataSection = "ReportData";
 
         public string ProviderCode => "PrarupYadiDataProvider";
 
@@ -41,6 +46,10 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         private readonly IReportDataRepository<TaxMasterEntity> _taxMastRepository;
         private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
         private readonly IReportDataRepository<UserEntity> _userRepository;
+        private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
+        private readonly IReportDataRepository<TransMastEntity> _transRepository;
+        private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
+        private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
 
         public PrarupYadiDataProvider(
             IReportDataRepository<PropertyEntity> propertyRepository,
@@ -55,7 +64,11 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             IReportDataRepository<TransMastEntity> transmastRepository,
             IReportDataRepository<TaxMasterEntity> taxMastRepository,
             IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
-            IReportDataRepository<UserEntity> userRepository)
+            IReportDataRepository<UserEntity> userRepository,
+            IReportDataRepository<YearMasterEntity> yearRepository,
+            IReportDataRepository<TransMastEntity> transRepository,
+            IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
+            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
         {
             _propertyRepository = propertyRepository;
             _wardRepository = wardRepository;
@@ -70,6 +83,10 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             _taxMastRepository = taxMastRepository;
             _ulbMasterRepository = ulbMasterRepository;
             _userRepository = userRepository;
+            _yearRepository = yearRepository;
+            _transRepository = transRepository;
+            _ReportRequestRepository = reportRequestRepository;
+            _propertyMapDetailRepository = propertyMapDetailRepository;
         }
 
         // Static — never runs a query (avoids any heavy query executing on the authenticate request).
@@ -77,45 +94,40 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         {
             new ReportSectionDescriptor(MainSection,            false),
             new ReportSectionDescriptor(PropertyDetailsSection, false),
+            new ReportSectionDescriptor(PrarupYadiFormDetailsSection, false),
+            new ReportSectionDescriptor(ReportDataSection,      false),
         };
 
         public async Task<object> GetDataAsync(
             Dictionary<string, string> parameters, CancellationToken ct = default)
         {
-            var (rows, _) = await BuildPageAsync(parameters, skip: 0, take: int.MaxValue, ct);
+            var financeYear = ParseFinanceYear(parameters);
+            var (rows, _) = await BuildPageAsync(Guid.Empty, parameters, skip: 0, take: int.MaxValue, ct);
             return rows;
         }
 
         public async Task<ReportDataPage> GetDataPageAsync(
+            Guid reportRequestId,
             Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
         {
+            var financeYear = ParseFinanceYear(parameters);
             if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 100;
 
             // --- Parse parameters ---
-            // propertyId accepts a single value OR comma-separated list: "101,202,303"
-            parameters.TryGetValue("propertyId", out var propertyIdStr);
-            parameters.TryGetValue("userId", out var userIdStr);
-
-            // Split on commas, parse each token, deduplicate, drop invalid entries.
-            var propertyIds = (propertyIdStr ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => int.TryParse(s, out var id) ? id : 0)
-                .Where(id => id > 0)
-                .Distinct()
-                .ToList();
-
-            int.TryParse(userIdStr, out var userId);
+            var propertyIds = await ResolvePropertyIdsAsync(parameters, ct);
 
             List<object> rows;
             switch (section)
             {
                 case PropertyDetailsSection:
+                case PrarupYadiFormDetailsSection:
+                case ReportDataSection:
                     rows = await BuildPropertyDetailsRowsAsync(propertyIds, ct);
                     break;
 
                 default: // MainSection (tax details are embedded in main)
-                    rows = await BuildMainRowsAsync(propertyIds, userId, ct);
+                    rows = await BuildMainRowsAsync(propertyIds, reportRequestId, ct);
                     break;
             }
 
@@ -135,16 +147,78 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 Rows = paged,
             };
         }
-
-        private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
-            Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+        private static short ParseFinanceYear(Dictionary<string, string> parameters)
         {
-            // --- Parse parameters ---
-            // propertyId accepts a single value OR comma-separated list: "101,202,303"
-            parameters.TryGetValue("propertyId", out var propertyIdStr);
-            parameters.TryGetValue("userId", out var userIdStr);
+            parameters.TryGetValue("financeYear", out var financeYearStr);
+            short.TryParse(financeYearStr, out var financeYear);
+            return financeYear;
+        }
+        private IQueryable<YearMasterEntity> BaseQuery(short financeYear) => _yearRepository.GetQueryable()
+        .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
 
-            // Split on commas, parse each token, deduplicate, drop invalid entries.
+
+
+        private async Task<List<int>> ResolvePropertyIdsAsync(Dictionary<string, string> parameters, CancellationToken ct)
+        {
+            parameters.TryGetValue("ownerId", out var ownerIdText);
+
+            var ownerIds = string.IsNullOrWhiteSpace(ownerIdText) ? new List<int>() : ownerIdText
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+            parameters.TryGetValue("zoneId", out var zoneIdText);
+            int.TryParse(zoneIdText, out var zoneId);
+
+            parameters.TryGetValue("wardId", out var wardIdText);
+            int.TryParse(wardIdText, out var wardId);
+
+            parameters.TryGetValue("propertyNo", out var propertyNoText);
+            propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
+
+            parameters.TryGetValue("partitionNo", out var partitionNoText);
+            partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
+
+            parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+            int.TryParse(assessmentStatusText, out var assessmentStatus);
+
+          
+
+
+            parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+            fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+                ? null
+                : fromPropertyNoText.Trim();
+
+            parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+            toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+                ? null
+                : toPropertyNoText.Trim();
+
+            parameters.TryGetValue("Type", out var type);
+            type = string.IsNullOrWhiteSpace(type)
+                ? null
+                : type.Trim().ToUpper();
+
+            parameters.TryGetValue("propertyTypeId", out var propertyTypeIdText);
+            int.TryParse(propertyTypeIdText, out var propertyTypeId);
+
+            parameters.TryGetValue("PropertyDescription", out var propertyDescription);
+            propertyDescription = string.IsNullOrWhiteSpace(propertyDescription) ? null : propertyDescription.Trim();
+
+
+            var financeYear = ParseFinanceYear(parameters);
+            int activeYearId = 0;
+            if (financeYear != 0)
+            {
+                activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
+            }
+
+
+            parameters.TryGetValue("propertyId", out var propertyIdStr);
+
             var propertyIds = (propertyIdStr ?? string.Empty)
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(s => int.TryParse(s, out var id) ? id : 0)
@@ -152,9 +226,62 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 .Distinct()
                 .ToList();
 
-            int.TryParse(userIdStr, out var userId);
+            if (ownerIds.Count > 0)
+            {
+                propertyIds.AddRange(ownerIds);
+                propertyIds = propertyIds.Distinct().ToList();
+            }
 
-            var rows = await BuildMainRowsAsync(propertyIds, userId, ct);
+            if (propertyIds.Count == 0)
+            {
+                var query = 
+                    from p in _propertyRepository.GetQueryable()
+                    join w in _wardRepository.GetQueryable() on p.WardId equals w.Id into wj
+                    from w in wj.DefaultIfEmpty()
+
+                    // ---------------- JOIN PropertyTypeMaster ----------------
+                    join pt in _propertyTypeRepository.GetQueryable()
+                        on p.PropertyTypeId equals pt.Id into ptj
+                    from pt in ptj.DefaultIfEmpty()
+
+                    where p.IsActive && !p.MarkedForDeletion
+                          && (zoneId == 0 || w.ZoneId == zoneId)
+                          && (wardId == 0 || p.WardId == wardId)
+                          && (propertyNoText == null || p.PropertyNo == propertyNoText)
+                          && (partitionNoText == null || p.PartitionNo == partitionNoText)
+                          && (assessmentStatus == 0 || p.PropertyAssessmentStatusId == assessmentStatus)
+                          && (string.IsNullOrEmpty(type) || p.Type == type)
+                          && (propertyTypeId == 0 || p.PropertyTypeId == propertyTypeId)
+                          && (string.IsNullOrEmpty(propertyDescription) || pt.PropertyDescription == propertyDescription)
+                          && (fromPropertyNoText == null || string.Compare(p.PropertyNo, fromPropertyNoText) >= 0)
+                          && (toPropertyNoText == null || string.Compare(p.PropertyNo, toPropertyNoText) <= 0)
+
+                    select p;
+
+                // APPLY TransMast constraint SERVER-SIDE only when caller requested financeYear
+                if (financeYear != 0 && activeYearId > 0)
+                {
+                    var transQ = _transRepository.GetQueryable()
+                        .Where(t => t.FinanceYearId == activeYearId)
+                        .Select(t => t.PropertyId);
+
+                    query = query.Where(p => transQ.Contains(p.Id));
+                }
+
+                propertyIds = await query.Select(p => p.Id).ToListAsync(ct);
+            }
+
+            return propertyIds;
+        }
+
+        private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
+            Guid reportRequestId,
+            Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+        {
+            // --- Parse parameters ---
+            var propertyIds = await ResolvePropertyIdsAsync(parameters, ct);
+
+            var rows = await BuildMainRowsAsync(propertyIds, reportRequestId, ct);
 
             var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
             var paged = rows.Skip(skip).Take(takePlusOne).ToList();
@@ -164,20 +291,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             return (paged, hasMore);
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 1 — Main: all RentedNotice fields in one row per property.
-        //   PTIS.PropertyMast PM
-        //   PTIS.WardMaster   WM      (WardId = WM.Id)
-        //   PTIS.SocietyDetailsMast SD (PM.Id = SD.PropertyId)
-        //   PTIS.TypeOfUseMaster TUM  (PM.PropertyTypeId = TUM.Id)
-        //   PTIS.PropertyMastOld PMO  (PM.PropertyMastOldId = PMO.Id)
-        //   PTIS.PropertyTypeMaster PTM (PM.PropertyTypeId = PTM.Id)
-        //   CORE.UlbMaster ULB  (first row)
-        //   CORE.UserMaster USR (Id = @userId)
-        //   + pivoted TransMast tax columns
-        // ─────────────────────────────────────────────────────────────────────────
-
-        private async Task<List<object>> BuildMainRowsAsync(List<int> propertyIds, int userId, CancellationToken ct)
+        private async Task<List<object>> BuildMainRowsAsync(List<int> propertyIds, Guid reportRequestId, CancellationToken ct)
         {
             if (propertyIds == null || propertyIds.Count == 0)
                 return new List<object>();
@@ -202,7 +316,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     p.FlatOrShopNo,
                     p.FlatOrShopName,
                     p.PropertyTypeId,
-                    p.PropertyMastOldId,
                 })
                 .ToListAsync(ct);
 
@@ -254,12 +367,18 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 .ToListAsync(ct);
             var typeOfUseMap = typeOfUses.ToDictionary(t => t.Id);
 
-            // 1e. PropertyMastOld — batch fetch
-            var uniquePropertyMastOldIds = properties
-                .Where(p => p.PropertyMastOldId.HasValue)
-                .Select(p => p.PropertyMastOldId!.Value)
-                .Distinct()
-                .ToList();
+            // 1e. Map new property IDs to old property IDs via PropertyMapDetail
+            var propertyMappings = await _propertyMapDetailRepository.GetQueryable()
+                .Where(pmd => pmd.PropertyIdNew.HasValue && propertyIds.Contains(pmd.PropertyIdNew.Value) && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+                .Select(pmd => new { pmd.PropertyIdNew, pmd.PropertyIdOld })
+                .ToListAsync(ct);
+
+            var newToOldIdMap = propertyMappings
+                .Where(m => m.PropertyIdNew.HasValue && m.PropertyIdOld.HasValue)
+                .GroupBy(m => m.PropertyIdNew!.Value)
+                .ToDictionary(g => g.Key, g => g.First().PropertyIdOld!.Value);
+
+            var uniquePropertyMastOldIds = newToOldIdMap.Values.Distinct().ToList();
 
             var propertyOlds = await _propertyMastOldRepository.GetQueryable()
                 .Where(o => uniquePropertyMastOldIds.Contains(o.Id))
@@ -294,20 +413,24 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 .FirstOrDefaultAsync(ct);
 
             // 1h. User (shared across all rows)
-            var user = await _userRepository.GetQueryable()
-                .Where(u => u.Id == userId)
-                .Select(u => new
-                {
-                    u.Id,
-                    u.UserName,
-                    u.FirstName,
-                    u.MiddleName,
-                    u.LastName,
-                    u.UserCode,
-                    u.Email,
-                    u.MobileNo,
-                })
+            var requestedByUserId = await _ReportRequestRepository.GetQueryable()
+                .Where(r => r.ReportRequestId == reportRequestId)
+                .Select(r => (int?)r.RequestedByUserId)
                 .FirstOrDefaultAsync(ct);
+
+            var user = requestedByUserId == null
+                ? null
+                : await _userRepository.GetQueryable()
+                    .Where(u => u.Id == requestedByUserId.Value)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.UserName,
+                        u.UserCode,
+                        u.Email,
+                        u.MobileNo,
+                    })
+                    .FirstOrDefaultAsync(ct);
 
             // 1i. TransMast pivot — batch fetch for all properties
             var allTaxRows = await (
@@ -319,8 +442,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     tm.PropertyId,
                     tam.TaxCode,
                     tam.TaxName,
-                    RVorCV = tm.CalculationType,
-                    RVorCVValue = tm.CalculationValue,
+                    tm.RVorCV,
+                    tm.RVorCVValue,
                     tm.TaxAmount,
                 }
             ).ToListAsync(ct);
@@ -363,9 +486,11 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     ? typeOfUseMap[property.PropertyTypeId.Value]
                     : null;
 
-                var propertyOld = property.PropertyMastOldId.HasValue && propertyOldMap.ContainsKey(property.PropertyMastOldId.Value)
-                    ? propertyOldMap[property.PropertyMastOldId.Value]
-                    : null;
+                dynamic? propertyOld = null;
+                if (newToOldIdMap.TryGetValue(property.Id, out var oldId) && propertyOldMap.ContainsKey(oldId))
+                {
+                    propertyOld = propertyOldMap[oldId];
+                }
 
                 var propertyType = property.PropertyTypeId.HasValue && propertyTypeMap.ContainsKey(property.PropertyTypeId.Value)
                     ? propertyTypeMap[property.PropertyTypeId.Value]
@@ -411,9 +536,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     // User Master (CORE.UserMaster)
                     ["userId"] = user?.Id,
                     ["userName"] = user?.UserName,
-                    ["firstName"] = user?.FirstName,
-                    ["middleName"] = user?.MiddleName,
-                    ["lastName"] = user?.LastName,
                     ["userCode"] = user?.UserCode,
                     ["userEmail"] = user?.Email,
                     ["userMobileNo"] = user?.MobileNo,
@@ -440,6 +562,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     ["builtupAreaSqFeet"] = propertyDetail?.BuiltupAreaSqFeet,
                     ["builtupAreaSqMeter"] = propertyDetail?.BuiltupAreaSqMeter,
                     ["noOfRooms"] = propertyDetail?.NoOfRooms,
+                    ["financeYear"] = "",
                 };
 
                 // Pivot TransMast rows into dynamic columns on the same main row.
@@ -489,13 +612,13 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     pd.PropertyId,
                     pd.FloorId,
                     pd.SubFloorId,
-                    FloorDescription        = fm != null ? fm.Description : null,
+                    FloorDescription = fm != null ? fm.Description : null,
                     pd.ConstructionYear,
-                    ConstructionCode        = ctm != null ? ctm.ConstructionCode : null,
+                    ConstructionCode = ctm != null ? ctm.ConstructionCode : null,
                     ConstructionDescription = ctm != null ? ctm.Description : null,
-                    TypeOfUseCode           = tum != null ? tum.TypeOfUseCode : null,
-                    TypeOfUseDescription    = tum != null ? tum.Description : null,
-                    TypeOfUseType           = tum != null ? tum.Type : null,
+                    TypeOfUseCode = tum != null ? tum.TypeOfUseCode : null,
+                    TypeOfUseDescription = tum != null ? tum.Description : null,
+                    TypeOfUseType = tum != null ? tum.Type : null,
                     pd.AssessmentYear,
                     pd.CarpetAreaSqFeet,
                     pd.CarpetAreaSqMeter,
@@ -528,7 +651,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
         // ─────────────────────────────────────────────────────────────────────────
         // Section 3 — Tax Details: one pivoted row of TransMast amounts
-        //   SELECT TaxCode, TaxName, CalculationType, CalculationValue, TaxAmount
+        //   SELECT TaxCode, TaxName, RVorCV, RVorCVValue, TaxAmount
         //   FROM PTIS.TransMast TM JOIN PTIS.TaxMaster TAM ON TM.TaxId = TAM.Id
         //   WHERE TM.PropertyId = @propertyId
         //   ORDER BY TAM.DisplayOrder
@@ -544,8 +667,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     tam.TaxCode,
                     tam.TaxName,
                     tam.DisplayOrder,
-                    RVorCV = tm.CalculationType,
-                    RVorCVValue = tm.CalculationValue,
+                    tm.RVorCV,
+                    tm.RVorCVValue,
                     tm.TaxAmount,
                 }
             ).ToListAsync(ct);

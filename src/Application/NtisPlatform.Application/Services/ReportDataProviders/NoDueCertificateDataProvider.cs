@@ -51,7 +51,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             return rows;
         }
 
-        public async Task<ReportDataPage> GetDataPageAsync(
+        public async Task<ReportDataPage> GetDataPageAsync(Guid reportRequestId,
             Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
         {
             if (page < 1) page = 1;

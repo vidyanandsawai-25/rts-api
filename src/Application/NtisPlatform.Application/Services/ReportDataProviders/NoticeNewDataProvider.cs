@@ -3,6 +3,7 @@ using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Reporting;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.ReportDataProviders;
@@ -33,6 +34,11 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<PropertyDetailsEntity> _propertyDetailsRepository;
     private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
     private readonly IReportDataRepository<PropertyTypeMasterEntity> _PropertyTypeMasterRepository;
+    //private readonly IReportDataRepository<ReportRequestEntity> _ReportRequestRepository;
+    private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
+    private readonly IReportDataRepository<UserEntity> _userRepository;
+    private readonly IReportDataRepository<PropertyMapMasterEntity> _PropertyMapRepository;
+    private readonly IReportDataRepository<PropertyMapDetailEntity> _PropertyMapDetailRepository;
 
     public NoticeNewDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
@@ -47,7 +53,12 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         IReportDataRepository<YearMasterEntity> yearRepository,
         IReportDataRepository<PropertyDetailsEntity> propertyDetailsRepository,
         IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
-        IReportDataRepository<PropertyTypeMasterEntity> PropertyTypeMasterRepository)
+        IReportDataRepository<PropertyTypeMasterEntity> PropertyTypeMasterRepository,
+        //IReportDataRepository<ReportRequestEntity> ReportRequestRepository,
+        IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
+        IReportDataRepository<UserEntity> userRepository,
+        IReportDataRepository<PropertyMapMasterEntity> PropertyMapRepository,
+        IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository)
     {
         _propertyRepository = propertyRepository;
         _propertyImagesRepository = propertyImagesRepository;
@@ -62,6 +73,10 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         _propertyDetailsRepository = propertyDetailsRepository;
         _ulbMasterRepository = ulbMasterRepository;
         _PropertyTypeMasterRepository = PropertyTypeMasterRepository;
+        _ReportRequestRepository = reportRequestRepository;
+        _userRepository = userRepository;
+        _PropertyMapRepository = PropertyMapRepository;
+        _PropertyMapDetailRepository = PropertyMapDetailRepository;
     }
 
     public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
@@ -74,12 +89,18 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     public async Task<object> GetDataAsync(Dictionary<string, string> parameters, CancellationToken ct = default)
     {
         var financeYear = ParseFinanceYear(parameters);
-        var mainRows = await MainQuery(financeYear, parameters, 0, int.MaxValue, ct);
-        var (detailRows, _) = await DetailQuery(parameters, 0, int.MaxValue, ct);
+        var mainRows = await MainQuery(financeYear, Guid.Empty, parameters, 0, int.MaxValue, ct);
+        var (detailRows, _) = await DetailQuery(Guid.Empty, parameters, 0, int.MaxValue, ct);
         return new { main = mainRows, NoticeBill = detailRows };
     }
 
-    public async Task<ReportDataPage> GetDataPageAsync(Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
+    public async Task<ReportDataPage> GetDataPageAsync(
+    Guid reportRequestId,
+    Dictionary<string, string> parameters,
+    string section,
+    int page,
+    int pageSize,
+    CancellationToken ct = default)
     {
         var financeYear = ParseFinanceYear(parameters);
 
@@ -98,15 +119,28 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
         if (section.Equals(MainSection, StringComparison.OrdinalIgnoreCase))
         {
-            if (page < 1) page = 1;
-            if (pageSize < 1) pageSize = int.MaxValue;
+            if (page < 1)
+                page = 1;
 
-            var skip = pageSize == int.MaxValue ? 0 : (page - 1) * pageSize;
-            var rows = await MainQuery(financeYear, parameters, skip, pageSize, ct);
+            if (pageSize < 1)
+                pageSize = int.MaxValue;
+
+            var skip = pageSize == int.MaxValue
+                ? 0
+                : (page - 1) * pageSize;
+
+            var rows = await MainQuery(
+                financeYear,
+                reportRequestId,
+                parameters,
+                skip,
+                pageSize,
+                ct);
+
             return new ReportDataPage
             {
                 Section = MainSection,
-                Page = 1,
+                Page = page,
                 PageSize = rows.Count,
                 TotalCount = rows.Count,
                 HasMore = false,
@@ -116,11 +150,13 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
         if (section.Equals(DetailSection, StringComparison.OrdinalIgnoreCase))
         {
-            if (page < 1) page = 1;
+            if (page < 1)
+                page = 1;
 
             var skip = (page - 1) * pageSize;
 
             var (rows, hasMore) = await DetailQuery(
+                reportRequestId,
                 parameters,
                 skip,
                 pageSize,
@@ -137,8 +173,13 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
             };
         }
 
-        // Unknown section → empty page.
-        return new ReportDataPage { Section = section, Page = page, PageSize = pageSize, HasMore = false };
+        return new ReportDataPage
+        {
+            Section = section,
+            Page = page,
+            PageSize = pageSize,
+            HasMore = false
+        };
     }
 
     private static short ParseFinanceYear(Dictionary<string, string> parameters)
@@ -148,8 +189,10 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         return financeYear;
     }
 
-    private static string AmountToWords(decimal amount) => NumberToWords((long)decimal.Truncate(amount));
+    private IQueryable<YearMasterEntity> BaseQuery(short financeYear) => _yearRepository.GetQueryable()
+    .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
 
+    private static string AmountToWords(decimal amount) => NumberToWords((long)decimal.Truncate(amount));
     private static string NumberToWords(long n)
     {
         if (n == 0) return "zero";
@@ -167,16 +210,20 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         return NumberToWords(n / 1_000_000_000) + " billion" + (n % 1_000_000_000 == 0 ? "" : " " + NumberToWords(n % 1_000_000_000));
     }
 
-    //private IQueryable<YearMasterEntity> BaseQuery(short financeYear) =>
-    //    _yearRepository.GetQueryable()
-    //        .Where(b => financeYear == 0 || b.Year == financeYear);
-    private IQueryable<YearMasterEntity> BaseQuery(short financeYear) =>
-    _yearRepository.GetQueryable()
-        .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
-
     // ------------------- MAIN SECTION REPORT FIELDS -----------------
-    private async Task<List<object>> MainQuery(short financeYear, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+    private async Task<List<object>> MainQuery(short financeYear, Guid reportRequestId, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
     {
+        parameters.TryGetValue("ownerId", out var ownerIdText);
+
+        var ownerIds = string.IsNullOrWhiteSpace(ownerIdText)
+            ? new List<int>()
+            : ownerIdText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
+                .Where(id => id > 0)
+                .ToList();
+
+
         parameters.TryGetValue("zoneId", out var zoneIdText);
         int.TryParse(zoneIdText, out var zoneId);
 
@@ -186,10 +233,58 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         parameters.TryGetValue("propertyNo", out var propertyNoText);
         propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
 
+        // ------ FROM Property - TO Property Number Range Filter Parameters ------
+        parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+        fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+            ? null
+            : fromPropertyNoText.Trim();
+
+        parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+        toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+            ? null
+            : toPropertyNoText.Trim();
+
         parameters.TryGetValue("partitionNo", out var partitionNoText);
         partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
 
+        parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+        int.TryParse(assessmentStatusText, out var assessmentStatus);
+
+        parameters.TryGetValue("Type", out var type);
+        type = string.IsNullOrWhiteSpace(type)
+            ? null
+            : type.Trim().ToUpper();
+
+        parameters.TryGetValue("propertyTypeId", out var propertyTypeIdText);
+        int.TryParse(propertyTypeIdText, out var propertyTypeId);
+
+        parameters.TryGetValue("PropertyDescription", out var propertyDescription);
+        propertyDescription = string.IsNullOrWhiteSpace(propertyDescription) ? null : propertyDescription.Trim();
+
+        // ------- Amount Parameter ---------
+        parameters.TryGetValue("totalTaxFilterType", out var totalTaxFilterType);   // Top n / Less Than / Greater Than
+        parameters.TryGetValue("totalTaxFilterValue", out var totalTaxFilterValue); // amount 
+
         var activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
+
+
+        // ---------------- GET USER INFO ----------------
+        var requestedByUserId = await _ReportRequestRepository.GetQueryable()
+            .Where(r => r.ReportRequestId == reportRequestId)
+            .Select(r => (int?)r.RequestedByUserId)
+            .FirstOrDefaultAsync(ct);
+
+        var user = requestedByUserId == null
+            ? null
+            : await _userRepository.GetQueryable()
+                .Where(u => u.Id == requestedByUserId.Value)
+                .Select(u => new
+                {
+                    RequestedByUserId = requestedByUserId.Value,
+                    u.Id,
+                    u.UserName
+                })
+                .FirstOrDefaultAsync(ct);
 
         // ---------------- PROPERTY QUERY ----------------
         var properties =
@@ -211,20 +306,33 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
             join pt in _PropertyTypeMasterRepository.GetQueryable() on pm.PropertyTypeId equals pt.Id into ptj
             from pt in ptj.DefaultIfEmpty()
 
-            join pmo in _propertyOldRepository.GetQueryable() on pm.PropertyMastOldId equals pmo.Id into pmoj
-            from pmo in pmoj.DefaultIfEmpty()
+                //----------- ProperyMastOld join --------------
+            join pmd in _PropertyMapDetailRepository.GetQueryable() on pm.Id equals pmd.PropertyIdNew into pmdj
+            from pmd in pmdj.DefaultIfEmpty()
+
+            join pmm in _PropertyMapRepository.GetQueryable() on pmd.PropertyMapId equals pmm.Id into pmmj
+            from pmm in pmmj.DefaultIfEmpty()
+
+            join pmo in _propertyOldRepository.GetQueryable() on pmd.PropertyIdOld equals pmo.Id into oldj
+            from pmo in oldj.DefaultIfEmpty()
 
             from ulb in _ulbMasterRepository.GetQueryable()
                 .Where(x => x.IsActive)
                 .Take(1)
 
             where pm.IsActive
-                  && (zoneId == 0 || wn.ZoneId == zoneId)
-                  && (wardId == 0 || pm.WardId == wardId)
-                  && (propertyNoText == null || pm.PropertyNo == propertyNoText)
-                  && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+      && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
+      && (zoneId == 0 || wn.ZoneId == zoneId)
+      && (wardId == 0 || pm.WardId == wardId)
+      && (propertyNoText == null || pm.PropertyNo == propertyNoText)
+      && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+      && (assessmentStatus == 0 || pm.PropertyAssessmentStatusId == assessmentStatus)
+      && (string.IsNullOrEmpty(type) || pt.Type == type)
+      && (propertyTypeId == 0 || pt.Id == propertyTypeId)
+      && (string.IsNullOrEmpty(propertyDescription) ||
+          pt.PropertyDescription == propertyDescription)
 
-            orderby pm.PropertyNo, pm.PartitionNo
+            //orderby pm.PropertyNo, pm.PartitionNo
 
             select new
             {
@@ -235,6 +343,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 pm.OwnerNameEnglish,
                 pm.Address,
                 pm.PropertyNo,
+                pm.PartitionNo,
                 pm.FlatOrShopName,
                 pm.FlatOrShopNo,
                 pm.CSN,
@@ -245,7 +354,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 wn.WardNo,
                 zm.ZoneNo,
                 pm.CreatedDate,
-                CalculationValue = _transRepository.GetQueryable()
+                RVorCVValue = _transRepository.GetQueryable()
                 .Where(t => t.PropertyId == pm.Id && t.FinanceYearId == activeYearId)
                 .Select(t => (decimal?)t.CalculationValue)
                 .FirstOrDefault() ?? 0m,
@@ -259,29 +368,130 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 // FOR PANVEL NOTICE NEW REPORT
                 pm.OccupierName,
                 pm.MobileNo,
+                pt.PropertyDescription,
+
+                //PropertyMastOld Fields
                 pmo.OldPropertyNo,
-                pt.PropertyDescription
+                pmo.OldPartitionNo
             }
         );
         // --------------------------------------------------------------------------
-        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        //var props = await properties.ToListAsync(ct);
+        // ✅ FIX: Add Distinct() and OrderBy AFTER Distinct
+        var props = await properties
+            .Distinct()
+            .OrderBy(x => x.PropertyNo)
+            .ThenBy(x => x.PartitionNo)
+            .ToListAsync(ct);
 
-        var props = await properties .Skip(skip) .Take(takePlusOne) .ToListAsync(ct);
+        // ---------------- FROM PROPERTY NUMBER FILTER ----------------
+        if (int.TryParse(fromPropertyNoText, out var fromPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no >= fromPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(fromPropertyNoText))
+        {
+            props = props
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        fromPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+        }
+
+        // ---------------- TO PROPERTY NUMBER FILTER ----------------
+        if (int.TryParse(toPropertyNoText, out var toPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no <= toPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(toPropertyNoText))
+        {
+            props = props
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        toPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) <= 0)
+                .ToList();
+        }
+        ////////////////////////////////////////////////////////
+
+        // TotalTax map for current property set
+        var propIds = props.Select(x => x.Id).Distinct().ToList();
+
+        var totalTaxByProperty = await _transRepository.GetQueryable()
+            .Where(t => t.FinanceYearId == activeYearId && propIds.Contains(t.PropertyId))
+            .GroupBy(t => t.PropertyId)
+            .Select(g => new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) })
+            .ToDictionaryAsync(x => x.PropertyId, x => x.TotalTax, ct);
+
+        // AMOUNT filter CODE -----------------------------
+        if (!string.IsNullOrWhiteSpace(totalTaxFilterType) &&
+            !string.IsNullOrWhiteSpace(totalTaxFilterValue) &&
+            decimal.TryParse(totalTaxFilterValue, out var filterValue))
+        {
+            var mode = totalTaxFilterType.Trim().ToLowerInvariant().Replace(" ", "");
+
+            if (mode == "topn" || mode == "top")
+            {
+                var n = (int)filterValue;
+                if (n > 0)
+                {
+                    props = props
+                        .OrderByDescending(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m))
+                        .ThenBy(p => p.PropertyNo)
+                        .ThenBy(p => p.FlatOrShopNo)
+                        .Take(n)
+                        .ToList();
+                }
+            }
+            else if (mode == "lessthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) < filterValue)
+                    .ToList();
+            }
+            else if (mode == "greaterthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) > filterValue)
+                    .ToList();
+            }
+        }
+
+        // paging must be last
+        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        props = props.Skip(skip).Take(takePlusOne).ToList();
 
         var hasMore = take != int.MaxValue && props.Count > take;
-
-        if (hasMore)
-            props = props.Take(take).ToList();
-
-        //var ids = props.Select(x => x.Id).ToList();
+        if (hasMore) props = props.Take(take).ToList();
 
         // ---------------- FINAL CRYSTAL REPORT ROWS ----------------
         var rows = new List<object>();
 
         foreach (var p in props)
         {
-            //var amountInWords = Convert.ToInt64(p.CalculationValue).ToWords();
-            var amountInWords = AmountToWords(p.CalculationValue);
+            //var amountInWords = Convert.ToInt64(p.RVorCVValue).ToWords();
+            var amountInWords = AmountToWords(p.RVorCVValue);
+
+            // ---------------- GET OLD PROPERTY Fields ----------------
+            var oldProperty = await _propertyOldRepository.GetQueryable()
+            .Where(x => x.Id == p.Id)
+            .Select(x => new
+            {
+                x.OldPropertyNo,
+                x.OldPartitionNo
+            })
+            .FirstOrDefaultAsync(ct);
 
             var row = new Dictionary<string, object?>
             {
@@ -319,7 +529,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["MarathiSocietyName"] = p.SocietyName,
 
                 ["FirstTaxAssessmentDate"] = p.CreatedDate?.Year.ToString(),
-                ["TotalCapitalValue"] = p.CalculationValue,
+                ["TotalCapitalValue"] = p.RVorCVValue,
                 ["TotalCapitalValueInWords"] = amountInWords,
 
                 ["wardId"] = wardId,
@@ -330,7 +540,11 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["PropertyType"] = p.PropertyDescription,
                 ["OccupierName"] = p.OccupierName,
                 ["OwnerMobileNo"] = p.MobileNo,
-                ["OldPropertyNo"] = p.OldPropertyNo
+                ["OldPropertyNo"] = oldProperty?.OldPropertyNo,
+                ["userName"] = user?.UserName,
+
+                // PropertyMastOld Fields
+                //["OldPropertyNo"] = p.OldPropertyNo,
             };
 
             rows.Add(row);
@@ -339,8 +553,16 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     }
 
     // ------------------- SUB REPORT SECTION FIELDS -----------------
-    private async Task<(List<object> Rows, bool HasMore)> DetailQuery(Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+    private async Task<(List<object> Rows, bool HasMore)> DetailQuery(Guid reportRequestId, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
     {
+        parameters.TryGetValue("ownerId", out var ownerIdText);
+
+        var ownerIds = string.IsNullOrWhiteSpace(ownerIdText) ? new List<int>() : ownerIdText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
+                .Where(id => id > 0)
+                .ToList();
+
         parameters.TryGetValue("zoneId", out var zoneIdText);
         int.TryParse(zoneIdText, out var zoneId);
 
@@ -350,8 +572,26 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         parameters.TryGetValue("propertyNo", out var propertyNoText);
         propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
 
+        // ------ FROM Property - TO Property Number Range Filter Parameters ------
+        parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+        fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+            ? null
+            : fromPropertyNoText.Trim();
+
+        parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+        toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+            ? null
+            : toPropertyNoText.Trim();
+
         parameters.TryGetValue("partitionNo", out var partitionNoText);
         partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
+
+        parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+        int.TryParse(assessmentStatusText, out var assessmentStatus);
+
+        // -------- Amount filter inputs -------------
+        parameters.TryGetValue("totalTaxFilterType", out var totalTaxFilterType);   // Top n / Less Than / Greater Than
+        parameters.TryGetValue("totalTaxFilterValue", out var totalTaxFilterValue); // amount or count (for Top n)
 
         var financeYear = ParseFinanceYear(parameters);
 
@@ -360,27 +600,17 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         // ---------------- PROPERTY QUERY ----------------
         var propQuery =
             from pm in _propertyRepository.GetQueryable()
-
-            join pmo in _propertyOldRepository.GetQueryable() on pm.PropertyMastOldId equals pmo.Id into pmoj
-            from pmo in pmoj.DefaultIfEmpty()
-
             join wn in _wardRepository.GetQueryable() on pm.WardId equals wn.Id into wmj
             from wn in wmj.DefaultIfEmpty()
-
             join zm in _zoneRepository.GetQueryable() on pm.TaxZoneId equals zm.Id into zmj
             from zm in zmj.DefaultIfEmpty()
-
-            //join tm in _transRepository.GetQueryable() on pm.Id equals tm.PropertyId into tmj
-            //from tm in tmj.DefaultIfEmpty()
-
             where pm.IsActive
-                   && (zoneId == 0 || wn.ZoneId == zoneId)
-                    && (wardId == 0 || pm.WardId == wardId)
-                    && (propertyNoText == null || pm.PropertyNo == propertyNoText)
-                    && (partitionNoText == null || pm.PartitionNo == partitionNoText)
-
-            orderby pm.PropertyNo, pm.PartitionNo
-
+                  && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
+                  && (zoneId == 0 || wn.ZoneId == zoneId)
+                  && (wardId == 0 || pm.WardId == wardId)
+                  && (propertyNoText == null || pm.PropertyNo == propertyNoText)
+                  && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+                  && (assessmentStatus == 0 || pm.PropertyAssessmentStatusId == assessmentStatus)
             select new
             {
                 pm.Id,
@@ -388,117 +618,183 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 pm.OwnerName,
                 pm.OwnerNameEnglish,
                 pm.PropertyNo,
+                pm.PartitionNo,
                 wn.WardNo,
-                zm.ZoneNo,
-                //tm.TaxAmount
+                zm.ZoneNo
             };
 
-        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        // Distinct first, OrderBy after Distinct (EF warning fix)
+        var props = await propQuery
+            .Distinct()
+            .OrderBy(x => x.PropertyNo)
+            .ThenBy(x => x.PartitionNo)
+            .ToListAsync(ct);
 
-        var props = await propQuery.Skip(skip).Take(takePlusOne).ToListAsync(ct);
+        // ------------ Property range filter ------------
+
+        // FROM Property No
+        if (int.TryParse(fromPropertyNoText, out var fromPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no >= fromPropertyNo)
+                .ToList();
+        }
+
+        // TO Property No
+        if (int.TryParse(toPropertyNoText, out var toPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no <= toPropertyNo)
+                .ToList();
+        }
+
+        /////////////////////////////////////////////////////////////////////////////
+
+        var ids = props.Select(x => x.Id).Distinct().ToList();
+
+        // load active tax masters for the page
+        var taxMasters = await _taxRepository.GetQueryable()
+            .Where(tm => tm.IsActive)
+            .Select(tm => new { tm.Id, tm.TaxCode, tm.TaxName, tm.DisplayOrder })
+            .OrderBy(tm => tm.DisplayOrder)
+            .ToListAsync(ct);
+
+        // load transaction sums for the selected properties & finance year
+        var transSums = await _transRepository.GetQueryable()
+            .Where(t => t.FinanceYearId == activeYearId && ids.Contains(t.PropertyId))
+            .GroupBy(t => new { t.PropertyId, t.TaxId })
+            .Select(g => new { g.Key.PropertyId, g.Key.TaxId, Total = g.Sum(x => x.TaxAmount) })
+            .ToListAsync(ct);
+
+        //build map: propertyId->list of taxes(one entry per active tax master; amount = sum or 0)
+        var taxByProperty = ids.ToDictionary(
+            id => id,
+            id => taxMasters.Select(tm =>
+            {
+                var s = transSums.FirstOrDefault(x => x.PropertyId == id && x.TaxId == tm.Id);
+                return new
+                {
+                    TaxName = tm.TaxName ?? string.Empty,
+                    DisplayOrder = tm.DisplayOrder,
+                    TaxAmount = s?.Total ?? 0m
+                };
+            })
+            .OrderBy(t => t.DisplayOrder)
+            .ToList()
+        );
+
+
+        // totals per property
+        var totalTaxByProperty = taxByProperty.ToDictionary(x => x.Key, x => x.Value.Sum(t => t.TaxAmount));
+
+        //  AMOUNT filter Code
+        if (!string.IsNullOrWhiteSpace(totalTaxFilterType) &&
+            !string.IsNullOrWhiteSpace(totalTaxFilterValue) &&
+            decimal.TryParse(totalTaxFilterValue, out var filterValue))
+        {
+            var mode = totalTaxFilterType.Trim().ToLowerInvariant().Replace(" ", "");
+
+            if (mode == "topn" || mode == "top")
+            {
+                var n = (int)filterValue;
+                if (n > 0)
+                {
+                    props = props
+                        .OrderByDescending(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m))
+                        .ThenBy(p => p.PropertyNo)
+                        .ThenBy(p => p.PartitionNo)
+                        .Take(n)
+                        .ToList();
+                }
+            }
+            else if (mode == "lessthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) < filterValue)
+                    .ToList();
+            }
+            else if (mode == "greaterthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) > filterValue)
+                    .ToList();
+            }
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////
+
+        // Paging must be after TotalTax filter
+        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        props = props.Skip(skip).Take(takePlusOne).ToList();
 
         var hasMore = take != int.MaxValue && props.Count > take;
-
         if (hasMore)
             props = props.Take(take).ToList();
 
-        var ids = props.Select(x => x.Id).ToList();
-
-        // ---------------- TAX QUERY ----------------
-        var taxRows = await (
-            from t in _transRepository.GetQueryable()
-            join taxm in _taxRepository.GetQueryable() on t.TaxId equals taxm.Id
-
-            where t.FinanceYearId == activeYearId
-                && ids.Contains(t.PropertyId)
-                && taxm.IsActive
-
-            select new
-            {
-                t.PropertyId,
-                taxm.TaxName,
-                taxm.DisplayOrder,
-                t.TaxAmount
-            }).ToListAsync(ct);
-
-        // ---------------- GROUP TAX ----------------
-        var taxByProperty = taxRows
-            .GroupBy(x => x.PropertyId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(x => x.DisplayOrder).ToList()
-            );
-
-        // ---------------- FINAL FLAT ROWS (CRYSTAL REPORT READY) ----------------
         var rows = new List<object>();
 
         foreach (var p in props)
         {
-            if (taxByProperty.TryGetValue(p.Id, out var taxes))
+            if (!taxByProperty.TryGetValue(p.Id, out var taxes))
+                continue;
+
+            decimal totalFirstHalf = 0;
+            decimal totalSecondHalf = 0;
+
+            foreach (var tax in taxes)
             {
-                decimal totalFirstHalf = 0;
-                decimal totalSecondHalf = 0;
+                var first = tax.TaxAmount / 2m;
+                var second = tax.TaxAmount - first;
+                totalFirstHalf += first;
+                totalSecondHalf += second;
+            }
 
-                foreach (var tax in taxes)
+            decimal totalTax = taxes.Sum(x => x.TaxAmount);
+            var totalTaxInWords = AmountToWords(totalTax);
+
+
+            foreach (var t in taxes)
+            {
+                var firstHalf = t.TaxAmount / 2m;
+                var secondHalf = t.TaxAmount - firstHalf;
+
+                var row = new Dictionary<string, object?>
                 {
-                    var first = tax.TaxAmount / 2m;
-                    var second = tax.TaxAmount - first;
+                    ["OwnerId"] = p.Id,
+                    ["UPICId"] = p.UPICId,
+                    ["MarathiOwnerName"] = p.OwnerName,
+                    ["OwnerName"] = p.OwnerNameEnglish,
+                    ["PropertyNo"] = p.PropertyNo,
+                    ["NodeNo"] = p.ZoneNo,
+                    ["NewWardNo"] = p.WardNo,
 
-                    totalFirstHalf += first;
-                    totalSecondHalf += second;
-                }
+                    // ---------------- TAX FIELDS ----------------
+                    ["TaxName"] = t.TaxName,
 
-                decimal TotalTax = taxes.Sum(x => x.TaxAmount);
+                    ["FirstHalf"] = firstHalf.ToString("0"),
+                    ["SecondHalf"] = secondHalf.ToString("0"),
 
-                var totalFirstHalfInWords = AmountToWords(totalFirstHalf);
-                var totalSecondHalfInWords = AmountToWords(totalSecondHalf);
-                var TotalTaxinWords = AmountToWords(TotalTax);
+                    // ---------------- TOTAL FIELDS TOTAL ----------------
+                    ["TotalFirstHalf"] = totalFirstHalf.ToString("0"),
+                    ["TotalSecondHalf"] = totalSecondHalf.ToString("0"),
 
-                foreach (var t in taxes)
-                {
-                    var firstHalf = t.TaxAmount / 2m;
-                    var secondHalf = t.TaxAmount - firstHalf;                   
+                    ["FirstHalfLastPaymentDate"] = "30/11/2026",
+                    ["SecondHalfLastPaymentDate"] = "31/12/2026",
 
-                    var row = new Dictionary<string, object?>
-                    {
-                        ["OwnerId"] = p.Id,
-                        ["UPICId"] = p.UPICId,
-                        ["MarathiOwnerName"] = p.OwnerName,
-                        ["OwnerName"] = p.OwnerNameEnglish,
-                        ["PropertyNo"] = p.PropertyNo,
-                        ["NodeNo"] = p.ZoneNo,
-                        ["NewWardNo"] = p.WardNo,
+                    ["wardId"] = " ",
+                    ["PartitionNo"] = " ",
+                    ["financeYear"] = " ",
 
-                        // ---------------- TAX FIELDS ----------------
-                        ["TaxName"] = t.TaxName,
+                    ["TotalTax"] = totalTax.ToString("0"),
+                    ["TotalTaxinWords"] = totalTaxInWords,
+                    ["TaxAmount"] = t.TaxAmount
+                };
 
-                        ["FirstHalf"] = firstHalf.ToString("0"),
-                        ["SecondHalf"] = secondHalf.ToString("0"),
+                rows.Add(row);
 
-                        // ---------------- TOTAL FIELDS TOTAL ----------------
-                        ["TotalFirstHalf"] = totalFirstHalf.ToString("0"),
-                        ["TotalSecondHalf"] = totalSecondHalf.ToString("0"),
-
-                        // ---------------- TOTALS IN WORDS ----------------
-                        ["TotalFirstHalfInWords"] = totalFirstHalfInWords,
-                        ["TotalSecondHalfInWords"] = totalSecondHalfInWords,
-
-                        ["FirstHalfLastPaymentDate"] = "30/11/2026",
-                        ["SecondHalfLastPaymentDate"] = "31/12/2026",
-
-                        ["wardId"] = " ",
-                        ["PartitionNo"] = " ",
-                        ["financeYear"] = " ",
-
-                        //FOR PANVEL NOTICE NEW REPORT
-                        ["TotalTax"] = TotalTax.ToString("0"),
-                        ["TotalTaxinWords"] = TotalTaxinWords,
-                        //["TaxAmount"] = p.TaxAmount,
-                        ["TaxAmount"] = t.TaxAmount
-                    };
-
-                    rows.Add(row);
-                }
             }
         }
         return (rows, hasMore);

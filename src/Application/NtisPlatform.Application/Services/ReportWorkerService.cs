@@ -148,7 +148,7 @@ public class ReportWorkerService : IReportWorkerService
         var parameters = DeserializeParameters(entity.ParametersJson);
 
         if (provider is IPagedReportDataProvider paged)
-            return await paged.GetDataPageAsync(parameters, section, page, pageSize, ct);
+            return await paged.GetDataPageAsync(reportRequestId, parameters, section, page, pageSize, ct);
 
         // Fallback: non-paged provider — fetch the whole dataset, return the requested section once.
         var rows = await GetSectionRowsFallbackAsync(provider, parameters, section, ct);
