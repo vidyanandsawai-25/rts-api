@@ -36,8 +36,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
     private string GetPortalBaseUrl()
     {
-        var configuredUrl = _configuration["AppSettings:PortalUrl"] 
-                         ?? _configuration["RTS:PortalUrl"] 
+        var configuredUrl = _configuration["AppSettings:PortalUrl"]
+                         ?? _configuration["RTS:PortalUrl"]
                          ?? _configuration["RTS:TrackingUrl"];
 
         if (!string.IsNullOrWhiteSpace(configuredUrl))

@@ -35,4 +35,3 @@ public class SmsRequest
     /// </summary>
     public int? ApplicationId { get; set; }
 }
-

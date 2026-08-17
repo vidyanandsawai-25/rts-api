@@ -137,7 +137,7 @@ public class SmsService : ISmsService
             }
         }
 
-        var fullUrl = baseUrl.Contains('?') 
+        var fullUrl = baseUrl.Contains('?')
             ? $"{baseUrl}&{string.Join("&", queryParams)}"
             : $"{baseUrl}?{string.Join("&", queryParams)}";
 
@@ -163,7 +163,7 @@ public class SmsService : ISmsService
             else
             {
                 smsStatus = "FAILED";
-                _logger.LogWarning("SMS gateway returned non-success code {StatusCode} for {Mobile}. Response: {Response}", 
+                _logger.LogWarning("SMS gateway returned non-success code {StatusCode} for {Mobile}. Response: {Response}",
                     response.StatusCode, sanitizedMobile, gatewayResponse);
             }
         }
