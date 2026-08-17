@@ -262,8 +262,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMfaChallengeService, MfaChallengeService>();
 
         // Config-driven OTP (email/SMS) challenges for login and forgot password
+        services.AddHttpClient();
         services.AddScoped<IOtpChallengeService, OtpChallengeService>();
         services.AddScoped<ISmsService, SmsService>();
+        services.AddScoped<IRTSSmsNotificationService, RTSSmsNotificationService>();
 
         services.AddScoped<IAuthTokenIssuerService, AuthTokenIssuerService>();
         services.AddScoped<ISecurityAuditService, SecurityAuditService>();

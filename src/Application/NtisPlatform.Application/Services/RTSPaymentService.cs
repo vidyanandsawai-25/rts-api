@@ -33,6 +33,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly ILogger<RTSPaymentService> _logger;
 
     public RTSPaymentService(
@@ -49,6 +50,7 @@ public class RTSPaymentService : IRTSPaymentService
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
+        IRTSSmsNotificationService smsNotificationService,
         ILogger<RTSPaymentService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -64,6 +66,7 @@ public class RTSPaymentService : IRTSPaymentService
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
+        _smsNotificationService = smsNotificationService;
         _logger = logger;
     }
 
@@ -467,6 +470,30 @@ public class RTSPaymentService : IRTSPaymentService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        // Asynchronous SMS dispatch to applicant
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var receipt = await GetPaymentReceiptByApplicationIdAsync(txn.ApplicationId, CancellationToken.None);
+                if (receipt != null && !string.IsNullOrWhiteSpace(receipt.CustomerMobile))
+                {
+                    await _smsNotificationService.SendPaymentSuccessAsync(
+                        receipt.ApplicationId,
+                        receipt.ApplicationNo,
+                        receipt.CustomerName ?? "Citizen",
+                        receipt.CustomerMobile,
+                        receipt.Amount,
+                        receipt.ReceiptNo,
+                        CancellationToken.None);
+                }
+            }
+            catch (Exception smsEx)
+            {
+                _logger.LogError(smsEx, "Failed to send payment receipt SMS for application {AppId}", txn.ApplicationId);
+            }
+        });
 
         return new VerifyPaymentResponseDto
         {

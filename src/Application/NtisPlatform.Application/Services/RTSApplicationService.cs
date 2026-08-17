@@ -15,18 +15,24 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     private readonly IRTSCitizenSessionService _sessionService;
     private readonly IRepository<RTSApprovalFlowMasterEntity, int> _approvalFlowRepository;
     private readonly IRepository<RTSFieldDefinitionEntity, int> _fieldDefinitionRepository;
+    private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
+    private readonly IRTSSmsNotificationService _smsNotificationService;
 
     public RTSApplicationService(
         IRepository<RTSApplicationDetailsEntity, int> repository,
         IRepository<RTSApprovalFlowMasterEntity, int> approvalFlowRepository,
         IRTSCitizenSessionService sessionService,
         IRepository<RTSFieldDefinitionEntity, int> fieldDefinitionRepository,
-    IUnitOfWork unitOfWork,
+        IRepository<RTSServiceEntity, int> serviceRepository,
+        IRTSSmsNotificationService smsNotificationService,
+        IUnitOfWork unitOfWork,
         IMapper mapper) : base(repository, unitOfWork, mapper)
     {
         _sessionService = sessionService;
         _approvalFlowRepository = approvalFlowRepository;
         _fieldDefinitionRepository = fieldDefinitionRepository;
+        _serviceRepository = serviceRepository;
+        _smsNotificationService = smsNotificationService;
     }
     public override async Task<RTSApplicationDetailsDto> CreateAsync(CreateRTSApplicationDetailsDto createDto, CancellationToken cancellationToken = default)
     {
@@ -168,7 +174,60 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Asynchronous SMS dispatch on application submission
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                string? applicantName = null;
+                string? applicantMobile = null;
+
+                var fieldDefinitions = await _fieldDefinitionRepository.GetQueryable()
+                    .Where(x => x.ServiceId == entity.ServiceId && x.IsActive)
+                    .ToListAsync(CancellationToken.None);
+
+                if (createDto.FieldValues != null)
+                {
+                    foreach (var f in createDto.FieldValues)
+                    {
+                        var def = fieldDefinitions.FirstOrDefault(d => d.Id == f.FieldDefinitionId);
+                        var label = (def?.FieldLabel ?? def?.FieldCode ?? string.Empty).ToLowerInvariant();
+                        var code = (def?.FieldCode ?? string.Empty).ToLowerInvariant();
+                        var val = f.TextValue?.Trim();
+
+                        if (string.IsNullOrWhiteSpace(val)) continue;
+
+                        if (string.IsNullOrWhiteSpace(applicantName) &&
+                            (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
+                        {
+                            applicantName = val;
+                        }
+                        else if (string.IsNullOrWhiteSpace(applicantMobile) &&
+                            (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल") || code.Contains("mobile") || code.Contains("phone")))
+                        {
+                            applicantMobile = val;
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(applicantMobile))
+                {
+                    var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, CancellationToken.None);
+                    await _smsNotificationService.SendApplicationSubmittedAsync(
+                        entity.Id,
+                        entity.ApplicationNo ?? $"APP{entity.Id}",
+                        applicantName ?? "Citizen",
+                        applicantMobile,
+                        service?.ServiceName ?? "RTS Service",
+                        CancellationToken.None);
+                }
+            }
+            catch
+            {
+                // Non-blocking
+            }
+        });
+
         return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
-
 }

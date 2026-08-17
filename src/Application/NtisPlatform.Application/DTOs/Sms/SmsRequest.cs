@@ -14,4 +14,25 @@ public class SmsRequest
     /// Message text (required).
     /// </summary>
     public string Message { get; set; } = null!;
+
+    /// <summary>
+    /// Optional DLT Template ID
+    /// </summary>
+    public string? TemplateId { get; set; }
+
+    /// <summary>
+    /// Optional Template Name (e.g. RTS_APP_SUBMITTED, RTS_FEE_PAID)
+    /// </summary>
+    public string? TemplateName { get; set; }
+
+    /// <summary>
+    /// Optional SMS Type ID (1: OTP, 4: RTS Application Submitted, etc.)
+    /// </summary>
+    public int? SMSTypeID { get; set; }
+
+    /// <summary>
+    /// Optional associated RTS Application ID
+    /// </summary>
+    public int? ApplicationId { get; set; }
 }
+

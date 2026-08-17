@@ -53,6 +53,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxZoningRangeEntity> TaxZoningRange { get; set; } = null!;
     public DbSet<ULBDocumentTypeEntity> ULBDocumentType { get; set; } = null!;
     public DbSet<ULBDocumentEntity> ULBDocument { get; set; } = null!;
+    public DbSet<SMSGatewayMasterEntity> SMSGatewayMasters { get; set; } = null!;
+    public DbSet<SmsGatewayDetailsEntity> SmsGatewayDetails { get; set; } = null!;
+    public DbSet<SMSTypeEntity> SMSTypes { get; set; } = null!;
+    public DbSet<SMSMasterEntity> SMSMasters { get; set; } = null!;
+    public DbSet<SMSSendDetailsEntity> SMSSendDetails { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<PropertyRuleEvaluationMasterEntity> PropertyRuleEvaluationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
