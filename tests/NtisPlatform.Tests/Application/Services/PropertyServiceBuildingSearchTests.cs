@@ -657,6 +657,7 @@ public class PropertyServiceBuildingSearchTests
             _roomWiseRepository.Object,
             assessmentRepository.Object,
             wardAllocationRepository.Object,
+            new Mock<IRepository<OldWardMasterEntity, int>>().Object,
             propertyMapMasterRepository.Object,
             _propertyMapDetailRepository.Object,
             new Mock<IRepository<WingEntity, int>>().Object,

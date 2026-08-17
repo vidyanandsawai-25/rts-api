@@ -46,6 +46,7 @@ public class WardAllocationService :
 
     private readonly IRepository<ZoneEntity, int> _zoneRepository;
     private readonly IRepository<WardEntity, int> _wardRepository;
+	private readonly IRepository<OldWardMasterEntity, int>_oldWardMasterRepository;
 
     public WardAllocationService(
         IRepository<GlobalSurveyWardAllocationEntity, int> repository,
@@ -58,6 +59,7 @@ public class WardAllocationService :
         IRepository<ModuleMasterEntity, int> moduleRepository,
         IRepository<ZoneEntity, int> zoneRepository,
         IRepository<WardEntity, int> wardRepository,
+		IRepository<OldWardMasterEntity, int> oldWardMasterRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
@@ -74,22 +76,47 @@ public class WardAllocationService :
         _moduleRepository = moduleRepository;
         _zoneRepository = zoneRepository;
         _wardRepository = wardRepository;
+		  _oldWardMasterRepository = oldWardMasterRepository;
     }
 
     #region Common CRUD
 
     public override async Task<WardAllocationDto?> GetByIdAsync(
-        int id,
-        CancellationToken cancellationToken = default)
+     int id,
+     CancellationToken cancellationToken = default)
     {
         var entity = await BuildAllocationEntityQuery()
             .FirstOrDefaultAsync(
                 x => x.Id == id,
                 cancellationToken);
 
-        return entity == null
-            ? null
-            : _mapper.Map<WardAllocationDto>(entity);
+        if (entity == null)
+        {
+            return null;
+        }
+
+        var dto = _mapper.Map<WardAllocationDto>(entity);
+
+        dto.OldWardId = entity.OldWardId;
+
+        if (entity.OldWardId.HasValue)
+        {
+            var oldWard = await _oldWardMasterRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.IsActive)
+                .FirstOrDefaultAsync(
+                    x => x.Id == entity.OldWardId.Value,
+                    cancellationToken);
+
+            if (oldWard != null)
+            {
+                dto.OldWardNo = oldWard.OldWardNo;
+                dto.OldZoneName = oldWard.OldZoneName;
+            }
+        }
+
+        return dto;
     }
 
     public override async Task<PagedResult<WardAllocationDto>> GetAllAsync(
@@ -187,6 +214,39 @@ public class WardAllocationService :
 
         var items = _mapper.Map<List<WardAllocationDto>>(
             entities);
+
+        var oldWardIds = entities
+    .Where(x => x.OldWardId.HasValue)
+    .Select(x => x.OldWardId!.Value)
+    .Distinct()
+    .ToList();
+
+        var oldWardDictionary = oldWardIds.Count == 0
+            ? new Dictionary<int, OldWardMasterEntity>()
+            : await _oldWardMasterRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x => oldWardIds.Contains(x.Id) && x.IsActive)
+                .ToDictionaryAsync(
+                    x => x.Id,
+                    cancellationToken);
+
+        for (var index = 0; index < entities.Count; index++)
+        {
+            var entity = entities[index];
+            var dto = items[index];
+
+            dto.OldWardId = entity.OldWardId;
+
+            if (entity.OldWardId.HasValue &&
+                oldWardDictionary.TryGetValue(
+                    entity.OldWardId.Value,
+                    out var oldWard))
+            {
+                dto.OldWardNo = oldWard.OldWardNo;
+                dto.OldZoneName = oldWard.OldZoneName;
+            }
+        }
 
         return new PagedResult<WardAllocationDto>(
             items,
@@ -732,6 +792,15 @@ public class WardAllocationService :
 
             from ward in wardJoin.DefaultIfEmpty()
 
+            join oldWard in
+            _oldWardMasterRepository
+                .GetQueryable()
+                .AsNoTracking()
+            on allocation.OldWardId equals oldWard.Id
+            into oldWardJoin
+
+            from oldWard in oldWardJoin.DefaultIfEmpty()
+
             where allocation.UserId == userId &&
                   allocation.IsActive
 
@@ -748,7 +817,17 @@ public class WardAllocationService :
 
                 WardNo = ward != null
                     ? ward.WardNo
-                    : null
+                    : null,
+
+                OldWardId = allocation.OldWardId,
+
+                OldWardNo = oldWard != null
+                ? oldWard.OldWardNo
+                : null,
+
+                            OldZoneName = oldWard != null
+                ? oldWard.OldZoneName
+                : null
             })
             .Distinct()
             .OrderBy(x => x.ModuleId)
@@ -839,6 +918,14 @@ public class WardAllocationService :
                 on allocation.WardId equals ward.Id
                 into wardJoin
             from ward in wardJoin.DefaultIfEmpty()
+
+            join oldWard in
+                _oldWardMasterRepository
+                    .GetQueryable()
+                    .AsNoTracking()
+                on allocation.OldWardId equals oldWard.Id
+                into oldWardJoin
+            from oldWard in oldWardJoin.DefaultIfEmpty()
             select new WardAllocationDto
             {
                 Id = allocation.Id,
@@ -909,6 +996,16 @@ public class WardAllocationService :
                     ? ward.WardNo
                     : null,
 
+                OldWardId = allocation.OldWardId,
+
+                OldWardNo = oldWard != null
+                ? oldWard.OldWardNo
+                : null,
+
+                            OldZoneName = oldWard != null
+                ? oldWard.OldZoneName
+                : null,
+
                 IsActive = allocation.IsActive,
 
                 CreatedDate = allocation.CreatedDate,
@@ -926,7 +1023,7 @@ public class WardAllocationService :
     /// CreateFlexibleAsync and ReplaceAllocationsAsync.
     /// </summary>
     private async Task<(
-    List<(int ZoneId, int WardId)> Pairs,
+    List<(int ZoneId, int WardId,int? OldWardId)> Pairs,
     List<int> ZoneIds,
     List<int> WardIds)>
     PrepareAllocationRequestAsync(
@@ -952,7 +1049,8 @@ public class WardAllocationService :
                     .Distinct()
                     .Select(wardId => (
                         ZoneId: allocation.ZoneId,
-                        WardId: wardId)))
+                        WardId: wardId,
+                        OldWardId: allocation.OldWardId)))
             .Distinct()
             .ToList();
 
@@ -976,10 +1074,50 @@ public class WardAllocationService :
             validAllocations,
             validWardDictionary);
 
+        await ValidateOldWardIdsAsync(
+        validAllocations,
+        cancellationToken);
+
         return (
             Pairs: pairs,
             ZoneIds: zoneIds,
             WardIds: wardIds);
+    }
+
+    private async Task ValidateOldWardIdsAsync(
+    IEnumerable<ZoneWardAllocationDto> allocations,
+    CancellationToken cancellationToken)
+    {
+        var oldWardIds = allocations
+            .Where(x => x.OldWardId.HasValue)
+            .Select(x => x.OldWardId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (oldWardIds.Count == 0)
+        {
+            return;
+        }
+
+        var validOldWardIds = await _oldWardMasterRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x =>
+                oldWardIds.Contains(x.Id) &&
+                x.IsActive)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var invalidOldWardIds = oldWardIds
+            .Except(validOldWardIds)
+            .ToList();
+
+        if (invalidOldWardIds.Count > 0)
+        {
+            throw new ArgumentException(
+                "Invalid or inactive OldWardId(s): " +
+                string.Join(", ", invalidOldWardIds));
+        }
     }
 
     /// <summary>
@@ -990,7 +1128,7 @@ public class WardAllocationService :
          int userId,
          int departmentId,
          int moduleId,
-         (int ZoneId, int WardId) pair,
+         (int ZoneId, int WardId,int? OldWardId) pair,
          bool isActive,
          int? createdBy,
          DateTime createdDate)
@@ -1003,7 +1141,7 @@ public class WardAllocationService :
 
             ZoneId = pair.ZoneId,
             WardId = pair.WardId,
-
+            OldWardId = pair.OldWardId,
             IsActive = isActive,
 
             CreatedBy = createdBy,
@@ -1016,6 +1154,52 @@ public class WardAllocationService :
 
     #endregion
 
+    #region Allocated Zone and Ward APIs
+    public async Task<List<OldWardByWardDto>>
+    GetOldWardsByWardIdAsync(
+        int wardId,
+        CancellationToken cancellationToken = default)
+    {
+        if (wardId <= 0)
+        {
+            throw new ArgumentException(
+                "WardId must be greater than zero.",
+                nameof(wardId));
+        }
+
+        var oldWardIds = await _repository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x =>
+                x.WardId == wardId &&
+                x.IsActive &&
+                x.OldWardId.HasValue)
+            .Select(x => x.OldWardId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (oldWardIds.Count == 0)
+        {
+            return new List<OldWardByWardDto>();
+        }
+
+        return await _oldWardMasterRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x =>
+                oldWardIds.Contains(x.Id) &&
+                x.IsActive)
+            .OrderBy(x => x.OldWardNo)
+            .Select(x => new OldWardByWardDto
+            {
+                OldWardId = x.Id,
+                OldWardNo = x.OldWardNo,
+                OldZoneName = x.OldZoneName
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
     #region Validation
 
     private async Task ValidateUserDepartmentAndModuleAsync(

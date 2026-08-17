@@ -87,6 +87,7 @@ public class PropertyServiceSplitTests
     _mockRoomWiseRepository.Object,
     _mockAssessmentRepository.Object,
     _mockWardAllocationRepository.Object,
+    new Mock<IRepository<OldWardMasterEntity, int>>().Object,
     _mockPropertyMapMasterRepository.Object,
     _mockPropertyMapDetailRepository.Object,
     _mockWingRepository.Object,
