@@ -427,6 +427,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
+        services.AddScoped<IOldWardMasterService, OldWardMasterService>();
         services.AddScoped<ITaxZoningRangeService, TaxZoningRangeService>();
         services.AddScoped<IULBDocumentService, ULBDocumentService>();
         services.AddScoped<IULBDocumentQueryService, ULBDocumentQueryService>();
