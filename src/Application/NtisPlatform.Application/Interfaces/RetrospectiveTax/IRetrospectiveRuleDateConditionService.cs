@@ -1,0 +1,8 @@
+using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleDateCondition;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
+
+namespace NtisPlatform.Application.Interfaces.RetrospectiveTax;
+
+public interface IRetrospectiveRuleDateConditionService : ICommonCrudService<RetrospectiveRuleDateConditionEntity, RetrospectiveRuleDateConditionDto, CreateRetrospectiveRuleDateConditionDto, UpdateRetrospectiveRuleDateConditionDto, RetrospectiveRuleDateConditionQueryParameters, int>
+{
+}

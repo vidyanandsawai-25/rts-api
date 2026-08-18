@@ -201,7 +201,10 @@ public class AutoMapperValidationTest
                 "PasswordChangedAt", "OtpChallengeFailCount", "OtpChallengeLockedUntilAt",
                 // TaxMasterEntity.RuleDefinition - navigation property to the selected DynamicTaxRuleEntity
                 // (EF Core managed); CreateTaxMasterDto/UpdateTaxMasterDto only carry RuleDefinitionId.
-                "RuleDefinition"
+                "RuleDefinition",
+                // Retrospective Tax Rule Engine navigation properties (EF Core managed); the
+                // corresponding *Id foreign keys are what the DTOs/mapping profiles actually carry.
+                "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy"
              };
 
             // Check if all unmapped properties are in the expected list

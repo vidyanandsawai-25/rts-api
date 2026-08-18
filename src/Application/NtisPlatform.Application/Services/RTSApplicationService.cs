@@ -126,8 +126,10 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
             await _repository.AddAsync(existingModuleService, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return _mapper.Map<RTSApplicationDetailsDto>(existingModuleService);
 
+            DispatchSubmissionSms(existingModuleService, createDto);
+
+            return _mapper.Map<RTSApplicationDetailsDto>(existingModuleService);
         }
 
         // -------------------------------------------------------------------------------------
@@ -174,7 +176,13 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Asynchronous SMS dispatch on application submission
+        DispatchSubmissionSms(entity, createDto);
+
+        return _mapper.Map<RTSApplicationDetailsDto>(entity);
+    }
+
+    private void DispatchSubmissionSms(RTSApplicationDetailsEntity entity, CreateRTSApplicationDetailsDto createDto)
+    {
         _ = Task.Run(async () =>
         {
             try
@@ -213,12 +221,15 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 if (!string.IsNullOrWhiteSpace(applicantMobile))
                 {
                     var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, CancellationToken.None);
+                    var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
+
                     await _smsNotificationService.SendApplicationSubmittedAsync(
                         entity.Id,
                         entity.ApplicationNo ?? $"APP{entity.Id}",
                         applicantName ?? "Citizen",
                         applicantMobile,
                         service?.ServiceName ?? "RTS Service",
+                        feeAmount,
                         CancellationToken.None);
                 }
             }
@@ -227,7 +238,5 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 // Non-blocking
             }
         });
-
-        return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
 }

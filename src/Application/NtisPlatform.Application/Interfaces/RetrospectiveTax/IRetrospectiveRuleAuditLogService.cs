@@ -1,0 +1,8 @@
+using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleAuditLog;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
+
+namespace NtisPlatform.Application.Interfaces.RetrospectiveTax;
+
+public interface IRetrospectiveRuleAuditLogService : ICommonCrudService<RetrospectiveRuleAuditLogEntity, RetrospectiveRuleAuditLogDto, CreateRetrospectiveRuleAuditLogDto, UpdateRetrospectiveRuleAuditLogDto, RetrospectiveRuleAuditLogQueryParameters, long>
+{
+}
