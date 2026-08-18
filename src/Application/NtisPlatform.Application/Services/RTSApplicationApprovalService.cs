@@ -628,7 +628,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             });
 
 
-            //No Need to Assign Next Officier IF Application Is Rejevted Or Approved
+            //No Need to Assign Next Officier IF Application Is Rejected Or Approved
             application.UserId = dto.UpdatedBy;
             application.ApplicationStatus = ApplicationStatus.Approved;
             application.Remark = dto.Remark;
@@ -952,6 +952,22 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         }
         else
         {
+
+            var isAlreadyRevertedToCitizen = await _historyRepository
+            .GetQueryable()
+            .AnyAsync(x =>
+            x.ApplicationId == application.Id &&
+            x.ApprovalFlowStageId == currentStage.Id &&
+            x.IsReverted &&
+            x.Status == ApplicationStatus.Reverted &&
+            x.IsActive,
+            cancellationToken);
+
+            if (application.IsReverted == true && isAlreadyRevertedToCitizen)
+            {
+                throw new InvalidOperationException("Application is already reverted to citizen.");
+            }
+
             // First stage — reverted By Clerk to citizen (no previous officer)
             application.ApplicationStatus = ApplicationStatus.Reverted;
             application.Remark = dto.Remark;

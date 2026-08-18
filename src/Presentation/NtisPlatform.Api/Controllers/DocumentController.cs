@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Net.Http.Headers;
+using NtisPlatform.Api.Constants;
 using NtisPlatform.Api.DTOs;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.Helpers;
@@ -142,15 +143,15 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// Get document by GUID
     /// </summary>
-
     [HttpGet("{documentGuid}")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<DocumentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Get(Guid documentGuid, CancellationToken cancellationToken)
     {
         // Authorization check: verify user can access this document
-        var userId = GetUserId();
+        var userId = GetUserId(allowAnonymous: true);
         var canAccess = await _authorizationService.CanAccessDocumentAsync(documentGuid, userId, cancellationToken);
 
         if (!canAccess)
@@ -170,18 +171,15 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// View document (inline display)
     /// </summary>
-
-
-
-    [AllowAnonymous]
     [HttpGet("{documentGuid}/view")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> View(Guid documentGuid, CancellationToken cancellationToken)
     {
         // Authorization check: verify user can access this document
-        var userId = GetUserId();
+        var userId = GetUserId(allowAnonymous: true);
         var canAccess = await _authorizationService.CanAccessDocumentAsync(documentGuid, userId, cancellationToken);
 
         if (!canAccess)
@@ -204,17 +202,15 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// Download document
     /// </summary>
-    ///
-
-    [AllowAnonymous]
     [HttpGet("{documentGuid}/download")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Download(Guid documentGuid, CancellationToken cancellationToken)
     {
         // Authorization check: verify user can access this document
-        var userId = GetUserId();
+        var userId = GetUserId(allowAnonymous: true);
         var canAccess = await _authorizationService.CanAccessDocumentAsync(documentGuid, userId, cancellationToken);
 
         if (!canAccess)
@@ -394,6 +390,7 @@ public class DocumentController : ControllerBase
     /// Safe for bulk metadata calls and listing operations.
     /// </summary>
     [HttpGet("{documentGuid}/metadata")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetMetadata(Guid documentGuid, CancellationToken cancellationToken)
     {
         try
@@ -401,7 +398,7 @@ public class DocumentController : ControllerBase
             if (documentGuid == Guid.Empty)
                 return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid document GUID" });
 
-            var userId = GetUserId();
+            var userId = GetUserId(allowAnonymous: true);
             var canAccess = await _authorizationService.CanAccessDocumentAsync(documentGuid, userId, cancellationToken);
 
             if (!canAccess)

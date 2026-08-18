@@ -101,7 +101,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
             var data = await _fieldDefinitionRepository.GetQueryable()
            .Where(x => x.ServiceId == createDto.ServiceId && x.DepartmentId == createDto.DepartmentId && x.IsActive)
-           .SingleOrDefaultAsync();
+           .FirstOrDefaultAsync();
 
             if (data == null)
             {
