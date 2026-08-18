@@ -453,6 +453,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<PropertyApiExceptionFilter>();
         services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IPropertySurveyService, PropertySurveyService>();
+        services.AddScoped<IPropertyVisitTrackerService, PropertySurveyService>();
         services.AddScoped<IPropertyBasicDetailsService, PropertyBasicDetailsService>();
         services.AddScoped<IPropertyKycService, PropertyKycService>();
         services.AddScoped<IPropertySocietyService, PropertySocietyService>();

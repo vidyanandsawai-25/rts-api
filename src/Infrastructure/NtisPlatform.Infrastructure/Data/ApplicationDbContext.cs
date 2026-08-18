@@ -96,6 +96,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<PropertyWorkflowStageMasterEntity> PropertyWorkflowStageMaster { get; set; } = null!;
     public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
+    public DbSet<PropertySurveyVisitEntity> PropertySurveyVisit { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<TwoFactorRecoveryCodeEntity> TwoFactorRecoveryCodes { get; set; } = null!;
@@ -5760,6 +5761,75 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
+        });
+
+        modelBuilder.Entity<PropertySurveyVisitEntity>(entity =>
+        {
+            entity.ToTable("PropertySurveyVisit", "GSMS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .UseIdentityColumn()
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.PropertyWorkflowDetailsId)
+                .IsRequired();
+
+            entity.Property(e => e.InternalSurveyVerified)
+                .IsRequired(false);
+
+            entity.Property(e => e.RemarkId)
+                .IsRequired(false);
+
+            entity.Property(e => e.RemarkText)
+                .HasMaxLength(500)
+                .HasColumnType("varchar(500)")
+                .IsRequired(false);
+
+            entity.Property(e => e.Latitude)
+                .HasPrecision(18, 9)
+                .IsRequired(false);
+
+            entity.Property(e => e.Longitude)
+                .HasPrecision(18, 9)
+                .IsRequired(false);
+
+            entity.Property(e => e.Location)
+                .HasMaxLength(500)
+                .HasColumnType("varchar(500)")
+                .IsRequired(false);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.CreatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.UpdatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime")
+                .IsRequired(false);
+
+            entity.HasOne(e => e.PropertyWorkflowDetails)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyWorkflowDetailsId)
+                .HasConstraintName("FK_PropertySurveyVisit_PropertyWorkflowDetails")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Remark)
+                .WithMany()
+                .HasForeignKey(e => e.RemarkId)
+                .HasConstraintName("FK_PropertySurveyVisit_CommonRemarkDetails")
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Fluent mappings for Sign-off Module

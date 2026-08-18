@@ -8,6 +8,8 @@ using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.PropertySurveySearch;
+using NtisPlatform.Application.DTOs.PropertyVisitTracker;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -31,6 +33,14 @@ public class PropertySurveyServiceTests
     private readonly Mock<IRepository<SocietyWingDetailsEntity, int>> _mockSocietyWingRepo = new();
     private readonly Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>> _mockRoomWiseRepo = new();
 
+    private readonly Mock<IRepository<PropertyWorkflowDetailsEntity, int>> _mockWorkflowDetailsRepo = new();
+    private readonly Mock<IRepository<PropertyWorkflowStageMasterEntity, int>> _mockWorkflowStageRepo = new();
+    private readonly Mock<IRepository<UserEntity, int>> _mockUserRepo = new();
+    private readonly Mock<IRepository<CommonRemarkDetailsEntity, int>> _mockCommonRemarkDetailsRepo = new();
+    private readonly Mock<IRepository<PropertySurveyVisitEntity, int>> _mockPropertySurveyVisitRepo = new();
+    private readonly Mock<IUnitOfWork> _mockUnitOfWork = new();
+    private readonly Mock<Microsoft.Extensions.Logging.ILogger<PropertySurveyService>> _mockLogger = new();
+
     private readonly PropertySurveyService _service;
 
     public PropertySurveyServiceTests()
@@ -47,7 +57,14 @@ public class PropertySurveyServiceTests
             _mockWingMasterRepo.Object,
             _mockPropertyPhotoRepo.Object,
             _mockSocietyWingRepo.Object,
-            _mockRoomWiseRepo.Object);
+            _mockRoomWiseRepo.Object,
+            _mockWorkflowDetailsRepo.Object,
+            _mockWorkflowStageRepo.Object,
+            _mockUserRepo.Object,
+            _mockCommonRemarkDetailsRepo.Object,
+            _mockPropertySurveyVisitRepo.Object,
+            _mockUnitOfWork.Object,
+            _mockLogger.Object);
     }
 
     private void SetupEmptyRepositories()
@@ -64,6 +81,11 @@ public class PropertySurveyServiceTests
         _mockPropertyPhotoRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyPhotoEntity>().BuildMock());
         _mockSocietyWingRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyWingDetailsEntity>().BuildMock());
         _mockRoomWiseRepo.Setup(r => r.GetQueryable()).Returns(new List<RoomWiseSubmissionDetailsEntity>().BuildMock());
+        _mockWorkflowDetailsRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyWorkflowDetailsEntity>().BuildMock());
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyWorkflowStageMasterEntity>().BuildMock());
+        _mockUserRepo.Setup(r => r.GetQueryable()).Returns(new List<UserEntity>().BuildMock());
+        _mockCommonRemarkDetailsRepo.Setup(r => r.GetQueryable()).Returns(new List<CommonRemarkDetailsEntity>().BuildMock());
+        _mockPropertySurveyVisitRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertySurveyVisitEntity>().BuildMock());
     }
 
     [Fact]
@@ -174,5 +196,306 @@ public class PropertySurveyServiceTests
         Assert.Equal("Residential Category", item.CategoryName);
         Assert.Equal("Residential Type", item.PropertyDescription);
         Assert.True(item.CanDelete); // Should be true since it has the max PropertySeqNo
+    }
+
+    [Fact]
+    public async Task CreateVisitAsync_WithValidDetails_CreatesVisitAndReturnsResponse()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new CreatePropertyVisitTrackerDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 2,
+            ModuleId = 3
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var stages = new List<PropertyWorkflowStageMasterEntity>
+        {
+            new() { Id = 2, StageName = "Stage 2", IsActive = true }
+        }.BuildMock();
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
+
+        // Act
+        var result = await _service.CreateVisitAsync(request, 10, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.Status);
+        Assert.Equal("Property visit recorded successfully.", result.Message);
+        Assert.Equal(1, result.PropertyId);
+        Assert.Equal(2, result.WorkflowStageId);
+        Assert.Equal("Stage 2", result.WorkflowStageName);
+        _mockWorkflowDetailsRepo.Verify(r => r.AddAsync(It.IsAny<PropertyWorkflowDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateVisitAsync_WithInvalidPropertyId_ThrowsKeyNotFoundException()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new CreatePropertyVisitTrackerDto
+        {
+            PropertyId = 999,
+            WorkflowStageId = 2
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _service.CreateVisitAsync(request, 10, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateVisitAsync_WithInvalidWorkflowStageId_ThrowsArgumentException()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new CreatePropertyVisitTrackerDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 999
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.CreateVisitAsync(request, 10, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetVisitsAsync_WithValidParameters_ReturnsResponse()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var queryParams = new PropertyVisitTrackerQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        var workflow = new PropertyWorkflowDetailsEntity
+        {
+            Id = 100,
+            PropertyId = 1,
+            WorkflowStageId = 2,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+
+        var stage = new PropertyWorkflowStageMasterEntity
+        {
+            Id = 2,
+            StageName = "StageName",
+            IsActive = true
+        };
+
+        var property = new PropertyEntity
+        {
+            Id = 1,
+            PropertyNo = "P123",
+            IsActive = true,
+            MarkedForDeletion = false,
+            WardId = 5
+        };
+
+        var ward = new WardEntity
+        {
+            Id = 5,
+            WardNo = "W05"
+        };
+
+        _mockWorkflowDetailsRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyWorkflowDetailsEntity> { workflow }.BuildMock());
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyWorkflowStageMasterEntity> { stage }.BuildMock());
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity> { property }.BuildMock());
+        _mockWardRepo.Setup(r => r.GetQueryable()).Returns(new List<WardEntity> { ward }.BuildMock());
+
+        // Act
+        var result = await _service.GetVisitsAsync(queryParams, 10, "ADMIN", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.Status);
+        Assert.Single(result.VisitList);
+        Assert.Equal(100, result.VisitList[0].VisitId);
+    }
+
+    [Fact]
+    public async Task CreateSurveyVisitAsync_WithValidRequest_RecordsVisit()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new CreatePropertySurveyVisitDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 2,
+            RemarkText = "Visit remark",
+            Latitude = 12.34m,
+            Longitude = 56.78m,
+            Location = "Test Location"
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var stages = new List<PropertyWorkflowStageMasterEntity>
+        {
+            new() { Id = 2, StageName = "Stage 2", IsActive = true }
+        }.BuildMock();
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
+
+        // Act
+        var result = await _service.CreateSurveyVisitAsync(request, 10, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.Status);
+        Assert.Equal("Property survey visit recorded successfully.", result.Message);
+        Assert.Equal(12.34m, result.Latitude);
+        Assert.Equal(56.78m, result.Longitude);
+        Assert.Equal("Test Location", result.Location);
+        _mockPropertySurveyVisitRepo.Verify(r => r.AddAsync(It.IsAny<PropertySurveyVisitEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task VerifyPropertySurveyVisitAsync_WithoutPhoto_ThrowsArgumentException()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new VerifyPropertySurveyVisitDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 2
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var stages = new List<PropertyWorkflowStageMasterEntity>
+        {
+            new() { Id = 2, IsActive = true }
+        }.BuildMock();
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<PropertyValidationException>(() =>
+            _service.VerifyPropertySurveyVisitAsync(request, 10, CancellationToken.None));
+        Assert.Contains("Please click photo before property verification.", ex.Message);
+    }
+
+    [Fact]
+    public async Task VerifyPropertySurveyVisitAsync_InvalidWorkflowStageId_ThrowsArgumentException()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new VerifyPropertySurveyVisitDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 999
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var stages = new List<PropertyWorkflowStageMasterEntity>().BuildMock();
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.VerifyPropertySurveyVisitAsync(request, 10, CancellationToken.None));
+        Assert.Contains("Invalid or inactive WorkflowStageId: 999", ex.Message);
+    }
+
+    [Fact]
+    public async Task VerifyPropertySurveyVisitAsync_PhotoMarkedForDeletion_ThrowsArgumentException()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new VerifyPropertySurveyVisitDto
+        {
+            PropertyId = 1,
+            WorkflowStageId = 2
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var stages = new List<PropertyWorkflowStageMasterEntity>
+        {
+            new() { Id = 2, IsActive = true }
+        }.BuildMock();
+        _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
+
+        var photos = new List<PropertyPhotoEntity>
+        {
+            new PropertyPhotoEntity(propertyId: 1, photoTypeId: 2, markedForDeletion: true)
+        }.BuildMock();
+        _mockPropertyPhotoRepo.Setup(r => r.GetQueryable()).Returns(photos);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<PropertyValidationException>(() =>
+            _service.VerifyPropertySurveyVisitAsync(request, 10, CancellationToken.None));
+        Assert.Contains("Please click photo before property verification.", ex.Message);
+    }
+
+    [Fact]
+    public async Task UnverifyPropertySurveyVisitAsync_ValidRequest_ReturnsTrue()
+    {
+        // Arrange
+        SetupEmptyRepositories();
+        var request = new UnverifyPropertySurveyVisitDto
+        {
+            PropertyId = 1,
+            RemarkId = 3,
+            RemarkText = "Unverify"
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, IsActive = true, MarkedForDeletion = false }
+        }.BuildMock();
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+
+        var workflows = new List<PropertyWorkflowDetailsEntity>
+        {
+            new() { Id = 10, PropertyId = 1, IsActive = true }
+        }.BuildMock();
+        _mockWorkflowDetailsRepo.Setup(r => r.GetQueryable()).Returns(workflows);
+
+        var visits = new List<PropertySurveyVisitEntity>
+        {
+            new() { Id = 20, PropertyWorkflowDetailsId = 10, IsActive = true, Latitude = 10, Longitude = 20 }
+        }.BuildMock();
+        _mockPropertySurveyVisitRepo.Setup(r => r.GetQueryable()).Returns(visits);
+
+        // Act
+        var result = await _service.UnverifyPropertySurveyVisitAsync(request, 10, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
