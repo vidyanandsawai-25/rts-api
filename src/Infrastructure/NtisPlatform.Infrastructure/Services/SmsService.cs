@@ -85,19 +85,17 @@ public class SmsService : ISmsService
             .ToList();
 
         var baseUrlItem = details.FirstOrDefault(d => d.IsURL || d.PropertyName.Equals("BaseURL", StringComparison.OrdinalIgnoreCase));
-        var baseUrl = _configuration["AppSettings:SmsGateway:BaseUrl"]
-                   ?? _configuration["SMS_BASE_URL"]
-                   ?? baseUrlItem?.Value?.Trim();
+        var baseUrl = baseUrlItem?.Value?.Trim();
 
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            _logger.LogWarning("SMS Gateway BaseURL is not configured. Skipping live dispatch.");
+            _logger.LogWarning("SMS Gateway BaseURL is not configured in database CORE.SmsGatewayDetails. Skipping live dispatch.");
             await LogSmsOutboxAsync(sanitizedMobile, request, "Missing BaseURL in Gateway config", "FAILED", null, cancellationToken);
             return;
         }
 
         var queryParams = new List<string>();
-        string? senderName = _configuration["AppSettings:SmsGateway:SenderId"] ?? _configuration["SMS_SENDER_ID"];
+        string? senderName = null;
 
         foreach (var prop in details)
         {
@@ -105,11 +103,7 @@ public class SmsService : ISmsService
                 continue;
 
             var propName = prop.PropertyName.Trim().TrimStart('&');
-
-            // Dynamic environment / config overrides if provided
-            var configuredPropValue = _configuration[$"AppSettings:SmsGateway:{propName}"]
-                                   ?? _configuration[$"SMS_{propName.ToUpperInvariant()}"]
-                                   ?? prop.Value;
+            var propValue = prop.Value?.Trim() ?? string.Empty;
 
             if (prop.IsMobile || propName.Equals("mobiles", StringComparison.OrdinalIgnoreCase) || propName.Equals("mobile", StringComparison.OrdinalIgnoreCase))
             {
@@ -121,7 +115,7 @@ public class SmsService : ISmsService
             }
             else if (prop.IsTemplateID || propName.Equals("templateid", StringComparison.OrdinalIgnoreCase) || propName.Equals("tempid", StringComparison.OrdinalIgnoreCase))
             {
-                var templateId = !string.IsNullOrWhiteSpace(request.TemplateId) ? request.TemplateId : configuredPropValue;
+                var templateId = !string.IsNullOrWhiteSpace(request.TemplateId) ? request.TemplateId : propValue;
                 if (!string.IsNullOrWhiteSpace(templateId))
                 {
                     queryParams.Add($"{propName}={HttpUtility.UrlEncode(templateId)}");
@@ -131,9 +125,9 @@ public class SmsService : ISmsService
             {
                 if (propName.Equals("senderid", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(senderName))
                 {
-                    senderName = configuredPropValue;
+                    senderName = propValue;
                 }
-                queryParams.Add($"{propName}={HttpUtility.UrlEncode(configuredPropValue ?? string.Empty)}");
+                queryParams.Add($"{propName}={HttpUtility.UrlEncode(propValue)}");
             }
         }
 

@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Sms;
 using NtisPlatform.Application.Interfaces;
@@ -19,7 +20,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     private readonly IRepository<SMSMasterEntity, int> _smsMasterRepository;
     private readonly IRepository<SMSTypeEntity, int> _smsTypeRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
-    private readonly IConfiguration _configuration;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<RTSSmsNotificationService> _logger;
 
     public RTSSmsNotificationService(
@@ -27,42 +28,74 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         IRepository<SMSMasterEntity, int> smsMasterRepository,
         IRepository<SMSTypeEntity, int> smsTypeRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
-        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<RTSSmsNotificationService> logger)
     {
         _smsService = smsService;
         _smsMasterRepository = smsMasterRepository;
         _smsTypeRepository = smsTypeRepository;
         _ulbRepository = ulbRepository;
-        _configuration = configuration;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
-    private string GetPortalBaseUrl()
+    /// <summary>
+    /// Dynamically resolves the portal base URL from the database ULBMaster.WebsiteUrl or current HTTP request host
+    /// </summary>
+    private async Task<string> GetPortalBaseUrlAsync(CancellationToken ct)
     {
-        var configuredUrl = _configuration["AppSettings:PortalUrl"]
-                         ?? _configuration["RTS:PortalUrl"]
-                         ?? _configuration["RTS:TrackingUrl"];
-
-        if (!string.IsNullOrWhiteSpace(configuredUrl))
+        try
         {
-            return configuredUrl.TrimEnd('/');
+            var ulb = await _ulbRepository.GetQueryable().FirstOrDefaultAsync(u => u.IsActive, ct);
+            if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl))
+            {
+                var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
+                return cleanUrl.EndsWith("/service", StringComparison.OrdinalIgnoreCase) ? cleanUrl : $"{cleanUrl}/service";
+            }
         }
+        catch { }
 
-        return "https://akolamc.org/service";
+        try
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var origin = httpContext.Request.Headers["Origin"].FirstOrDefault()
+                          ?? httpContext.Request.Headers["Referer"].FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(origin) && Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return $"{uri.Scheme}://{uri.Authority}/service";
+                }
+
+                if (httpContext.Request.Host.HasValue)
+                {
+                    return $"{httpContext.Request.Scheme}://{httpContext.Request.Host.Value}/service";
+                }
+            }
+        }
+        catch { }
+
+        return "/service";
     }
 
+    /// <summary>
+    /// Dynamically resolves the corporation name from the database ULBMaster table
+    /// </summary>
     private async Task<string> GetCorporationNameAsync(CancellationToken ct)
     {
         try
         {
             var ulb = await _ulbRepository.GetQueryable().FirstOrDefaultAsync(u => u.IsActive, ct);
-            return ulb?.UlbName ?? "Akola Municipal Corporation";
+            if (ulb != null)
+            {
+                if (!string.IsNullOrWhiteSpace(ulb.UlbName)) return ulb.UlbName.Trim();
+                if (!string.IsNullOrWhiteSpace(ulb.UlbNameLocal)) return ulb.UlbNameLocal.Trim();
+            }
         }
-        catch
-        {
-            return "Akola Municipal Corporation";
-        }
+        catch { }
+
+        return "Municipal Corporation";
     }
 
     private async Task SendDynamicSmsAsync(
@@ -83,7 +116,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             placeholders["CorporationName"] = corporationName;
             placeholders["UlbName"] = corporationName;
 
-            // 1. Check if custom template exists in database (SMSMaster)
+            // 1. Fetch template directly from DB table CORE.SMSMaster
             var template = await _smsMasterRepository.GetQueryable()
                 .Include(t => t.SmsType)
                 .Where(t => t.IsActive && t.TemplateName == templateName)
@@ -105,7 +138,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
             string templateId = template?.TemplateID ?? defaultTemplateId;
 
-            // 2. Perform Dynamic Replacements
+            // 2. Perform Dynamic Placeholder Replacements
             var message = rawText;
             foreach (var kv in placeholders)
             {
@@ -157,7 +190,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string? customUrl = null,
         CancellationToken ct = default)
     {
-        var trackingUrl = customUrl ?? $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
+        var baseUrl = await GetPortalBaseUrlAsync(ct);
+        var trackingUrl = customUrl ?? $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
 
         var placeholders = new Dictionary<string, string>
         {
@@ -186,13 +220,14 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         decimal fees = 0,
         CancellationToken ct = default)
     {
+        var baseUrl = await GetPortalBaseUrlAsync(ct);
         var status = fees > 0
             ? $"SUBMITTED (Fee of Rs.{fees:F2} Pending)"
             : "SUBMITTED";
 
         var url = fees > 0
-            ? $"{GetPortalBaseUrl()}?pay={Uri.EscapeDataString(applicationNo)}"
-            : $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
+            ? $"{baseUrl}?pay={Uri.EscapeDataString(applicationNo)}"
+            : $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
 
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, status, url, ct);
     }
@@ -226,7 +261,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string serviceName,
         CancellationToken ct = default)
     {
-        var certUrl = $"{GetPortalBaseUrl()}?cert={Uri.EscapeDataString(applicationNo)}";
+        var baseUrl = await GetPortalBaseUrlAsync(ct);
+        var certUrl = $"{baseUrl}?cert={Uri.EscapeDataString(applicationNo)}";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED", certUrl, ct);
     }
 
@@ -280,7 +316,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string receiptNo,
         CancellationToken ct = default)
     {
-        var receiptUrl = $"{GetPortalBaseUrl()}?receipt={Uri.EscapeDataString(receiptNo)}";
+        var baseUrl = await GetPortalBaseUrlAsync(ct);
+        var receiptUrl = $"{baseUrl}?receipt={Uri.EscapeDataString(receiptNo)}";
         var placeholders = new Dictionary<string, string>
         {
             { "CitizenName", citizenName },
