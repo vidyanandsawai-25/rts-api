@@ -83,14 +83,13 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             placeholders["CorporationName"] = corporationName;
             placeholders["UlbName"] = corporationName;
 
-            // 1. Fetch template from DB by TemplateName
+            // 1. Check if custom template exists in database (SMSMaster)
             var template = await _smsMasterRepository.GetQueryable()
                 .Include(t => t.SmsType)
                 .Where(t => t.IsActive && t.TemplateName == templateName)
                 .OrderByDescending(t => t.SmsID)
                 .FirstOrDefaultAsync(ct);
 
-            // Fallback: Fetch by TypeName
             if (template == null)
             {
                 template = await _smsMasterRepository.GetQueryable()
@@ -106,14 +105,14 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
             string templateId = template?.TemplateID ?? defaultTemplateId;
 
-            // 2. Perform Dynamic Placeholder Replacements
+            // 2. Perform Dynamic Replacements
             var message = rawText;
             foreach (var kv in placeholders)
             {
                 message = message.Replace($"{{{kv.Key}}}", kv.Value, StringComparison.OrdinalIgnoreCase);
             }
 
-            // 3. Dispatch via dynamic database-backed SmsService
+            // 3. Dispatch via database-backed SmsService
             await _smsService.SendSmsAsync(new SmsRequest
             {
                 PhoneNumber = mobileNo,
@@ -126,10 +125,13 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing dynamic SMS for template '{TemplateName}' to {Mobile}", templateName, mobileNo);
+            _logger.LogError(ex, "Error sending SMS for template '{TemplateName}' to {Mobile}", templateName, mobileNo);
         }
     }
 
+    /// <summary>
+    /// 1. Citizen Portal OTP Login Template
+    /// </summary>
     public async Task SendCitizenOtpAsync(string mobileNo, string otp, CancellationToken ct = default)
     {
         var placeholders = new Dictionary<string, string>
@@ -139,11 +141,42 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         var fallbackMsg = "Your RTS Citizen Portal login OTP is {Otp}. Please do not share this OTP with anyone. - {CorporationName}";
-        var fallbackTempId = "1707175319753583565";
-
-        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", "Citizen Login OTP", fallbackMsg, fallbackTempId, mobileNo, null, placeholders, ct);
+        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", "Citizen Login OTP", fallbackMsg, "1707175319753583565", mobileNo, null, placeholders, ct);
     }
 
+    /// <summary>
+    /// 2. Single Unified Dynamic Application Status Template (Triggers on all lifecycle actions)
+    /// </summary>
+    public async Task SendApplicationStatusUpdateAsync(
+        int applicationId,
+        string applicationNo,
+        string citizenName,
+        string mobileNo,
+        string serviceName,
+        string status,
+        string? customUrl = null,
+        CancellationToken ct = default)
+    {
+        var trackingUrl = customUrl ?? $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
+
+        var placeholders = new Dictionary<string, string>
+        {
+            { "CitizenName", citizenName },
+            { "ApplicantName", citizenName },
+            { "UserName", citizenName },
+            { "ApplicationNo", applicationNo },
+            { "ServiceName", serviceName },
+            { "Status", status },
+            { "TrackingUrl", trackingUrl }
+        };
+
+        var fallbackMsg = "Dear {CitizenName}, your RTS Application No: {ApplicationNo} for {ServiceName} is currently {Status}. Track status: {TrackingUrl} - {CorporationName}";
+        await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", "RTS Application Status Update", fallbackMsg, "1707175319753583566", mobileNo, applicationId, placeholders, ct);
+    }
+
+    /// <summary>
+    /// Form submission action
+    /// </summary>
     public async Task SendApplicationSubmittedAsync(
         int applicationId,
         string applicationNo,
@@ -153,60 +186,91 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         decimal fees = 0,
         CancellationToken ct = default)
     {
-        var trackingUrl = $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
-        var paymentUrl = $"{GetPortalBaseUrl()}?pay={Uri.EscapeDataString(applicationNo)}";
+        var status = fees > 0
+            ? $"SUBMITTED (Fee of Rs.{fees:F2} Pending)"
+            : "SUBMITTED";
 
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "Amount", fees.ToString("F2") },
-            { "TrackingUrl", trackingUrl },
-            { "PaymentUrl", paymentUrl }
-        };
+        var url = fees > 0
+            ? $"{GetPortalBaseUrl()}?pay={Uri.EscapeDataString(applicationNo)}"
+            : $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
 
-        string fallbackMsg;
-        if (fees > 0)
-        {
-            fallbackMsg = "Dear {ApplicantName}, your application for {ServiceName} is submitted (App No: {ApplicationNo}). Statutory fee of Rs.{Amount} is pending. Pay fee: {PaymentUrl} or Track: {TrackingUrl} - {CorporationName}";
-        }
-        else
-        {
-            fallbackMsg = "Dear {ApplicantName}, your application for {ServiceName} has been received (App No: {ApplicationNo}). Track status: {TrackingUrl} - {CorporationName}";
-        }
-
-        await SendDynamicSmsAsync("RTS_APP_SUBMITTED", "RTS Application Submitted", fallbackMsg, "1707175319753583566", mobileNo, applicationId, placeholders, ct);
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, status, url, ct);
     }
 
-    public async Task SendPaymentPendingAsync(
+    /// <summary>
+    /// Officer advances stage action
+    /// </summary>
+    public async Task SendApplicationStageAdvancedAsync(
         int applicationId,
         string applicationNo,
         string citizenName,
         string mobileNo,
         string serviceName,
-        decimal amount,
+        string stageName,
+        string status,
+        string? remark = null,
         CancellationToken ct = default)
     {
-        var paymentUrl = $"{GetPortalBaseUrl()}?pay={Uri.EscapeDataString(applicationNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "Amount", amount.ToString("F2") },
-            { "PaymentUrl", paymentUrl },
-            { "TrackingUrl", paymentUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, government statutory fee of Rs.{Amount} is pending for RTS Application No: {ApplicationNo} ({ServiceName}). Pay now: {PaymentUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_PAYMENT_PENDING", "RTS Payment Pending", fallbackMsg, "1707175319753583567", mobileNo, applicationId, placeholders, ct);
+        var displayStatus = $"IN PROGRESS (At Stage: {stageName})";
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
 
+    /// <summary>
+    /// Final approval action
+    /// </summary>
+    public async Task SendApplicationApprovedAsync(
+        int applicationId,
+        string applicationNo,
+        string citizenName,
+        string mobileNo,
+        string serviceName,
+        CancellationToken ct = default)
+    {
+        var certUrl = $"{GetPortalBaseUrl()}?cert={Uri.EscapeDataString(applicationNo)}";
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED", certUrl, ct);
+    }
+
+    /// <summary>
+    /// Rejection action
+    /// </summary>
+    public async Task SendApplicationRejectedAsync(
+        int applicationId,
+        string applicationNo,
+        string citizenName,
+        string mobileNo,
+        string serviceName,
+        string? remark = null,
+        CancellationToken ct = default)
+    {
+        var displayStatus = string.IsNullOrWhiteSpace(remark)
+            ? "REJECTED"
+            : $"REJECTED (Reason: {remark})";
+
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
+    }
+
+    /// <summary>
+    /// Revert action
+    /// </summary>
+    public async Task SendApplicationRevertedAsync(
+        int applicationId,
+        string applicationNo,
+        string citizenName,
+        string mobileNo,
+        string serviceName,
+        string? remark = null,
+        CancellationToken ct = default)
+    {
+        var displayStatus = string.IsNullOrWhiteSpace(remark)
+            ? "REVERTED for correction"
+            : $"REVERTED for correction (Remark: {remark})";
+
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
+    }
+
+    /// <summary>
+    /// 3. Payment Success e-Receipt Template
+    /// </summary>
     public async Task SendPaymentSuccessAsync(
         int applicationId,
         string applicationNo,
@@ -219,9 +283,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         var receiptUrl = $"{GetPortalBaseUrl()}?receipt={Uri.EscapeDataString(receiptNo)}";
         var placeholders = new Dictionary<string, string>
         {
-            { "UserName", citizenName },
             { "CitizenName", citizenName },
             { "ApplicantName", citizenName },
+            { "UserName", citizenName },
             { "ApplicationNo", applicationNo },
             { "Amount", amount.ToString("F2") },
             { "ReceiptNo", receiptNo },
@@ -229,135 +293,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "TrackingUrl", receiptUrl }
         };
 
-        var fallbackMsg = "Dear {ApplicantName}, payment of Rs.{Amount} for RTS Application No: {ApplicationNo} is successful. Official e-Receipt No: {ReceiptNo}. Download receipt: {ReceiptUrl} - {CorporationName}";
+        var fallbackMsg = "Dear {CitizenName}, payment of Rs.{Amount} for RTS Application No: {ApplicationNo} is successful. Receipt No: {ReceiptNo}. Download receipt: {ReceiptUrl} - {CorporationName}";
         await SendDynamicSmsAsync("RTS_FEE_PAID", "Online Fee Paid", fallbackMsg, "1707175319753583568", mobileNo, applicationId, placeholders, ct);
-    }
-
-    public async Task SendApplicationStageAdvancedAsync(
-        int applicationId,
-        string applicationNo,
-        string citizenName,
-        string mobileNo,
-        string serviceName,
-        string stageName,
-        string status,
-        string? remark = null,
-        CancellationToken ct = default)
-    {
-        var trackingUrl = $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "StageName", stageName },
-            { "Status", status },
-            { "Remark", remark ?? "In Progress" },
-            { "TrackingUrl", trackingUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, your RTS Application No: {ApplicationNo} for {ServiceName} is currently at stage '{StageName}'. Status: {Status}. Track: {TrackingUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_STAGE_ADVANCED", "RTS Stage Advanced", fallbackMsg, "1707175319753583569", mobileNo, applicationId, placeholders, ct);
-    }
-
-    public async Task SendApplicationApprovedAsync(
-        int applicationId,
-        string applicationNo,
-        string citizenName,
-        string mobileNo,
-        string serviceName,
-        CancellationToken ct = default)
-    {
-        var certUrl = $"{GetPortalBaseUrl()}?cert={Uri.EscapeDataString(applicationNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "CertificateUrl", certUrl },
-            { "TrackingUrl", certUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, your RTS Application No: {ApplicationNo} for {ServiceName} has been APPROVED. Download your official certificate/order at: {CertificateUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_APP_APPROVED", "RTS Application Approved", fallbackMsg, "1707175319753583570", mobileNo, applicationId, placeholders, ct);
-    }
-
-    public async Task SendApplicationRejectedAsync(
-        int applicationId,
-        string applicationNo,
-        string citizenName,
-        string mobileNo,
-        string serviceName,
-        string? remark = null,
-        CancellationToken ct = default)
-    {
-        var trackingUrl = $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "Remark", string.IsNullOrWhiteSpace(remark) ? "Criteria not fulfilled" : remark },
-            { "TrackingUrl", trackingUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, your RTS Application No: {ApplicationNo} for {ServiceName} could not be approved. Reason: {Remark}. View details: {TrackingUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_APP_REJECTED", "RTS Application Rejected", fallbackMsg, "1707175319753583571", mobileNo, applicationId, placeholders, ct);
-    }
-
-    public async Task SendApplicationRevertedAsync(
-        int applicationId,
-        string applicationNo,
-        string citizenName,
-        string mobileNo,
-        string serviceName,
-        string? remark = null,
-        CancellationToken ct = default)
-    {
-        var trackingUrl = $"{GetPortalBaseUrl()}?track={Uri.EscapeDataString(applicationNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "Remark", string.IsNullOrWhiteSpace(remark) ? "Correction required" : remark },
-            { "TrackingUrl", trackingUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, correction/additional document is required for RTS Application No: {ApplicationNo} ({ServiceName}). Officer Remark: {Remark}. Update at: {TrackingUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_APP_REVERTED", "RTS Application Reverted", fallbackMsg, "1707175319753583572", mobileNo, applicationId, placeholders, ct);
-    }
-
-    public async Task SendGrievanceRegisteredAsync(
-        int applicationId,
-        string applicationNo,
-        string grievanceNo,
-        string citizenName,
-        string mobileNo,
-        string serviceName,
-        CancellationToken ct = default)
-    {
-        var trackingUrl = $"{GetPortalBaseUrl()}?appeal={Uri.EscapeDataString(grievanceNo)}";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "UserName", citizenName },
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "ApplicationNo", applicationNo },
-            { "GrievanceNo", grievanceNo },
-            { "ServiceName", serviceName },
-            { "TrackingUrl", trackingUrl }
-        };
-
-        var fallbackMsg = "Dear {ApplicantName}, your RTS Appeal/Grievance for Application No: {ApplicationNo} ({ServiceName}) has been registered with Token No: {GrievanceNo}. Track at: {TrackingUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_GRIEVANCE_REGISTERED", "RTS Grievance Registered", fallbackMsg, "1707175319753583573", mobileNo, applicationId, placeholders, ct);
     }
 }

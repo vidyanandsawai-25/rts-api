@@ -11,14 +11,15 @@ public interface IRTSSmsNotificationService
     Task SendCitizenOtpAsync(string mobileNo, string otp, CancellationToken ct = default);
 
     /// <summary>
-    /// Sends SMS when citizen submits an RTS application (with tracking link and payment link if fee pending)
+    /// Single unified dynamic SMS template for all application status updates
+    /// Template: "Dear {CitizenName}, your RTS Application No: {ApplicationNo} for {ServiceName} is currently {Status}. Track status: {TrackingUrl} - {CorporationName}"
     /// </summary>
-    Task SendApplicationSubmittedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal fees = 0, CancellationToken ct = default);
+    Task SendApplicationStatusUpdateAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, string status, string? customUrl = null, CancellationToken ct = default);
 
     /// <summary>
-    /// Sends SMS when application requires payment
+    /// Sends SMS when citizen submits an RTS application
     /// </summary>
-    Task SendPaymentPendingAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal amount, CancellationToken ct = default);
+    Task SendApplicationSubmittedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal fees = 0, CancellationToken ct = default);
 
     /// <summary>
     /// Sends SMS when online/counter payment is completed and verified (includes receipt link)
@@ -31,7 +32,7 @@ public interface IRTSSmsNotificationService
     Task SendApplicationStageAdvancedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, string stageName, string status, string? remark = null, CancellationToken ct = default);
 
     /// <summary>
-    /// Sends SMS when application is approved at final stage (includes certificate link)
+    /// Sends SMS when application is approved at final stage
     /// </summary>
     Task SendApplicationApprovedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, CancellationToken ct = default);
 
@@ -44,9 +45,4 @@ public interface IRTSSmsNotificationService
     /// Sends SMS when application is reverted for correction
     /// </summary>
     Task SendApplicationRevertedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, string? remark = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// Sends SMS when citizen lodges a grievance / appeal
-    /// </summary>
-    Task SendGrievanceRegisteredAsync(int applicationId, string applicationNo, string grievanceNo, string citizenName, string mobileNo, string serviceName, CancellationToken ct = default);
 }
