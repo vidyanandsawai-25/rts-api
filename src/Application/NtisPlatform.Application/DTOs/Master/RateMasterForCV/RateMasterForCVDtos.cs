@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using NtisPlatform.Application.DTOs.Master.CSNDetails;
 
 namespace NtisPlatform.Application.DTOs;
@@ -7,9 +7,9 @@ public class RateMasterForCVDto : BaseDtos
 {
     public int SubZoneId { get; set; }
 
-    public int TypeOfUseGroupCVId { get; set; }
+    public int? TypeOfUseGroupCVId { get; set; }
 
-    public int FloorGroupId { get; set; }
+    public int? FloorGroupId { get; set; }
 
     public int AssessmentYearRangeId { get; set; }
 
@@ -23,9 +23,9 @@ public class CreateRateMasterForCVDto : CreateBaseDtos
     [Required(ErrorMessage = "CVRate_SubZoneId_Required")]
     public int SubZoneId { get; set; }
 
-    public int TypeOfUseGroupCVId { get; set; }
+    public int? TypeOfUseGroupCVId { get; set; }
 
-    public int FloorGroupId { get; set; }
+    public int? FloorGroupId { get; set; }
 
     [Required(ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
     public int AssessmentYearRangeId { get; set; }
@@ -46,9 +46,9 @@ public class UpdateRateMasterForCVDto : UpdateBaseDtos
     [Required(ErrorMessage = "CVRate_SubZoneId_Required")]
     public int SubZoneId { get; set; }
 
-    public int TypeOfUseGroupCVId { get; set; }
+    public int? TypeOfUseGroupCVId { get; set; }
 
-    public int FloorGroupId { get; set; }
+    public int? FloorGroupId { get; set; }
 
     [Required(ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
     public int AssessmentYearRangeId { get; set; }
