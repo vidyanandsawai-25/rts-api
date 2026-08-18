@@ -4,6 +4,7 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Asset_Management;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
 using NtisPlatform.Infrastructure.Data;
 using System.Linq.Expressions;
 
@@ -256,6 +257,32 @@ public class ReferenceValidationService : IReferenceValidationService
         // Registering explicitly so ValidateReferencesAsync<AssetGrievanceRemarkMasterEntity> is not a silent no-op.
         config.ForEntity<AssetGrievanceRemarkMasterEntity>()
             .CheckReferences();
+
+        // Retrospective Tax Rule Engine
+        config.ForEntity<EvidenceTypeMasterEntity>()
+            .CheckReferences(
+                ("Rule Evidence Condition", (ctx, id) => ctx.RetrospectiveRuleEvidenceCondition.Where(c => c.EvidenceTypeId == id).Cast<object>()),
+                ("Rule Date Condition", (ctx, id) => ctx.RetrospectiveRuleDateCondition.Where(c => c.LeftEvidenceTypeId == id || c.RightEvidenceTypeId == id).Cast<object>()),
+                ("Rule Action", (ctx, id) => ctx.RetrospectiveRuleAction.Where(a => a.StartEvidenceTypeId == id || a.SplitStartEvidenceTypeId == id || a.SplitEndEvidenceTypeId == id).Cast<object>()),
+                ("Penalty Rule", (ctx, id) => ctx.RetrospectivePenaltyRule.Where(p => p.PenaltyDateEvidenceTypeId == id).Cast<object>()),
+                ("Calculation Evidence", (ctx, id) => ctx.RetrospectiveCalculationEvidence.Where(e => e.EvidenceTypeId == id).Cast<object>())
+            );
+
+        config.ForEntity<RetrospectiveRuleMasterEntity>()
+            .CheckReferences(
+                ("Rule Evidence Condition", (ctx, id) => ctx.RetrospectiveRuleEvidenceCondition.Where(c => c.RuleId == id).Cast<object>()),
+                ("Rule Date Condition", (ctx, id) => ctx.RetrospectiveRuleDateCondition.Where(c => c.RuleId == id).Cast<object>()),
+                ("Rule Action", (ctx, id) => ctx.RetrospectiveRuleAction.Where(a => a.RuleId == id).Cast<object>()),
+                ("Penalty Rule", (ctx, id) => ctx.RetrospectivePenaltyRule.Where(p => p.RuleId == id).Cast<object>()),
+                ("Rule Summary", (ctx, id) => ctx.RetrospectiveRuleSummary.Where(s => s.RuleId == id).Cast<object>()),
+                ("Tax Calculation", (ctx, id) => ctx.RetrospectiveTaxCalculation.Where(c => c.AppliedRuleId == id).Cast<object>()),
+                ("Rule Audit Log", (ctx, id) => ctx.RetrospectiveRuleAuditLog.Where(l => l.RuleId == id).Cast<object>())
+            );
+
+        config.ForEntity<RetrospectiveTaxPolicyEntity>()
+            .CheckReferences(
+                ("Tax Calculation", (ctx, id) => ctx.RetrospectiveTaxCalculation.Where(c => c.AppliedTaxPolicyId == id).Cast<object>())
+            );
 
         _referenceConfig = config.Build();
     }
