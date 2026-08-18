@@ -150,6 +150,50 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Gets payment receipt details by receipt number
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("receipt-by-no/{receiptNo}")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReceiptByNo(string receiptNo, CancellationToken ct)
+    {
+        var receipt = await _paymentService.GetPaymentReceiptByReceiptNoAsync(receiptNo, ct);
+        if (receipt == null)
+        {
+            return NotFound(new ApiResponse<PaymentReceiptDto>
+            {
+                Success = false,
+                Message = $"No payment receipt found with receipt number '{receiptNo}'."
+            });
+        }
+
+        return Ok(new ApiResponse<PaymentReceiptDto>
+        {
+            Success = true,
+            Message = "Payment receipt retrieved successfully.",
+            Items = receipt
+        });
+    }
+
+    /// <summary>
+    /// Gets paginated payment transactions with comprehensive filtering (Department, Service, Mode, Status, Date)
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("transactions")]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PaymentTransactionListItemDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTransactions([FromBody] PaymentTransactionQueryDto query, CancellationToken ct)
+    {
+        var result = await _paymentService.GetTransactionsAsync(query ?? new PaymentTransactionQueryDto(), ct);
+        return Ok(new ApiResponse<PagedResult<PaymentTransactionListItemDto>>
+        {
+            Success = true,
+            Message = "Payment transactions retrieved successfully.",
+            Items = result
+        });
+    }
+
+    /// <summary>
     /// Webhook handler for asynchronous Razorpay gateway event notifications
     /// </summary>
     [AllowAnonymous]

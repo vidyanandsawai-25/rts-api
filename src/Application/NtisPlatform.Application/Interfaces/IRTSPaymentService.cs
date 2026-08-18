@@ -12,4 +12,5 @@ public interface IRTSPaymentService
     Task<PaymentReceiptDto?> GetPaymentReceiptByReceiptNoAsync(string receiptNo, CancellationToken ct = default);
     Task<object?> GetPaymentStatusAsync(int applicationId, CancellationToken ct = default);
     Task<bool> ProcessWebhookAsync(string webhookPayload, string? signatureHeader, CancellationToken ct = default);
+    Task<NtisPlatform.Application.Models.PagedResult<PaymentTransactionListItemDto>> GetTransactionsAsync(PaymentTransactionQueryDto query, CancellationToken ct = default);
 }

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RTSPayment;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -221,6 +222,13 @@ public class RTSPaymentService : IRTSPaymentService
             if (string.IsNullOrWhiteSpace(applicantEmail)) applicantEmail = app.User.Email;
         }
 
+        if (string.IsNullOrWhiteSpace(applicantEmail))
+        {
+            applicantEmail = !string.IsNullOrWhiteSpace(applicantMobile)
+                ? $"{applicantMobile}@citizen.akolamc.org"
+                : $"citizen_{app.ApplicationNo?.Replace("/", "_") ?? app.Id.ToString()}@citizen.akolamc.org";
+        }
+
         string gatewayOrderId = string.Empty;
 
         // Connect directly to Razorpay Orders API
@@ -414,6 +422,11 @@ public class RTSPaymentService : IRTSPaymentService
                     if (root.TryGetProperty("method", out var methodProp))
                     {
                         var method = methodProp.GetString();
+                        if (!txn.PaymentModeId.HasValue || txn.PaymentModeId == 0)
+                        {
+                            txn.PaymentModeId = await ResolvePaymentModeIdAsync(method, ct);
+                        }
+
                         if (string.Equals(method, "upi", StringComparison.OrdinalIgnoreCase) && root.TryGetProperty("vpa", out var vpaProp))
                             txn.PayerVpaOrAccount = vpaProp.GetString();
                         else if (string.Equals(method, "bank_transfer", StringComparison.OrdinalIgnoreCase) || string.Equals(method, "netbanking", StringComparison.OrdinalIgnoreCase))
@@ -469,29 +482,54 @@ public class RTSPaymentService : IRTSPaymentService
             await _historyRepository.AddAsync(history, ct);
         }
 
+        // Pre-resolve applicant contact for thread-safe asynchronous SMS dispatch
+        string? smsMobile = null;
+        string? smsName = null;
+        try
+        {
+            var mobFv = await _fieldValueRepository.GetQueryable()
+                .Include(f => f.FieldDefinition)
+                .Where(f => f.ApplicationId == txn.ApplicationId && !f.MarkedForDeletion)
+                .FirstOrDefaultAsync(f => f.FieldDefinition != null && (f.FieldDefinition.FieldCode.Contains("mobile") || f.FieldDefinition.FieldCode.Contains("phone") || f.FieldDefinition.FieldLabel.Contains("मोबाईल")), ct);
+            smsMobile = mobFv?.TextValue;
+
+            var nameFv = await _fieldValueRepository.GetQueryable()
+                .Include(f => f.FieldDefinition)
+                .Where(f => f.ApplicationId == txn.ApplicationId && !f.MarkedForDeletion)
+                .FirstOrDefaultAsync(f => f.FieldDefinition != null && (f.FieldDefinition.FieldCode.Contains("name") || f.FieldDefinition.FieldLabel.Contains("नाव")), ct);
+            smsName = nameFv?.TextValue;
+        }
+        catch { }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // Asynchronous SMS dispatch to applicant
+        // Safe Asynchronous SMS dispatch to applicant using captured values
+        var targetMobile = smsMobile;
+        var targetName = smsName ?? "Citizen";
+        var targetAppId = txn.ApplicationId;
+        var targetAppNo = txn.ApplicationNo;
+        var targetAmount = txn.TotalAmount;
+        var targetReceiptNo = receiptNo;
+
         _ = Task.Run(async () =>
         {
             try
             {
-                var receipt = await GetPaymentReceiptByApplicationIdAsync(txn.ApplicationId, CancellationToken.None);
-                if (receipt != null && !string.IsNullOrWhiteSpace(receipt.CustomerMobile))
+                if (!string.IsNullOrWhiteSpace(targetMobile))
                 {
                     await _smsNotificationService.SendPaymentSuccessAsync(
-                        receipt.ApplicationId,
-                        receipt.ApplicationNo,
-                        receipt.CustomerName ?? "Citizen",
-                        receipt.CustomerMobile,
-                        receipt.Amount,
-                        receipt.ReceiptNo,
+                        targetAppId,
+                        targetAppNo,
+                        targetName,
+                        targetMobile,
+                        targetAmount,
+                        targetReceiptNo,
                         CancellationToken.None);
                 }
             }
             catch (Exception smsEx)
             {
-                _logger.LogError(smsEx, "Failed to send payment receipt SMS for application {AppId}", txn.ApplicationId);
+                _logger.LogError(smsEx, "Failed to send payment receipt SMS for application {AppId}", targetAppId);
             }
         });
 
@@ -691,6 +729,8 @@ public class RTSPaymentService : IRTSPaymentService
         string? customerName = null;
         string? customerMobile = null;
 
+        string? customerEmail = null;
+
         foreach (var fv in fieldValues)
         {
             var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
@@ -709,6 +749,18 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 customerMobile = val;
             }
+            else if (string.IsNullOrWhiteSpace(customerEmail) &&
+                (label.Contains("email") || label.Contains("mail") || label.Contains("ईमेल") || code.Contains("email")))
+            {
+                customerEmail = val;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(customerEmail))
+        {
+            customerEmail = !string.IsNullOrWhiteSpace(customerMobile)
+                ? $"{customerMobile}@citizen.akolamc.org"
+                : $"citizen_{txn.ApplicationNo?.Replace("/", "_") ?? txn.ApplicationId.ToString()}@citizen.akolamc.org";
         }
 
         return new PaymentReceiptDto
@@ -721,15 +773,23 @@ public class RTSPaymentService : IRTSPaymentService
             DepartmentName = txn.Department?.DepartmentName ?? "RTS Department",
             DepartmentNameLocal = txn.Department?.DepartmentNameLocal ?? txn.Department?.DepartmentName ?? "",
             Amount = txn.TotalAmount,
+            AmountInWords = ConvertAmountToWordsEn(txn.TotalAmount),
+            AmountInWordsLocal = ConvertAmountToWordsMr(txn.TotalAmount),
             Currency = txn.Currency,
             PaymentGateway = txn.GatewayConfig?.GatewayName ?? "Razorpay",
             GatewayPaymentId = txn.GatewayPaymentId ?? "",
+            TransactionNo = txn.TransactionNo,
+            BankRefNo = txn.BankRefNo,
+            PayerVpaOrAccount = txn.PayerVpaOrAccount,
             ReceiptNo = txn.ReceiptNo ?? $"REC/RTS/{txn.Id:D6}",
             PaymentDate = txn.PaymentDate ?? txn.ReceiptDate,
             PaymentStatus = txn.PaymentStatus?.StatusNameEn ?? "Success",
             PaymentMode = txn.PaymentMode?.ModeNameEn ?? "Online Gateway",
             CustomerName = customerName ?? "Applicant",
-            CustomerMobile = customerMobile
+            CustomerMobile = customerMobile,
+            CustomerEmail = customerEmail,
+            UlbName = "Akola Municipal Corporation",
+            UlbNameLocal = "अकोला महानगरपालिका"
         };
     }
 
@@ -781,5 +841,147 @@ public class RTSPaymentService : IRTSPaymentService
             paymentDate = txn?.PaymentDate,
             gatewayPaymentId = txn?.GatewayPaymentId
         };
+    }
+
+    public async Task<PagedResult<PaymentTransactionListItemDto>> GetTransactionsAsync(PaymentTransactionQueryDto query, CancellationToken ct = default)
+    {
+        var q = _paymentRepository.GetQueryable().AsNoTracking()
+            .Include(t => t.Service)
+            .Include(t => t.Department)
+            .Include(t => t.PaymentMode)
+            .Include(t => t.PaymentStatus)
+            .Where(t => t.IsActive);
+
+        if (query.DepartmentId.HasValue && query.DepartmentId.Value > 0)
+            q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
+
+        if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
+            q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+
+        if (query.PaymentStatusId.HasValue && query.PaymentStatusId.Value > 0)
+            q = q.Where(t => t.PaymentStatusId == query.PaymentStatusId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.StatusCode))
+            q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode.ToUpper() == query.StatusCode.Trim().ToUpper());
+
+        if (query.PaymentModeId.HasValue && query.PaymentModeId.Value > 0)
+            q = q.Where(t => t.PaymentModeId == query.PaymentModeId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.PaymentModeCode))
+            q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode.ToUpper() == query.PaymentModeCode.Trim().ToUpper());
+
+        if (query.FromDate.HasValue)
+            q = q.Where(t => t.CreatedDate >= query.FromDate.Value);
+
+        if (query.ToDate.HasValue)
+            q = q.Where(t => t.CreatedDate <= query.ToDate.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.SearchText))
+        {
+            var s = query.SearchText.Trim();
+            q = q.Where(t => t.ApplicationNo.Contains(s) || (t.ReceiptNo != null && t.ReceiptNo.Contains(s)) || (t.TransactionNo != null && t.TransactionNo.Contains(s)) || (t.GatewayPaymentId != null && t.GatewayPaymentId.Contains(s)));
+        }
+
+        var totalCount = await q.CountAsync(ct);
+
+        var items = await q
+            .OrderByDescending(t => t.Id)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(t => new PaymentTransactionListItemDto
+            {
+                Id = t.Id,
+                TransactionNo = t.TransactionNo,
+                ApplicationId = t.ApplicationId,
+                ApplicationNo = t.ApplicationNo,
+                ServiceName = t.Service != null ? t.Service.ServiceName : "RTS Service",
+                DepartmentName = t.Department != null ? t.Department.DepartmentName : "Department",
+                TotalAmount = t.TotalAmount,
+                Currency = t.Currency,
+                PaymentStatus = t.PaymentStatus != null ? t.PaymentStatus.StatusNameEn : "Pending",
+                StatusBadgeColor = t.PaymentStatus != null ? t.PaymentStatus.BadgeColor : "bg-amber-100 text-amber-800",
+                PaymentMode = t.PaymentMode != null ? t.PaymentMode.ModeNameEn : "Online Gateway",
+                GatewayPaymentId = t.GatewayPaymentId,
+                ReceiptNo = t.ReceiptNo,
+                PaymentDate = t.PaymentDate,
+                CreatedDate = t.CreatedDate
+            })
+            .ToListAsync(ct);
+
+        return new PagedResult<PaymentTransactionListItemDto>(items, totalCount, query.PageNumber, query.PageSize);
+    }
+
+    private static string ConvertAmountToWordsEn(decimal amount)
+    {
+        long whole = (long)Math.Floor(amount);
+        if (whole == 0) return "Zero Rupees Only";
+        string words = NumberToWordsEn(whole);
+        return $"{words} Rupees Only";
+    }
+
+    private static string NumberToWordsEn(long number)
+    {
+        if (number == 0) return "Zero";
+        if (number < 0) return "Minus " + NumberToWordsEn(Math.Abs(number));
+
+        string words = "";
+
+        if ((number / 10000000) > 0)
+        {
+            words += NumberToWordsEn(number / 10000000) + " Crore ";
+            number %= 10000000;
+        }
+
+        if ((number / 100000) > 0)
+        {
+            words += NumberToWordsEn(number / 100000) + " Lakh ";
+            number %= 100000;
+        }
+
+        if ((number / 1000) > 0)
+        {
+            words += NumberToWordsEn(number / 1000) + " Thousand ";
+            number %= 1000;
+        }
+
+        if ((number / 100) > 0)
+        {
+            words += NumberToWordsEn(number / 100) + " Hundred ";
+            number %= 100;
+        }
+
+        if (number > 0)
+        {
+            var unitsMap = new[] { "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
+            var tensMap = new[] { "Zero", "Ten", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
+
+            if (number < 20)
+                words += unitsMap[number];
+            else
+            {
+                words += tensMap[number / 10];
+                if ((number % 10) > 0)
+                    words += " " + unitsMap[number % 10];
+            }
+        }
+
+        return words.Trim();
+    }
+
+    private static string ConvertAmountToWordsMr(decimal amount)
+    {
+        long whole = (long)Math.Floor(amount);
+        if (whole == 0) return "शून्य रुपये फक्त";
+        if (whole == 30) return "तीस रुपये फक्त";
+        if (whole == 50) return "पन्नास रुपये फक्त";
+        if (whole == 100) return "एकशे रुपये फक्त";
+        if (whole == 150) return "एकशे पन्नास रुपये फक्त";
+        if (whole == 200) return "दोनशे रुपये फक्त";
+        if (whole == 300) return "तीनशे रुपये फक्त";
+        if (whole == 500) return "पाचशे रुपये फक्त";
+        if (whole == 700) return "सातशे रुपये फक्त";
+        if (whole == 1000) return "एक हजार रुपये फक्त";
+        if (whole == 2000) return "दोन हजार रुपये फक्त";
+        return $"{whole} रुपये फक्त";
     }
 }
