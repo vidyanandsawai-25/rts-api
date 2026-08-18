@@ -4,6 +4,7 @@ using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Asset_Management;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Rules;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
 
 namespace NtisPlatform.Infrastructure.Data;
 
@@ -271,12 +272,19 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<CommunicationDetailsEntity> CommunicationDetails { get; set; } = null!;
 
-    //public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
-    //public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
-
-
-    //rts Tables configurations
-
+    // Retrospective Tax Rule Engine
+    public DbSet<EvidenceTypeMasterEntity> EvidenceTypeMaster { get; set; } = null!;
+    public DbSet<RetrospectiveRuleMasterEntity> RetrospectiveRuleMaster { get; set; } = null!;
+    public DbSet<RetrospectiveTaxPolicyEntity> RetrospectiveTaxPolicy { get; set; } = null!;
+    public DbSet<RetrospectiveRuleEvidenceConditionEntity> RetrospectiveRuleEvidenceCondition { get; set; } = null!;
+    public DbSet<RetrospectiveRuleDateConditionEntity> RetrospectiveRuleDateCondition { get; set; } = null!;
+    public DbSet<RetrospectiveRuleActionEntity> RetrospectiveRuleAction { get; set; } = null!;
+    public DbSet<RetrospectivePenaltyRuleEntity> RetrospectivePenaltyRule { get; set; } = null!;
+    public DbSet<RetrospectiveRuleSummaryEntity> RetrospectiveRuleSummary { get; set; } = null!;
+    public DbSet<RetrospectiveTaxCalculationEntity> RetrospectiveTaxCalculation { get; set; } = null!;
+    public DbSet<RetrospectiveCalculationEvidenceEntity> RetrospectiveCalculationEvidence { get; set; } = null!;
+    public DbSet<RetrospectiveTaxCalculationDetailEntity> RetrospectiveTaxCalculationDetail { get; set; } = null!;
+    public DbSet<RetrospectiveRuleAuditLogEntity> RetrospectiveRuleAuditLog { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -7901,6 +7909,245 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey<MergeDetailEntity>(e => e.PropertyMapDetailId).OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_MergeDetails_PropertyMapDetail");
 
+        });
+
+        // ===================== Retrospective Tax Rule Engine =====================
+        modelBuilder.Entity<EvidenceTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("EvidenceTypeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EvidenceCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.EvidenceName).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.EvidenceCode).IsUnique();
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleMasterEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RuleDescription).HasMaxLength(1000);
+            entity.Property(e => e.MatchType).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.RuleStatus).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30);
+            entity.Property(e => e.VersionNo).HasMaxLength(20);
+            entity.Property(e => e.ResolutionRef).HasMaxLength(200);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.HasIndex(e => e.RuleCode).IsUnique();
+        });
+
+        modelBuilder.Entity<RetrospectiveTaxPolicyEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveTaxPolicy", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TaxPolicyCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxPolicyName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RateMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PercentageMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FixedPercentage).HasColumnType("decimal(10,2)");
+            entity.HasIndex(e => e.TaxPolicyCode).IsUnique();
+            entity.HasIndex(e => e.IsActive).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleEvidenceConditionEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleEvidenceCondition", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EvidenceState).IsRequired().HasMaxLength(20);
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.EvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.EvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.RuleId, e.EvidenceTypeId }).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleDateConditionEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleDateCondition", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ComparatorCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CompareOperator).HasMaxLength(30);
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.LeftEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.LeftEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RightEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.RightEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.RuleId).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleActionEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleAction", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TaxStartMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RetrospectiveLimitType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxCalculationMode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.TaxMultiplier).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.SplitMultiplier).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.AfterSplitMultiplier).HasColumnType("decimal(10,2)");
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.StartEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.StartEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SplitStartEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.SplitStartEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SplitEndEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.SplitEndEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.RuleId).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectivePenaltyRuleEntity>(entity =>
+        {
+            entity.ToTable("RetrospectivePenaltyRule", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PenaltyMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyPercent).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.PenaltyDateSourceType).HasMaxLength(30);
+            entity.Property(e => e.PenaltyDateCondition).HasMaxLength(30);
+            entity.Property(e => e.ElseAction).HasMaxLength(50);
+            entity.Property(e => e.Remarks).HasMaxLength(500);
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PenaltyDateEvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.PenaltyDateEvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.RuleId).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleSummaryEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleSummary", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.WhenSummary).HasMaxLength(1000);
+            entity.Property(e => e.TaxSummary).HasMaxLength(1000);
+            entity.Property(e => e.PenaltySummary).HasMaxLength(1000);
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.RuleId).IsUnique().HasFilter("[IsActive] = 1");
+        });
+
+        modelBuilder.Entity<RetrospectiveTaxCalculationEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveTaxCalculation", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CalculationMode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30);
+            entity.Property(e => e.CalculationStatus).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.BaseTaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.RetrospectiveTaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PenaltyAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)");
+
+            entity.HasOne(e => e.AppliedRule)
+                .WithMany()
+                .HasForeignKey(e => e.AppliedRuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AppliedTaxPolicy)
+                .WithMany()
+                .HasForeignKey(e => e.AppliedTaxPolicyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.PropertyId, e.CreatedDate });
+        });
+
+        modelBuilder.Entity<RetrospectiveCalculationEvidenceEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveCalculationEvidence", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.SourceReference).HasMaxLength(200);
+
+            entity.HasOne(e => e.Calculation)
+                .WithMany()
+                .HasForeignKey(e => e.CalculationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.EvidenceType)
+                .WithMany()
+                .HasForeignKey(e => e.EvidenceTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RetrospectiveTaxCalculationDetailEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveTaxCalculationDetail", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FinancialYear).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.RateMode).HasMaxLength(50);
+            entity.Property(e => e.PercentageMode).HasMaxLength(50);
+            entity.Property(e => e.BaseTaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxMultiplier).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.RetrospectiveTaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PenaltyPercent).HasColumnType("decimal(10,2)");
+            entity.Property(e => e.PenaltyAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)");
+
+            entity.HasOne(e => e.Calculation)
+                .WithMany()
+                .HasForeignKey(e => e.CalculationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.CalculationId, e.PropertyId, e.FloorId });
+        });
+
+        modelBuilder.Entity<RetrospectiveRuleAuditLogEntity>(entity =>
+        {
+            entity.ToTable("RetrospectiveRuleAuditLog", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ActionType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+
+            entity.HasOne(e => e.Rule)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.RuleId, e.CreatedDate });
         });
     }
 }

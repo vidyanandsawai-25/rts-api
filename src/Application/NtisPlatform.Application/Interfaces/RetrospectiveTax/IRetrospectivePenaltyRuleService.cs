@@ -1,0 +1,8 @@
+using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectivePenaltyRule;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
+
+namespace NtisPlatform.Application.Interfaces.RetrospectiveTax;
+
+public interface IRetrospectivePenaltyRuleService : ICommonCrudService<RetrospectivePenaltyRuleEntity, RetrospectivePenaltyRuleDto, CreateRetrospectivePenaltyRuleDto, UpdateRetrospectivePenaltyRuleDto, RetrospectivePenaltyRuleQueryParameters, int>
+{
+}

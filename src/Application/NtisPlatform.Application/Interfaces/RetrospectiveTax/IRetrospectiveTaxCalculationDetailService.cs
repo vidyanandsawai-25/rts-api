@@ -1,0 +1,8 @@
+using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveTaxCalculationDetail;
+using NtisPlatform.Core.Entities.RetrospectiveTax;
+
+namespace NtisPlatform.Application.Interfaces.RetrospectiveTax;
+
+public interface IRetrospectiveTaxCalculationDetailService : ICommonCrudService<RetrospectiveTaxCalculationDetailEntity, RetrospectiveTaxCalculationDetailDto, CreateRetrospectiveTaxCalculationDetailDto, UpdateRetrospectiveTaxCalculationDetailDto, RetrospectiveTaxCalculationDetailQueryParameters, long>
+{
+}

@@ -27,6 +27,7 @@ using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueServ
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Interfaces.RetrospectiveTax;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
@@ -60,6 +61,7 @@ using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Interfaces.Rules;
+using NtisPlatform.Application.Services.RetrospectiveTax;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
@@ -428,6 +430,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IOldWardMasterService, OldWardMasterService>();
+
+        // Retrospective Tax Rule Engine
+        services.AddScoped<IEvidenceTypeMasterService, EvidenceTypeMasterService>();
+        services.AddScoped<IRetrospectiveRuleMasterService, RetrospectiveRuleMasterService>();
+        services.AddScoped<IRetrospectiveTaxPolicyService, RetrospectiveTaxPolicyService>();
+        services.AddScoped<IRetrospectiveRuleEvidenceConditionService, RetrospectiveRuleEvidenceConditionService>();
+        services.AddScoped<IRetrospectiveRuleDateConditionService, RetrospectiveRuleDateConditionService>();
+        services.AddScoped<IRetrospectiveRuleActionService, RetrospectiveRuleActionService>();
+        services.AddScoped<IRetrospectivePenaltyRuleService, RetrospectivePenaltyRuleService>();
+        services.AddScoped<IRetrospectiveRuleSummaryService, RetrospectiveRuleSummaryService>();
+        services.AddScoped<IRetrospectiveTaxCalculationService, RetrospectiveTaxCalculationService>();
+        services.AddScoped<IRetrospectiveCalculationEvidenceService, RetrospectiveCalculationEvidenceService>();
+        services.AddScoped<IRetrospectiveTaxCalculationDetailService, RetrospectiveTaxCalculationDetailService>();
+        services.AddScoped<IRetrospectiveRuleAuditLogService, RetrospectiveRuleAuditLogService>();
+        services.AddScoped<IRuleLibraryService, RuleLibraryService>();
         services.AddScoped<ITaxZoningRangeService, TaxZoningRangeService>();
         services.AddScoped<IULBDocumentService, ULBDocumentService>();
         services.AddScoped<IULBDocumentQueryService, ULBDocumentQueryService>();
