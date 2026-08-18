@@ -39,4 +39,8 @@ public class CurrentApprovalOfficerDto
     public string? ServiceName { get; set; }
     public decimal? ServiceFees { get; set; }
     public bool FeesRequired { get; set; }
+
+    public bool IsPaid { get; set; }
+    public string? PaymentStatus { get; set; }
+    public string? ReceiptNo { get; set; }
 }

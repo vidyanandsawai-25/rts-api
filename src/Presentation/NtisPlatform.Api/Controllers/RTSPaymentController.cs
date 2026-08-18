@@ -105,6 +105,52 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Records an offline municipal counter payment (Cash/Cheque/DD/POS/Challan) by authorized counter officer
+    /// </summary>
+    [HttpPost("record-offline")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RecordOfflinePayment([FromBody] RecordOfflinePaymentRequestDto request, CancellationToken ct)
+    {
+        if (request == null || request.ApplicationId <= 0)
+        {
+            return BadRequest(new ApiResponse<PaymentReceiptDto>
+            {
+                Success = false,
+                Message = "Invalid offline payment request. Valid ApplicationId is required."
+            });
+        }
+
+        try
+        {
+            // Extract user id from token or claim if authenticated, fallback to 1
+            int userId = 1;
+            var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
+            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId))
+            {
+                userId = parsedId;
+            }
+
+            var receipt = await _paymentService.RecordOfflinePaymentAsync(request, userId, ct);
+            return Ok(new ApiResponse<PaymentReceiptDto>
+            {
+                Success = true,
+                Message = "Offline counter payment recorded successfully.",
+                Items = receipt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error recording offline payment for application {AppId}", request.ApplicationId);
+            return BadRequest(new ApiResponse<PaymentReceiptDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Gets payment receipt details for a paid application
     /// </summary>
     [AllowAnonymous]

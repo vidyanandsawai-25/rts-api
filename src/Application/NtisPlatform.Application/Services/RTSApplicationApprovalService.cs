@@ -18,6 +18,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
+    private readonly IRepository<RTSPaymentTransactionEntity, long> _paymentRepository;
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -25,6 +26,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<TrackApplicationHistoryEntity, int> historyRepository,
           IRepository<UserEntity, int> userRepository,
           IRepository<RTSFieldValueEntity, int> fieldValueRepository,
+          IRepository<RTSPaymentTransactionEntity, long> paymentRepository,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -32,6 +34,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _userRepository = userRepository;
         _historyRepository = historyRepository;
         _fieldValueRepository = fieldValueRepository;
+        _paymentRepository = paymentRepository;
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -432,6 +435,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 $"Officer configured for stage '{currentStage.StageName}' was not found.");
         }
 
+        var paymentTxn = await _paymentRepository.GetQueryable()
+            .Include(p => p.PaymentStatus)
+            .Where(p => p.ApplicationId == result.ApplicationId && p.PaymentStatus.StatusCode == "SUCCESS")
+            .OrderByDescending(p => p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        bool isPaid = paymentTxn != null;
+        string? paymentStatus = paymentTxn != null ? "SUCCESS" : (result.FeesRequired && (result.ServiceFees ?? 0) > 0 ? "PENDING" : "NOT_REQUIRED");
+        string? receiptNo = paymentTxn?.ReceiptNo;
+
         return new CurrentApprovalOfficerDto
         {
             ApplicationId = result.ApplicationId,
@@ -462,7 +475,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
             ServiceFees = result.ServiceFees,
-            FeesRequired = result.FeesRequired
+            FeesRequired = result.FeesRequired,
+
+            IsPaid = isPaid,
+            PaymentStatus = paymentStatus,
+            ReceiptNo = receiptNo
         };
     }
 
@@ -500,19 +517,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!currentStage.CanVerifyDocument)
             throw new InvalidOperationException("This stage does not permit document verification.");
 
-        var nextStage = await _approvalFlowStageRepository  //PENDING AT
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(stage =>
-                stage.ApprovalFlowId == application.ApprovalFlowId &&
-                stage.StageOrder > application.CurrentStageOrder)
-            .OrderBy(stage => stage.StageOrder)
-            .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (nextStage == null)
-            throw new InvalidOperationException("Next approval stage is not configured.");
-
         var currentHistory = await _historyRepository
         .GetQueryable()
         .Where(history =>
@@ -528,11 +532,25 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException("Current stage history record was not found.");
         }
 
+        // Advance to next stage or update status
+        var nextStage = await _approvalFlowStageRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(stage =>
+                stage.ApprovalFlowId == application.ApprovalFlowId &&
+                stage.StageOrder > application.CurrentStageOrder)
+            .OrderBy(stage => stage.StageOrder)
+            .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (nextStage == null)
+            throw new InvalidOperationException("Next approval stage is not configured.");
+
         //this Update ApplicationDetails Table
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
         application.UserId = nextStage.UserId;
-        application.ApplicationStatus = ApplicationStatus.DocumentVerified;
+        application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
         application.UpdatedBy = dto.UpdatedBy;
@@ -544,8 +562,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = currentStage.Id,
             ActionByUserId = dto.UpdatedBy,
-            Status = ApplicationStatus.DocumentVerified,
-            Action = $"{ApplicationStatus.DocumentVerified} by {currentStage.StageName}",
+            Status = ApplicationStatus.ApplicationVerified,
+            Action = $"Documents verified by {currentStage.StageName}",
             Remark = dto.Remark,
             IsReverted = false,
             IsActive = true,
@@ -569,6 +587,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
+            .Include(x => x.Service)
             .FirstOrDefaultAsync(x => x.Id == applicationId && x.IsActive && !x.MarkedForDeletion,
             cancellationToken);
 
@@ -597,6 +616,20 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!currentStage.CanApprove)
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application approval.");
+
+        // Strict Statutory Government Fee Payment Verification Gate
+        if (application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0)
+        {
+            var isPaid = await _paymentRepository.GetQueryable()
+                .Include(p => p.PaymentStatus)
+                .AnyAsync(p => p.ApplicationId == applicationId && p.PaymentStatus.StatusCode == "SUCCESS", cancellationToken);
+
+            if (!isPaid)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot approve application {application.ApplicationNo}. Government statutory fee of ₹{application.Service.Fees:F2} is pending. Payment must be recorded online or offline at municipal counter before approval.");
+            }
+        }
 
         var currentHistory = await _historyRepository
                 .GetQueryable()

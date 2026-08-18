@@ -546,6 +546,114 @@ public class RTSPaymentService : IRTSPaymentService
         };
     }
 
+    public async Task<PaymentReceiptDto> RecordOfflinePaymentAsync(RecordOfflinePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
+    {
+        if (request == null || request.ApplicationId <= 0)
+            throw new ArgumentException("Valid Application ID is required.");
+
+        var app = await _applicationRepository.GetQueryable()
+            .Include(a => a.Service)
+            .Include(a => a.Department)
+            .FirstOrDefaultAsync(a => a.Id == request.ApplicationId && a.IsActive && !a.MarkedForDeletion, ct);
+
+        if (app == null)
+            throw new ArgumentException($"Application with ID {request.ApplicationId} not found.");
+
+        // Check if already paid
+        var existingSuccess = await _paymentRepository.GetQueryable()
+            .Include(p => p.PaymentStatus)
+            .FirstOrDefaultAsync(p => p.ApplicationId == request.ApplicationId && p.PaymentStatus.StatusCode == "SUCCESS", ct);
+
+        if (existingSuccess != null)
+        {
+            throw new InvalidOperationException($"Application {app.ApplicationNo} is already paid (Receipt: {existingSuccess.ReceiptNo}).");
+        }
+
+        decimal amount = request.Amount.HasValue && request.Amount.Value > 0
+            ? request.Amount.Value
+            : (app.Service?.Fees ?? 0);
+
+        if (amount <= 0 && app.Service != null && app.Service.FeesRequired)
+        {
+            amount = app.Service.Fees ?? 50m;
+        }
+
+        var successStatus = await GetStatusByCodeAsync("SUCCESS", ct);
+        var offlineConfig = await _gatewayConfigRepository.GetQueryable()
+            .FirstOrDefaultAsync(g => g.GatewayCode == "OFFLINE" || g.GatewayCode == "COUNTER", ct);
+
+        if (offlineConfig == null)
+        {
+            offlineConfig = await _gatewayConfigRepository.GetQueryable().FirstOrDefaultAsync(ct);
+        }
+
+        string transactionNo = $"TXN/OFFLINE/{DateTime.Now:yyyyMMdd}/{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
+        int? paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
+
+        var txn = new RTSPaymentTransactionEntity
+        {
+            TransactionNo = transactionNo,
+            ApplicationId = app.Id,
+            ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
+            ServiceId = app.ServiceId,
+            DepartmentId = app.DepartmentId,
+            GatewayConfigId = offlineConfig?.Id ?? 1,
+            PaymentStatusId = successStatus.Id,
+            PaymentModeId = paymentModeId,
+            BaseAmount = amount,
+            LateFeeAmount = 0,
+            DiscountAmount = 0,
+            TotalAmount = amount,
+            Currency = "INR",
+            GatewayOrderId = $"OFFLINE_{app.Id}_{DateTime.Now:yyyyMMddHHmmss}",
+            GatewayPaymentId = !string.IsNullOrWhiteSpace(request.InstrumentNo) ? request.InstrumentNo : $"OFFLINE_{DateTime.Now:yyyyMMddHHmmss}",
+            BankRefNo = !string.IsNullOrWhiteSpace(request.BankName) ? $"{request.BankName} - {request.InstrumentNo}" : request.InstrumentNo,
+            PayerVpaOrAccount = request.PaymentMode ?? "Cash",
+            ReceiptDate = DateTime.Now,
+            PaymentDate = DateTime.Now,
+            Remarks = $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}",
+            CreatedBy = officerUserId,
+            CreatedDate = DateTime.Now,
+            IsActive = true
+        };
+
+        await _paymentRepository.AddAsync(txn, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        // Update receipt number using generated transaction ID
+        string receiptNo = $"REC/RTS/{DateTime.Now:yyyyMMdd}/{txn.Id:D6}";
+        txn.ReceiptNo = receiptNo;
+
+        // Advance application workflow state if pending payment
+        if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
+        {
+            app.ApplicationStatus = "In Progress";
+            app.UpdatedDate = DateTime.Now;
+            app.UpdatedBy = officerUserId;
+        }
+
+        var history = new TrackApplicationHistoryEntity
+        {
+            ApplicationId = app.Id,
+            ApprovalFlowId = app.ApprovalFlowId,
+            ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+            ActionByUserId = officerUserId,
+            Action = "Offline Payment Received",
+            Status = "Payment Done",
+            Remark = $"Government fee of ₹{amount:F2} received at counter via {request.PaymentMode}. Receipt: {receiptNo}. {request.Remarks}",
+            CreatedDate = DateTime.Now,
+            IsActive = true,
+            CreatedBy = officerUserId
+        };
+        await _historyRepository.AddAsync(history, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        // Return receipt DTO
+        var receipt = await GetPaymentReceiptByApplicationIdAsync(app.Id, ct);
+        return receipt!;
+    }
+
     public async Task<bool> ProcessWebhookAsync(string webhookPayload, string? signatureHeader, CancellationToken ct = default)
     {
         var gatewayConfig = await GetActiveGatewayConfigAsync(null, ct);

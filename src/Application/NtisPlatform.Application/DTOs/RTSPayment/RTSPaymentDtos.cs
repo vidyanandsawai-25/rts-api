@@ -55,6 +55,25 @@ public class VerifyPaymentRequestDto
     public string? PaymentMode { get; set; }
 }
 
+public class RecordOfflinePaymentRequestDto
+{
+    [Required]
+    public int ApplicationId { get; set; }
+
+    [Required]
+    public string PaymentMode { get; set; } = "Cash";
+
+    public decimal? Amount { get; set; }
+
+    public string? InstrumentNo { get; set; }
+
+    public DateTime? InstrumentDate { get; set; }
+
+    public string? BankName { get; set; }
+
+    public string? Remarks { get; set; }
+}
+
 public class VerifyPaymentResponseDto
 {
     public bool Success { get; set; }
