@@ -499,6 +499,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     {
         var application = await _repository
             .GetQueryable()
+            .Include(x => x.Service)
             .FirstOrDefaultAsync(x =>
                 x.Id == applicationId && x.IsActive && !x.MarkedForDeletion,
                 cancellationToken);
@@ -522,6 +523,20 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         if (!currentStage.CanVerifyDocument)
             throw new InvalidOperationException("This stage does not permit document verification.");
+
+        // Strict Statutory Government Fee Payment Verification Gate
+        if (application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0)
+        {
+            var isPaid = await _paymentRepository.GetQueryable()
+                .Include(p => p.PaymentStatus)
+                .AnyAsync(p => p.ApplicationId == applicationId && p.PaymentStatus.StatusCode == "SUCCESS", cancellationToken);
+
+            if (!isPaid)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot process application {application.ApplicationNo}. Government statutory fee of ₹{application.Service.Fees:F2} is pending. Payment must be recorded before proceeding.");
+            }
+        }
 
         var currentHistory = await _historyRepository
         .GetQueryable()
