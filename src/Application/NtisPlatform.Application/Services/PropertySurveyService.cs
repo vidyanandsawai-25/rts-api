@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertySurveySearch;
 using System;
@@ -15,7 +16,7 @@ using NtisPlatform.Core.Constants;
 
 namespace NtisPlatform.Application.Services;
 
-public class PropertySurveyService : IPropertySurveyService
+public partial class PropertySurveyService : IPropertySurveyService
 {
     private const string ImageMimeTypePrefix = "image/";
 
@@ -43,6 +44,14 @@ public class PropertySurveyService : IPropertySurveyService
     private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
     private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseRepository;
 
+    private readonly IRepository<PropertyWorkflowDetailsEntity, int> _workflowDetailsRepository;
+    private readonly IRepository<PropertyWorkflowStageMasterEntity, int> _workflowStageRepository;
+    private readonly IRepository<UserEntity, int> _userRepository;
+    private readonly IRepository<CommonRemarkDetailsEntity, int> _commonRemarkDetailsRepository;
+    private readonly IRepository<PropertySurveyVisitEntity, int> _propertySurveyVisitRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<PropertySurveyService> _logger;
+
     public PropertySurveyService(
         IRepository<PropertyEntity, int> repository,
         IRepository<ModuleMasterEntity, int> moduleMasterRepository,
@@ -55,7 +64,14 @@ public class PropertySurveyService : IPropertySurveyService
         IRepository<WingEntity, int> wingMasterRepository,
         IRepository<PropertyPhotoEntity, int> propertyPhotoRepository,
         IRepository<SocietyWingDetailsEntity, int> societyWingRepository,
-        IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository)
+        IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository,
+        IRepository<PropertyWorkflowDetailsEntity, int> workflowDetailsRepository,
+        IRepository<PropertyWorkflowStageMasterEntity, int> workflowStageRepository,
+        IRepository<UserEntity, int> userRepository,
+        IRepository<CommonRemarkDetailsEntity, int> commonRemarkDetailsRepository,
+        IRepository<PropertySurveyVisitEntity, int> propertySurveyVisitRepository,
+        IUnitOfWork unitOfWork,
+        ILogger<PropertySurveyService> logger)
     {
         _repository = repository;
         _moduleMasterRepository = moduleMasterRepository;
@@ -69,6 +85,14 @@ public class PropertySurveyService : IPropertySurveyService
         _propertyPhotoRepository = propertyPhotoRepository;
         _societyWingRepository = societyWingRepository;
         _roomWiseRepository = roomWiseRepository;
+
+        _workflowDetailsRepository = workflowDetailsRepository;
+        _workflowStageRepository = workflowStageRepository;
+        _userRepository = userRepository;
+        _commonRemarkDetailsRepository = commonRemarkDetailsRepository;
+        _propertySurveyVisitRepository = propertySurveyVisitRepository;
+        _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task<UserPropertyPageDto> SearchNewlyCreatedPropertiesAsync(
