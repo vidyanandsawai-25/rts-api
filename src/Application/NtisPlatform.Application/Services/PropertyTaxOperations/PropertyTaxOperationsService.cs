@@ -697,6 +697,8 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                {
                    Zone = z != null ? z.Description : string.Empty,
                    Ward = w != null ? w.Description : string.Empty,
+                   WardNo = w != null ? w.WardNo : string.Empty,
+                   UPICID = p.UPICId ?? string.Empty,
                    PropertyNo = d.PropertyNo ?? string.Empty,
                    PartitionNo = p.PartitionNo ?? string.Empty,
                    Owner = p.OwnerName ?? string.Empty,

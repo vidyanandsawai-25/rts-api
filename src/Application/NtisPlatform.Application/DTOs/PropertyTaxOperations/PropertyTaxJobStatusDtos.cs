@@ -18,6 +18,8 @@ public class JobPropertyResultDto
 {
     public string Zone { get; set; } = string.Empty;
     public string Ward { get; set; } = string.Empty;
+    public string WardNo { get; set; } = string.Empty;
+    public string UPICID { get; set; } = string.Empty;
     public string PropertyNo { get; set; } = string.Empty;
     public string PartitionNo { get; set; } = string.Empty;
     public string Owner { get; set; } = string.Empty;
