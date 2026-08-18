@@ -35,6 +35,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IRTSSmsNotificationService _smsNotificationService;
+    private readonly IUlbConfigService _ulbConfigService;
     private readonly ILogger<RTSPaymentService> _logger;
 
     public RTSPaymentService(
@@ -52,6 +53,7 @@ public class RTSPaymentService : IRTSPaymentService
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
         IRTSSmsNotificationService smsNotificationService,
+        IUlbConfigService ulbConfigService,
         ILogger<RTSPaymentService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -68,6 +70,7 @@ public class RTSPaymentService : IRTSPaymentService
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
         _smsNotificationService = smsNotificationService;
+        _ulbConfigService = ulbConfigService;
         _logger = logger;
     }
 
@@ -864,11 +867,13 @@ public class RTSPaymentService : IRTSPaymentService
             }
         }
 
+        var ulbConfig = await _ulbConfigService.GetUlbConfigAsync(ct);
+
         if (string.IsNullOrWhiteSpace(customerEmail))
         {
             customerEmail = !string.IsNullOrWhiteSpace(customerMobile)
-                ? $"{customerMobile}@citizen.akolamc.org"
-                : $"citizen_{txn.ApplicationNo?.Replace("/", "_") ?? txn.ApplicationId.ToString()}@citizen.akolamc.org";
+                ? $"{customerMobile}@citizen.portal"
+                : $"citizen_{txn.ApplicationNo?.Replace("/", "_") ?? txn.ApplicationId.ToString()}@citizen.portal";
         }
 
         return new PaymentReceiptDto
@@ -896,8 +901,9 @@ public class RTSPaymentService : IRTSPaymentService
             CustomerName = customerName ?? "Applicant",
             CustomerMobile = customerMobile,
             CustomerEmail = customerEmail,
-            UlbName = "Akola Municipal Corporation",
-            UlbNameLocal = "अकोला महानगरपालिका"
+            UlbName = ulbConfig?.UlbName ?? "Municipal Corporation",
+            UlbNameLocal = ulbConfig?.UlbNameLocal ?? "महानगरपालिका",
+            UlbLogo = ulbConfig?.UlbLogo
         };
     }
 

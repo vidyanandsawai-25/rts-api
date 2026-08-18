@@ -111,8 +111,9 @@ public class PaymentReceiptDto
     public string? CustomerName { get; set; }
     public string? CustomerMobile { get; set; }
     public string? CustomerEmail { get; set; }
-    public string UlbName { get; set; } = "Akola Municipal Corporation";
-    public string UlbNameLocal { get; set; } = "अकोला महानगरपालिका";
+    public string? UlbLogo { get; set; }
+    public string UlbName { get; set; } = string.Empty;
+    public string UlbNameLocal { get; set; } = string.Empty;
 }
 
 public class PaymentTransactionQueryDto
