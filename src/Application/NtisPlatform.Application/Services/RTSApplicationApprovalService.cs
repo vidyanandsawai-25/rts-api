@@ -19,6 +19,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<RTSPaymentTransactionEntity, long> _paymentRepository;
+    private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
+    private readonly IRTSSmsNotificationService _smsNotificationService;
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -27,6 +29,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<UserEntity, int> userRepository,
           IRepository<RTSFieldValueEntity, int> fieldValueRepository,
           IRepository<RTSPaymentTransactionEntity, long> paymentRepository,
+          IRepository<RTSServiceEntity, int> serviceRepository,
+          IRTSSmsNotificationService smsNotificationService,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -35,6 +39,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _historyRepository = historyRepository;
         _fieldValueRepository = fieldValueRepository;
         _paymentRepository = paymentRepository;
+        _serviceRepository = serviceRepository;
+        _smsNotificationService = smsNotificationService;
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -671,6 +677,21 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+            _ = Task.Run(async () =>
+            {
+                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(mobile))
+                {
+                    await _smsNotificationService.SendApplicationApprovedAsync(
+                        application.Id,
+                        application.ApplicationNo ?? $"APP{application.Id}",
+                        name,
+                        mobile,
+                        serviceName,
+                        CancellationToken.None);
+                }
+            });
+
             return new RTSApplicationApprovalResponseDto
             {
                 ApplicationId = application.Id,
@@ -717,6 +738,24 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         });
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _ = Task.Run(async () =>
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                await _smsNotificationService.SendApplicationStageAdvancedAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    nextStage.StageName,
+                    application.ApplicationStatus,
+                    dto.Remark,
+                    CancellationToken.None);
+            }
+        });
 
         return new RTSApplicationApprovalResponseDto
         {
@@ -795,6 +834,22 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.UpdatedDate = DateTime.Now;
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            _ = Task.Run(async () =>
+            {
+                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(mobile))
+                {
+                    await _smsNotificationService.SendApplicationRejectedAsync(
+                        application.Id,
+                        application.ApplicationNo ?? $"APP{application.Id}",
+                        name,
+                        mobile,
+                        serviceName,
+                        dto.Remark,
+                        CancellationToken.None);
+                }
+            });
 
             return new RTSApplicationApprovalResponseDto
             {
@@ -1011,6 +1066,22 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        _ = Task.Run(async () =>
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                await _smsNotificationService.SendApplicationRevertedAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    dto.Remark,
+                    CancellationToken.None);
+            }
+        });
+
         return new RTSApplicationApprovalResponseDto
         {
             ApplicationId = application.Id,
@@ -1018,6 +1089,51 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             Status = application.ApplicationStatus,
             Remark = application.Remark
         };
+    }
+
+    private async Task<(string? mobile, string name, string serviceName)> GetApplicationSmsDetailsAsync(int applicationId, int serviceId, CancellationToken ct)
+    {
+        try
+        {
+            var fieldValues = await _fieldValueRepository.GetQueryable()
+                .Include(f => f.FieldDefinition)
+                .Where(f => f.ApplicationId == applicationId && !f.MarkedForDeletion && f.IsActive)
+                .ToListAsync(ct);
+
+            string? mobile = null;
+            string? name = null;
+
+            foreach (var fv in fieldValues)
+            {
+                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                var label = (fv.FieldDefinition?.FieldLabel ?? string.Empty).ToLowerInvariant();
+                var val = fv.TextValue?.Trim();
+
+                if (string.IsNullOrWhiteSpace(val)) continue;
+
+                if (string.IsNullOrWhiteSpace(mobile) &&
+                    (code.Contains("mobile") || code.Contains("phone") || code.Contains("contact") ||
+                     label.Contains("mobile") || label.Contains("मोबाईल") || label.Contains("फोन")))
+                {
+                    mobile = val;
+                }
+                else if (string.IsNullOrWhiteSpace(name) &&
+                    (code.Contains("applicant") || code.Contains("name") ||
+                     label.Contains("applicant") || label.Contains("name") || label.Contains("नाव")))
+                {
+                    name = val;
+                }
+            }
+
+            var svc = await _serviceRepository.GetByIdAsync(serviceId, ct);
+            var serviceName = svc?.ServiceName ?? "RTS Service";
+
+            return (mobile, name ?? "Citizen", serviceName);
+        }
+        catch
+        {
+            return (null, "Citizen", "RTS Service");
+        }
     }
 
 
