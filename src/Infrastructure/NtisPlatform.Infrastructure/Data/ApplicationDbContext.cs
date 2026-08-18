@@ -50,6 +50,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
     public DbSet<WardEntity> WardMaster { get; set; } = null!;
+    public DbSet<OldWardMasterEntity> OldWardMaster { get; set; } = null!;
     public DbSet<TaxZoningRangeEntity> TaxZoningRange { get; set; } = null!;
     public DbSet<ULBDocumentTypeEntity> ULBDocumentType { get; set; } = null!;
     public DbSet<ULBDocumentEntity> ULBDocument { get; set; } = null!;
