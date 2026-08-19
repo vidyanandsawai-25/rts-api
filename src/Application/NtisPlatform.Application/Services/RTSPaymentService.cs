@@ -31,6 +31,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSDepartmentEntity, int> _departmentRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
+    private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -49,6 +50,7 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
+        IRepository<UserEntity, int> userRepository,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
@@ -66,6 +68,7 @@ public class RTSPaymentService : IRTSPaymentService
         _departmentRepository = departmentRepository;
         _fieldValueRepository = fieldValueRepository;
         _historyRepository = historyRepository;
+        _userRepository = userRepository;
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
@@ -128,21 +131,120 @@ public class RTSPaymentService : IRTSPaymentService
     {
         if (string.IsNullOrWhiteSpace(modeText)) return null;
 
-        var normalized = modeText.ToUpperInvariant();
+        var normalized = modeText.Trim().ToUpperInvariant();
         var modes = await _modeRepository.GetQueryable().Where(m => m.IsActive).ToListAsync(ct);
 
-        if (normalized.Contains("UPI") || normalized.Contains("QR"))
+        // Match exact ModeCode or ModeName
+        var exactMode = modes.FirstOrDefault(m =>
+            string.Equals(m.ModeCode, normalized, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(m.ModeNameEn, modeText.Trim(), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(m.ModeNameMr, modeText.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (exactMode != null) return exactMode.Id;
+
+        // Auto-resolve or create Cash mode
+        if (normalized.Contains("CASH") || normalized.Contains("रोख"))
+        {
+            var cashMode = modes.FirstOrDefault(m => m.ModeCode == "CASH");
+            if (cashMode == null)
+            {
+                cashMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "CASH",
+                    ModeNameEn = "Cash (रोख)",
+                    ModeNameMr = "रोख",
+                    IconName = "Banknote",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(cashMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return cashMode.Id;
+        }
+
+        // Auto-resolve or create Cheque mode
+        if (normalized.Contains("CHEQUE") || normalized.Contains("धनादेश"))
+        {
+            var chequeMode = modes.FirstOrDefault(m => m.ModeCode == "CHEQUE");
+            if (chequeMode == null)
+            {
+                chequeMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "CHEQUE",
+                    ModeNameEn = "Cheque (धनादेश)",
+                    ModeNameMr = "धनादेश",
+                    IconName = "FileText",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(chequeMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return chequeMode.Id;
+        }
+
+        // Auto-resolve or create Demand Draft mode
+        if (normalized.Contains("DD") || normalized.Contains("DEMAND"))
+        {
+            var ddMode = modes.FirstOrDefault(m => m.ModeCode == "DD");
+            if (ddMode == null)
+            {
+                ddMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "DD",
+                    ModeNameEn = "Demand Draft (डीडी)",
+                    ModeNameMr = "डिमांड ड्राफ्ट",
+                    IconName = "FileText",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(ddMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return ddMode.Id;
+        }
+
+        // Auto-resolve or create POS mode
+        if (normalized.Contains("POS") || normalized.Contains("SWIPE"))
+        {
+            var posMode = modes.FirstOrDefault(m => m.ModeCode == "POS");
+            if (posMode == null)
+            {
+                posMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "POS",
+                    ModeNameEn = "POS Swipe Machine",
+                    ModeNameMr = "पीओएस मशीन",
+                    IconName = "CreditCard",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(posMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return posMode.Id;
+        }
+
+        if (normalized.Contains("UPI") || normalized.Contains("QR") || normalized.Contains("GPAY") || normalized.Contains("PHONEPE"))
             return modes.FirstOrDefault(m => m.ModeCode == "UPI")?.Id;
-        if (normalized.Contains("NET") || normalized.Contains("BANK"))
+
+        if (normalized.Contains("NET") || normalized.Contains("BANK") || normalized.Contains("NEFT") || normalized.Contains("RTGS"))
             return modes.FirstOrDefault(m => m.ModeCode == "NETBANKING")?.Id;
+
         if (normalized.Contains("CREDIT"))
             return modes.FirstOrDefault(m => m.ModeCode == "CREDIT_CARD")?.Id;
+
         if (normalized.Contains("DEBIT") || normalized.Contains("CARD"))
             return modes.FirstOrDefault(m => m.ModeCode == "DEBIT_CARD")?.Id;
+
         if (normalized.Contains("WALLET"))
             return modes.FirstOrDefault(m => m.ModeCode == "WALLET")?.Id;
 
-        return modes.FirstOrDefault(m => m.ModeCode == "UPI")?.Id;
+        if (normalized.Contains("CHALLAN"))
+            return modes.FirstOrDefault(m => m.ModeCode == "OFFLINE_CHALLAN")?.Id;
+
+        return modes.FirstOrDefault()?.Id;
     }
 
     public async Task<PaymentOrderResponseDto> CreatePaymentOrderAsync(CreatePaymentOrderRequestDto request, CancellationToken ct = default)
@@ -876,6 +978,81 @@ public class RTSPaymentService : IRTSPaymentService
                 : $"citizen_{txn.ApplicationNo?.Replace("/", "_") ?? txn.ApplicationId.ToString()}@citizen.portal";
         }
 
+        string? counterOfficerName = null;
+        if (txn.CreatedBy.HasValue && txn.CreatedBy.Value > 0)
+        {
+            try
+            {
+                var officerUser = await _userRepository.GetByIdAsync(txn.CreatedBy.Value, ct);
+                if (officerUser != null)
+                {
+                    counterOfficerName = !string.IsNullOrWhiteSpace(officerUser.FirstName)
+                        ? $"{officerUser.FirstName} {officerUser.LastName}".Trim()
+                        : officerUser.UserName;
+                }
+            }
+            catch { }
+        }
+
+        bool isOffline = string.Equals(txn.GatewayConfig?.GatewayCode, "OFFLINE", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(txn.GatewayConfig?.GatewayCode, "COUNTER", StringComparison.OrdinalIgnoreCase) ||
+                         (txn.TransactionNo != null && txn.TransactionNo.Contains("OFFLINE", StringComparison.OrdinalIgnoreCase)) ||
+                         (txn.Remarks != null && txn.Remarks.Contains("Offline municipal counter", StringComparison.OrdinalIgnoreCase));
+
+        string resolvedPaymentMode;
+        if (isOffline)
+        {
+            if (txn.Remarks != null && txn.Remarks.Contains("Mode: Cheque", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = "Cheque (धनादेश)";
+            else if (txn.Remarks != null && txn.Remarks.Contains("Mode: DD", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = "Demand Draft (डीडी)";
+            else if (txn.Remarks != null && txn.Remarks.Contains("Mode: POS", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = "POS Card Swipe";
+            else if (txn.Remarks != null && txn.Remarks.Contains("Mode: Challan", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = "Challan (चलन)";
+            else if (txn.PaymentMode != null && !txn.PaymentMode.ModeCode.Equals("UPI", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = txn.PaymentMode.ModeNameEn;
+            else if (!string.IsNullOrWhiteSpace(txn.PayerVpaOrAccount) && !txn.PayerVpaOrAccount.Contains("@"))
+                resolvedPaymentMode = txn.PayerVpaOrAccount;
+            else
+                resolvedPaymentMode = "Cash (रोख)";
+        }
+        else
+        {
+            resolvedPaymentMode = txn.PaymentMode?.ModeNameEn ?? "Online Gateway";
+            if (string.Equals(resolvedPaymentMode, "UPI", StringComparison.OrdinalIgnoreCase))
+                resolvedPaymentMode = "UPI / QR Code (युपीआय)";
+        }
+
+        string channel = isOffline
+            ? "CFC Municipal Counter (नागरी सुविधा केंद्र काऊंटर)"
+            : "Online Citizen Portal (ऑनलाइन नागरिक पोर्टल)";
+
+        string? bankName = null;
+        string? instrumentNo = null;
+
+        if (isOffline)
+        {
+            if (!string.IsNullOrWhiteSpace(txn.BankRefNo) && txn.BankRefNo.Contains("-"))
+            {
+                var parts = txn.BankRefNo.Split('-', 2);
+                bankName = parts[0].Trim();
+                instrumentNo = parts[1].Trim();
+            }
+            else
+            {
+                bankName = txn.BankRefNo;
+                instrumentNo = !string.IsNullOrWhiteSpace(txn.GatewayPaymentId) && !txn.GatewayPaymentId.StartsWith("OFFLINE_")
+                    ? txn.GatewayPaymentId
+                    : null;
+            }
+        }
+        else
+        {
+            bankName = txn.BankRefNo;
+            instrumentNo = txn.GatewayPaymentId;
+        }
+
         return new PaymentReceiptDto
         {
             TransactionId = (int)txn.Id,
@@ -886,18 +1063,26 @@ public class RTSPaymentService : IRTSPaymentService
             DepartmentName = txn.Department?.DepartmentName ?? "RTS Department",
             DepartmentNameLocal = txn.Department?.DepartmentNameLocal ?? txn.Department?.DepartmentName ?? "",
             Amount = txn.TotalAmount,
+            BaseAmount = txn.BaseAmount > 0 ? txn.BaseAmount : txn.TotalAmount,
+            LateFeeAmount = txn.LateFeeAmount,
+            DiscountAmount = txn.DiscountAmount,
             AmountInWords = ConvertAmountToWordsEn(txn.TotalAmount),
             AmountInWordsLocal = ConvertAmountToWordsMr(txn.TotalAmount),
             Currency = txn.Currency,
-            PaymentGateway = txn.GatewayConfig?.GatewayName ?? "Razorpay",
+            PaymentGateway = txn.GatewayConfig?.GatewayName ?? (isOffline ? "CFC Municipal Counter" : "Razorpay"),
             GatewayPaymentId = txn.GatewayPaymentId ?? "",
             TransactionNo = txn.TransactionNo,
             BankRefNo = txn.BankRefNo,
+            BankName = bankName,
+            InstrumentNo = instrumentNo,
             PayerVpaOrAccount = txn.PayerVpaOrAccount,
             ReceiptNo = txn.ReceiptNo ?? $"REC/RTS/{txn.Id:D6}",
             PaymentDate = txn.PaymentDate ?? txn.ReceiptDate,
             PaymentStatus = txn.PaymentStatus?.StatusNameEn ?? "Success",
-            PaymentMode = txn.PaymentMode?.ModeNameEn ?? "Online Gateway",
+            PaymentMode = resolvedPaymentMode,
+            Channel = channel,
+            CounterOfficerName = counterOfficerName,
+            Remarks = txn.Remarks,
             CustomerName = customerName ?? "Applicant",
             CustomerMobile = customerMobile,
             CustomerEmail = customerEmail,

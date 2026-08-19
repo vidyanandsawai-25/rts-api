@@ -96,6 +96,9 @@ public class PaymentReceiptDto
     public string DepartmentName { get; set; } = string.Empty;
     public string DepartmentNameLocal { get; set; } = string.Empty;
     public decimal Amount { get; set; }
+    public decimal? BaseAmount { get; set; }
+    public decimal? LateFeeAmount { get; set; }
+    public decimal? DiscountAmount { get; set; }
     public string? AmountInWords { get; set; }
     public string? AmountInWordsLocal { get; set; }
     public string Currency { get; set; } = "INR";
@@ -103,11 +106,16 @@ public class PaymentReceiptDto
     public string GatewayPaymentId { get; set; } = string.Empty;
     public string? TransactionNo { get; set; }
     public string? BankRefNo { get; set; }
+    public string? BankName { get; set; }
+    public string? InstrumentNo { get; set; }
     public string? PayerVpaOrAccount { get; set; }
     public string ReceiptNo { get; set; } = string.Empty;
     public DateTime? PaymentDate { get; set; }
     public string PaymentStatus { get; set; } = string.Empty;
     public string? PaymentMode { get; set; }
+    public string? Channel { get; set; }
+    public string? CounterOfficerName { get; set; }
+    public string? Remarks { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerMobile { get; set; }
     public string? CustomerEmail { get; set; }

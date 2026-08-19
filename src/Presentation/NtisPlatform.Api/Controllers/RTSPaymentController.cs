@@ -107,6 +107,7 @@ public class RTSPaymentController : ControllerBase
     /// <summary>
     /// Records an offline municipal counter payment (Cash/Cheque/DD/POS/Challan) by authorized counter officer
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("record-offline")]
     [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
