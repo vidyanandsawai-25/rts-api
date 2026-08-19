@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities.RetrospectiveTax;
 
@@ -6,11 +7,9 @@ namespace NtisPlatform.Core.Entities.RetrospectiveTax;
 /// Floor-wise and year-wise breakup of a retrospective tax calculation.
 /// </summary>
 [Table("RetrospectiveTaxCalculationDetail", Schema = "PTIS")]
-public class RetrospectiveTaxCalculationDetailEntity
+public class RetrospectiveTaxCalculationDetailEntity : BaseEntity, IHardDeletable
 {
-    public long Id { get; set; }
-
-    public long CalculationId { get; set; }
+    public int CalculationId { get; set; }
 
     public int PropertyId { get; set; }
 
@@ -39,7 +38,9 @@ public class RetrospectiveTaxCalculationDetailEntity
 
     public decimal TotalAmount { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public bool MarkedForDeletion { get; set; }
+
+    public DateTime? MarkedForDeletionDate { get; set; }
 
     public virtual RetrospectiveTaxCalculationEntity? Calculation { get; set; }
 }

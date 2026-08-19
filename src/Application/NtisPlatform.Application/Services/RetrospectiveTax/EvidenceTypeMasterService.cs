@@ -1,5 +1,6 @@
 using AutoMapper;
 using NtisPlatform.Application.DTOs.RetrospectiveTax.EvidenceTypeMaster;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.RetrospectiveTax;
 using NtisPlatform.Application.Models;
@@ -42,5 +43,21 @@ public class EvidenceTypeMasterService : BaseCommonCrudService<EvidenceTypeMaste
         CancellationToken cancellationToken = default)
     {
         return await _referenceValidator.ValidateReferencesAsync<EvidenceTypeMasterEntity>(id, cancellationToken);
+    }
+
+    public async Task<RangeResult<EvidenceTypeMasterDto>> CreateFromRangeAsync(RangeCreateRequest<CreateEvidenceTypeMasterDto> request, CancellationToken cancellationToken = default)
+    {
+        Func<CreateEvidenceTypeMasterDto, string, int, CreateEvidenceTypeMasterDto> transformer = (template, rangeValue, sequenceNo) =>
+            new CreateEvidenceTypeMasterDto
+            {
+                EvidenceCode = rangeValue,
+                EvidenceName = string.IsNullOrEmpty(template.EvidenceName) ? rangeValue : template.EvidenceName.Replace("{value}", rangeValue),
+                IsCertificate = template.IsCertificate,
+                DisplayOrder = sequenceNo,
+                IsActive = template.IsActive,
+                CreatedBy = template.CreatedBy
+            };
+
+        return await base.CreateFromRangeAsync(request, transformer, cancellationToken);
     }
 }

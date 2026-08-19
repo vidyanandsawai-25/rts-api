@@ -3,6 +3,6 @@ using NtisPlatform.Core.Entities.RetrospectiveTax;
 
 namespace NtisPlatform.Application.Interfaces.RetrospectiveTax;
 
-public interface IRetrospectiveRuleAuditLogService : ICommonCrudService<RetrospectiveRuleAuditLogEntity, RetrospectiveRuleAuditLogDto, CreateRetrospectiveRuleAuditLogDto, UpdateRetrospectiveRuleAuditLogDto, RetrospectiveRuleAuditLogQueryParameters, long>
+public interface IRetrospectiveRuleAuditLogService : ICommonCrudService<RetrospectiveRuleAuditLogEntity, RetrospectiveRuleAuditLogDto, CreateRetrospectiveRuleAuditLogDto, UpdateRetrospectiveRuleAuditLogDto, RetrospectiveRuleAuditLogQueryParameters, int>
 {
 }

@@ -8,7 +8,7 @@ public class RetrospectiveTaxCalculationDetailQueryParameters : BaseQueryParamet
 {
     [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public long? CalculationId { get; set; }
+    public int? CalculationId { get; set; }
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]

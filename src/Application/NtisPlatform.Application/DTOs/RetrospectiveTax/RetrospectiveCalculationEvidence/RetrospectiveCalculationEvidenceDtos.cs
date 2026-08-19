@@ -3,24 +3,24 @@ using System.ComponentModel.DataAnnotations;
 namespace NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveCalculationEvidence;
 
 /// <summary>
-/// Custom DTOs (not <see cref="BaseDtos"/>): RetrospectiveCalculationEvidenceEntity uses a BIGINT
-/// key and has no CreatedBy/IsActive/UpdatedBy/UpdatedDate columns.
+/// MarkedForDeletion/MarkedForDeletionDate are system-managed via the Purge endpoints, not user
+/// input, so they're declared directly here rather than in <see cref="BaseDtos"/>.
 /// </summary>
-public class RetrospectiveCalculationEvidenceDto
+public class RetrospectiveCalculationEvidenceDto : BaseDtos
 {
-    public long Id { get; set; }
-    public long CalculationId { get; set; }
+    public int CalculationId { get; set; }
     public int EvidenceTypeId { get; set; }
     public DateTime? EvidenceDate { get; set; }
     public bool IsAvailable { get; set; }
     public string? SourceReference { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
-public class CreateRetrospectiveCalculationEvidenceDto
+public class CreateRetrospectiveCalculationEvidenceDto : CreateBaseDtos
 {
-    [Range(1, long.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_CalculationId_Invalid")]
-    public long CalculationId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_CalculationId_Invalid")]
+    public int CalculationId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_EvidenceTypeId_Invalid")]
     public int EvidenceTypeId { get; set; }
@@ -32,10 +32,10 @@ public class CreateRetrospectiveCalculationEvidenceDto
     public string? SourceReference { get; set; }
 }
 
-public class UpdateRetrospectiveCalculationEvidenceDto
+public class UpdateRetrospectiveCalculationEvidenceDto : UpdateBaseDtos
 {
-    [Range(1, long.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_CalculationId_Invalid")]
-    public long CalculationId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_CalculationId_Invalid")]
+    public int CalculationId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveCalculationEvidence_EvidenceTypeId_Invalid")]
     public int EvidenceTypeId { get; set; }

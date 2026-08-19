@@ -67,6 +67,28 @@ public class RetrospectiveRuleMasterController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreateRetrospectiveRuleMasterDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    /// <summary>
+    /// "Save" button on the Rule Builder screen: rule name + evidence conditions + date
+    /// condition + retrospective tax action + penalty rule, upserted together in one call. Pass
+    /// Id = null in the body to create a new (Draft) rule, or an existing rule's Id to update it
+    /// in place. This does not publish the rule (RuleStatus is left as Draft on create / unchanged
+    /// on update) — use POST {id}/publish separately for that. Returns 404 if Id is set but no
+    /// such rule exists.
+    /// </summary>
+    [HttpPost("save")]
+    [ProducesResponseType(typeof(ApiResponse<RetrospectiveRuleDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Save([FromBody] SaveRetrospectiveRuleDto request, CancellationToken ct)
+    {
+        var detail = await _service.SaveAsync(request, ct);
+        if (detail is null)
+        {
+            return NotFound(new ApiResponse<RetrospectiveRuleDetailDto> { Success = false, Message = $"Rule {request.Id} not found" });
+        }
+
+        return Ok(new ApiResponse<RetrospectiveRuleDetailDto> { Success = true, Message = "Rule saved successfully", Items = detail });
+    }
+
     [HttpPost("Range")]
     public Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateRetrospectiveRuleMasterDto> request, CancellationToken ct)
         => this.ExecuteCreateFromRange(_service, request, _logger, ct);

@@ -14,6 +14,8 @@ public class RetrospectiveCalculationEvidenceMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
 
         CreateMap<UpdateRetrospectiveCalculationEvidenceDto, RetrospectiveCalculationEvidenceEntity>()
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.MapFrom(src => DateTime.Now));
     }
 }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities.RetrospectiveTax;
 
@@ -6,11 +7,9 @@ namespace NtisPlatform.Core.Entities.RetrospectiveTax;
 /// Actual evidence dates used during a property/floor retrospective calculation.
 /// </summary>
 [Table("RetrospectiveCalculationEvidence", Schema = "PTIS")]
-public class RetrospectiveCalculationEvidenceEntity
+public class RetrospectiveCalculationEvidenceEntity : BaseEntity, IHardDeletable
 {
-    public long Id { get; set; }
-
-    public long CalculationId { get; set; }
+    public int CalculationId { get; set; }
 
     public int EvidenceTypeId { get; set; }
 
@@ -20,7 +19,9 @@ public class RetrospectiveCalculationEvidenceEntity
 
     public string? SourceReference { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public bool MarkedForDeletion { get; set; }
+
+    public DateTime? MarkedForDeletionDate { get; set; }
 
     public virtual RetrospectiveTaxCalculationEntity? Calculation { get; set; }
 

@@ -3,21 +3,21 @@ using System.ComponentModel.DataAnnotations;
 namespace NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleAuditLog;
 
 /// <summary>
-/// Custom DTOs (not <see cref="BaseDtos"/>): RetrospectiveRuleAuditLogEntity uses a BIGINT key
-/// and has no IsActive/UpdatedBy/UpdatedDate columns — it is an append-only audit trail.
+/// MarkedForDeletion/MarkedForDeletionDate are system-managed via the Purge endpoints, not user
+/// input, so they're declared directly here rather than in <see cref="BaseDtos"/>.
 /// </summary>
-public class RetrospectiveRuleAuditLogDto
+public class RetrospectiveRuleAuditLogDto : BaseDtos
 {
-    public long Id { get; set; }
     public int? RuleId { get; set; }
     public string ActionType { get; set; } = string.Empty;
     public string? OldValue { get; set; }
     public string? NewValue { get; set; }
     public string? Remarks { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
-public class CreateRetrospectiveRuleAuditLogDto
+public class CreateRetrospectiveRuleAuditLogDto : CreateBaseDtos
 {
     public int? RuleId { get; set; }
 
@@ -31,11 +31,9 @@ public class CreateRetrospectiveRuleAuditLogDto
 
     [StringLength(1000, ErrorMessage = "RetrospectiveRuleAuditLog_Remarks_MaxLen_1000")]
     public string? Remarks { get; set; }
-
-    public int? CreatedBy { get; set; }
 }
 
-public class UpdateRetrospectiveRuleAuditLogDto
+public class UpdateRetrospectiveRuleAuditLogDto : UpdateBaseDtos
 {
     public int? RuleId { get; set; }
 

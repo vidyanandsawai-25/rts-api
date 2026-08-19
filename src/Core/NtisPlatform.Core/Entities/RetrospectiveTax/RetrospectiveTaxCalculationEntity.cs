@@ -1,17 +1,16 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities.RetrospectiveTax;
 
 /// <summary>
-/// Actual retrospective tax calculation transaction for a property or floor.
-/// Uses a BIGINT identity and does not inherit <see cref="BaseEntity"/> (no IsActive/UpdatedBy/UpdatedDate
-/// columns) since calculation runs are immutable transaction records, not editable master data.
+/// Actual retrospective tax calculation transaction for a property or floor. Inherits
+/// <see cref="BaseEntity"/> plus <see cref="IHardDeletable"/> for soft-mark-then-purge of
+/// transaction records via the same Purge/BulkPurge endpoints used by the other 11 tables.
 /// </summary>
 [Table("RetrospectiveTaxCalculation", Schema = "PTIS")]
-public class RetrospectiveTaxCalculationEntity
+public class RetrospectiveTaxCalculationEntity : BaseEntity, IHardDeletable
 {
-    public long Id { get; set; }
-
     public int PropertyId { get; set; }
 
     /// <summary>PROPERTY / FLOOR</summary>
@@ -51,9 +50,9 @@ public class RetrospectiveTaxCalculationEntity
 
     public string? Remarks { get; set; }
 
-    public int? CreatedBy { get; set; }
+    public bool MarkedForDeletion { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime? MarkedForDeletionDate { get; set; }
 
     public virtual RetrospectiveRuleMasterEntity? AppliedRule { get; set; }
 

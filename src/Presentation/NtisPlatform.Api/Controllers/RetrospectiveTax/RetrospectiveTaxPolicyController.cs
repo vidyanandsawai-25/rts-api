@@ -75,6 +75,19 @@ public class RetrospectiveTaxPolicyController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreateRetrospectiveTaxPolicyDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    /// <summary>
+    /// "Save Taxation" button on the "Taxation Rate &amp; Percentage" screen. This section is
+    /// common for every rule under the current ULB, so the caller doesn't pass an Id — the single
+    /// active policy row is updated in place, or created on first use.
+    /// </summary>
+    [HttpPost("save")]
+    [ProducesResponseType(typeof(ApiResponse<RetrospectiveTaxPolicyDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Save([FromBody] SaveRetrospectiveTaxPolicyDto request, CancellationToken ct)
+    {
+        var result = await _service.SaveAsync(request, ct);
+        return Ok(new ApiResponse<RetrospectiveTaxPolicyDto> { Success = true, Message = "Taxation saved successfully", Items = result });
+    }
+
     [HttpPost("Range")]
     public Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateRetrospectiveTaxPolicyDto> request, CancellationToken ct)
         => this.ExecuteCreateFromRange(_service, request, _logger, ct);

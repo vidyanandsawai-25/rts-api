@@ -1,6 +1,8 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleMaster;
+using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.RetrospectiveTax;
@@ -14,7 +16,7 @@ namespace NtisPlatform.Application.Services.RetrospectiveTax;
 public class RetrospectiveRuleMasterService : BaseCommonCrudService<RetrospectiveRuleMasterEntity, RetrospectiveRuleMasterDto, CreateRetrospectiveRuleMasterDto, UpdateRetrospectiveRuleMasterDto, RetrospectiveRuleMasterQueryParameters, int>, IRetrospectiveRuleMasterService
 {
     private readonly IReferenceValidationService _referenceValidator;
-    private readonly IRepository<RetrospectiveRuleAuditLogEntity, long> _auditLogRepository;
+    private readonly IRepository<RetrospectiveRuleAuditLogEntity, int> _auditLogRepository;
     private readonly IRetrospectiveRuleEvidenceConditionService _evidenceConditionService;
     private readonly IRepository<RetrospectiveRuleDateConditionEntity, int> _dateConditionRepository;
     private readonly IRepository<RetrospectiveRuleActionEntity, int> _actionRepository;
@@ -23,7 +25,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
 
     public RetrospectiveRuleMasterService(
         IRepository<RetrospectiveRuleMasterEntity, int> repository,
-        IRepository<RetrospectiveRuleAuditLogEntity, long> auditLogRepository,
+        IRepository<RetrospectiveRuleAuditLogEntity, int> auditLogRepository,
         IRetrospectiveRuleEvidenceConditionService evidenceConditionService,
         IRepository<RetrospectiveRuleDateConditionEntity, int> dateConditionRepository,
         IRepository<RetrospectiveRuleActionEntity, int> actionRepository,
@@ -106,6 +108,235 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
         return _mapper.Map<RetrospectiveRuleMasterDto>(rule);
     }
 
+    public async Task<RetrospectiveRuleDetailDto?> SaveAsync(SaveRetrospectiveRuleDto request, CancellationToken cancellationToken = default)
+    {
+        RetrospectiveRuleMasterEntity rule;
+
+        if (request.Id is int id && id > 0)
+        {
+            var existingRule = await _repository.GetByIdAsync(id, cancellationToken);
+            if (existingRule is null)
+                return null;
+
+            rule = existingRule;
+            rule.RuleCode = request.RuleCode;
+            rule.RuleName = request.RuleName;
+            rule.RuleDescription = request.RuleDescription;
+            rule.PriorityNo = request.PriorityNo;
+            rule.MatchType = request.MatchType;
+            rule.IsFallbackRule = request.IsFallbackRule;
+            rule.AuthorizationStatus = request.AuthorizationStatus;
+            rule.LegalCapEnabled = request.LegalCapEnabled;
+            rule.LegalCapYears = request.LegalCapYears;
+            rule.NoticeDays = request.NoticeDays;
+            rule.VersionNo = request.VersionNo;
+            rule.ResolutionRef = request.ResolutionRef;
+            rule.EffectiveFrom = request.EffectiveFrom;
+            rule.EffectiveTo = request.EffectiveTo;
+            rule.Remarks = request.Remarks;
+            rule.UpdatedBy = request.UpdatedBy;
+            rule.UpdatedDate = DateTime.Now;
+            await _repository.UpdateAsync(rule, cancellationToken);
+        }
+        else
+        {
+            rule = new RetrospectiveRuleMasterEntity
+            {
+                RuleCode = request.RuleCode,
+                RuleName = request.RuleName,
+                RuleDescription = request.RuleDescription,
+                PriorityNo = request.PriorityNo,
+                MatchType = request.MatchType,
+                IsFallbackRule = request.IsFallbackRule,
+                RuleStatus = "Draft",
+                AuthorizationStatus = request.AuthorizationStatus,
+                LegalCapEnabled = request.LegalCapEnabled,
+                LegalCapYears = request.LegalCapYears,
+                NoticeDays = request.NoticeDays,
+                VersionNo = request.VersionNo,
+                ResolutionRef = request.ResolutionRef,
+                EffectiveFrom = request.EffectiveFrom,
+                EffectiveTo = request.EffectiveTo,
+                Remarks = request.Remarks,
+                IsActive = true,
+                CreatedBy = request.UpdatedBy,
+                CreatedDate = DateTime.Now
+            };
+            await _repository.AddAsync(rule, cancellationToken);
+        }
+
+        // Flush so a newly-created rule has its Id assigned before child sections reference it.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _evidenceConditionService.SetEvidenceStateForRuleAsync(rule.Id, new SetRetrospectiveRuleEvidenceConditionStateDto
+        {
+            AvailableEvidenceTypeIds = request.AvailableEvidenceTypeIds,
+            UnavailableEvidenceTypeIds = request.UnavailableEvidenceTypeIds,
+            UpdatedBy = request.UpdatedBy
+        }, cancellationToken);
+
+        await SaveDateConditionAsync(rule.Id, request.DateCondition, request.UpdatedBy, cancellationToken);
+        await SaveActionAsync(rule.Id, request.Action, request.UpdatedBy, cancellationToken);
+        await SavePenaltyRuleAsync(rule.Id, request.PenaltyRule, request.UpdatedBy, cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return await GetDetailAsync(rule.Id, cancellationToken);
+    }
+
+    private async Task SaveDateConditionAsync(int ruleId, SaveRetrospectiveRuleDateConditionDto? section, int? updatedBy, CancellationToken cancellationToken)
+    {
+        var existing = await _dateConditionRepository.GetQueryable()
+            .FirstOrDefaultAsync(c => c.RuleId == ruleId && c.IsActive, cancellationToken);
+
+        if (section is null)
+        {
+            if (existing is not null)
+            {
+                existing.IsActive = false;
+                existing.UpdatedBy = updatedBy;
+                existing.UpdatedDate = DateTime.Now;
+                await _dateConditionRepository.UpdateAsync(existing, cancellationToken);
+            }
+            return;
+        }
+
+        if (existing is not null)
+        {
+            existing.ComparatorCode = section.ComparatorCode;
+            existing.LeftEvidenceTypeId = section.LeftEvidenceTypeId;
+            existing.RightEvidenceTypeId = section.RightEvidenceTypeId;
+            existing.CompareOperator = section.CompareOperator;
+            existing.CompareDate = section.CompareDate;
+            existing.CompareDateTo = section.CompareDateTo;
+            existing.CompareYears = section.CompareYears;
+            existing.UpdatedBy = updatedBy;
+            existing.UpdatedDate = DateTime.Now;
+            await _dateConditionRepository.UpdateAsync(existing, cancellationToken);
+        }
+        else
+        {
+            await _dateConditionRepository.AddAsync(new RetrospectiveRuleDateConditionEntity
+            {
+                RuleId = ruleId,
+                ComparatorCode = section.ComparatorCode,
+                LeftEvidenceTypeId = section.LeftEvidenceTypeId,
+                RightEvidenceTypeId = section.RightEvidenceTypeId,
+                CompareOperator = section.CompareOperator,
+                CompareDate = section.CompareDate,
+                CompareDateTo = section.CompareDateTo,
+                CompareYears = section.CompareYears,
+                IsActive = true,
+                CreatedBy = updatedBy,
+                CreatedDate = DateTime.Now
+            }, cancellationToken);
+        }
+    }
+
+    private async Task SaveActionAsync(int ruleId, SaveRetrospectiveRuleActionDto section, int? updatedBy, CancellationToken cancellationToken)
+    {
+        var existing = await _actionRepository.GetQueryable()
+            .FirstOrDefaultAsync(a => a.RuleId == ruleId && a.IsActive, cancellationToken);
+
+        if (existing is not null)
+        {
+            existing.TaxStartMode = section.TaxStartMode;
+            existing.StartEvidenceTypeId = section.StartEvidenceTypeId;
+            existing.OffsetMonths = section.OffsetMonths;
+            existing.RetrospectiveLimitType = section.RetrospectiveLimitType;
+            existing.MaximumYears = section.MaximumYears;
+            existing.CutoffDate = section.CutoffDate;
+            existing.TaxCalculationMode = section.TaxCalculationMode;
+            existing.TaxMultiplier = section.TaxMultiplier;
+            existing.SplitStartEvidenceTypeId = section.SplitStartEvidenceTypeId;
+            existing.SplitEndEvidenceTypeId = section.SplitEndEvidenceTypeId;
+            existing.SplitMultiplier = section.SplitMultiplier;
+            existing.AfterSplitMultiplier = section.AfterSplitMultiplier;
+            existing.UpdatedBy = updatedBy;
+            existing.UpdatedDate = DateTime.Now;
+            await _actionRepository.UpdateAsync(existing, cancellationToken);
+        }
+        else
+        {
+            await _actionRepository.AddAsync(new RetrospectiveRuleActionEntity
+            {
+                RuleId = ruleId,
+                TaxStartMode = section.TaxStartMode,
+                StartEvidenceTypeId = section.StartEvidenceTypeId,
+                OffsetMonths = section.OffsetMonths,
+                RetrospectiveLimitType = section.RetrospectiveLimitType,
+                MaximumYears = section.MaximumYears,
+                CutoffDate = section.CutoffDate,
+                TaxCalculationMode = section.TaxCalculationMode,
+                TaxMultiplier = section.TaxMultiplier,
+                SplitStartEvidenceTypeId = section.SplitStartEvidenceTypeId,
+                SplitEndEvidenceTypeId = section.SplitEndEvidenceTypeId,
+                SplitMultiplier = section.SplitMultiplier,
+                AfterSplitMultiplier = section.AfterSplitMultiplier,
+                IsActive = true,
+                CreatedBy = updatedBy,
+                CreatedDate = DateTime.Now
+            }, cancellationToken);
+        }
+    }
+
+    private async Task SavePenaltyRuleAsync(int ruleId, SaveRetrospectivePenaltyRuleDto? section, int? updatedBy, CancellationToken cancellationToken)
+    {
+        var existing = await _penaltyRepository.GetQueryable()
+            .FirstOrDefaultAsync(p => p.RuleId == ruleId && p.IsActive, cancellationToken);
+
+        if (section is null)
+        {
+            if (existing is not null)
+            {
+                existing.IsActive = false;
+                existing.UpdatedBy = updatedBy;
+                existing.UpdatedDate = DateTime.Now;
+                await _penaltyRepository.UpdateAsync(existing, cancellationToken);
+            }
+            return;
+        }
+
+        if (existing is not null)
+        {
+            existing.IsPenaltyApplicable = section.IsPenaltyApplicable;
+            existing.PenaltyMode = section.PenaltyMode;
+            existing.PenaltyPercent = section.PenaltyPercent;
+            existing.PenaltyDateSourceType = section.PenaltyDateSourceType;
+            existing.PenaltyDateEvidenceTypeId = section.PenaltyDateEvidenceTypeId;
+            existing.PenaltyDateCondition = section.PenaltyDateCondition;
+            existing.CompareDate = section.CompareDate;
+            existing.CompareDateTo = section.CompareDateTo;
+            existing.ElseAction = section.ElseAction;
+            existing.RequiresManualReview = section.RequiresManualReview;
+            existing.Remarks = section.Remarks;
+            existing.UpdatedBy = updatedBy;
+            existing.UpdatedDate = DateTime.Now;
+            await _penaltyRepository.UpdateAsync(existing, cancellationToken);
+        }
+        else
+        {
+            await _penaltyRepository.AddAsync(new RetrospectivePenaltyRuleEntity
+            {
+                RuleId = ruleId,
+                IsPenaltyApplicable = section.IsPenaltyApplicable,
+                PenaltyMode = section.PenaltyMode,
+                PenaltyPercent = section.PenaltyPercent,
+                PenaltyDateSourceType = section.PenaltyDateSourceType,
+                PenaltyDateEvidenceTypeId = section.PenaltyDateEvidenceTypeId,
+                PenaltyDateCondition = section.PenaltyDateCondition,
+                CompareDate = section.CompareDate,
+                CompareDateTo = section.CompareDateTo,
+                ElseAction = section.ElseAction,
+                RequiresManualReview = section.RequiresManualReview,
+                Remarks = section.Remarks,
+                IsActive = true,
+                CreatedBy = updatedBy,
+                CreatedDate = DateTime.Now
+            }, cancellationToken);
+        }
+    }
+
     protected override async Task<ValidationResult> ValidateForDeactivationAsync(
         int id,
         RetrospectiveRuleMasterEntity currentEntity,
@@ -126,5 +357,33 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
         CancellationToken cancellationToken = default)
     {
         return await _referenceValidator.ValidateReferencesAsync<RetrospectiveRuleMasterEntity>(id, cancellationToken);
+    }
+
+    public async Task<RangeResult<RetrospectiveRuleMasterDto>> CreateFromRangeAsync(RangeCreateRequest<CreateRetrospectiveRuleMasterDto> request, CancellationToken cancellationToken = default)
+    {
+        Func<CreateRetrospectiveRuleMasterDto, string, int, CreateRetrospectiveRuleMasterDto> transformer = (template, rangeValue, sequenceNo) =>
+            new CreateRetrospectiveRuleMasterDto
+            {
+                RuleCode = rangeValue,
+                RuleName = string.IsNullOrEmpty(template.RuleName) ? rangeValue : template.RuleName.Replace("{value}", rangeValue),
+                RuleDescription = template.RuleDescription,
+                PriorityNo = template.PriorityNo,
+                MatchType = template.MatchType,
+                IsFallbackRule = template.IsFallbackRule,
+                RuleStatus = template.RuleStatus,
+                AuthorizationStatus = template.AuthorizationStatus,
+                LegalCapEnabled = template.LegalCapEnabled,
+                LegalCapYears = template.LegalCapYears,
+                NoticeDays = template.NoticeDays,
+                VersionNo = template.VersionNo,
+                ResolutionRef = template.ResolutionRef,
+                EffectiveFrom = template.EffectiveFrom,
+                EffectiveTo = template.EffectiveTo,
+                Remarks = template.Remarks,
+                IsActive = template.IsActive,
+                CreatedBy = template.CreatedBy
+            };
+
+        return await base.CreateFromRangeAsync(request, transformer, cancellationToken);
     }
 }
