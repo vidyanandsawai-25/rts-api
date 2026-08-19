@@ -31,6 +31,12 @@ public class TaxZoningRangeDto : BaseDtos
     public string? MinPropertyNo { get; set; }
     /// <summary>Populated only when <see cref="AssignEntireWard"/> is true: last property No (natural sort).</summary>
     public string? MaxPropertyNo { get; set; }
+    /// <summary>
+    /// Count of PropertyMast rows (partitions included) covered by this range — every property in
+    /// the ward when <see cref="AssignEntireWard"/> is true, otherwise every property whose
+    /// PropertyNo falls within [<see cref="FromPropertyNo"/>, <see cref="ToPropertyNo"/>].
+    /// </summary>
+    public int TotalProperties { get; set; }
 }
 
 /// <summary>

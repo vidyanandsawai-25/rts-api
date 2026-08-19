@@ -12,7 +12,8 @@ public class TaxZoningRangeMappingProfile : Profile
             .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : string.Empty))
             .ForMember(dest => dest.TaxZoneNo, opt => opt.MapFrom(src => src.TaxZone != null ? src.TaxZone.TaxZoneNo : string.Empty))
             .ForMember(dest => dest.MinPropertyNo, opt => opt.Ignore())
-            .ForMember(dest => dest.MaxPropertyNo, opt => opt.Ignore());
+            .ForMember(dest => dest.MaxPropertyNo, opt => opt.Ignore())
+            .ForMember(dest => dest.TotalProperties, opt => opt.Ignore());
 
         CreateMap<UpdateTaxZoningRangeDto, TaxZoningRangeEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

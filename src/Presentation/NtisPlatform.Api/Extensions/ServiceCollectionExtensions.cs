@@ -545,6 +545,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuleOperatorService, RuleOperatorService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
+        services.AddScoped<IVillageMasterService, VillageMasterService>();
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ISocietyWingDetailsService, SocietyWingDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
