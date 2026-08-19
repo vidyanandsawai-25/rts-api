@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs;
@@ -8,6 +9,7 @@ using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Utilities;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 
@@ -33,6 +35,8 @@ public partial class TaxZoningRangeService : ITaxZoningRangeService
     private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<TaxZoningRangeService> _logger;
+    private readonly ILocalizationService _localizationService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public TaxZoningRangeService(
         IRepository<TaxZoningRangeEntity, int> rangeRepository,
@@ -42,7 +46,9 @@ public partial class TaxZoningRangeService : ITaxZoningRangeService
         IUnitOfWork unitOfWork,
         IMapper mapper,
         ICurrentUserService currentUserService,
-        ILogger<TaxZoningRangeService> logger)
+        ILogger<TaxZoningRangeService> logger,
+        ILocalizationService localizationService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _rangeRepository = rangeRepository;
         _propertyRepository = propertyRepository;
@@ -52,7 +58,12 @@ public partial class TaxZoningRangeService : ITaxZoningRangeService
         _mapper = mapper;
         _currentUserService = currentUserService;
         _logger = logger;
+        _localizationService = localizationService;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private string GetLanguage()
+        => _httpContextAccessor.HttpContext?.Items[HttpContextKeys.CurrentLanguage] as string ?? "en";
 
     #region Read
 
@@ -123,35 +134,34 @@ public partial class TaxZoningRangeService : ITaxZoningRangeService
         var (pageNumber, pageSize, skip, take) = PaginationHelper.Calculate(queryParameters.PageNumber, queryParameters.PageSize, totalCount);
         var page = orderedList.Skip(skip).Take(take).ToList();
 
-        // For entire-ward rows fetch the actual property numbers so the UI can show a real range.
-        // SQL MIN/MAX on varchar is lexicographic ("10" < "2"), so sort in-memory via natural sort.
-        var entireWardIds = page
-            .Where(x => x.Range.AssignEntireWard)
-            .Select(x => x.Range.WardId)
-            .Distinct()
-            .ToList();
+        // Batch-fetch properties for every ward represented on this page — one query covers both
+        // the entire-ward Min/Max PropertyNo (existing behavior) and the per-row TotalProperties
+        // count below, instead of a per-row subquery against PropertyMast (the largest table in the
+        // system). SQL MIN/MAX on varchar is lexicographic ("10" < "2"), so sort in-memory via
+        // natural sort. Partition rows are intentionally included in TotalProperties — consistent
+        // with GetCoverageAsync/GetWardAbstractAsync, which count every PropertyMast row.
+        var pageWardIds = page.Select(x => x.Range.WardId).Distinct().ToList();
 
-        Dictionary<int, (string? Min, string? Max)> wardPropBounds = new();
-        if (entireWardIds.Count > 0)
-        {
-            var propNos = await _propertyRepository.GetQueryable().AsNoTracking()
-                .Where(p => entireWardIds.Contains(p.WardId)
-                            && !p.MarkedForDeletion
-                            && p.PropertyNo != null
-                            && (p.PartitionNo == null || p.PartitionNo.Trim() == ""))
-                .Select(p => new { p.WardId, p.PropertyNo })
-                .ToListAsync(cancellationToken);
+        var wardProperties = await _propertyRepository.GetQueryable().AsNoTracking()
+            .Where(p => pageWardIds.Contains(p.WardId) && !p.MarkedForDeletion && p.PropertyNo != null)
+            .Select(p => new { p.WardId, p.PropertyNo, p.PartitionNo })
+            .ToListAsync(cancellationToken);
 
-            wardPropBounds = propNos
-                .GroupBy(p => p.WardId)
-                .ToDictionary(
-                    g => g.Key,
-                    g =>
-                    {
-                        var sorted = g.Select(p => p.PropertyNo!).OrderBy(n => n, PropertyRangeMatcher.Comparer).ToList();
-                        return (Min: sorted.FirstOrDefault(), Max: sorted.LastOrDefault());
-                    });
-        }
+        var wardPropertiesByWard = wardProperties
+            .GroupBy(p => p.WardId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var wardPropBounds = wardPropertiesByWard.ToDictionary(
+            g => g.Key,
+            g =>
+            {
+                var sorted = g.Value
+                    .Where(p => p.PartitionNo == null || p.PartitionNo.Trim() == "")
+                    .Select(p => p.PropertyNo!)
+                    .OrderBy(n => n, PropertyRangeMatcher.Comparer)
+                    .ToList();
+                return (Min: sorted.FirstOrDefault(), Max: sorted.LastOrDefault());
+            });
 
         var dtos = page.Select(x =>
         {
@@ -163,6 +173,13 @@ public partial class TaxZoningRangeService : ITaxZoningRangeService
                 dto.MinPropertyNo = bounds.Min;
                 dto.MaxPropertyNo = bounds.Max;
             }
+
+            dto.TotalProperties = wardPropertiesByWard.TryGetValue(x.Range.WardId, out var wardProps)
+                ? (x.Range.AssignEntireWard
+                    ? wardProps.Count
+                    : wardProps.Count(p => PropertyRangeMatcher.IsInRange(p.PropertyNo, x.Range.FromPropertyNo, x.Range.ToPropertyNo)))
+                : 0;
+
             return dto;
         }).ToList();
 

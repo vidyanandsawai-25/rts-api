@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
@@ -7,6 +8,7 @@ using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
@@ -22,6 +24,8 @@ public class TaxZoningRangeServiceTests
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
     private readonly Mock<ICurrentUserService> _currentUserService = new();
     private readonly Mock<ILogger<TaxZoningRangeService>> _logger = new();
+    private readonly Mock<ILocalizationService> _localizationService = new();
+    private readonly Mock<IHttpContextAccessor> _httpContextAccessor = new();
     private readonly IMapper _mapper;
 
     private readonly List<TaxZoningRangeEntity> _ranges = new();
@@ -66,6 +70,19 @@ public class TaxZoningRangeServiceTests
             });
         _rangeRepo.Setup(r => r.UpdateAsync(It.IsAny<TaxZoningRangeEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        SetLanguage("en");
+        _localizationService
+            .Setup(s => s.GetTranslations(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
+            .Returns((string _, string _, IEnumerable<string> keys) => keys.ToDictionary(k => k, k => k));
+    }
+
+    /// <summary>Sets the language the mocked <see cref="IHttpContextAccessor"/> reports via HttpContext.Items, mirroring what LanguageMiddleware sets in production.</summary>
+    private void SetLanguage(string language)
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Items[HttpContextKeys.CurrentLanguage] = language;
+        _httpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
     }
 
     private TaxZoningRangeService CreateService(int currentUserId = 99)
@@ -79,7 +96,9 @@ public class TaxZoningRangeServiceTests
             _unitOfWork.Object,
             _mapper,
             _currentUserService.Object,
-            _logger.Object);
+            _logger.Object,
+            _localizationService.Object,
+            _httpContextAccessor.Object);
     }
 
     private void SeedWardsAndZone()
@@ -346,5 +365,110 @@ public class TaxZoningRangeServiceTests
         var ward2 = result.Items.Single(w => w.WardId == 2);
         Assert.Equal(1, ward2.TotalProperties);
         Assert.Equal(0, ward2.CoveredProperties);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ForRangeRow_ReportsTotalPropertiesWithinBoundsIncludingPartitions()
+    {
+        SeedWardsAndZone();
+        // A2 has two partitioned sub-records — both must count towards TotalProperties.
+        _properties.Add(new PropertyEntity { Id = 1, WardId = 1, PropertyNo = "A1", TaxZoneId = 0, IsActive = true });
+        _properties.Add(new PropertyEntity { Id = 2, WardId = 1, PropertyNo = "A2", PartitionNo = "1", TaxZoneId = 0, IsActive = true });
+        _properties.Add(new PropertyEntity { Id = 3, WardId = 1, PropertyNo = "A2", PartitionNo = "2", TaxZoneId = 0, IsActive = true });
+        _properties.Add(new PropertyEntity { Id = 4, WardId = 1, PropertyNo = "A3", TaxZoneId = 0, IsActive = true });
+        _properties.Add(new PropertyEntity { Id = 5, WardId = 1, PropertyNo = "A4", TaxZoneId = 0, IsActive = true });
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 1,
+            TaxZoneId = 10,
+            FromPropertyNo = "A2",
+            ToPropertyNo = "A3",
+            AssignEntireWard = false,
+            ZoneDescription = "Covers A2 (both partitions) through A3",
+            IsActive = true
+        });
+
+        var service = CreateService();
+        var result = await service.GetAllAsync(new TaxZoningRangeQueryParameters());
+
+        var row = Assert.Single(result.Items);
+        Assert.Equal(3, row.TotalProperties); // A2 partition 1 + A2 partition 2 + A3
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ForEntireWardRow_ReportsTotalPropertiesAsEveryPropertyInWard()
+    {
+        SeedWardsAndZone();
+        SeedProperties(1, "A1", "A2", "A3");
+        _properties.Add(new PropertyEntity { Id = 100, WardId = 1, PropertyNo = "A3", PartitionNo = "1", TaxZoneId = 0, IsActive = true });
+        SeedProperties(2, "B1"); // different ward — must not be counted
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 1,
+            TaxZoneId = 10,
+            AssignEntireWard = true,
+            ZoneDescription = "Whole-ward assignment for ward 1",
+            IsActive = true
+        });
+
+        var service = CreateService();
+        var result = await service.GetAllAsync(new TaxZoningRangeQueryParameters());
+
+        var row = Assert.Single(result.Items);
+        Assert.True(row.AssignEntireWard);
+        Assert.Equal(4, row.TotalProperties); // A1 + A2 + A3 + A3's partition, excluding ward 2
+    }
+
+    [Fact]
+    public async Task ExportRangesToExcelAsync_ResolvesColumnHeadersFromLocalizationService()
+    {
+        SeedWardsAndZone();
+        SeedProperties(1, "A1");
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 1,
+            TaxZoneId = 10,
+            FromPropertyNo = "A1",
+            ToPropertyNo = "A1",
+            AssignEntireWard = false,
+            ZoneDescription = "Covers A1 only",
+            IsActive = true
+        });
+
+        SetLanguage("hi");
+        _localizationService
+            .Setup(s => s.GetTranslations(
+                "Reports",
+                "hi",
+                It.Is<IEnumerable<string>>(keys => keys.Contains("TaxZoningReport_Col_SrNo"))))
+            .Returns(new Dictionary<string, string>
+            {
+                ["TaxZoningReport_Col_SrNo"] = "क्र.",
+                ["TaxZoningReport_Col_PropertyNo"] = "संपत्ति क्र.",
+                ["TaxZoningReport_Col_TotalProperties"] = "कुल संपत्ति",
+                ["TaxZoningReport_Col_TaxZone"] = "वस्तीचा प्रकार",
+                ["TaxZoningReport_Col_Address"] = "पता",
+            });
+
+        var service = CreateService();
+        var bytes = await service.ExportRangesToExcelAsync(new TaxZoningRangeQueryParameters(), "Test ULB");
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+
+        // Row 4 = ward heading, row 5 = column header row 1 of 2 (A/D/E/F merged across two rows).
+        Assert.Equal("क्र.", ws.Cell(5, 1).GetString());
+        Assert.Equal("संपत्ति क्र.", ws.Cell(5, 2).GetString());
+        Assert.Equal("कुल संपत्ति", ws.Cell(5, 4).GetString());
+        Assert.Equal("वस्तीचा प्रकार", ws.Cell(5, 5).GetString());
+        Assert.Equal("पता", ws.Cell(5, 6).GetString());
+
+        _localizationService.Verify(s => s.GetTranslations(
+            "Reports",
+            "hi",
+            It.Is<IEnumerable<string>>(keys => keys.Count() == 5)), Times.Once);
     }
 }

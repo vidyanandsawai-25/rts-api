@@ -104,11 +104,12 @@ public partial class TaxZoningRangeService
     //   Col A : अ क्रे  (Sr. No.)
     //   Col B : मालमत्ता क्र. > पासून  (From Property No.)
     //   Col C : मालमत्ता क्र. > पर्यंत  (To Property No.)
-    //   Col D : वस्तीचा प्रकार  (Tax Zone No.)
-    //   Col E : पत्ता  (Zone Description)
+    //   Col D : एकूण मालमत्ता  (Total Properties)
+    //   Col E : वस्तीचा प्रकार  (Tax Zone No.)
+    //   Col F : पत्ता  (Zone Description)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private const int ExportTotalCols = 5;
+    private const int ExportTotalCols = 6;
 
     public async Task<byte[]> ExportRangesToExcelAsync(
         TaxZoningRangeQueryParameters queryParams,
@@ -132,6 +133,19 @@ public partial class TaxZoningRangeService
             .GroupBy(i => i.WardNo ?? "")
             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        // Column headers resolve via the DB-backed "Reports" resource so they follow the
+        // requesting user's language (see LanguageMiddleware / HttpContextKeys.CurrentLanguage);
+        // title/subtitle rows below remain fixed Marathi statutory-form text.
+        var language = GetLanguage();
+        var headerLabels = _localizationService.GetTranslations("Reports", language, new[]
+        {
+            "TaxZoningReport_Col_SrNo",
+            "TaxZoningReport_Col_PropertyNo",
+            "TaxZoningReport_Col_TotalProperties",
+            "TaxZoningReport_Col_TaxZone",
+            "TaxZoningReport_Col_Address",
+        });
 
         // Compute current Indian financial year: Apr–Mar
         var now = DateTime.Now;
@@ -170,25 +184,28 @@ public partial class TaxZoningRangeService
             row++;
 
             // ── Column header row 1 of 2 ─────────────────────────────────────
-            // A (merged 2 rows): अ क्रे
-            // B+C (merged col, row 1 only): मालमत्ता क्र.
-            // D (merged 2 rows): वस्तीचा प्रकार
-            // E (merged 2 rows): पत्ता
-            ExportColHeaderMergedRows(ws, row, 1, "अ क्रे");          // A spans 2 rows
+            // A (merged 2 rows): Sr. No.
+            // B+C (merged col, row 1 only): Property No.
+            // D (merged 2 rows): Total Properties
+            // E (merged 2 rows): Type of Use
+            // F (merged 2 rows): Address
+            ExportColHeaderMergedRows(ws, row, 1, headerLabels["TaxZoningReport_Col_SrNo"]);              // A spans 2 rows
             var propNoRange = ws.Range(row, 2, row, 3);
             propNoRange.Merge();
             ExportColHeaderStyle(propNoRange);
-            ws.Cell(row, 2).Value = "मालमत्ता क्र.";
-            ExportColHeaderMergedRows(ws, row, 4, "वस्तीचा प्रकार");  // D spans 2 rows
-            ExportColHeaderMergedRows(ws, row, 5, "पत्ता");            // E spans 2 rows
+            ws.Cell(row, 2).Value = headerLabels["TaxZoningReport_Col_PropertyNo"];
+            ExportColHeaderMergedRows(ws, row, 4, headerLabels["TaxZoningReport_Col_TotalProperties"]);   // D spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 5, headerLabels["TaxZoningReport_Col_TaxZone"]);         // E spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 6, headerLabels["TaxZoningReport_Col_Address"]);           // F spans 2 rows
             row++;
 
             // ── Column header row 2 of 2 ─────────────────────────────────────
-            // A, D, E are already merged from row above — apply border only
+            // A, D, E, F are already merged from row above — apply border only
             ExportBorder(ws.Range(row, 1, row, 1));
             ExportBorder(ws.Range(row, 4, row, 4));
             ExportBorder(ws.Range(row, 5, row, 5));
-            // B: पासून, C: पर्यंत
+            ExportBorder(ws.Range(row, 6, row, 6));
+            // B: पासून (From), C: पर्यंत (To) — not yet covered by a translation key, left hardcoded Marathi
             ExportColHeaderCell(ws.Cell(row, 2), "पासून");
             ExportColHeaderCell(ws.Cell(row, 3), "पर्यंत");
             row++;
@@ -208,10 +225,12 @@ public partial class TaxZoningRangeService
                 ws.Cell(row, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 ws.Cell(row, 3).Value = item.ToPropertyNo ?? "";
                 ws.Cell(row, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                ws.Cell(row, 4).Value = item.TaxZoneNo ?? "";
+                ws.Cell(row, 4).Value = item.TotalProperties;
                 ws.Cell(row, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                ws.Cell(row, 5).Value = item.ZoneDescription ?? "";
-                ws.Cell(row, 5).Style.Alignment.WrapText = true;
+                ws.Cell(row, 5).Value = item.TaxZoneNo ?? "";
+                ws.Cell(row, 5).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(row, 6).Value = item.ZoneDescription ?? "";
+                ws.Cell(row, 6).Style.Alignment.WrapText = true;
                 ws.Row(row).Height = 30;
                 row++;
             }
@@ -222,8 +241,9 @@ public partial class TaxZoningRangeService
         ws.Column(1).Width = 8;
         ws.Column(2).Width = 14;
         ws.Column(3).Width = 14;
-        ws.Column(4).Width = 18;
-        ws.Column(5).Width = 65;
+        ws.Column(4).Width = 14;
+        ws.Column(5).Width = 18;
+        ws.Column(6).Width = 65;
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
