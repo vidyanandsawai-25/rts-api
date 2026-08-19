@@ -122,6 +122,39 @@ public class PropertyCertificateController : ControllerBase
                 CorrelationId = correlationId
             });
         }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error in bulk save. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Bulk save operation failed. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (NtisPlatformException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Domain exception in bulk save. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
         catch (Exception ex)
         {
             var correlationId = Guid.NewGuid().ToString();
@@ -240,6 +273,17 @@ public class PropertyCertificateController : ControllerBase
                 CorrelationId = correlationId
             });
         }
+        catch (NtisPlatformException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Domain exception saving certificate. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
         catch (Exception ex)
         {
             var correlationId = Guid.NewGuid().ToString();
@@ -247,7 +291,7 @@ public class PropertyCertificateController : ControllerBase
             return StatusCode(500, new ApiResponse<object>
             {
                 Success = false,
-                Message = "An error occurred while saving the certificate",
+                Message = !string.IsNullOrWhiteSpace(ex.Message) ? ex.Message : "An error occurred while saving the certificate",
                 CorrelationId = correlationId
             });
         }

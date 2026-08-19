@@ -583,13 +583,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
 
         try
         {
-            // 1. Unlink the document binding from the certificate
-            await _propertyCertificateService.UnlinkDocumentBindingAsync(
-                propertyCertificateId,
-                deletedBy,
-                cancellationToken);
-
-            // 2. Soft-delete the document and physical file via DocumentApplicationService
+            // 1. Soft-delete the document and physical file via DocumentApplicationService
             if (documentGuid.HasValue)
             {
                 await _documentApplicationService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
@@ -663,8 +657,6 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         {
             var documentGuid = match.DocumentBinding.Document?.DocumentGuid;
 
-            await _propertyCertificateService.UnlinkDocumentBindingAsync(match.Id, deletedBy, cancellationToken);
-
             if (documentGuid.HasValue)
             {
                 await _documentApplicationService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
@@ -735,7 +727,6 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             if (match.DocumentBinding != null)
             {
                 var documentGuid = match.DocumentBinding.Document?.DocumentGuid;
-                await _propertyCertificateService.UnlinkDocumentBindingAsync(match.Id, userId, cancellationToken);
                 if (documentGuid.HasValue)
                 {
                     await _documentApplicationService.DeleteDocumentAsync(documentGuid.Value, userId, cancellationToken);
@@ -974,6 +965,27 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             c.CertificateTypeId == request.CertificateTypeId &&
             c.PropertyDetailsId == request.PropertyDetailsId);
 
+        // Validate CC/OC date order upfront against the final proposed state
+        var certTypes = await _certificateTypeRepository.GetAsync(_ => true, cancellationToken);
+        var typeCodeByTypeId = certTypes.ToDictionary(t => t.Id, t => t.CertificateTypeCode);
+        var singleBulkDto = new PropertyCertificateBulkSaveDto
+        {
+            PropertyId = request.PropertyId,
+            Certificates = new List<PropertyCertificateItemDto>
+            {
+                new PropertyCertificateItemDto
+                {
+                    CertificateTypeId = request.CertificateTypeId,
+                    IsEnabled = true,
+                    CertificateNumber = request.CertificateNo,
+                    CertificateDate = request.CertificateIssueDate,
+                    PropertyCertificateId = existing?.Id,
+                    PropertyDetailsId = request.PropertyDetailsId
+                }
+            }
+        };
+        ValidateCcOcDateOrder(singleBulkDto, typeCodeByTypeId, existingCertificates);
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
         int propertyCertificateId;
@@ -992,7 +1004,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                     request.CertificateIssueDate,
                     userId,
                     cancellationToken,
-                    request.PropertyDetailsId);
+                    request.PropertyDetailsId,
+                    suppressRecalculation: true);
             }
             else
             {
@@ -1002,11 +1015,17 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                     request.CertificateNo,
                     request.CertificateIssueDate,
                     userId,
-                    cancellationToken);
+                    cancellationToken,
+                    suppressRecalculation: true);
 
                 if (!existing.IsActive)
                 {
-                    await _propertyCertificateService.ToggleEnabledAsync(propertyCertificateId, true, userId, cancellationToken);
+                    await _propertyCertificateService.ToggleEnabledAsync(
+                        propertyCertificateId,
+                        true,
+                        userId,
+                        cancellationToken,
+                        suppressRecalculation: true);
                 }
             }
 
@@ -1018,11 +1037,17 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             throw;
         }
 
-        // No explicit publish here: PropertyCertificateService.CreateAsync/UpdateAsync/
-        // ToggleEnabledAsync above already publish PropertyCertificateChangedEvent when the
-        // certificate type is IsTaxable (not IsProtected -- that flag only gates whether the
-        // type master row can be deleted). Report the same condition here so the response
-        // accurately reflects whether recalculation actually ran.
+        // Publish PropertyCertificateChangedEvent ONCE after transaction is committed
+        if (certificateType.IsTaxable)
+        {
+            var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
+            if (guideline.RecalculateOnSave)
+            {
+                await _publisher.Publish(
+                    new PropertyCertificateChangedEvent(request.PropertyId, userId), cancellationToken);
+            }
+        }
+
         return new SaveCertificateResponseDto
         {
             PropertyCertificateId = propertyCertificateId,

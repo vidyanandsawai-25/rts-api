@@ -154,7 +154,7 @@ public class PropertyCertificateApplicationServiceTests
             .ReturnsAsync(new List<PropertyCertificateEntity>());
         certService.Setup(s => s.CreateAsync(
                 propertyId, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
-                It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>()))
             .ReturnsAsync(555);
         certService.Setup(s => s.ToggleEnabledAsync(555, true, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -180,9 +180,8 @@ public class PropertyCertificateApplicationServiceTests
 
         Assert.Equal(555, result.PropertyCertificateId);
         Assert.True(result.TaxRecalculationTriggered);
-        // SaveCertificateAsync itself never publishes directly (that responsibility lives in
-        // IPropertyCertificateService's real implementation, mocked away here).
-        publisher.Verify(p => p.Publish(It.IsAny<INotification>(), It.IsAny<CancellationToken>()), Times.Never);
+        // SaveCertificateAsync publishes PropertyCertificateChangedEvent once after transaction commits for taxable certificate types
+        publisher.Verify(p => p.Publish(It.IsAny<INotification>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -214,7 +213,7 @@ public class PropertyCertificateApplicationServiceTests
             .ReturnsAsync(new List<PropertyCertificateEntity>());
         certService.Setup(s => s.CreateAsync(
                 propertyId, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
-                It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>()))
             .ReturnsAsync(556);
         certService.Setup(s => s.ToggleEnabledAsync(556, true, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -268,7 +267,7 @@ public class PropertyCertificateApplicationServiceTests
             .ReturnsAsync(new List<PropertyCertificateEntity>());
         certService.Setup(s => s.CreateAsync(
                 propertyId, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
-                It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>()))
             .ReturnsAsync(777);
         certService.Setup(s => s.ToggleEnabledAsync(777, true, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -326,7 +325,7 @@ public class PropertyCertificateApplicationServiceTests
             .ReturnsAsync(new List<PropertyCertificateEntity>());
         certService.Setup(s => s.CreateAsync(
                 propertyId, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
-                It.IsAny<CancellationToken>(), It.IsAny<int?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>()))
             .ReturnsAsync(901);
 
         var unitOfWork = new Mock<IUnitOfWork>();
@@ -350,7 +349,7 @@ public class PropertyCertificateApplicationServiceTests
         Assert.Equal(901, result.PropertyCertificateId);
         certService.Verify(s => s.CreateAsync(
             propertyId, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
-            It.IsAny<CancellationToken>(), It.IsAny<int?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>()), Times.Once);
         certService.Verify(s => s.ToggleEnabledAsync(
             It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -960,7 +959,7 @@ public class PropertyCertificateApplicationServiceTests
 
         await service.DeleteCertificateByTypeAsync(propertyId, certificateTypeId, propertyDetailsId: null, deletedBy: 1);
 
-        certService.Verify(s => s.UnlinkDocumentBindingAsync(resolvedCertificateId, 1, It.IsAny<CancellationToken>()), Times.Once);
+        certService.Verify(s => s.UnlinkDocumentBindingAsync(resolvedCertificateId, 1, It.IsAny<CancellationToken>()), Times.Never);
         documentService.Verify(d => d.DeleteDocumentAsync(documentGuid, 1, It.IsAny<CancellationToken>()), Times.Once);
         certService.Verify(s => s.DeleteAsync(resolvedCertificateId, 1, It.IsAny<CancellationToken>()), Times.Once);
     }
