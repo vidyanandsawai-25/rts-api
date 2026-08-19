@@ -14,7 +14,7 @@ public sealed class TwoFactorAuthenticationOptions
     /// Issuer name shown inside authenticator apps (e.g. "NtisPlatform"). Also used as the
     /// otpauth:// URI issuer parameter.
     /// </summary>
-    [Required]
+    //[Required]
     public required string Issuer { get; init; }
 
     /// <summary>

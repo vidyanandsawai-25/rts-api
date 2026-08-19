@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 
-
 namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
@@ -32,33 +31,38 @@ public class DocumentAuthorizationService : IDocumentAuthorizationService
         int userId,
         CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if user is the document uploader (document owner)
+        // Step 1: Check if user is the document uploader (document owner) or document was uploaded anonymously
         var document = await _context.Documents
             .AsNoTracking()
             .FirstOrDefaultAsync(
                 d => d.DocumentGuid == documentGuid &&
                      d.IsActive &&
-                     d.UploadedByUserId == userId,
+                     !d.MarkedForDeletion &&
+                     (d.UploadedByUserId == userId || d.UploadedByUserId == 0),
                 cancellationToken);
 
         if (document != null)
         {
-            _logger.LogDebug("Document {DocumentGuid} access granted to uploader {UserId}",
+            _logger.LogDebug("Document {DocumentGuid} access granted to uploader/anonymous {UserId}",
                 documentGuid, userId);
             return true;
         }
 
-
-        // Step 1b: Grant access to any authenticated user (logged-in user)
-        if (userId > 0)
+        // Step 1b: Unauthenticated request (userId == 0) with a valid active document GUID
+        if (userId == 0)
         {
-            _logger.LogInformation("Document {DocumentGuid} access granted to authenticated user {UserId}",
-                documentGuid, userId);
-            return true;
+            var exists = await _context.Documents
+                .AsNoTracking()
+                .AnyAsync(d => d.DocumentGuid == documentGuid && d.IsActive && !d.MarkedForDeletion, cancellationToken);
+
+            if (exists)
+            {
+                _logger.LogInformation("Document {DocumentGuid} access granted to unauthenticated request", documentGuid);
+                return true;
+            }
         }
 
-        // Step 2: Check entity-level authorization via handlers (deny-by-default)
-        // Get document and its bindings
+        // Step 2: Check entity-level authorization via handlers (deny-by-default for authenticated non-uploaders)
         var docWithBindings = await _context.Documents
             .AsNoTracking()
             .Include(d => d.DocumentBindings.Where(b => b.IsActive && !b.MarkedForDeletion))
@@ -70,10 +74,10 @@ public class DocumentAuthorizationService : IDocumentAuthorizationService
             return false;
         }
 
+        // Unbound documents: deny for authenticated non-uploader if no handlers exist
         if (docWithBindings.DocumentBindings.Count == 0)
         {
-            _logger.LogWarning("Document {DocumentGuid} has no active bindings for authorization check",
-                documentGuid);
+            _logger.LogWarning("Document {DocumentGuid} has no active bindings for authorization check", documentGuid);
             return false;
         }
 
