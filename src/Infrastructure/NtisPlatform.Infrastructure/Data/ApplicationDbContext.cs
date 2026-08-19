@@ -261,6 +261,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetGrievanceRemarkMasterEntity> AssetGrievanceRemarkMaster { get; set; } = null!;
 
     public DbSet<CommunicationDetailsEntity> CommunicationDetails { get; set; } = null!;
+    public DbSet<VillageMasterEntity> VillageMasters { get; set; } = null!;
 
     // Retrospective Tax Rule Engine
     public DbSet<EvidenceTypeMasterEntity> EvidenceTypeMaster { get; set; } = null!;
@@ -7575,6 +7576,31 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => new { e.RuleId, e.CreatedDate });
+        });
+
+        modelBuilder.Entity<VillageMasterEntity>(entity =>
+        {
+            entity.ToTable("VillageMaster", "GSMS");
+            entity.HasKey(e => e.Id).HasName("PK_VillageMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ZoneId).IsRequired();
+            entity.Property(e => e.VillageName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.VillageNameEnglish).HasMaxLength(100).HasColumnType("varchar(100)");
+            entity.Property(e => e.Pincode).HasMaxLength(20).HasColumnType("varchar(20)");
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            entity.HasOne(e => e.Zone)
+                .WithMany()
+                .HasForeignKey(e => e.ZoneId)
+                .HasConstraintName("FK_VillageMaster_ZoneMaster")
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
