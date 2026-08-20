@@ -14,6 +14,11 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
+/// <summary>
+/// 100% Database-driven SMS Notification Service.
+/// All SMS templates, DLT Template IDs, Gateway configurations, URLs, and Corporation details
+/// are resolved dynamically from database tables CORE.SMSMaster, CORE.SMSGatewayMaster, and CORE.ULBMaster.
+/// </summary>
 public class RTSSmsNotificationService : IRTSSmsNotificationService
 {
     private readonly ISmsService _smsService;
@@ -80,7 +85,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         }
         catch { }
 
-        return "https://akolamc.org/service";
+        return "/service";
     }
 
     /// <summary>
@@ -99,14 +104,14 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         }
         catch { }
 
-        return "Akola Municipal Corporation";
+        return string.Empty;
     }
 
+    /// <summary>
+    /// 100% Dynamic SMS Dispatch: Fetches Template and DLT ID directly from DB table CORE.SMSMaster
+    /// </summary>
     private async Task SendDynamicSmsAsync(
         string templateName,
-        string typeName,
-        string defaultFallbackMessage,
-        string defaultTemplateId,
         string mobileNo,
         int? applicationId,
         Dictionary<string, string> placeholders,
@@ -120,56 +125,45 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             placeholders["CorporationName"] = corporationName;
             placeholders["UlbName"] = corporationName;
 
-            // 1. Fetch template directly from DB table CORE.SMSMaster
+            // 1. Fetch template dynamically from DB table CORE.SMSMaster
             var template = await _smsMasterRepository.GetQueryable()
                 .Include(t => t.SmsType)
                 .Where(t => t.IsActive && t.TemplateName == templateName)
                 .OrderByDescending(t => t.SmsID)
                 .FirstOrDefaultAsync(ct);
 
-            if (template == null)
+            if (template == null || string.IsNullOrWhiteSpace(template.SmsText))
             {
-                template = await _smsMasterRepository.GetQueryable()
-                    .Include(t => t.SmsType)
-                    .Where(t => t.IsActive && t.SmsType != null && t.SmsType.TypeName == typeName)
-                    .OrderByDescending(t => t.SmsID)
-                    .FirstOrDefaultAsync(ct);
+                _logger.LogWarning("SMS template '{TemplateName}' not found or inactive in CORE.SMSMaster database. Skipping dispatch.", templateName);
+                return;
             }
 
-            string rawText = template != null && !string.IsNullOrWhiteSpace(template.SmsText)
-                ? template.SmsText
-                : defaultFallbackMessage;
-
-            string templateId = !string.IsNullOrWhiteSpace(template?.TemplateID)
-                ? template.TemplateID
-                : defaultTemplateId;
-
-            // 2. Perform Dynamic Placeholder Replacements
-            var message = rawText;
+            // 2. Perform Dynamic Placeholder Replacements on database template text
+            var message = template.SmsText;
             foreach (var kv in placeholders)
             {
-                message = message.Replace($"{{{kv.Key}}}", kv.Value, StringComparison.OrdinalIgnoreCase);
+                message = message.Replace($"{{{kv.Key}}}", kv.Value ?? string.Empty, StringComparison.OrdinalIgnoreCase);
             }
 
-            // 3. Dispatch via database-backed SmsService
+            // 3. Dispatch via database-backed SmsService with DB TemplateID
             await _smsService.SendSmsAsync(new SmsRequest
             {
                 PhoneNumber = mobileNo,
                 Message = message,
-                TemplateId = templateId,
-                TemplateName = template?.TemplateName ?? templateName,
-                SMSTypeID = template?.SMSTypeID,
+                TemplateId = template.TemplateID ?? string.Empty,
+                TemplateName = template.TemplateName,
+                SMSTypeID = template.SMSTypeID,
                 ApplicationId = applicationId
             }, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending SMS for template '{TemplateName}' to {Mobile}", templateName, mobileNo);
+            _logger.LogError(ex, "Error sending dynamic SMS for template '{TemplateName}' to {Mobile}", templateName, mobileNo);
         }
     }
 
     /// <summary>
-    /// 1. Citizen Portal OTP Login Template
+    /// 1. Citizen Portal OTP Login Template (TemplateName: RTS_CITIZEN_LOGIN_OTP)
     /// </summary>
     public async Task SendCitizenOtpAsync(string mobileNo, string otp, CancellationToken ct = default)
     {
@@ -179,12 +173,11 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "OTP", otp }
         };
 
-        var fallbackMsg = "Your RTS Citizen Portal login OTP is {Otp}. Please do not share this OTP with anyone. Akola Municipal Corporation";
-        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", "Citizen Login OTP", fallbackMsg, "1777178712043664592", mobileNo, null, placeholders, ct);
+        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", mobileNo, null, placeholders, ct);
     }
 
     /// <summary>
-    /// 2. Single Unified Dynamic Application Status Template (Triggers on all lifecycle actions)
+    /// 2. Unified Dynamic Application Status Template (TemplateName: RTS_APP_STATUS_UPDATE)
     /// </summary>
     public async Task SendApplicationStatusUpdateAsync(
         int applicationId,
@@ -207,11 +200,11 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "ApplicationNo", applicationNo },
             { "ServiceName", serviceName },
             { "Status", status },
-            { "TrackingUrl", trackingUrl }
+            { "TrackingUrl", trackingUrl },
+            { "TrackingParam", applicationNo }
         };
 
-        var fallbackMsg = "Dear {CitizenName}, Your RTS Application No: {ApplicationNo} for {ServiceName} is Currently {Status} Track Status: {TrackingUrl} Akola Municipal Corporation";
-        await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", "RTS Application Status Update", fallbackMsg, "1777178712142992263", mobileNo, applicationId, placeholders, ct);
+        await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", mobileNo, applicationId, placeholders, ct);
     }
 
     /// <summary>
@@ -228,7 +221,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
         var status = fees > 0
-            ? $"SUBMITTED (Fee Pending)"
+            ? "SUBMITTED (Fee Pending)"
             : "SUBMITTED";
 
         var url = fees > 0
@@ -311,7 +304,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     }
 
     /// <summary>
-    /// 3. Payment Success e-Receipt Template
+    /// 3. Payment Success e-Receipt Template (TemplateName: RTS_FEE_PAID)
     /// </summary>
     public async Task SendPaymentSuccessAsync(
         int applicationId,
@@ -333,10 +326,10 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "Amount", amount.ToString("F2") },
             { "ReceiptNo", receiptNo },
             { "ReceiptUrl", receiptUrl },
-            { "TrackingUrl", receiptUrl }
+            { "TrackingUrl", receiptUrl },
+            { "ReceiptParam", receiptNo }
         };
 
-        var fallbackMsg = "Dear {CitizenName}, Payment of Rs.{Amount} for RTS Application No: {ApplicationNo} is successful. Receipt No: {ReceiptNo}. Download Receipt:{ReceiptUrl} Akola Municipal Corporation";
-        await SendDynamicSmsAsync("RTS_FEE_PAID", "Online Fee Paid", fallbackMsg, "1777178712159619916", mobileNo, applicationId, placeholders, ct);
+        await SendDynamicSmsAsync("RTS_FEE_PAID", mobileNo, applicationId, placeholders, ct);
     }
 }

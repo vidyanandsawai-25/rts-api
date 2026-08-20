@@ -330,8 +330,8 @@ public class RTSPaymentService : IRTSPaymentService
         if (string.IsNullOrWhiteSpace(applicantEmail))
         {
             applicantEmail = !string.IsNullOrWhiteSpace(applicantMobile)
-                ? $"{applicantMobile}@citizen.akolamc.org"
-                : $"citizen_{app.ApplicationNo?.Replace("/", "_") ?? app.Id.ToString()}@citizen.akolamc.org";
+                ? $"{applicantMobile}@citizen.portal"
+                : $"citizen_{app.ApplicationNo?.Replace("/", "_") ?? app.Id.ToString()}@citizen.portal";
         }
 
         string gatewayOrderId = string.Empty;
