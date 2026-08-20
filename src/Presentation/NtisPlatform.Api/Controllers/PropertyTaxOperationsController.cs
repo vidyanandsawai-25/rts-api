@@ -120,13 +120,32 @@ public class PropertyTaxOperationsController : ControllerBase
         if (!PermittedOperations.Contains(request.Operation ?? string.Empty))
             return Forbid();
 
-        var result = await _service.ExecuteAsync(request, BuildContext(), ct);
-        return Ok(new ApiResponse<ExecuteOperationResponseDto>
+        try
         {
-            Success = true,
-            Message = "Operation completed",
-            Items = result
-        });
+            var result = await _service.ExecuteAsync(request, BuildContext(), ct);
+            return Ok(new ApiResponse<ExecuteOperationResponseDto>
+            {
+                Success = true,
+                Message = "Operation completed",
+                Items = result
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
     }
 
     // GET api/property-tax/operations/jobs/{jobId}/status
