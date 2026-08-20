@@ -161,16 +161,14 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 appliedOn = "Area";
             }
 
-            decimal annualRentalValue = Math.Round(yearlyRent - depreciationAmount, 0, MidpointRounding.AwayFromZero);
-            depreciationAmount = Math.Round(depreciationAmount, 0, MidpointRounding.AwayFromZero);
+            decimal annualRentalValue = Math.Round(yearlyRent - depreciationAmount, 2, MidpointRounding.AwayFromZero);
+            depreciationAmount = Math.Round(depreciationAmount, 2, MidpointRounding.AwayFromZero);
 
             // Maintenance deduction is policy-driven. Default is 10% (see RateableValuePolicyConstants.DefaultMaintenanceRateValue).
             // Override via policy key RateableValuePolicyConstants.MaintenanceRateKey or explicit overrideMaintenancePercent argument.
             decimal maintenancePercent = overrideMaintenancePercent ?? options.MaintenanceRatePercent;
-            decimal maintenance = Math.Round(
-                annualRentalValue * maintenancePercent / 100m, 0,
-                MidpointRounding.AwayFromZero);
-            decimal rateableValue = Math.Round(annualRentalValue - maintenance, 0, MidpointRounding.AwayFromZero);
+            decimal maintenance = Math.Round(annualRentalValue * maintenancePercent / 100m, 2 ,MidpointRounding.AwayFromZero);
+            decimal rateableValue = Math.Round(annualRentalValue - maintenance, 2, MidpointRounding.AwayFromZero);
 
             decimal areaSqMtr = options.IsSqFeetUnit
                 ? selectedArea * 0.092903m
