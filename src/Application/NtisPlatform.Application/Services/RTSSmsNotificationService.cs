@@ -50,6 +50,10 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl))
             {
                 var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
+                if (!cleanUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !cleanUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanUrl = $"https://{cleanUrl}";
+                }
                 return cleanUrl.EndsWith("/service", StringComparison.OrdinalIgnoreCase) ? cleanUrl : $"{cleanUrl}/service";
             }
         }
@@ -76,7 +80,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         }
         catch { }
 
-        return "/service";
+        return "https://akolamc.org/service";
     }
 
     /// <summary>
@@ -95,7 +99,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         }
         catch { }
 
-        return "Municipal Corporation";
+        return "Akola Municipal Corporation";
     }
 
     private async Task SendDynamicSmsAsync(
@@ -136,7 +140,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                 ? template.SmsText
                 : defaultFallbackMessage;
 
-            string templateId = template?.TemplateID ?? defaultTemplateId;
+            string templateId = !string.IsNullOrWhiteSpace(template?.TemplateID)
+                ? template.TemplateID
+                : defaultTemplateId;
 
             // 2. Perform Dynamic Placeholder Replacements
             var message = rawText;
@@ -173,8 +179,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "OTP", otp }
         };
 
-        var fallbackMsg = "Your RTS Citizen Portal login OTP is {Otp}. Please do not share this OTP with anyone. - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", "Citizen Login OTP", fallbackMsg, "1707175319753583565", mobileNo, null, placeholders, ct);
+        var fallbackMsg = "Your RTS Citizen Portal login OTP is {Otp}. Please do not share this OTP with anyone. Akola Municipal Corporation";
+        await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", "Citizen Login OTP", fallbackMsg, "1777178712043664592", mobileNo, null, placeholders, ct);
     }
 
     /// <summary>
@@ -204,8 +210,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "TrackingUrl", trackingUrl }
         };
 
-        var fallbackMsg = "Dear {CitizenName}, your RTS Application No: {ApplicationNo} for {ServiceName} is currently {Status}. Track status: {TrackingUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", "RTS Application Status Update", fallbackMsg, "1707175319753583566", mobileNo, applicationId, placeholders, ct);
+        var fallbackMsg = "Dear {CitizenName}, Your RTS Application No: {ApplicationNo} for {ServiceName} is Currently {Status} Track Status: {TrackingUrl} Akola Municipal Corporation";
+        await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", "RTS Application Status Update", fallbackMsg, "1777178712142992263", mobileNo, applicationId, placeholders, ct);
     }
 
     /// <summary>
@@ -222,7 +228,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
         var status = fees > 0
-            ? $"SUBMITTED (Fee of Rs.{fees:F2} Pending)"
+            ? $"SUBMITTED (Fee Pending)"
             : "SUBMITTED";
 
         var url = fees > 0
@@ -246,7 +252,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string? remark = null,
         CancellationToken ct = default)
     {
-        var displayStatus = $"IN PROGRESS (At Stage: {stageName})";
+        var displayStatus = $"IN PROGRESS ({stageName})";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
 
@@ -280,7 +286,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     {
         var displayStatus = string.IsNullOrWhiteSpace(remark)
             ? "REJECTED"
-            : $"REJECTED (Reason: {remark})";
+            : $"REJECTED ({remark})";
 
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
@@ -298,8 +304,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         CancellationToken ct = default)
     {
         var displayStatus = string.IsNullOrWhiteSpace(remark)
-            ? "REVERTED for correction"
-            : $"REVERTED for correction (Remark: {remark})";
+            ? "REVERTED"
+            : $"REVERTED ({remark})";
 
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
@@ -330,7 +336,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             { "TrackingUrl", receiptUrl }
         };
 
-        var fallbackMsg = "Dear {CitizenName}, payment of Rs.{Amount} for RTS Application No: {ApplicationNo} is successful. Receipt No: {ReceiptNo}. Download receipt: {ReceiptUrl} - {CorporationName}";
-        await SendDynamicSmsAsync("RTS_FEE_PAID", "Online Fee Paid", fallbackMsg, "1707175319753583568", mobileNo, applicationId, placeholders, ct);
+        var fallbackMsg = "Dear {CitizenName}, Payment of Rs.{Amount} for RTS Application No: {ApplicationNo} is successful. Receipt No: {ReceiptNo}. Download Receipt:{ReceiptUrl} Akola Municipal Corporation";
+        await SendDynamicSmsAsync("RTS_FEE_PAID", "Online Fee Paid", fallbackMsg, "1777178712159619916", mobileNo, applicationId, placeholders, ct);
     }
 }
