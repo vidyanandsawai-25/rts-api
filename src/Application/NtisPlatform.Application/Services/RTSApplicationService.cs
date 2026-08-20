@@ -127,7 +127,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             await _repository.AddAsync(existingModuleService, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            DispatchSubmissionSms(existingModuleService, createDto);
+            await DispatchSubmissionSmsAsync(existingModuleService, createDto, cancellationToken);
 
             return _mapper.Map<RTSApplicationDetailsDto>(existingModuleService);
         }
@@ -217,14 +217,21 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             }
 
             // Fallback: If mobile not found in form fields, try fetching from citizen session
-            if (string.IsNullOrWhiteSpace(applicantMobile) && !string.IsNullOrWhiteSpace(entity.SessionId))
+            if (!string.IsNullOrWhiteSpace(entity.SessionId))
             {
                 try
                 {
-                    var session = await _sessionService.GetSessionAsync(entity.SessionId, ct);
-                    if (session != null && !string.IsNullOrWhiteSpace(session.MobileNumber))
+                    var sessionResult = await _sessionService.ValidateAndUpdateSessionAsync(entity.SessionId, ct);
+                    if (sessionResult?.Session != null)
                     {
-                        applicantMobile = session.MobileNumber;
+                        if (string.IsNullOrWhiteSpace(applicantMobile) && !string.IsNullOrWhiteSpace(sessionResult.Session.MobileNo))
+                        {
+                            applicantMobile = sessionResult.Session.MobileNo;
+                        }
+                        if (string.IsNullOrWhiteSpace(applicantName) && !string.IsNullOrWhiteSpace(sessionResult.Session.CitizenName))
+                        {
+                            applicantName = sessionResult.Session.CitizenName;
+                        }
                     }
                 }
                 catch { }
