@@ -7344,7 +7344,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("EvidenceTypeMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.EvidenceCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.EvidenceCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.EvidenceName).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.EvidenceCode).IsUnique();
         });
@@ -7353,14 +7353,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveRuleMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.RuleDescription).HasMaxLength(1000);
-            entity.Property(e => e.MatchType).IsRequired().HasMaxLength(30);
-            entity.Property(e => e.RuleStatus).IsRequired().HasMaxLength(30);
-            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30);
-            entity.Property(e => e.VersionNo).HasMaxLength(20);
-            entity.Property(e => e.ResolutionRef).HasMaxLength(200);
+            entity.Property(e => e.MatchType).IsRequired().HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.RuleStatus).IsRequired().HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.VersionNo).HasMaxLength(20).HasColumnType("varchar(20)");
+            entity.Property(e => e.ResolutionRef).HasMaxLength(200).HasColumnType("varchar(200)");
             entity.Property(e => e.Remarks).HasMaxLength(1000);
             entity.HasIndex(e => e.RuleCode).IsUnique();
         });
@@ -7369,10 +7369,10 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveTaxPolicy", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.TaxPolicyCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxPolicyCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.TaxPolicyName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.RateMode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.PercentageMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RateMode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.PercentageMode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.FixedPercentage).HasColumnType("decimal(10,2)");
             entity.HasIndex(e => e.TaxPolicyCode).IsUnique();
             entity.HasIndex(e => e.IsActive).IsUnique().HasFilter("[IsActive] = 1");
@@ -7382,7 +7382,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveRuleEvidenceCondition", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.EvidenceState).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.EvidenceState).IsRequired().HasMaxLength(20).HasColumnType("varchar(20)");
 
             entity.HasOne(e => e.Rule)
                 .WithMany()
@@ -7401,8 +7401,8 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveRuleDateCondition", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.ComparatorCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.CompareOperator).HasMaxLength(30);
+            entity.Property(e => e.ComparatorCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.CompareOperator).HasMaxLength(30).HasColumnType("varchar(30)");
 
             entity.HasOne(e => e.Rule)
                 .WithMany()
@@ -7426,9 +7426,9 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveRuleAction", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.TaxStartMode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.RetrospectiveLimitType).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.TaxCalculationMode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.TaxStartMode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.RetrospectiveLimitType).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.TaxCalculationMode).IsRequired().HasMaxLength(30).HasColumnType("varchar(30)");
             entity.Property(e => e.TaxMultiplier).HasColumnType("decimal(10,2)");
             entity.Property(e => e.SplitMultiplier).HasColumnType("decimal(10,2)");
             entity.Property(e => e.AfterSplitMultiplier).HasColumnType("decimal(10,2)");
@@ -7460,11 +7460,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectivePenaltyRule", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.PenaltyMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyMode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.PenaltyPercent).HasColumnType("decimal(10,2)");
-            entity.Property(e => e.PenaltyDateSourceType).HasMaxLength(30);
-            entity.Property(e => e.PenaltyDateCondition).HasMaxLength(30);
-            entity.Property(e => e.ElseAction).HasMaxLength(50);
+            entity.Property(e => e.PenaltyDateSourceType).HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.PenaltyDateCondition).HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.ElseAction).HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.Remarks).HasMaxLength(500);
 
             entity.HasOne(e => e.Rule)
@@ -7500,9 +7500,9 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveTaxCalculation", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.CalculationMode).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30);
-            entity.Property(e => e.CalculationStatus).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.CalculationMode).IsRequired().HasMaxLength(20).HasColumnType("varchar(20)");
+            entity.Property(e => e.AuthorizationStatus).HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.CalculationStatus).IsRequired().HasMaxLength(30).HasColumnType("varchar(30)");
             entity.Property(e => e.Remarks).HasMaxLength(1000);
             entity.Property(e => e.BaseTaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.RetrospectiveTaxAmount).HasColumnType("decimal(18,2)");
@@ -7526,7 +7526,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveCalculationEvidence", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.SourceReference).HasMaxLength(200);
+            entity.Property(e => e.SourceReference).HasMaxLength(200).HasColumnType("varchar(200)");
 
             entity.HasOne(e => e.Calculation)
                 .WithMany()
@@ -7543,9 +7543,9 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveTaxCalculationDetail", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.FinancialYear).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.RateMode).HasMaxLength(50);
-            entity.Property(e => e.PercentageMode).HasMaxLength(50);
+            entity.Property(e => e.FinancialYear).IsRequired().HasMaxLength(20).HasColumnType("varchar(20)");
+            entity.Property(e => e.RateMode).HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.PercentageMode).HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.BaseTaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.TaxMultiplier).HasColumnType("decimal(10,2)");
             entity.Property(e => e.RetrospectiveTaxAmount).HasColumnType("decimal(18,2)");
@@ -7565,7 +7565,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RetrospectiveRuleAuditLog", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.ActionType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ActionType).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
             entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
             entity.Property(e => e.Remarks).HasMaxLength(1000);
