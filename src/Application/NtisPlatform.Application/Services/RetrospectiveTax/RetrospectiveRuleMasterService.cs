@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.Constants.RetrospectiveTax;
 using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleMaster;
 using NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition;
 using NtisPlatform.Application.DTOs.Range;
@@ -108,8 +109,98 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
         return _mapper.Map<RetrospectiveRuleMasterDto>(rule);
     }
 
+    private static readonly string[] MatchTypes = { "CONDITION_BASED", "EXACT_EVIDENCE_MATCH", "PRIORITY_BASED" };
+    private static readonly string[] AuthorizationStatuses = { "AUTHORIZED", "UNAUTHORIZED", "UNDETERMINED" };
+    private static readonly string[] CompareOperators = { "BEFORE", "AFTER", "ON_OR_BEFORE", "ON_OR_AFTER", "BETWEEN", "OLDER_THAN_YEARS", "WITHIN_YEARS" };
+    private static readonly string[] ElseActions = { "NONE", "MANUAL_REVIEW" };
+
+    /// <summary>
+    /// Validates every CHECK-constraint-backed field SaveAsync writes, before touching the
+    /// database. Without this, an invalid value from the UI (typo, stale dropdown option, etc.)
+    /// reaches SQL Server and surfaces as an unhandled DbUpdateException/SqlException (500)
+    /// instead of a clean 400 naming the offending field.
+    /// </summary>
+    private static void ValidateEnums(SaveRetrospectiveRuleDto request)
+    {
+        ValidateEnum(nameof(request.MatchType), request.MatchType, MatchTypes, required: true);
+        ValidateEnum(nameof(request.AuthorizationStatus), request.AuthorizationStatus, AuthorizationStatuses, required: false);
+
+        if (request.DateCondition is not null)
+        {
+            ValidateEnum(
+                $"{nameof(request.DateCondition)}.{nameof(request.DateCondition.ComparatorCode)}",
+                request.DateCondition.ComparatorCode,
+                RetrospectiveRuleDateConditionOptions.ComparatorCodes.Select(o => o.Code),
+                required: true);
+            ValidateEnum(
+                $"{nameof(request.DateCondition)}.{nameof(request.DateCondition.CompareOperator)}",
+                request.DateCondition.CompareOperator,
+                CompareOperators,
+                required: false);
+        }
+
+        ValidateEnum(
+            $"{nameof(request.Action)}.{nameof(request.Action.TaxStartMode)}",
+            request.Action.TaxStartMode,
+            RetrospectiveRuleActionOptions.TaxStartModes.Select(o => o.Code),
+            required: true);
+        ValidateEnum(
+            $"{nameof(request.Action)}.{nameof(request.Action.RetrospectiveLimitType)}",
+            request.Action.RetrospectiveLimitType,
+            RetrospectiveRuleActionOptions.RetrospectiveLimitTypes.Select(o => o.Code),
+            required: true);
+        ValidateEnum(
+            $"{nameof(request.Action)}.{nameof(request.Action.TaxCalculationMode)}",
+            request.Action.TaxCalculationMode,
+            RetrospectiveRuleActionOptions.TaxCalculationModes.Select(o => o.Code),
+            required: true);
+
+        if (request.PenaltyRule is not null)
+        {
+            ValidateEnum(
+                $"{nameof(request.PenaltyRule)}.{nameof(request.PenaltyRule.PenaltyMode)}",
+                request.PenaltyRule.PenaltyMode,
+                RetrospectivePenaltyRuleOptions.PenaltyModes.Select(o => o.Code),
+                required: true);
+            ValidateEnum(
+                $"{nameof(request.PenaltyRule)}.{nameof(request.PenaltyRule.PenaltyDateSourceType)}",
+                request.PenaltyRule.PenaltyDateSourceType,
+                RetrospectivePenaltyRuleOptions.PenaltyDateSourceTypes.Select(o => o.Code),
+                required: false);
+            ValidateEnum(
+                $"{nameof(request.PenaltyRule)}.{nameof(request.PenaltyRule.PenaltyDateCondition)}",
+                request.PenaltyRule.PenaltyDateCondition,
+                RetrospectivePenaltyRuleOptions.PenaltyDateConditions.Select(o => o.Code),
+                required: false);
+            ValidateEnum(
+                $"{nameof(request.PenaltyRule)}.{nameof(request.PenaltyRule.ElseAction)}",
+                request.PenaltyRule.ElseAction,
+                ElseActions,
+                required: false);
+        }
+    }
+
+    private static void ValidateEnum(string fieldName, string? value, IEnumerable<string> allowedValues, bool required)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            if (required)
+            {
+                throw new ValidationException(fieldName, $"{fieldName} is required.", OperationType.Update);
+            }
+            return;
+        }
+
+        if (!allowedValues.Contains(value))
+        {
+            throw new ValidationException(fieldName, $"'{value}' is not a valid value for {fieldName}.", OperationType.Update);
+        }
+    }
+
     public async Task<RetrospectiveRuleDetailDto?> SaveAsync(SaveRetrospectiveRuleDto request, CancellationToken cancellationToken = default)
     {
+        ValidateEnums(request);
+
         RetrospectiveRuleMasterEntity rule;
 
         if (request.Id is int id && id > 0)

@@ -741,4 +741,155 @@ public class RetrospectiveRuleMasterServiceTests
     }
 
     #endregion
+
+    #region SaveAsync validation
+
+    [Fact]
+    public async Task SaveAsync_InvalidMatchType_ThrowsValidationException_DoesNotTouchRepository()
+    {
+        var request = BuildSaveRequest();
+        request.MatchType = "NOT_A_REAL_MODE";
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+
+        Assert.True(ex.Errors.ContainsKey("MatchType"));
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveAsync_MissingMatchType_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.MatchType = string.Empty;
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidAuthorizationStatus_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.AuthorizationStatus = "MAYBE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_NullAuthorizationStatus_DoesNotThrow()
+    {
+        var request = BuildSaveRequest();
+        request.AuthorizationStatus = null;
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleMasterEntity e, CancellationToken _) => { e.Id = 5; return e; });
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RetrospectiveRuleMasterEntity { Id = 5, RuleCode = "THA-05", RuleName = "New Rule", RuleStatus = "Draft" });
+        _mockEvidenceConditionService
+            .Setup(s => s.SetEvidenceStateForRuleAsync(5, It.IsAny<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.SetRetrospectiveRuleEvidenceConditionStateDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.RetrospectiveRuleEvidenceConditionStateDto>());
+        _mockDateConditionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleDateConditionEntity>().BuildMock());
+        _mockDateConditionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleDateConditionEntity e, CancellationToken _) => e);
+        _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());
+        _mockActionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
+        _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity>().BuildMock());
+        _mockPenaltyRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectivePenaltyRuleEntity e, CancellationToken _) => e);
+        SetupGetDetailMocksForSave(5);
+
+        var result = await _service.SaveAsync(request, CancellationToken.None);
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidDateConditionComparatorCode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.DateCondition!.ComparatorCode = "NOT_A_REAL_COMPARATOR";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidDateConditionCompareOperator_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.DateCondition!.CompareOperator = "NOT_A_REAL_OPERATOR";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionTaxStartMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.TaxStartMode = "NOT_A_REAL_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionRetrospectiveLimitType_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.RetrospectiveLimitType = "NOT_A_REAL_LIMIT";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionTaxCalculationMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.TaxCalculationMode = "NOT_A_REAL_CALC_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyMode = "NOT_A_REAL_PENALTY_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyDateSourceType_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyDateSourceType = "NOT_A_REAL_SOURCE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyDateCondition_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyDateCondition = "NOT_A_REAL_CONDITION";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidElseAction_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.ElseAction = "NOT_A_REAL_ACTION";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    #endregion
 }
