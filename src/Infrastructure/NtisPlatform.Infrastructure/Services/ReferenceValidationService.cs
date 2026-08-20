@@ -354,10 +354,11 @@ public class ReferenceValidationService : IReferenceValidationService
 
         var referencingTables = new List<string>();
 
-        // Get all FK relationships referencing this entity
+        // Get all FK relationships referencing this entity, ignoring cascade deletes
         var foreignKeys = entityType.GetReferencingForeignKeys()
-            .Where(fk => fk.PrincipalKey.Properties
-                .Any(p => p.Name == referencedColumnName))
+            .Where(fk => fk.PrincipalKey.Properties.Any(p => p.Name == referencedColumnName)
+                && fk.DeleteBehavior != DeleteBehavior.Cascade
+                && fk.DeleteBehavior != DeleteBehavior.ClientCascade)
             .ToList();
 
         foreach (var fk in foreignKeys)

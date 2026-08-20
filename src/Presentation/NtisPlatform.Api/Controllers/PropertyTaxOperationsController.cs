@@ -38,6 +38,12 @@ public class PropertyTaxOperationsController : ControllerBase
     public async Task<IActionResult> Init([FromQuery] int? financeYearId, CancellationToken ct)
         => Ok(await _service.GetInitAsync(GetUserId(), financeYearId, ct));
 
+    // GET api/property-tax/operations/server-time
+    [HttpGet("server-time")]
+    [ProducesResponseType(typeof(DateTime), StatusCodes.Status200OK)]
+    public IActionResult ServerTime()
+        => Ok(DateTime.UtcNow);
+
     // GET api/property-tax/operations/export-properties?status=eligible&financeYearId=3002
     [HttpGet("export-properties")]
     public async Task ExportProperties(

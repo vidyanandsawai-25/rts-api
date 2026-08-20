@@ -134,11 +134,11 @@ public partial class TaxZoningRangeService
             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Column headers resolve via the DB-backed "Reports" resource so they follow the
+        // Column headers resolve via the DB-backed "TaxZoningRangeExport" resource so they follow the
         // requesting user's language (see LanguageMiddleware / HttpContextKeys.CurrentLanguage);
         // title/subtitle rows below remain fixed Marathi statutory-form text.
         var language = GetLanguage();
-        var headerLabels = _localizationService.GetTranslations("Reports", language, new[]
+        var headerLabels = _localizationService.GetTranslations("TaxZoningRangeExport", language, new[]
         {
             "TaxZoningReport_Col_SrNo",
             "TaxZoningReport_Col_PropertyNo",
@@ -146,6 +146,12 @@ public partial class TaxZoningRangeService
             "TaxZoningReport_Col_TaxZone",
             "TaxZoningReport_Col_Address",
         });
+
+        // Safe fallback logic if keys are missing from database
+        string GetHeaderLabel(string key, string fallback)
+        {
+            return headerLabels.TryGetValue(key, out var val) && val != key ? val : fallback;
+        }
 
         // Compute current Indian financial year: Apr–Mar
         var now = DateTime.Now;
@@ -189,14 +195,14 @@ public partial class TaxZoningRangeService
             // D (merged 2 rows): Total Properties
             // E (merged 2 rows): Type of Use
             // F (merged 2 rows): Address
-            ExportColHeaderMergedRows(ws, row, 1, headerLabels["TaxZoningReport_Col_SrNo"]);              // A spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 1, GetHeaderLabel("TaxZoningReport_Col_SrNo", "Sr. No."));              // A spans 2 rows
             var propNoRange = ws.Range(row, 2, row, 3);
             propNoRange.Merge();
             ExportColHeaderStyle(propNoRange);
-            ws.Cell(row, 2).Value = headerLabels["TaxZoningReport_Col_PropertyNo"];
-            ExportColHeaderMergedRows(ws, row, 4, headerLabels["TaxZoningReport_Col_TotalProperties"]);   // D spans 2 rows
-            ExportColHeaderMergedRows(ws, row, 5, headerLabels["TaxZoningReport_Col_TaxZone"]);         // E spans 2 rows
-            ExportColHeaderMergedRows(ws, row, 6, headerLabels["TaxZoningReport_Col_Address"]);           // F spans 2 rows
+            ws.Cell(row, 2).Value = GetHeaderLabel("TaxZoningReport_Col_PropertyNo", "Property No.");
+            ExportColHeaderMergedRows(ws, row, 4, GetHeaderLabel("TaxZoningReport_Col_TotalProperties", "Total Properties"));   // D spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 5, GetHeaderLabel("TaxZoningReport_Col_TaxZone", "Tax Zone"));         // E spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 6, GetHeaderLabel("TaxZoningReport_Col_Address", "Address"));           // F spans 2 rows
             row++;
 
             // ── Column header row 2 of 2 ─────────────────────────────────────
