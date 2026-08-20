@@ -200,18 +200,35 @@ public class RTSPaymentController : ControllerBase
     /// Gets payment receipt details by receipt number
     /// </summary>
     [AllowAnonymous]
-    [HttpGet("receipt-by-no/{receiptNo}")]
+    [HttpGet("receipt-by-no/{*receiptNo}")]
+    [HttpGet("receipt-by-no")]
     [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetReceiptByNo(string receiptNo, CancellationToken ct)
+    public async Task<IActionResult> GetReceiptByNo(
+        [FromRoute] string? receiptNo,
+        [FromQuery] string? rNo,
+        [FromQuery] string? receiptNumber,
+        CancellationToken ct)
     {
-        var receipt = await _paymentService.GetPaymentReceiptByReceiptNoAsync(receiptNo, ct);
+        var targetNo = !string.IsNullOrWhiteSpace(receiptNo) ? receiptNo : (!string.IsNullOrWhiteSpace(rNo) ? rNo : receiptNumber);
+        if (string.IsNullOrWhiteSpace(targetNo))
+        {
+            return BadRequest(new ApiResponse<PaymentReceiptDto>
+            {
+                Success = false,
+                Message = "Valid receipt number is required."
+            });
+        }
+
+        targetNo = Uri.UnescapeDataString(targetNo).Trim();
+
+        var receipt = await _paymentService.GetPaymentReceiptByReceiptNoAsync(targetNo, ct);
         if (receipt == null)
         {
             return NotFound(new ApiResponse<PaymentReceiptDto>
             {
                 Success = false,
-                Message = $"No payment receipt found with receipt number '{receiptNo}'."
+                Message = $"No payment receipt found with receipt number '{targetNo}'."
             });
         }
 
