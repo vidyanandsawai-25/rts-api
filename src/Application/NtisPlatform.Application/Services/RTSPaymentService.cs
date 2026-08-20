@@ -587,56 +587,77 @@ public class RTSPaymentService : IRTSPaymentService
             await _historyRepository.AddAsync(history, ct);
         }
 
-        // Pre-resolve applicant contact for thread-safe asynchronous SMS dispatch
+        // Pre-resolve applicant contact for SMS dispatch
         string? smsMobile = null;
         string? smsName = null;
         try
         {
-            var mobFv = await _fieldValueRepository.GetQueryable()
+            var fieldValues = await _fieldValueRepository.GetQueryable()
                 .Include(f => f.FieldDefinition)
                 .Where(f => f.ApplicationId == txn.ApplicationId && !f.MarkedForDeletion)
-                .FirstOrDefaultAsync(f => f.FieldDefinition != null && (f.FieldDefinition.FieldCode.Contains("mobile") || f.FieldDefinition.FieldCode.Contains("phone") || f.FieldDefinition.FieldLabel.Contains("मोबाईल")), ct);
-            smsMobile = mobFv?.TextValue;
+                .ToListAsync(ct);
 
-            var nameFv = await _fieldValueRepository.GetQueryable()
-                .Include(f => f.FieldDefinition)
-                .Where(f => f.ApplicationId == txn.ApplicationId && !f.MarkedForDeletion)
-                .FirstOrDefaultAsync(f => f.FieldDefinition != null && (f.FieldDefinition.FieldCode.Contains("name") || f.FieldDefinition.FieldLabel.Contains("नाव")), ct);
-            smsName = nameFv?.TextValue;
+            foreach (var fv in fieldValues)
+            {
+                var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                var val = (!string.IsNullOrWhiteSpace(fv.TextValue) ? fv.TextValue : fv.NumberValue?.ToString())?.Trim();
+
+                if (string.IsNullOrWhiteSpace(val)) continue;
+
+                if (string.IsNullOrWhiteSpace(smsMobile) &&
+                    (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल") || label.Contains("फोन") || code.Contains("mobile") || code.Contains("phone")))
+                {
+                    smsMobile = val;
+                }
+                else if (string.IsNullOrWhiteSpace(smsName) &&
+                    (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
+                {
+                    smsName = val;
+                }
+            }
+
+            // Fallback: Check Razorpay gateway contact if available
+            if (string.IsNullOrWhiteSpace(smsMobile) && !string.IsNullOrWhiteSpace(txn.GatewayResponseJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(txn.GatewayResponseJson);
+                    if (doc.RootElement.TryGetProperty("contact", out var cProp))
+                    {
+                        var cStr = cProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(cStr))
+                        {
+                            smsMobile = cStr.Replace("+91", "").Trim();
+                        }
+                    }
+                }
+                catch { }
+            }
         }
         catch { }
 
         await _unitOfWork.SaveChangesAsync(ct);
 
-        // Safe Asynchronous SMS dispatch to applicant using captured values
-        var targetMobile = smsMobile;
-        var targetName = smsName ?? "Citizen";
-        var targetAppId = txn.ApplicationId;
-        var targetAppNo = txn.ApplicationNo;
-        var targetAmount = txn.TotalAmount;
-        var targetReceiptNo = receiptNo;
-
-        _ = Task.Run(async () =>
+        // Reliable inline SMS dispatch to applicant
+        if (!string.IsNullOrWhiteSpace(smsMobile))
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(targetMobile))
-                {
-                    await _smsNotificationService.SendPaymentSuccessAsync(
-                        targetAppId,
-                        targetAppNo,
-                        targetName,
-                        targetMobile,
-                        targetAmount,
-                        targetReceiptNo,
-                        CancellationToken.None);
-                }
+                await _smsNotificationService.SendPaymentSuccessAsync(
+                    txn.ApplicationId,
+                    txn.ApplicationNo ?? $"RTS{txn.ApplicationId}",
+                    smsName ?? "Citizen",
+                    smsMobile,
+                    txn.TotalAmount,
+                    receiptNo,
+                    ct);
             }
             catch (Exception smsEx)
             {
-                _logger.LogError(smsEx, "Failed to send payment receipt SMS for application {AppId}", targetAppId);
+                _logger.LogError(smsEx, "Failed to send payment receipt SMS for application {AppId}", txn.ApplicationId);
             }
-        });
+        }
 
         return new VerifyPaymentResponseDto
         {
