@@ -692,9 +692,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _ = Task.Run(async () =>
+            try
             {
-                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(mobile))
                 {
                     await _smsNotificationService.SendApplicationApprovedAsync(
@@ -703,9 +703,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                         name,
                         mobile,
                         serviceName,
-                        CancellationToken.None);
+                        cancellationToken);
                 }
-            });
+            }
+            catch { }
 
             return new RTSApplicationApprovalResponseDto
             {
@@ -754,9 +755,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _ = Task.Run(async () =>
+        try
         {
-            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
             if (!string.IsNullOrWhiteSpace(mobile))
             {
                 await _smsNotificationService.SendApplicationStageAdvancedAsync(
@@ -768,9 +769,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     nextStage.StageName,
                     application.ApplicationStatus,
                     dto.Remark,
-                    CancellationToken.None);
+                    cancellationToken);
             }
-        });
+        }
+        catch { }
 
         return new RTSApplicationApprovalResponseDto
         {
@@ -850,9 +852,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _ = Task.Run(async () =>
+            try
             {
-                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+                var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(mobile))
                 {
                     await _smsNotificationService.SendApplicationRejectedAsync(
@@ -862,9 +864,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                         mobile,
                         serviceName,
                         dto.Remark,
-                        CancellationToken.None);
+                        cancellationToken);
                 }
-            });
+            }
+            catch { }
 
             return new RTSApplicationApprovalResponseDto
             {
@@ -1097,9 +1100,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _ = Task.Run(async () =>
+        try
         {
-            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, CancellationToken.None);
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
             if (!string.IsNullOrWhiteSpace(mobile))
             {
                 await _smsNotificationService.SendApplicationRevertedAsync(
@@ -1109,9 +1112,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     mobile,
                     serviceName,
                     dto.Remark,
-                    CancellationToken.None);
+                    cancellationToken);
             }
-        });
+        }
+        catch { }
 
         return new RTSApplicationApprovalResponseDto
         {

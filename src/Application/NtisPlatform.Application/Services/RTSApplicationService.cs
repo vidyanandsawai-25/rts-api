@@ -176,67 +176,78 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        DispatchSubmissionSms(entity, createDto);
+        await DispatchSubmissionSmsAsync(entity, createDto, cancellationToken);
 
         return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
 
-    private void DispatchSubmissionSms(RTSApplicationDetailsEntity entity, CreateRTSApplicationDetailsDto createDto)
+    private async Task DispatchSubmissionSmsAsync(RTSApplicationDetailsEntity entity, CreateRTSApplicationDetailsDto createDto, CancellationToken ct)
     {
-        _ = Task.Run(async () =>
+        try
         {
-            try
+            string? applicantName = null;
+            string? applicantMobile = null;
+
+            var fieldDefinitions = await _fieldDefinitionRepository.GetQueryable()
+                .Where(x => x.ServiceId == entity.ServiceId && x.IsActive)
+                .ToListAsync(ct);
+
+            if (createDto.FieldValues != null)
             {
-                string? applicantName = null;
-                string? applicantMobile = null;
-
-                var fieldDefinitions = await _fieldDefinitionRepository.GetQueryable()
-                    .Where(x => x.ServiceId == entity.ServiceId && x.IsActive)
-                    .ToListAsync(CancellationToken.None);
-
-                if (createDto.FieldValues != null)
+                foreach (var f in createDto.FieldValues)
                 {
-                    foreach (var f in createDto.FieldValues)
+                    var def = fieldDefinitions.FirstOrDefault(d => d.Id == f.FieldDefinitionId);
+                    var label = (def?.FieldLabel ?? def?.FieldCode ?? string.Empty).ToLowerInvariant();
+                    var code = (def?.FieldCode ?? string.Empty).ToLowerInvariant();
+                    var val = (!string.IsNullOrWhiteSpace(f.TextValue) ? f.TextValue : f.NumberValue?.ToString())?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(val)) continue;
+
+                    if (string.IsNullOrWhiteSpace(applicantMobile) &&
+                        (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल") || code.Contains("mobile") || code.Contains("phone")))
                     {
-                        var def = fieldDefinitions.FirstOrDefault(d => d.Id == f.FieldDefinitionId);
-                        var label = (def?.FieldLabel ?? def?.FieldCode ?? string.Empty).ToLowerInvariant();
-                        var code = (def?.FieldCode ?? string.Empty).ToLowerInvariant();
-                        var val = f.TextValue?.Trim();
-
-                        if (string.IsNullOrWhiteSpace(val)) continue;
-
-                        if (string.IsNullOrWhiteSpace(applicantName) &&
-                            (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
-                        {
-                            applicantName = val;
-                        }
-                        else if (string.IsNullOrWhiteSpace(applicantMobile) &&
-                            (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल") || code.Contains("mobile") || code.Contains("phone")))
-                        {
-                            applicantMobile = val;
-                        }
+                        applicantMobile = val;
+                    }
+                    else if (string.IsNullOrWhiteSpace(applicantName) &&
+                        (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
+                    {
+                        applicantName = val;
                     }
                 }
-
-                if (!string.IsNullOrWhiteSpace(applicantMobile))
-                {
-                    var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, CancellationToken.None);
-                    var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
-
-                    await _smsNotificationService.SendApplicationSubmittedAsync(
-                        entity.Id,
-                        entity.ApplicationNo ?? $"APP{entity.Id}",
-                        applicantName ?? "Citizen",
-                        applicantMobile,
-                        service?.ServiceName ?? "RTS Service",
-                        feeAmount,
-                        CancellationToken.None);
-                }
             }
-            catch
+
+            // Fallback: If mobile not found in form fields, try fetching from citizen session
+            if (string.IsNullOrWhiteSpace(applicantMobile) && !string.IsNullOrWhiteSpace(entity.SessionId))
             {
-                // Non-blocking
+                try
+                {
+                    var session = await _sessionService.GetSessionAsync(entity.SessionId, ct);
+                    if (session != null && !string.IsNullOrWhiteSpace(session.MobileNumber))
+                    {
+                        applicantMobile = session.MobileNumber;
+                    }
+                }
+                catch { }
             }
-        });
+
+            if (!string.IsNullOrWhiteSpace(applicantMobile))
+            {
+                var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, ct);
+                var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
+
+                await _smsNotificationService.SendApplicationSubmittedAsync(
+                    entity.Id,
+                    entity.ApplicationNo ?? $"RTS{entity.Id:D8}",
+                    applicantName ?? "Citizen",
+                    applicantMobile,
+                    service?.ServiceName ?? "RTS Service",
+                    feeAmount,
+                    ct);
+            }
+        }
+        catch
+        {
+            // Non-blocking for application creation
+        }
     }
 }
