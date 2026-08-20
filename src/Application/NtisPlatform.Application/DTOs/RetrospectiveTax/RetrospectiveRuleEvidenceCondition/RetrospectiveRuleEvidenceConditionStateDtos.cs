@@ -33,5 +33,9 @@ public class SetRetrospectiveRuleEvidenceConditionStateDto
     /// <summary>EvidenceTypeMaster.Id values checked in the "Unavailable evidence" panel.</summary>
     public List<int> UnavailableEvidenceTypeIds { get; set; } = new();
 
+    /// <summary>
+    /// Id of the user performing this save. Stamped as CreatedBy on newly-inserted condition rows
+    /// and as UpdatedBy on rows that change state or get deactivated.
+    /// </summary>
     public int? UpdatedBy { get; set; }
 }

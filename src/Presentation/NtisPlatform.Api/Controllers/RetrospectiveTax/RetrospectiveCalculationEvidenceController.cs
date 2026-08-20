@@ -35,7 +35,7 @@ public class RetrospectiveCalculationEvidenceController : ControllerBase
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
     [HttpGet("{id}")]
-    public Task<IActionResult> GetById(long id, CancellationToken ct)
+    public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
     [HttpPost]
@@ -47,28 +47,28 @@ public class RetrospectiveCalculationEvidenceController : ControllerBase
         => this.ExecuteBulkCreate(_service, items, _logger, ct);
 
     [HttpPut("{id}")]
-    public Task<IActionResult> Update(long id, [FromBody] UpdateRetrospectiveCalculationEvidenceDto updateDto, CancellationToken ct)
+    public Task<IActionResult> Update(int id, [FromBody] UpdateRetrospectiveCalculationEvidenceDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
     [HttpPut("Bulk")]
-    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<long, UpdateRetrospectiveCalculationEvidenceDto>[] items, CancellationToken ct)
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRetrospectiveCalculationEvidenceDto>[] items, CancellationToken ct)
         => this.ExecuteBulkUpdate(_service, items, _logger, ct);
 
     [HttpDelete("{id}")]
-    public Task<IActionResult> Delete(long id, CancellationToken ct)
+    public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
     [HttpDelete("Bulk")]
-    public Task<IActionResult> BulkDelete([FromBody] long[] ids, CancellationToken ct)
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 
     [Authorize]
     [HttpDelete("{id}/purge")]
-    public Task<IActionResult> Purge(long id, CancellationToken ct)
-        => this.ExecuteForceDelete<RetrospectiveCalculationEvidenceEntity, long>(_cleanupService, _referenceValidationService, id, _logger, ct);
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<RetrospectiveCalculationEvidenceEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     [Authorize]
     [HttpDelete("Bulk/purge")]
-    public Task<IActionResult> BulkPurge([FromBody] long[] ids, CancellationToken ct)
-        => this.ExecuteBulkForceDelete<RetrospectiveCalculationEvidenceEntity, long>(_cleanupService, _referenceValidationService, ids, _logger, ct);
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<RetrospectiveCalculationEvidenceEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

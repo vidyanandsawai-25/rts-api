@@ -3,13 +3,11 @@ using System.ComponentModel.DataAnnotations;
 namespace NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveTaxCalculation;
 
 /// <summary>
-/// Custom DTOs (not <see cref="BaseDtos"/>): RetrospectiveTaxCalculationEntity uses a BIGINT key
-/// and has no IsActive/UpdatedBy/UpdatedDate columns — calculation runs are immutable
-/// transaction records produced by the retro engine, not editable master data.
+/// MarkedForDeletion/MarkedForDeletionDate are system-managed via the Purge endpoints, not user
+/// input, so they're declared directly here rather than in <see cref="BaseDtos"/>.
 /// </summary>
-public class RetrospectiveTaxCalculationDto
+public class RetrospectiveTaxCalculationDto : BaseDtos
 {
-    public long Id { get; set; }
     public int PropertyId { get; set; }
     public string CalculationMode { get; set; } = string.Empty;
     public int? FloorId { get; set; }
@@ -28,10 +26,11 @@ public class RetrospectiveTaxCalculationDto
     public string? AuthorizationStatus { get; set; }
     public string CalculationStatus { get; set; } = string.Empty;
     public string? Remarks { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
-public class CreateRetrospectiveTaxCalculationDto
+public class CreateRetrospectiveTaxCalculationDto : CreateBaseDtos
 {
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculation_PropertyId_Invalid")]
     public int PropertyId { get; set; }
@@ -69,11 +68,9 @@ public class CreateRetrospectiveTaxCalculationDto
 
     [StringLength(1000, ErrorMessage = "RetrospectiveTaxCalculation_Remarks_MaxLen_1000")]
     public string? Remarks { get; set; }
-
-    public int? CreatedBy { get; set; }
 }
 
-public class UpdateRetrospectiveTaxCalculationDto
+public class UpdateRetrospectiveTaxCalculationDto : UpdateBaseDtos
 {
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculation_PropertyId_Invalid")]
     public int PropertyId { get; set; }

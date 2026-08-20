@@ -164,7 +164,7 @@ public class PropertyCertificateControllerTests
             It.IsAny<PropertyCertificateBulkSaveDto>(),
             It.IsAny<int>(),
             It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("error"));
+            .ThrowsAsync(new Exception("error"));
 
         var dto = new PropertyCertificateBulkSaveDto
         {

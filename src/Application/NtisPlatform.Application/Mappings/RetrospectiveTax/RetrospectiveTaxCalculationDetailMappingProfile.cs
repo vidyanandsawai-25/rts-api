@@ -14,6 +14,8 @@ public class RetrospectiveTaxCalculationDetailMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
 
         CreateMap<UpdateRetrospectiveTaxCalculationDetailDto, RetrospectiveTaxCalculationDetailEntity>()
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.MapFrom(src => DateTime.Now));
     }
 }

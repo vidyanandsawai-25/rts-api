@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.RetrospectiveTax;
 
-public class RetrospectiveCalculationEvidenceService : BaseCommonCrudService<RetrospectiveCalculationEvidenceEntity, RetrospectiveCalculationEvidenceDto, CreateRetrospectiveCalculationEvidenceDto, UpdateRetrospectiveCalculationEvidenceDto, RetrospectiveCalculationEvidenceQueryParameters, long>, IRetrospectiveCalculationEvidenceService
+public class RetrospectiveCalculationEvidenceService : BaseCommonCrudService<RetrospectiveCalculationEvidenceEntity, RetrospectiveCalculationEvidenceDto, CreateRetrospectiveCalculationEvidenceDto, UpdateRetrospectiveCalculationEvidenceDto, RetrospectiveCalculationEvidenceQueryParameters, int>, IRetrospectiveCalculationEvidenceService
 {
     public RetrospectiveCalculationEvidenceService(
-        IRepository<RetrospectiveCalculationEvidenceEntity, long> repository,
+        IRepository<RetrospectiveCalculationEvidenceEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

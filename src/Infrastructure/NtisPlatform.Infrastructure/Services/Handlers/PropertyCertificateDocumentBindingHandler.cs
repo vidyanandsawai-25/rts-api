@@ -85,30 +85,13 @@ public sealed class PropertyCertificateDocumentBindingHandler : IDocumentBinding
     /// Unlinks the document binding from the <c>PropertyCertificate</c> row
     /// when its associated document is being deleted.
     /// </summary>
-    public async Task OnBeforeDeleteAsync(
+    public Task OnBeforeDeleteAsync(
         DocumentBindingEntity binding,
         int deletedBy,
         CancellationToken cancellationToken)
     {
-        if (!binding.ReferenceTableId.HasValue || binding.ReferenceTableId.Value <= 0)
-            return;
-
-        _logger.LogDebug(
-            "PropertyCertificateDocumentBindingHandler.OnBeforeDeleteAsync: unlinking CertificateId={CertId}",
-            binding.ReferenceTableId.Value);
-
-        // Verify the certificate's binding ID still points to this binding before unlinking
-        var certificate = await _certificateService.GetByIdAsync(
-            binding.ReferenceTableId.Value,
-            PropertyCertificateIncludeOptions.None,
-            cancellationToken);
-
-        if (certificate != null && certificate.DocumentBindingId == binding.Id)
-        {
-            await _certificateService.UnlinkDocumentBindingAsync(
-                binding.ReferenceTableId.Value,
-                deletedBy,
-                cancellationToken);
-        }
+        // DocumentBindingId is intentionally kept intact on the PropertyCertificate row
+        // when soft-deleting documents so all original metadata columns remain untouched.
+        return Task.CompletedTask;
     }
 }

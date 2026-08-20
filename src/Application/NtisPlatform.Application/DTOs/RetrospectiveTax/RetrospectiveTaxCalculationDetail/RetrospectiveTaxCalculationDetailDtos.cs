@@ -3,13 +3,12 @@ using System.ComponentModel.DataAnnotations;
 namespace NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveTaxCalculationDetail;
 
 /// <summary>
-/// Custom DTOs (not <see cref="BaseDtos"/>): RetrospectiveTaxCalculationDetailEntity uses a
-/// BIGINT key and has no CreatedBy/IsActive/UpdatedBy/UpdatedDate columns.
+/// MarkedForDeletion/MarkedForDeletionDate are system-managed via the Purge endpoints, not user
+/// input, so they're declared directly here rather than in <see cref="BaseDtos"/>.
 /// </summary>
-public class RetrospectiveTaxCalculationDetailDto
+public class RetrospectiveTaxCalculationDetailDto : BaseDtos
 {
-    public long Id { get; set; }
-    public long CalculationId { get; set; }
+    public int CalculationId { get; set; }
     public int PropertyId { get; set; }
     public int FloorId { get; set; }
     public string FinancialYear { get; set; } = string.Empty;
@@ -23,13 +22,14 @@ public class RetrospectiveTaxCalculationDetailDto
     public decimal? PenaltyPercent { get; set; }
     public decimal PenaltyAmount { get; set; }
     public decimal TotalAmount { get; set; }
-    public DateTime CreatedDate { get; set; }
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
-public class CreateRetrospectiveTaxCalculationDetailDto
+public class CreateRetrospectiveTaxCalculationDetailDto : CreateBaseDtos
 {
-    [Range(1, long.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_CalculationId_Invalid")]
-    public long CalculationId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_CalculationId_Invalid")]
+    public int CalculationId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_PropertyId_Invalid")]
     public int PropertyId { get; set; }
@@ -61,10 +61,10 @@ public class CreateRetrospectiveTaxCalculationDetailDto
     public decimal TotalAmount { get; set; }
 }
 
-public class UpdateRetrospectiveTaxCalculationDetailDto
+public class UpdateRetrospectiveTaxCalculationDetailDto : UpdateBaseDtos
 {
-    [Range(1, long.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_CalculationId_Invalid")]
-    public long CalculationId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_CalculationId_Invalid")]
+    public int CalculationId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "RetrospectiveTaxCalculationDetail_PropertyId_Invalid")]
     public int PropertyId { get; set; }

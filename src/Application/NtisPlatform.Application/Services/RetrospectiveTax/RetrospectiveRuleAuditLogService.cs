@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.RetrospectiveTax;
 
-public class RetrospectiveRuleAuditLogService : BaseCommonCrudService<RetrospectiveRuleAuditLogEntity, RetrospectiveRuleAuditLogDto, CreateRetrospectiveRuleAuditLogDto, UpdateRetrospectiveRuleAuditLogDto, RetrospectiveRuleAuditLogQueryParameters, long>, IRetrospectiveRuleAuditLogService
+public class RetrospectiveRuleAuditLogService : BaseCommonCrudService<RetrospectiveRuleAuditLogEntity, RetrospectiveRuleAuditLogDto, CreateRetrospectiveRuleAuditLogDto, UpdateRetrospectiveRuleAuditLogDto, RetrospectiveRuleAuditLogQueryParameters, int>, IRetrospectiveRuleAuditLogService
 {
     public RetrospectiveRuleAuditLogService(
-        IRepository<RetrospectiveRuleAuditLogEntity, long> repository,
+        IRepository<RetrospectiveRuleAuditLogEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
