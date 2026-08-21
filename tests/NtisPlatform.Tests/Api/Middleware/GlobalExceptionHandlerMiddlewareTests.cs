@@ -297,4 +297,26 @@ public class GlobalExceptionHandlerMiddlewareTests
         Assert.DoesNotContain("Sensitive error", responseBody);
         Assert.Contains("An error occurred while processing your request", responseBody);
     }
+
+    [Fact]
+    public async Task InvokeAsync_ProductionMode_NtisPlatformException_ReturnsActualMessage()
+    {
+        var mockLogger = new Mock<ILogger<GlobalExceptionHandlerMiddleware>>();
+        var mockEnv = new Mock<IWebHostEnvironment>();
+        mockEnv.Setup(e => e.EnvironmentName).Returns(Environments.Production);
+
+        RequestDelegate next = (HttpContext hc) => throw new NtisPlatform.Application.Exceptions.RateMasterNotFoundException(1, "CSN1", 2025, 2, 1);
+
+        var middleware = new GlobalExceptionHandlerMiddleware(next, mockLogger.Object, mockEnv.Object);
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        var reader = new StreamReader(context.Response.Body);
+        var responseBody = await reader.ReadToEndAsync();
+
+        Assert.Contains("Rate Master not found", responseBody);
+    }
 }

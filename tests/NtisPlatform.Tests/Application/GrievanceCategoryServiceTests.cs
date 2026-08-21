@@ -22,6 +22,9 @@ public class GrievanceCategoryServiceTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
+        var defaultEntities = new List<GrievanceCategoryEntity>();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(defaultEntities.BuildMock());
+
         // Setup SaveChangesAsync
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
