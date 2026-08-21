@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
@@ -11,24 +12,24 @@ public interface IAutomationDashboardRepository
 {
     Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownProjection> ReadPreviouslyRegisteredBreakdownAsync(
+    Task<DashboardCardBreakdownDto> ReadPreviouslyRegisteredBreakdownAsync(
         CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownProjection> ReadPropertyBreakdownByAssessmentStatusAsync(
+    Task<DashboardCardBreakdownDto> ReadPropertyBreakdownByAssessmentStatusAsync(
         int statusId,
         PropertySearchRequestDto? searchRequest = null,
         bool includeDemand = false,
         CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownProjection> ReadAcdApprovedPropertyBreakdownAsync(
+    Task<DashboardCardBreakdownDto> ReadAcdApprovedPropertyBreakdownAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
 
-    Task<List<WorkflowStageProjection>> ReadWorkflowStagesAsync(
+    Task<List<PropertyWorkflowStageMasterEntity>> ReadWorkflowStagesAsync(
         int? workflowStageId = null,
         CancellationToken cancellationToken = default);
 
-    Task<Dictionary<int, WorkflowStageCountProjection>> ReadWorkflowStageCountsAsync(
+    Task<Dictionary<int, (int PropertyCount, int StructureCount, int UnitCount)>> ReadWorkflowStageCountsAsync(
         IEnumerable<int> stageIds,
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
@@ -54,7 +55,11 @@ public interface IAutomationDashboardRepository
         PendingAssessmentQueryParameters query,
         CancellationToken cancellationToken = default);
 
-    Task<List<WorkflowStageCompletionProjection>> ReadWorkflowStageCompletionsAsync(
+    Task<List<int>> ReadCompletedWorkflowStageIdsAsync(
         int propertyId,
+        CancellationToken cancellationToken = default);
+
+    Task<Dictionary<int, string?>> ReadWorkflowStageOfficerNamesAsync(
+        IEnumerable<int> stageIds,
         CancellationToken cancellationToken = default);
 }

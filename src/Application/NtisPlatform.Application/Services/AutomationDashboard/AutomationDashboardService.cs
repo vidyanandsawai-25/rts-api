@@ -1,6 +1,7 @@
 using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
+using NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
 
@@ -68,18 +69,19 @@ namespace NtisPlatform.Application.Services
         {
             var stages = await _dashboardRepository.ReadWorkflowStagesAsync();
             var countsByStageId = await _dashboardRepository.ReadWorkflowStageCountsAsync(
-                stages.Select(s => s.WorkflowStageId));
+                stages.Select(s => s.Id));
 
             return stages.Select(stage =>
             {
-                countsByStageId.TryGetValue(stage.WorkflowStageId, out var counts);
+                countsByStageId.TryGetValue(stage.Id, out var counts);
 
                 return new WorkflowStageCardDto
                 {
-                    Id = stage.WorkflowStageId,
+                    Id = stage.Id,
                     StageName = stage.StageName,
-                    StructureCount = counts?.StructureCount ?? 0,
-                    UnitCount = counts?.UnitCount ?? 0
+                    PropertyCount = counts.PropertyCount,
+                    StructureCount = counts.StructureCount,
+                    UnitCount = counts.UnitCount
                 };
             }).ToList();
         }
@@ -120,7 +122,7 @@ namespace NtisPlatform.Application.Services
         /// <summary>
         /// Tracks property status across all workflow stages.
         /// </summary>
-        public Task<List<TrackStageStatusDto>> TrackStageStatusAsync(
+        public Task<List<PropertyWorkflowStageMasterDto>> TrackStageStatusAsync(
             int propertyId,
             CancellationToken cancellationToken = default)
             => GetTrackStageStatusAsync(propertyId, cancellationToken);
@@ -150,22 +152,29 @@ namespace NtisPlatform.Application.Services
             Func<Task<SubGridDataProjection>> fetchSnapshot)
             => BuildSubGridResponse(await fetchSnapshot());
 
-        private async Task<List<TrackStageStatusDto>> GetTrackStageStatusAsync(
-            int propertyId,
-            CancellationToken cancellationToken)
+        private async Task<List<PropertyWorkflowStageMasterDto>> GetTrackStageStatusAsync(int propertyId,CancellationToken cancellationToken)
         {
-            var stages = await _dashboardRepository.ReadWorkflowStageCompletionsAsync(propertyId, cancellationToken);
+            var stages = await _dashboardRepository.ReadWorkflowStagesAsync(cancellationToken: cancellationToken);
+            var completedStageIds = await _dashboardRepository.ReadCompletedWorkflowStageIdsAsync(propertyId, cancellationToken);
+            var officerNames = await _dashboardRepository.ReadWorkflowStageOfficerNamesAsync(
+                stages.Select(stage => stage.Id),
+                cancellationToken);
+            var completedStageIdSet = completedStageIds.ToHashSet();
 
-            return stages.Select(stage => new TrackStageStatusDto
+            return stages.Select(stage => new PropertyWorkflowStageMasterDto
             {
-                WorkflowStageId = stage.WorkflowStageId,
+                Id = stage.Id,
                 StageName = stage.StageName,
+                Description = stage.Description,
+                UserId = stage.UserId,
+                OfficerName = officerNames.GetValueOrDefault(stage.Id),
                 DisplayOrder = stage.DisplayOrder,
-                IsCompleted = stage.IsCompleted ? 1 : 0
+                IsActive = stage.IsActive,
+                IsCompleted = completedStageIdSet.Contains(stage.Id) ? 1 : 0
             }).ToList();
         }
 
-        private static DashboardCardBreakdownDto MapDashboardCardBreakdown(DashboardCardBreakdownProjection projection)
+        private static DashboardCardBreakdownDto MapDashboardCardBreakdown(DashboardCardBreakdownDto projection)
             => new()
             {
                 PropertyCount = projection.PropertyCount,

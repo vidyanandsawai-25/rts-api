@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
@@ -17,6 +18,360 @@ public class PropertySignatureRepositoryPendingExportTests
             .Options;
 
         return new ApplicationDbContext(options);
+    }
+
+    [Fact]
+    public async Task GetSignAuthorityIdByUserRoleAsync_ReturnsAuthorityIdForActivePtisRole()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.UserMasters.Add(new UserEntity
+        {
+            Id = 1,
+            FirstName = "Test",
+            LastName = "User",
+            Email = "test@example.com",
+            PasswordHash = "hash",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = createdDate
+        });
+        context.DepartmentMasters.Add(new DepartmentMasterEntity
+        {
+            Id = 10,
+            DepartmentCode = "PTIS",
+            DepartmentName = "PTIS",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.UserRoleMasterEntity.Add(new UserRoleMasterEntity
+        {
+            Id = 20,
+            UserRoleName = "Tax Inspector",
+            DepartmentId = 10,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.UserRoleAllocation.Add(new UserRoleAllocationEntity
+        {
+            Id = 30,
+            UserId = 1,
+            UserRoleId = 20,
+            DepartmentId = 10,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.SignAuthorityMaster.Add(new SignAuthorityMasterEntity
+        {
+            Id = 2,
+            AuthorityName = "Tax Inspector",
+            AuthorityCode = "TI",
+            SequenceOrder = 2,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        await context.SaveChangesAsync();
+        var repository = new PropertySignatureRepository(context, Mock.Of<ILogger<PropertySignatureRepository>>());
+
+        var result = await repository.GetSignAuthorityIdByUserRoleAsync(1, CancellationToken.None);
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
+    public async Task UpdateSignAsync_UpdatesCurrentRowAndInsertsNextPendingRow()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertySignatureDetails.Add(new PropertySignatureDetailsEntity
+        {
+            Id = 10,
+            UserId = 5,
+            PropertyId = 100,
+            SignAuthorityId = 1,
+            NoticeNo = "N100",
+            SignStatus = "PendingToClerk",
+            IsActive = true,
+            CreatedDate = createdDate,
+            CreatedBy = 5
+        });
+        await context.SaveChangesAsync();
+        var repository = new PropertySignatureRepository(context, Mock.Of<ILogger<PropertySignatureRepository>>());
+
+        var result = await repository.UpdateSignAsync(
+            new PropertySignatureUpdateSignCommandDto
+            {
+                SignatureId = 10,
+                UserId = 5,
+                PropertyId = 100,
+                SignAuthorityId = 1,
+                NoticeNo = "N100",
+                IsActive = true,
+                UpdatedBy = 5,
+                UpdatedSignStatus = "ApprovedByClerk",
+                NextSignAuthorityId = 2,
+                NextSignStatus = "PendingToTI"
+            },
+            CancellationToken.None);
+
+        Assert.True(result);
+        var current = await context.PropertySignatureDetails.SingleAsync(x => x.Id == 10);
+        Assert.Equal("ApprovedByClerk", current.SignStatus);
+        Assert.Equal(5, current.UpdatedBy);
+
+        var next = await context.PropertySignatureDetails.SingleAsync(x => x.PropertyId == 100 && x.SignAuthorityId == 2);
+        Assert.Equal(5, next.UserId);
+        Assert.Equal("N100", next.NoticeNo);
+        Assert.Equal("PendingToTI", next.SignStatus);
+        Assert.True(next.IsActive);
+    }
+
+    [Fact]
+    public async Task UpdateSignAsync_WhenNextRowAlreadyExists_UpdatesCurrentOnly()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertySignatureDetails.AddRange(
+            new PropertySignatureDetailsEntity
+            {
+                Id = 10,
+                UserId = 5,
+                PropertyId = 100,
+                SignAuthorityId = 1,
+                NoticeNo = "N100",
+                SignStatus = "PendingToClerk",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 11,
+                UserId = 5,
+                PropertyId = 100,
+                SignAuthorityId = 2,
+                NoticeNo = "N100",
+                SignStatus = "PendingToTI",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        await context.SaveChangesAsync();
+        var repository = new PropertySignatureRepository(context, Mock.Of<ILogger<PropertySignatureRepository>>());
+
+        var result = await repository.UpdateSignAsync(
+            new PropertySignatureUpdateSignCommandDto
+            {
+                SignatureId = 10,
+                UserId = 5,
+                PropertyId = 100,
+                SignAuthorityId = 1,
+                NoticeNo = "N100",
+                IsActive = true,
+                UpdatedBy = 5,
+                UpdatedSignStatus = "ApprovedByClerk",
+                NextSignAuthorityId = 2,
+                NextSignStatus = "PendingToTI"
+            },
+            CancellationToken.None);
+
+        Assert.True(result);
+        Assert.Equal(2, await context.PropertySignatureDetails.CountAsync(x => x.PropertyId == 100));
+        Assert.Equal("ApprovedByClerk", (await context.PropertySignatureDetails.SingleAsync(x => x.Id == 10)).SignStatus);
+    }
+
+    [Fact]
+    public async Task GetUpdateSignSourceAsync_ReturnsOnlyMatchingActivePendingRecord()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.SignAuthorityMaster.Add(new SignAuthorityMasterEntity
+        {
+            Id = 1,
+            AuthorityName = "Clerk",
+            AuthorityCode = "CLERK",
+            SequenceOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertySignatureDetails.Add(new PropertySignatureDetailsEntity
+        {
+            Id = 10,
+            UserId = 5,
+            PropertyId = 100,
+            SignAuthorityId = 1,
+            NoticeNo = "N100",
+            SignStatus = "PendingToClerk",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        await context.SaveChangesAsync();
+        var repository = new PropertySignatureRepository(context, Mock.Of<ILogger<PropertySignatureRepository>>());
+
+        var result = await repository.GetUpdateSignSourceAsync(5, 100, 1, "pendingtoclerk", CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(10, result!.SignatureId);
+        Assert.Equal("CLERK", result.AuthorityCode);
+        Assert.Equal("N100", result.NoticeNo);
+    }
+
+    [Fact]
+    public async Task GetPendingSignSourceDataAsync_ReturnsSignatureRowsWithUnitsDemandAndAuthorityCode()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 1,
+            WardNo = "WE2",
+            ZoneId = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyMast.AddRange(
+            new PropertyEntity
+            {
+                Id = 100,
+                WardId = 1,
+                TaxZoneId = 1,
+                PropertyNo = "4",
+                PartitionNo = "",
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyEntity
+            {
+                Id = 101,
+                WardId = 1,
+                TaxZoneId = 1,
+                PropertyNo = "4",
+                PartitionNo = "1",
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyEntity
+            {
+                Id = 102,
+                WardId = 1,
+                TaxZoneId = 1,
+                PropertyNo = "4",
+                PartitionNo = "2",
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            });
+        context.SignAuthorityMaster.AddRange(
+            new SignAuthorityMasterEntity
+            {
+                Id = 1,
+                AuthorityName = "Clerk",
+                AuthorityCode = "CLERK",
+                SequenceOrder = 1,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new SignAuthorityMasterEntity
+            {
+                Id = 2,
+                AuthorityName = "Tax Inspector",
+                AuthorityCode = "TI",
+                SequenceOrder = 2,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.PropertySignatureDetails.AddRange(
+            new PropertySignatureDetailsEntity
+            {
+                Id = 20,
+                PropertyId = 100,
+                UserId = 5,
+                SignAuthorityId = 2,
+                NoticeNo = "WE0200040000",
+                SignStatus = "Pending",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 21,
+                PropertyId = 100,
+                UserId = 99,
+                SignAuthorityId = 1,
+                NoticeNo = "MMMAJOR40001B7P",
+                SignStatus = "Approved",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 22,
+                PropertyId = 101,
+                UserId = 5,
+                SignAuthorityId = 2,
+                NoticeNo = "WE0200040000A",
+                SignStatus = "Pending",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.TaxMaster.AddRange(
+            new TaxMasterEntity
+            {
+                Id = 1,
+                TaxCode = "TaxTotal",
+                TaxName = "TaxTotal",
+                TaxCategoryId = 1,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new TaxMasterEntity
+            {
+                Id = 2,
+                TaxCode = "GENERAL",
+                TaxName = "General Tax",
+                TaxCategoryId = 1,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.TransMast.AddRange(
+            CreateTransMast(1, 100, 1, 100m, createdDate),
+            CreateTransMast(2, 100, 2, 999m, createdDate),
+            CreateTransMast(3, 101, 1, 250m, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new PropertySignatureRepository(
+            context,
+            Mock.Of<ILogger<PropertySignatureRepository>>());
+
+        var result = await repository.GetPendingSignSourceDataAsync(2, null, CancellationToken.None);
+
+        Assert.Equal(6, result.Count);
+        Assert.All(result, row =>
+        {
+            Assert.Equal(2, row.SignAuthorityId);
+            Assert.Equal("WE2", row.WardNo);
+            Assert.Equal("4", row.PropertyNo);
+            Assert.Equal("Pending", row.SignStatus);
+            Assert.Equal("TI", row.AuthorityCode);
+        });
+        Assert.Equal(new[] { 20, 22 }, result.Select(row => row.SignatureId).Distinct().OrderBy(id => id));
+        Assert.Equal(new[] { 100, 101 }, result.Select(row => row.PropertyId).Distinct().OrderBy(id => id));
+        Assert.Equal(700m, result.Sum(row => row.UnitDemand));
+        Assert.Contains(result, row => row.UnitPropertyId == 102 && row.UnitDemand == 0m);
+
+        var filteredResult = await repository.GetPendingSignSourceDataAsync(
+            2,
+            "we0200040000",
+            CancellationToken.None);
+
+        Assert.Equal(3, filteredResult.Count);
+        Assert.All(filteredResult, row => Assert.Equal("WE0200040000", row.SrNoticeNo));
+
+        var emptyResult = await repository.GetPendingSignSourceDataAsync(
+            2,
+            "WE020004000",
+            CancellationToken.None);
+
+        Assert.Empty(emptyResult);
     }
 
     [Fact]
@@ -373,4 +728,24 @@ public class PropertySignatureRepositoryPendingExportTests
         Assert.Equal("MM8-216-1", row.NewPropertyNo);
         Assert.Equal(1, result.TotalCount);
     }
+
+    private static TransMastEntity CreateTransMast(
+        int id,
+        int propertyId,
+        int taxId,
+        decimal taxAmount,
+        DateTime createdDate)
+        => new()
+        {
+            Id = id,
+            PropertyId = propertyId,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            CalculationValue = 0,
+            TaxId = taxId,
+            TaxAmount = taxAmount,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = createdDate
+        };
 }

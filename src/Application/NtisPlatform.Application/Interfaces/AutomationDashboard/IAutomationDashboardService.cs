@@ -1,6 +1,7 @@
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
+using NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -81,7 +82,7 @@ namespace NtisPlatform.Application.Interfaces.AutomationDashboard
         /// <summary>
         /// Gets all workflow stages with completion status for the provided property.
         /// </summary>
-        Task<List<TrackStageStatusDto>> TrackStageStatusAsync( int propertyId, CancellationToken cancellationToken = default);
+        Task<List<PropertyWorkflowStageMasterDto>> TrackStageStatusAsync( int propertyId, CancellationToken cancellationToken = default);
     }
 }
 

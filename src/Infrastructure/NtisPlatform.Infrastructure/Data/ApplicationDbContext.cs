@@ -5677,6 +5677,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DisplayOrder)
                 .IsRequired();
 
+            entity.Property(e => e.UserId)
+                .IsRequired(false);
+
             // Boolean property with default
             entity.Property(e => e.IsActive)
                 .IsRequired()
@@ -5701,6 +5704,7 @@ public class ApplicationDbContext : DbContext
             // Indexes for query performance
             entity.HasIndex(e => e.StageName).HasDatabaseName("IX_PropertyWorkflowStageMaster_StageName");
             entity.HasIndex(e => e.DisplayOrder).HasDatabaseName("IX_PropertyWorkflowStageMaster_DisplayOrder");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_PropertyWorkflowStageMaster_UserId");
             entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_PropertyWorkflowStageMaster_IsActive");
 
             // Unique constraint on StageName

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 
@@ -10,8 +11,13 @@ public class PropertyWorkflowStageMasterDto : BaseDtos
     public int Id { get; set; }
     public string? StageName { get; set; }
     public string? Description { get; set; }
+    public int? UserId { get; set; }
+    public string? OfficerName { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? IsCompleted { get; set; }
 }
 
 /// <summary>
@@ -28,6 +34,8 @@ public class CreatePropertyWorkflowStageMasterDto : CreateBaseDtos
 
     [Required(ErrorMessage = "DisplayOrder_Required")]
     public int DisplayOrder { get; set; }
+
+    public int? UserId { get; set; }
 }
 
 /// <summary>
@@ -44,4 +52,6 @@ public class UpdatePropertyWorkflowStageMasterDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "DisplayOrder_Required")]
     public int DisplayOrder { get; set; }
+
+    public int? UserId { get; set; }
 }

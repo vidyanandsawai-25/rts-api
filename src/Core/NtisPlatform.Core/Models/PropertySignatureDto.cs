@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace NtisPlatform.Core.Models;
 
 // ─────────────────────────────────────────────────────
@@ -281,3 +283,86 @@ public class PropertySignaturePendingExportSourceDto
     public List<int> SignedAuthorityIds { get; set; } = new();
 }
 
+public class PropertySignaturePendingSignDto
+{
+    public int PropertyId { get; set; }
+    public int SignAuthorityId { get; set; }
+    public string StructureName { get; set; } = string.Empty;
+    public string SrNoticeNo { get; set; } = string.Empty;
+    public int NoOfUnits { get; set; }
+    public decimal Demand { get; set; }
+    public string SignStatus { get; set; } = string.Empty;
+    public string AuthorityCode { get; set; } = string.Empty;
+}
+
+public class PropertySignaturePendingSignSourceDto
+{
+    public int SignatureId { get; set; }
+    public int PropertyId { get; set; }
+    public int SignAuthorityId { get; set; }
+    public int UnitPropertyId { get; set; }
+    public string WardNo { get; set; } = string.Empty;
+    public string PropertyNo { get; set; } = string.Empty;
+    public string? PartitionNo { get; set; }
+    public string SrNoticeNo { get; set; } = string.Empty;
+    public string SignStatus { get; set; } = string.Empty;
+    public string AuthorityCode { get; set; } = string.Empty;
+    public decimal UnitDemand { get; set; }
+}
+
+public abstract class PropertySignatureUpdateSignIdentifiersBaseDto
+{
+    [Range(1, int.MaxValue, ErrorMessage = "The UserId is Required")]
+    public int UserId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "The SignAuthorityId is Required")]
+    public int SignAuthorityId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "The PropertyId is Required")]
+    public int PropertyId { get; set; }
+}
+
+public abstract class PropertySignatureUpdateSignBaseDto : PropertySignatureUpdateSignIdentifiersBaseDto
+{
+    [Required(ErrorMessage = "The AuthorityCode is Required")]
+    public string AuthorityCode { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "The SignStatus is Required")]
+    public string SignStatus { get; set; } = string.Empty;
+}
+
+public abstract class PropertySignatureUpdateSignResultBaseDto
+{
+    public string UpdatedSignStatus { get; set; } = string.Empty;
+    public int? NextSignAuthorityId { get; set; }
+    public string? NextSignStatus { get; set; }
+}
+
+public class PropertySignatureUpdateSignRequestDto : PropertySignatureUpdateSignBaseDto
+{
+}
+
+public class PropertySignatureUpdateSignResponseDto : PropertySignatureUpdateSignResultBaseDto
+{
+    public int PropertyId { get; set; }
+    public int UpdatedSignAuthorityId { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+public class PropertySignatureUpdateSignSourceDto : PropertySignatureUpdateSignBaseDto
+{
+    public int SignatureId { get; set; }
+    public string? NoticeNo { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class PropertySignatureUpdateSignCommandDto : PropertySignatureUpdateSignResultBaseDto
+{
+    public int SignatureId { get; set; }
+    public int UserId { get; set; }
+    public int PropertyId { get; set; }
+    public int SignAuthorityId { get; set; }
+    public string? NoticeNo { get; set; }
+    public bool IsActive { get; set; }
+    public int UpdatedBy { get; set; }
+}
