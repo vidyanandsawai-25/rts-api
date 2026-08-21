@@ -17,7 +17,7 @@ namespace NtisPlatform.Application.Services;
 /// destination's matching data-entry (replace semantics). The whole operation runs in one transaction.
 ///
 /// The clone field-mapping mirrors <see cref="PropertyDataCopier"/>; parking rows are identified via
-/// the ParkingTypeMaster table (the C# model has no TypeOfUseCategory, which the SP used).
+/// TypeOfUseMaster -> TypeOfUseCategoryMaster, matching the units projection used by this service.
 /// </summary>
 public class DataEntrySameAsService : IDataEntrySameAsService
 {
@@ -166,12 +166,15 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Parking TypeOfUse set (replaces the SP's TypeOfUseCategory join) — only fetched
-            // once, and only when a copy mode (PARKING / PROPERTYWISE) is requested.
+            // Use the same TypeOfUse category classification as GetPropertyUnitsAsync. Using
+            // ParkingTypeMaster here caused Open Parking rows to display as parking but be copied
+            // by PROPERTYWISE instead of PARKING when the two masters were out of sync.
             var needsCopy = filterTypes.Contains(FilterParking) || filterTypes.Contains(FilterPropertywise);
             var parkingTypeIds = needsCopy
-                ? await _parkingTypeRepository.GetQueryable()
-                    .Select(p => p.TypeOfUseId)
+                ? await _typeOfUseRepository.GetQueryable()
+                    .Where(tom => _typeOfUseCategoryRepository.GetQueryable()
+                        .Any(c => c.Id == tom.TypeOfUseCategoryId && c.TypeOfUseCategoryCode == TypeOfUseConstants.Parking))
+                    .Select(tom => tom.Id)
                     .Distinct()
                     .ToListAsync(cancellationToken)
                 : [];
