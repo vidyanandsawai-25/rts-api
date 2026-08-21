@@ -19,7 +19,7 @@ public static class RetrospectivePenaltyRuleOptions
     public static IReadOnlyList<RetrospectivePenaltyRuleOptionDto> PenaltyModes { get; } = new[]
     {
         new RetrospectivePenaltyRuleOptionDto { Code = "NONE", Label = "Do not apply penalty", RequiredInput = "NONE" },
-        new RetrospectivePenaltyRuleOptionDto { Code = "ACT_UNLAWFUL", Label = "Apply penalty as per the Act", RequiredInput = "OPTIONAL_PERCENT" },
+        new RetrospectivePenaltyRuleOptionDto { Code = "ACT_PENALTY", Label = "Apply penalty as per the Act", RequiredInput = "OPTIONAL_PERCENT" },
         new RetrospectivePenaltyRuleOptionDto { Code = "DATE_VALIDATION", Label = "Apply penalty based on a date", RequiredInput = "DATE_CONDITION" },
     };
 

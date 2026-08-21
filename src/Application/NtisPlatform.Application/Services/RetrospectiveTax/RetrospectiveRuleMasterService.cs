@@ -109,8 +109,6 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
         return _mapper.Map<RetrospectiveRuleMasterDto>(rule);
     }
 
-    private static readonly string[] MatchTypes = { "CONDITION_BASED", "EXACT_EVIDENCE_MATCH", "PRIORITY_BASED" };
-    private static readonly string[] AuthorizationStatuses = { "AUTHORIZED", "UNAUTHORIZED", "UNDETERMINED" };
     private static readonly string[] CompareOperators = { "BEFORE", "AFTER", "ON_OR_BEFORE", "ON_OR_AFTER", "BETWEEN", "OLDER_THAN_YEARS", "WITHIN_YEARS" };
     private static readonly string[] ElseActions = { "NONE", "MANUAL_REVIEW" };
 
@@ -122,9 +120,6 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
     /// </summary>
     private static void ValidateEnums(SaveRetrospectiveRuleDto request)
     {
-        ValidateEnum(nameof(request.MatchType), request.MatchType, MatchTypes, required: true);
-        ValidateEnum(nameof(request.AuthorizationStatus), request.AuthorizationStatus, AuthorizationStatuses, required: false);
-
         if (request.DateCondition is not null)
         {
             ValidateEnum(
@@ -214,9 +209,9 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
             rule.RuleName = request.RuleName;
             rule.RuleDescription = request.RuleDescription;
             rule.PriorityNo = request.PriorityNo;
-            rule.MatchType = request.MatchType;
+            // MatchType/AuthorizationStatus aren't exposed on the Rule Builder screen — leave
+            // whatever they were already set to.
             rule.IsFallbackRule = request.IsFallbackRule;
-            rule.AuthorizationStatus = request.AuthorizationStatus;
             rule.LegalCapEnabled = request.LegalCapEnabled;
             rule.LegalCapYears = request.LegalCapYears;
             rule.NoticeDays = request.NoticeDays;
@@ -237,10 +232,9 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
                 RuleName = request.RuleName,
                 RuleDescription = request.RuleDescription,
                 PriorityNo = request.PriorityNo,
-                MatchType = request.MatchType,
+                MatchType = "CONDITION_BASED",
                 IsFallbackRule = request.IsFallbackRule,
                 RuleStatus = "Draft",
-                AuthorizationStatus = request.AuthorizationStatus,
                 LegalCapEnabled = request.LegalCapEnabled,
                 LegalCapYears = request.LegalCapYears,
                 NoticeDays = request.NoticeDays,

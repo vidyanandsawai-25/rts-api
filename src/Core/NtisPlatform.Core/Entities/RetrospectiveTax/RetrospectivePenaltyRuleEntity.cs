@@ -13,7 +13,7 @@ public class RetrospectivePenaltyRuleEntity : BaseEntity
 
     public bool IsPenaltyApplicable { get; set; }
 
-    /// <summary>NONE / ACT_UNLAWFUL / DATE_VALIDATION</summary>
+    /// <summary>NONE / ACT_PENALTY / DATE_VALIDATION</summary>
     public string PenaltyMode { get; set; } = "NONE";
 
     public decimal? PenaltyPercent { get; set; }
