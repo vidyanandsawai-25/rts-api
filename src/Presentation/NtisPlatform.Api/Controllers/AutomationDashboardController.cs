@@ -279,7 +279,7 @@ namespace NtisPlatform.Api.Controllers
             });
     }
 
-    public sealed class AutomationDashboardItemsResponse<T>
+    public class AutomationDashboardItemsResponse<T>
     {
         public T? Items { get; set; }
     }

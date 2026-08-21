@@ -204,7 +204,6 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             {
                 Id = 2,
                 StageName = "Assessment",
-                UserId = 2,
                 DisplayOrder = 2,
                 IsActive = true,
                 CreatedDate = createdDate
@@ -213,7 +212,6 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             {
                 Id = 1,
                 StageName = "Geo Sequencing",
-                UserId = 1,
                 DisplayOrder = 1,
                 IsActive = true,
                 CreatedDate = createdDate
@@ -222,7 +220,6 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             {
                 Id = 3,
                 StageName = "Inactive",
-                UserId = 2,
                 DisplayOrder = 3,
                 IsActive = false,
                 CreatedDate = createdDate
@@ -289,14 +286,16 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
 
         var stages = await repository.ReadWorkflowStagesAsync(cancellationToken: CancellationToken.None);
         var completedStageIds = await repository.ReadCompletedWorkflowStageIdsAsync(100, CancellationToken.None);
-        var officerNames = await repository.ReadWorkflowStageOfficerNamesAsync(
+        var officerDetails = await repository.ReadWorkflowStageOfficerDetailsAsync(
+            100,
             stages.Select(stage => stage.Id),
             CancellationToken.None);
 
         Assert.Equal(new[] { 1, 2 }, stages.Select(x => x.Id));
         Assert.Equal(new[] { 1 }, completedStageIds);
-        Assert.Equal("Geo Stage Officer", officerNames[1]);
-        Assert.Equal("Other Officer", officerNames[2]);
+        Assert.Equal(2, officerDetails[1].UserId);
+        Assert.Equal("Other Officer", officerDetails[1].OfficerName);
+        Assert.False(officerDetails.ContainsKey(2));
     }
 
     [Fact]

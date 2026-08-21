@@ -104,32 +104,45 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<Dictionary<int, string?>> ReadWorkflowStageOfficerNamesAsync(
+    public async Task<Dictionary<int, (int? UserId, string? OfficerName)>> ReadWorkflowStageOfficerDetailsAsync(
+        int propertyId,
         IEnumerable<int> stageIds,
         CancellationToken cancellationToken = default)
     {
         var selectedStageIds = stageIds.Distinct().ToList();
         if (!selectedStageIds.Any())
-            return new Dictionary<int, string?>();
+            return new Dictionary<int, (int? UserId, string? OfficerName)>();
 
         var stageOfficers = await (
-            from stage in _context.PropertyWorkflowStageMaster.AsNoTracking()
-            join user in _context.UserMasters.AsNoTracking() on stage.UserId equals (int?)user.Id into users
+            from workflowDetail in _context.PropertyWorkflowDetails.AsNoTracking()
+            join stage in _context.PropertyWorkflowStageMaster.AsNoTracking() on workflowDetail.WorkflowStageId equals stage.Id
+            join user in _context.UserMasters.AsNoTracking() on workflowDetail.CreatedBy equals user.Id into users
             from user in users.DefaultIfEmpty()
-            where stage.IsActive && selectedStageIds.Contains(stage.Id)
+            where workflowDetail.IsActive
+                  && workflowDetail.PropertyId == propertyId
+                  && stage.IsActive
+                  && selectedStageIds.Contains(workflowDetail.WorkflowStageId)
             select new
             {
-                StageId = stage.Id,
+                StageId = workflowDetail.WorkflowStageId,
+                UserId = workflowDetail.CreatedBy,
                 FirstName = user == null ? null : user.FirstName,
                 MiddleName = user == null ? null : user.MiddleName,
-                LastName = user == null ? null : user.LastName
+                LastName = user == null ? null : user.LastName,
+                workflowDetail.CreatedDate,
+                workflowDetail.Id
             })
             .ToListAsync(cancellationToken);
 
         return stageOfficers
+            .GroupBy(stage => stage.StageId)
+            .Select(group => group
+                .OrderByDescending(stage => stage.CreatedDate ?? DateTime.MinValue)
+                .ThenByDescending(stage => stage.Id)
+                .First())
             .ToDictionary(
                 stage => stage.StageId,
-                stage => FormatOfficerName(stage.FirstName, stage.MiddleName, stage.LastName));
+                stage => (stage.UserId, FormatOfficerName(stage.FirstName, stage.MiddleName, stage.LastName)));
     }
 
     private static string? FormatOfficerName(string? firstName, string? middleName, string? lastName)
@@ -185,7 +198,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return (propertyCount, propertyCount - unitsOnlyCount, unitsOnlyCount);
     }
 
-    public async Task<DashboardCardBreakdownDto> ReadPreviouslyRegisteredBreakdownAsync(CancellationToken cancellationToken = default)
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPreviouslyRegisteredBreakdownAsync(CancellationToken cancellationToken = default)
     {
         var counts = await _context.PropertyMastOld
             .AsNoTracking()
@@ -199,13 +212,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = counts?.PropertyCount ?? 0,
-            StructureCount = counts?.StructureCount ?? 0,
-            UnitCount = counts?.PropertyCount ?? 0,
-            Demand = counts == null ? 0m : Convert.ToDecimal(counts.Demand)
-        };
+        return (
+            counts?.PropertyCount ?? 0,
+            counts?.StructureCount ?? 0,
+            counts?.PropertyCount ?? 0,
+            counts == null ? 0m : Convert.ToDecimal(counts.Demand));
     }
 
     public async Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
@@ -218,7 +229,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
     }
 
-    public async Task<DashboardCardBreakdownDto> ReadPropertyBreakdownByAssessmentStatusAsync(
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPropertyBreakdownByAssessmentStatusAsync(
         int statusId,
         PropertySearchRequestDto? searchRequest = null,
         bool includeDemand = false,
@@ -229,16 +240,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         var (propertyCount, structureCount, unitCount) = await CountDashboardPropertiesAsync(statusQuery, cancellationToken);
         var demand = includeDemand ? await GetNewTaxTotalDemandAsync(statusQuery, cancellationToken) : 0m;
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = demand
-        };
+        return (propertyCount, structureCount, unitCount, demand);
     }
 
-    public async Task<DashboardCardBreakdownDto> ReadAcdApprovedPropertyBreakdownAsync(
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadAcdApprovedPropertyBreakdownAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
     {
@@ -262,13 +267,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         var currentDemand = await GetNewTaxTotalDemandAsync(approvedProperties, cancellationToken);
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = counts?.PropertyCount ?? 0,
-            StructureCount = counts?.StructureCount ?? 0,
-            UnitCount = counts?.PropertyCount ?? 0,
-            Demand = currentDemand
-        };
+        return (
+            counts?.PropertyCount ?? 0,
+            counts?.StructureCount ?? 0,
+            counts?.PropertyCount ?? 0,
+            currentDemand);
     }
 
     private async Task<decimal> GetNewTaxTotalDemandAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)

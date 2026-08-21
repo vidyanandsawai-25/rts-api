@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Models.AutomationDashboard;
+using System.Globalization;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
 using NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
@@ -156,7 +157,8 @@ namespace NtisPlatform.Application.Services
         {
             var stages = await _dashboardRepository.ReadWorkflowStagesAsync(cancellationToken: cancellationToken);
             var completedStageIds = await _dashboardRepository.ReadCompletedWorkflowStageIdsAsync(propertyId, cancellationToken);
-            var officerNames = await _dashboardRepository.ReadWorkflowStageOfficerNamesAsync(
+            var officerDetails = await _dashboardRepository.ReadWorkflowStageOfficerDetailsAsync(
+                propertyId,
                 stages.Select(stage => stage.Id),
                 cancellationToken);
             var completedStageIdSet = completedStageIds.ToHashSet();
@@ -166,22 +168,26 @@ namespace NtisPlatform.Application.Services
                 Id = stage.Id,
                 StageName = stage.StageName,
                 Description = stage.Description,
-                UserId = stage.UserId,
-                OfficerName = officerNames.GetValueOrDefault(stage.Id),
+                UserId = officerDetails.GetValueOrDefault(stage.Id).UserId,
+                OfficerName = officerDetails.GetValueOrDefault(stage.Id).OfficerName,
                 DisplayOrder = stage.DisplayOrder,
                 IsActive = stage.IsActive,
                 IsCompleted = completedStageIdSet.Contains(stage.Id) ? 1 : 0
             }).ToList();
         }
 
-        private static DashboardCardBreakdownDto MapDashboardCardBreakdown(DashboardCardBreakdownDto projection)
+        private static DashboardCardBreakdownDto MapDashboardCardBreakdown(
+            (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) projection)
             => new()
             {
                 PropertyCount = projection.PropertyCount,
                 StructureCount = projection.StructureCount,
                 UnitCount = projection.UnitCount,
-                Demand = projection.Demand
+                Demand = FormatDemandInCrore(projection.Demand)
             };
+
+        private static string FormatDemandInCrore(decimal demand)
+            => string.Concat((demand / 10000000m).ToString("0.##", CultureInfo.InvariantCulture), "Cr");
 
         private async Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentSubGridResponseAsync(
             Func<Task<SubGridDataProjection>> fetchSnapshot)

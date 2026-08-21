@@ -663,7 +663,11 @@ public class PropertySearchRepository : IPropertySearchRepository
     //  Public: dashboard main cards
     // ──────────────────────────────────────────────────────────────────────────
 
-    public async Task<MainCardsResponseDto> GetMainCardsAsync(
+    public async Task<(
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) PreviouslyRegistered,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) Assessed,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) Unassessed,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) AdditionalRevenueGenerated)> GetMainCardsAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
     {
@@ -678,16 +682,7 @@ public class PropertySearchRepository : IPropertySearchRepository
         var unassessed = await CalculateByAssessmentStatusAsync(baseQuery, UnassessedStatusName, false, cancellationToken);
         var additionalRevenue = await CalculateAdditionalRevenueAsync(baseQuery, cancellationToken);
 
-        return new MainCardsResponseDto
-        {
-            PreviouslyRegistered = previouslyRegistered,
-            AssessmentApproved = new AssessmentApprovedDto
-            {
-                Assessed = assessed,
-                Unassessed = unassessed
-            },
-            AdditionalRevenueGenerated = additionalRevenue
-        };
+        return (previouslyRegistered, assessed, unassessed, additionalRevenue);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1777,7 +1772,7 @@ public class PropertySearchRepository : IPropertySearchRepository
     /// <summary>
     /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail or PropertyMastOldId.
     /// </summary>
-    private async Task<DashboardCardBreakdownDto> CalculatePreviouslyRegisteredAsync(
+    private async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> CalculatePreviouslyRegisteredAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
@@ -1789,13 +1784,7 @@ public class PropertySearchRepository : IPropertySearchRepository
         var (propertyCount, structureCount, unitCount) = await CountPropertiesAsync(prevQuery, cancellationToken);
         var demand = await GetOldTaxTotalDemandAsync(prevQuery, cancellationToken);
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = demand
-        };
+        return (propertyCount, structureCount, unitCount, demand);
     }
 
     /// <summary>
@@ -1803,7 +1792,7 @@ public class PropertySearchRepository : IPropertySearchRepository
     /// the given <paramref name="statusName"/>.
     /// When <paramref name="includeDemand"/> is true, sums TaxTotal from PTIS.TransMast.
     /// </summary>
-    private async Task<DashboardCardBreakdownDto> CalculateByAssessmentStatusAsync(
+    private async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> CalculateByAssessmentStatusAsync(
         IQueryable<PropertyEntity> query,
         string statusName,
         bool includeDemand,
@@ -1826,19 +1815,13 @@ public class PropertySearchRepository : IPropertySearchRepository
         if (includeDemand && propertyCount > 0)
             demand = await GetNewTaxTotalDemandAsync(filteredQuery.Select(p => p.Id), cancellationToken);
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = demand
-        };
+        return (propertyCount, structureCount, unitCount, demand);
     }
 
     /// <summary>
     /// Additional Revenue = NewTaxTotal (TransMast) minus OldTaxTotal (TransMastOld or PropertyMastOld.OldTotalTax).
     /// </summary>
-    private async Task<DashboardCardBreakdownDto> CalculateAdditionalRevenueAsync(
+    private async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> CalculateAdditionalRevenueAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
@@ -1854,13 +1837,7 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         var additionalRevenue = newDemand - oldDemand;
 
-        return new DashboardCardBreakdownDto
-        {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = additionalRevenue > 0 ? additionalRevenue : 0m
-        };
+        return (propertyCount, structureCount, unitCount, additionalRevenue > 0 ? additionalRevenue : 0m);
     }
 
     public async Task<(int TotalCount, List<PropertySearchResponseDto> Items)> UnifiedSearchPropertiesAsync(

@@ -8,14 +8,12 @@ namespace NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 /// </summary>
 public class PropertyWorkflowStageMasterDto : BaseDtos
 {
-    public int Id { get; set; }
-    public string? StageName { get; set; }
+     public string? StageName { get; set; }
     public string? Description { get; set; }
     public int? UserId { get; set; }
     public string? OfficerName { get; set; }
     public int DisplayOrder { get; set; }
-    public bool IsActive { get; set; }
-
+ 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? IsCompleted { get; set; }
 }

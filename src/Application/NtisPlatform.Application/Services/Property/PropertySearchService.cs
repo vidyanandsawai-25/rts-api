@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Interfaces.Property;
@@ -94,15 +95,41 @@ public class PropertySearchService : IPropertySearchService
     public Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default)
         => _repository.GetPropertyDashboardStatsAsync(cancellationToken);
 
-    public Task<MainCardsResponseDto> GetMainCardsAsync(
+    public async Task<MainCardsResponseDto> GetMainCardsAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
-        => _repository.GetMainCardsAsync(searchRequest, cancellationToken);
+    {
+        var cards = await _repository.GetMainCardsAsync(searchRequest, cancellationToken);
+
+        return new MainCardsResponseDto
+        {
+            PreviouslyRegistered = MapDashboardCardBreakdown(cards.PreviouslyRegistered),
+            AssessmentApproved = new AssessmentApprovedDto
+            {
+                Assessed = MapDashboardCardBreakdown(cards.Assessed),
+                Unassessed = MapDashboardCardBreakdown(cards.Unassessed)
+            },
+            AdditionalRevenueGenerated = MapDashboardCardBreakdown(cards.AdditionalRevenueGenerated)
+        };
+    }
 
     public Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
         => _repository.GetWorkflowCardsAsync(searchRequest, cancellationToken);
+
+    private static DashboardCardBreakdownDto MapDashboardCardBreakdown(
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) projection)
+        => new()
+        {
+            PropertyCount = projection.PropertyCount,
+            StructureCount = projection.StructureCount,
+            UnitCount = projection.UnitCount,
+            Demand = FormatDemandInCrore(projection.Demand)
+        };
+
+    private static string FormatDemandInCrore(decimal demand)
+        => string.Concat((demand / 10000000m).ToString("0.##", CultureInfo.InvariantCulture), "Cr");
 
     public List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category)
     {

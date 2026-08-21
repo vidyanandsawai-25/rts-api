@@ -9,6 +9,7 @@ public class PropertyWorkflowStageMasterMappingProfile : Profile
     public PropertyWorkflowStageMasterMappingProfile()
     {
         CreateMap<PropertyWorkflowStageMasterEntity, PropertyWorkflowStageMasterDto>()
+          .ForMember(dest => dest.UserId, opt => opt.Ignore())
           .ForMember(dest => dest.OfficerName, opt => opt.Ignore())
           .ForMember(dest => dest.IsCompleted, opt => opt.Ignore());
 

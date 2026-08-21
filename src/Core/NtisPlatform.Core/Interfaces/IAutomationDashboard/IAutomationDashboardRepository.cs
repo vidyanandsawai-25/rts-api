@@ -12,16 +12,16 @@ public interface IAutomationDashboardRepository
 {
     Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownDto> ReadPreviouslyRegisteredBreakdownAsync(
+    Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPreviouslyRegisteredBreakdownAsync(
         CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownDto> ReadPropertyBreakdownByAssessmentStatusAsync(
+    Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPropertyBreakdownByAssessmentStatusAsync(
         int statusId,
         PropertySearchRequestDto? searchRequest = null,
         bool includeDemand = false,
         CancellationToken cancellationToken = default);
 
-    Task<DashboardCardBreakdownDto> ReadAcdApprovedPropertyBreakdownAsync(
+    Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadAcdApprovedPropertyBreakdownAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
 
@@ -59,7 +59,8 @@ public interface IAutomationDashboardRepository
         int propertyId,
         CancellationToken cancellationToken = default);
 
-    Task<Dictionary<int, string?>> ReadWorkflowStageOfficerNamesAsync(
+    Task<Dictionary<int, (int? UserId, string? OfficerName)>> ReadWorkflowStageOfficerDetailsAsync(
+        int propertyId,
         IEnumerable<int> stageIds,
         CancellationToken cancellationToken = default);
 }

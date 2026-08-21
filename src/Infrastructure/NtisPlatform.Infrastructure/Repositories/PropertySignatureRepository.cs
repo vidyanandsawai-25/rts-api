@@ -75,11 +75,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
     #region Eligible Properties Queries
 
-    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(
-        int signAuthorityId,
-        int? zoneId,
-        int? wardId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(int signAuthorityId,int? zoneId,int? wardId,CancellationToken cancellationToken = default)
     {
         try
         {
