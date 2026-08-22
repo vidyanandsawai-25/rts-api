@@ -131,7 +131,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 CreatedDate = x.CreatedDate,
                 UpdatedDate = x.UpdatedDate,
                 SessionId = x.SessionId,
-                OwnerId = x.OwnerId,
+                OwnerId = x.OwnerId, 
                 DepartmentName = x.Department.DepartmentName,
                 ServiceName = x.Service.ServiceName,
                 Sla = x.Service.Sla,
@@ -139,18 +139,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
 
-                ApplicantDetails = x.FieldValueData    //this code only for citizen Name
-                .Where(fv => fv.FieldDefinition != null)
-                .Where(fv => fv.FieldDefinition!.FieldGroup ==
-                    x.FieldValueData
-                        .Where(f => f.FieldDefinition != null)
-                        .Select(f => f.FieldDefinition!.FieldGroup)
-                        .FirstOrDefault())
+                ApplicantDetails = x.FieldValueData
+                .Where(fv =>
+                    fv.FieldDefinition != null &&
+                    fv.FieldDefinition.FieldGroup == "Applicant Details" &&
+                    fv.IsActive &&
+                    !fv.MarkedForDeletion)
+                .OrderBy(fv => fv.FieldDefinition!.DisplayOrder)
                 .Select(fv => new ApplicantFieldDto
                 {
                     FieldLabel = fv.FieldDefinition!.FieldLabel,
                     FieldValue = fv.TextValue
-                }).ToList()
+                })
+                .ToList()
             }).ToListAsync(cancellationToken);
 
         foreach (var item in items)
