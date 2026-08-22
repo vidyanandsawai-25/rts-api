@@ -136,22 +136,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceName = x.Service.ServiceName,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
+                ApplicantName = x.ApplicantName,
+                ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
 
-                ApplicantDetails = x.FieldValueData
-                .Where(fv =>
-                    fv.FieldDefinition != null &&
-                    fv.FieldDefinition.FieldGroup == "Applicant Details" &&
-                    fv.IsActive &&
-                    !fv.MarkedForDeletion)
-                .OrderBy(fv => fv.FieldDefinition!.DisplayOrder)
-                .Select(fv => new ApplicantFieldDto
-                {
-                    FieldLabel = fv.FieldDefinition!.FieldLabel,
-                    FieldValue = fv.TextValue
-                })
-                .ToList()
             }).ToListAsync(cancellationToken);
 
         foreach (var item in items)

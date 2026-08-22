@@ -9,6 +9,8 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public int DepartmentId { get; set; }
     public int ServiceId { get; set; }
     public string? SessionId { get; set; }
+    public string? ApplicantName { get; set; }
+    public string? ApplicantMobileNo { get; set; }
     public int? OwnerId { get; set; }
     public int ApprovalFlowId { get; set; }
     public int CurrentApprovalFlowStageId { get; set; }
@@ -23,7 +25,6 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public virtual RTSServiceEntity Service { get; set; } = null!;
     public virtual UserEntity User { get; set; } = null!;
     public virtual List<RTSFieldValueEntity> FieldValueData { get; set; } = new List<RTSFieldValueEntity>();
-    //public virtual List<RTSFieldDefinitionEntity> RTSFieldDefinition { get; set; } = new List<RTSFieldDefinitionEntity>();
     public virtual List<TrackApplicationHistoryEntity> TrackApplicationHistory { get; set; } = new List<TrackApplicationHistoryEntity>();
 
 }
