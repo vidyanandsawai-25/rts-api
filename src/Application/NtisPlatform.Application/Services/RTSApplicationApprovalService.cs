@@ -583,6 +583,26 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        try
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                name = "Citizen";
+                await _smsNotificationService.SendApplicationStageAdvancedAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    nextStage.StageName,
+                    application.ApplicationStatus,
+                    dto.Remark,
+                    cancellationToken);
+            }
+        }
+        catch { }
+
         return new RTSApplicationApprovalResponseDto
         {
             ApplicationId = application.Id,
