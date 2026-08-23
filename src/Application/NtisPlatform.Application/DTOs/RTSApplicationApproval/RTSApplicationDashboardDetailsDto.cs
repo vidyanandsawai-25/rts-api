@@ -26,7 +26,6 @@ public class RTSApplicationDashboardDetailsDto
     public int? RemainingDays { get; set; }
     public string? DueDays { get; set; }
     public string? OverdueDays { get; set; }
-    //public List<ApplicantFieldDto>? ApplicantDetails { get; set; }
 }
 
 

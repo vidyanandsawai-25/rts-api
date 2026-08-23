@@ -561,7 +561,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
         application.UserId = nextStage.UserId;
-        application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
+        application.ApplicationStatus = ApplicationStatus.DocumentVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
         application.UpdatedBy = dto.UpdatedBy;
@@ -573,8 +573,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = currentStage.Id,
             ActionByUserId = dto.UpdatedBy,
-            Status = ApplicationStatus.ApplicationVerified,
-            Action = $"Documents verified by {currentStage.StageName}",
+            Status = ApplicationStatus.DocumentVerified,
+            Action = $"{ApplicationStatus.DocumentVerified} by {currentStage.StageName}",
             Remark = dto.Remark,
             IsReverted = false,
             IsActive = true,
@@ -736,7 +736,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowStageId = currentStage.Id,
             ActionByUserId = dto.UpdatedBy,
             Status = ApplicationStatus.ApplicationVerified,
-            Action = $"{ApplicationStatus.Approved} by {currentStage.StageName}",
+            Action = $"{ApplicationStatus.ApplicationVerified} by {currentStage.StageName}",
             Remark = dto.Remark,
             IsReverted = false,
             IsActive = true,

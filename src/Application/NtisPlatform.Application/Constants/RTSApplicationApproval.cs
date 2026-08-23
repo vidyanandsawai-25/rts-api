@@ -10,9 +10,9 @@ public static class ApplicationStatus
 
     public const string Reverted = "Reverted";
 
-    public const string DocumentVerified = "Document Verified";
+    public const string DocumentVerified = "Document Verified";  // clerk
 
-    public const string ApplicationVerified = "Application Verified";
+    public const string ApplicationVerified = "Application Verified"; //head Officer
 
     public const string Submitted = "Submitted";
 
