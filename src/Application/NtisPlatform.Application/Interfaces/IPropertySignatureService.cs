@@ -1,5 +1,6 @@
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
+using NtisPlatform.Application.DTOs.PropertySignature;
 
 namespace NtisPlatform.Application.Interfaces;
 
@@ -101,5 +102,19 @@ public interface IPropertySignatureService
     /// </summary>
     Task<List<PropertySignaturePendingExportDto>> GetPendingExportDataAsync(
         int signAuthorityId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets pending sign rows for the selected user and signing authority.
+    /// </summary>
+    Task<PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>> GetPendingSignsAsync(
+        PropertySignaturePendingSignsQueryParameters queryParameters,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Approves the current pending sign row and creates the next pending row when configured.
+    /// </summary>
+    Task<PropertySignatureUpdateSignResponseDto> UpdateSignAsync(
+        PropertySignatureUpdateSignRequestDto request,
         CancellationToken cancellationToken = default);
 }

@@ -26,6 +26,8 @@ public class DataEntrySameAsServiceTests
     private const int DestinationPropertyId = 2;
     private const int ParkingTypeOfUseId = 99;
     private const int NonParkingTypeOfUseId = 1;
+    private const int ParkingTypeOfUseCategoryId = 200;
+    private const int NonParkingTypeOfUseCategoryId = 100;
     private const int UpdatedBy = 42;
 
     private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepo = new();
@@ -47,22 +49,34 @@ public class DataEntrySameAsServiceTests
 
     private DataEntrySameAsService CreateService(
         List<PropertyEntity>? properties = null,
-        List<PropertyDetailsEntity>? propertyDetails = null,
-        List<ParkingTypeMasterEntity>? parkingTypes = null)
+        List<PropertyDetailsEntity>? propertyDetails = null)
     {
         properties ??= new List<PropertyEntity>
         {
             new() { Id = SourcePropertyId, WardId = 10, PropertyNo = "P1", PartitionNo = "A", Type = "1" },
             new() { Id = DestinationPropertyId, WardId = 10, PropertyNo = "P1", PartitionNo = "B" }
         };
-        parkingTypes ??= new List<ParkingTypeMasterEntity> { new() { TypeOfUseId = ParkingTypeOfUseId } };
         propertyDetails ??= new List<PropertyDetailsEntity>();
+
+        // ExecuteAsync classifies parking through TypeOfUseMaster -> TypeOfUseCategoryMaster,
+        // matching GetPropertyUnitsAsync. Keep ParkingTypeMaster empty so these tests cannot
+        // accidentally pass against the legacy classification path.
+        var typeOfUses = new List<TypeOfUseEntity>
+        {
+            new() { Id = ParkingTypeOfUseId, TypeOfUseCategoryId = ParkingTypeOfUseCategoryId },
+            new() { Id = NonParkingTypeOfUseId, TypeOfUseCategoryId = NonParkingTypeOfUseCategoryId }
+        };
+        var typeOfUseCategories = new List<TypeOfUseCategoryEntity>
+        {
+            new() { Id = ParkingTypeOfUseCategoryId, TypeOfUseCategoryCode = TypeOfUseConstants.Parking },
+            new() { Id = NonParkingTypeOfUseCategoryId, TypeOfUseCategoryCode = "RES" }
+        };
 
         _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _propertyDetailsRepo.Setup(r => r.GetQueryable()).Returns(propertyDetails.BuildMock());
         _roomSubmissionRepo.Setup(r => r.GetQueryable()).Returns(new List<RoomWiseSubmissionDetailsEntity>().BuildMock());
         _roomMinusRepo.Setup(r => r.GetQueryable()).Returns(new List<RoomWiseMinusDataEntity>().BuildMock());
-        _parkingTypeRepo.Setup(r => r.GetQueryable()).Returns(parkingTypes.BuildMock());
+        _parkingTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<ParkingTypeMasterEntity>().BuildMock());
         _societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
         _wingRepo.Setup(r => r.GetQueryable()).Returns(new List<WingEntity>().BuildMock());
         _buildingPlanTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<BuildingPlanTypeEntity>().BuildMock());
@@ -70,8 +84,8 @@ public class DataEntrySameAsServiceTests
         _zoneRepo.Setup(r => r.GetQueryable()).Returns(new List<ZoneEntity>().BuildMock());
         _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
         _propertyCategoryRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyCategoryEntity>().BuildMock());
-        _typeOfUseRepo.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseEntity>().BuildMock());
-        _typeOfUseCategoryRepo.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseCategoryEntity>().BuildMock());
+        _typeOfUseRepo.Setup(r => r.GetQueryable()).Returns(typeOfUses.BuildMock());
+        _typeOfUseCategoryRepo.Setup(r => r.GetQueryable()).Returns(typeOfUseCategories.BuildMock());
 
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -199,12 +213,24 @@ public class DataEntrySameAsServiceTests
     {
         var service = CreateService(
             propertyDetails: SourceDetails(ParkingTypeOfUseId, NonParkingTypeOfUseId));
+        var copiedTypeOfUseBatches = new List<int[]>();
+        _propertyDetailsRepo
+            .Setup(r => r.AddRangeAsync(
+                It.IsAny<IEnumerable<PropertyDetailsEntity>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<PropertyDetailsEntity>, CancellationToken>((entities, _) =>
+                copiedTypeOfUseBatches.Add(entities.Select(e => e.TypeOfUseId).ToArray()))
+            .Returns(Task.CompletedTask);
 
         var result = await service.ExecuteAsync(Request("PARKING,PROPERTYWISE"), UpdatedBy);
 
         // Both modes ran and their counts accumulated (parking row + non-parking row).
         Assert.Equal(2, result.PropertyDetailsCopied);
         Assert.Equal(1, result.ProcessedDestinations);
+        Assert.Collection(
+            copiedTypeOfUseBatches,
+            parkingBatch => Assert.Equal(new[] { ParkingTypeOfUseId }, parkingBatch),
+            propertywiseBatch => Assert.Equal(new[] { NonParkingTypeOfUseId }, propertywiseBatch));
     }
 
     [Fact]

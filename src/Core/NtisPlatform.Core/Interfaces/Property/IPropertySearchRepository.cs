@@ -27,7 +27,11 @@ public interface IPropertySearchRepository
     /// Gets the 3 main dashboard cards: Previously Registered, Assessment Approved, Additional Revenue Generated.
     /// Supports optional filters: property type, type of use, zone, ward, category.
     /// </summary>
-    Task<MainCardsResponseDto> GetMainCardsAsync(
+    Task<(
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) PreviouslyRegistered,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) Assessed,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) Unassessed,
+        (int PropertyCount, int StructureCount, int UnitCount, decimal Demand) AdditionalRevenueGenerated)> GetMainCardsAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
 
@@ -84,10 +88,11 @@ public interface IPropertySearchRepository
     /// for a typeahead/autocomplete UI. The full active-property list for the ward is cached
     /// in memory (see implementation) so repeated keystrokes only re-filter, they don't re-query.
     /// </summary>
-    /// <param name="wardId">Ward to scope the suggestions to (required).</param>
-    /// <param name="propertyNo">Partial PropertyNo term to match anywhere in the value, or null/empty to skip this filter.</param>
-    /// <param name="partitionNo">Partial PartitionNo term to match anywhere in the value, or null/empty to skip this filter.</param>
+    /// <param name="wardId">Ward identifier.</param>
+    /// <param name="propertyNo">Property number search term.</param>
+    /// <param name="partitionNo">Partition number search term.</param>
     /// <param name="maxResults">Maximum number of suggestions to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
         int wardId, string? propertyNo, string? partitionNo, int maxResults, CancellationToken cancellationToken = default);
 }

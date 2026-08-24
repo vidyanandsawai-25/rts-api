@@ -86,7 +86,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         .GroupBy(x => taxMasterCache.GetTaxName(x.TaxId), StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(
                             x => x.Key,
-                            x => x.Sum(v => v.TaxAmount ?? 0m),
+                            x => Math.Round(x.Sum(v => v.TaxAmount ?? 0m), 0, MidpointRounding.AwayFromZero),
                             StringComparer.OrdinalIgnoreCase);
 
                     return new RateableValueDetailDto

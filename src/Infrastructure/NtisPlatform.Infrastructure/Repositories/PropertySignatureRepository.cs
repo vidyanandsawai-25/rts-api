@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -74,11 +75,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
     #region Eligible Properties Queries
 
-    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(
-        int signAuthorityId,
-        int? zoneId,
-        int? wardId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(int signAuthorityId,int? zoneId,int? wardId,CancellationToken cancellationToken = default)
     {
         try
         {
@@ -126,8 +123,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
     #region Sequential Validation Queries
 
-    public async Task<List<PropertySignaturePendingExportAuthorityDto>> GetPendingExportAuthoritiesAsync(
-        CancellationToken cancellationToken = default)
+    public async Task<List<PropertySignaturePendingExportAuthorityDto>> GetPendingExportAuthoritiesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -153,8 +149,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         }
     }
 
-    public async Task<List<PropertySignaturePendingExportSourceDto>> GetPendingExportSourceDataAsync(
-        CancellationToken cancellationToken = default)
+    public async Task<List<PropertySignaturePendingExportSourceDto>> GetPendingExportSourceDataAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -228,10 +223,237 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         }
     }
 
-    public async Task<List<int>> GetSignedPropertyIdsAsync(
-        List<int> propertyIds,
+    public async Task<List<PropertySignaturePendingSignSourceDto>> GetPendingSignSourceDataAsync(
+        int signAuthorityId,string? searchTerm = null,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug(
+                "Fetching pending sign source data for  SignAuthorityId={SignAuthorityId}, SearchTerm={SearchTerm}",
+             
+                signAuthorityId,
+                searchTerm);
+            var approvedStatuses = new[]
+            {
+                "ApprovedByClerk",
+                "ApprovedByTI",
+                "ApprovedByAC",
+                "ApprovedByDC",
+                "ApprovedByACD"
+            };
+            var normalizedSearchTerm = string.IsNullOrWhiteSpace(searchTerm)
+                ? null
+                : searchTerm.Trim().ToUpper();
+
+            var totalDemandQuery =
+                from t in _context.TransMast.AsNoTracking()
+                join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+                where t.IsActive
+                      && !t.MarkedForDeletion
+                      && tax.IsActive
+                      && tax.TaxCode == TaxTotalCode
+                      && tax.TaxName == TaxTotalName
+                group t by t.PropertyId into g
+                select new
+                {
+                    PropertyId = g.Key,
+                    Demand = g.Sum(x => x.TaxAmount)
+                };
+
+            var rows = await (
+                from sig in _context.PropertySignatureDetails.AsNoTracking()
+                join auth in _context.SignAuthorityMaster.AsNoTracking() on sig.SignAuthorityId equals auth.Id
+                join p in _context.PropertyMast.AsNoTracking() on sig.PropertyId equals p.Id
+                join ward in _context.WardMaster.AsNoTracking() on p.WardId equals ward.Id
+                join unitProperty in _context.PropertyMast.AsNoTracking()
+                    on new { p.WardId, p.PropertyNo } equals new { unitProperty.WardId, unitProperty.PropertyNo }
+                join demand in totalDemandQuery on unitProperty.Id equals demand.PropertyId into demandJoin
+                from demand in demandJoin.DefaultIfEmpty()
+                where sig.IsActive
+                       && sig.SignAuthorityId == signAuthorityId
+                      && (sig.SignStatus == null || !approvedStatuses.Contains(sig.SignStatus))
+                      && (normalizedSearchTerm == null || (sig.NoticeNo != null && sig.NoticeNo!.Trim().ToUpper() == normalizedSearchTerm))
+                      && auth.IsActive
+                      && p.IsActive
+                      && !p.MarkedForDeletion
+                      && p.PropertyNo != null
+                      && p.PropertyNo != ""
+                      && ward.IsActive
+                      && unitProperty.IsActive
+                      && !unitProperty.MarkedForDeletion
+                      && unitProperty.PropertyNo != null
+                      && unitProperty.PropertyNo != ""
+                select new
+                {
+                    SignatureId = sig.Id,
+                    PropertyId = sig.PropertyId,
+                    SignAuthorityId = sig.SignAuthorityId,
+                    UnitPropertyId = unitProperty.Id,
+                    WardNo = ward.WardNo,
+                    PropertyNo = p.PropertyNo,
+                    PartitionNo = p.PartitionNo,
+                    sig.NoticeNo,
+                    sig.SignStatus,
+                    AuthorityCode = auth.AuthorityCode,
+                    UnitDemand = demand == null ? (decimal?)null : demand.Demand
+                })
+                .ToListAsync(cancellationToken);
+
+            return rows.Select(row => new PropertySignaturePendingSignSourceDto
+            {
+                SignatureId = row.SignatureId,
+                PropertyId = row.PropertyId,
+                SignAuthorityId = row.SignAuthorityId,
+                UnitPropertyId = row.UnitPropertyId,
+                WardNo = row.WardNo ?? "",
+                PropertyNo = row.PropertyNo ?? "",
+                PartitionNo = row.PartitionNo,
+                SrNoticeNo = row.NoticeNo ?? "",
+                SignStatus = row.SignStatus ?? "",
+                AuthorityCode = row.AuthorityCode ?? "",
+                UnitDemand = row.UnitDemand ?? 0m
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error fetching pending sign source data for SignAuthorityId={SignAuthorityId}, SearchTerm={SearchTerm}",
+                signAuthorityId,
+                searchTerm);
+            throw;
+        }
+    }
+
+    public async Task<int?> GetSignAuthorityIdByUserRoleAsync(int userId,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await (
+                from user in _context.UserMasters.AsNoTracking()
+                join roleAllocation in _context.UserRoleAllocation.AsNoTracking() on user.Id equals roleAllocation.UserId
+                join userRole in _context.UserRoleMasterEntity.AsNoTracking() on roleAllocation.UserRoleId equals userRole.Id
+                join department in _context.DepartmentMasters.AsNoTracking() on userRole.DepartmentId equals department.Id
+                join authority in _context.SignAuthorityMaster.AsNoTracking() on userRole.UserRoleName equals authority.AuthorityName
+                where user.Id == userId
+                      && department.DepartmentCode == "PTIS"
+                      && user.IsActive
+                      && roleAllocation.IsActive
+                      && userRole.IsActive
+                      && department.IsActive
+                      && authority.IsActive
+                orderby authority.SequenceOrder
+                select (int?)authority.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resolving sign authority for UserId={UserId}", userId);
+            throw;
+        }
+    }
+
+    public async Task<PropertySignatureUpdateSignSourceDto?> GetUpdateSignSourceAsync(
+        int userId, int propertyId, int signAuthorityId,string signStatus,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var normalizedSignStatus = signStatus.Trim().ToUpper();
+
+            return await (
+                from sig in _context.PropertySignatureDetails.AsNoTracking()
+                join auth in _context.SignAuthorityMaster.AsNoTracking() on sig.SignAuthorityId equals auth.Id
+                where sig.IsActive                    
+                      && sig.PropertyId == propertyId
+                      && sig.SignAuthorityId == signAuthorityId
+                      && sig.SignStatus != null
+                      && sig.SignStatus.Trim().ToUpper() == normalizedSignStatus
+                      && auth.IsActive
+                select new PropertySignatureUpdateSignSourceDto
+                {
+                    SignatureId = sig.Id,
+                    UserId = sig.UserId,
+                    PropertyId = sig.PropertyId,
+                    SignAuthorityId = sig.SignAuthorityId,
+                    AuthorityCode = auth.AuthorityCode,
+                    NoticeNo = sig.NoticeNo,
+                    SignStatus = sig.SignStatus ?? "",
+                    IsActive = sig.IsActive
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error fetching update-sign source for UserId={UserId}, PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                userId,
+                propertyId,
+                signAuthorityId);
+            throw;
+        }
+    }
+
+    public async Task<bool> SignatureExistsAsync(int propertyId,int signAuthorityId,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _context.PropertySignatureDetails.AsNoTracking()
+                .AnyAsync(sig => sig.IsActive && sig.PropertyId == propertyId && sig.SignAuthorityId == signAuthorityId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error checking signature existence for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                propertyId,
+                signAuthorityId);
+            throw;
+        }
+    }
+
+    public async Task<(bool UserExists, bool PropertyExists, bool SignAuthorityExists)> GetUpdateSignReferenceStatusAsync(
+        int userId,
+        int propertyId,
         int signAuthorityId,
         CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userExists = await _context.UserMasters
+                .AsNoTracking()
+                .AnyAsync(user =>
+                    user.Id == userId
+                    && user.IsActive
+                    && !user.MarkedForDeletion,
+                    cancellationToken);
+
+            var propertyExists = await _context.PropertyMast
+                .AsNoTracking()
+                .AnyAsync(property =>
+                    property.Id == propertyId
+                    && property.IsActive
+                    && !property.MarkedForDeletion,
+                    cancellationToken);
+
+            var signAuthorityExists = await _context.SignAuthorityMaster
+                .AsNoTracking()
+                .AnyAsync(authority =>
+                    authority.Id == signAuthorityId
+                    && authority.IsActive,
+                    cancellationToken);
+
+            return (userExists, propertyExists, signAuthorityExists);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error checking update-sign references for UserId={UserId}, PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                userId,
+                propertyId,
+                signAuthorityId);
+            throw;
+        }
+    }
+
+    public async Task<List<int>> GetSignedPropertyIdsAsync(List<int>propertyIds,int signAuthorityId,CancellationToken cancellationToken = default)
     {
         if (!propertyIds.Any())
             return new List<int>();
@@ -341,6 +563,122 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 "Error saving approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}",
                 userId, signAuthorityId);
             throw;
+        }
+    }
+
+    #endregion
+
+    #region Update Sign Commands
+
+    public async Task<bool> UpdateSignAsync(PropertySignatureUpdateSignCommandDto command, CancellationToken cancellationToken = default)
+    {
+        IDbContextTransaction? transaction = null;
+
+        try
+        {
+            if (_context.Database.IsRelational())
+                transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            var signatureExists = await _context.PropertySignatureDetails
+                .AnyAsync(sig =>
+                    sig.Id == command.SignatureId
+                    && sig.IsActive,
+                    cancellationToken);
+
+            if (!signatureExists)
+                return false;
+ 
+            var now = DateTime.Now;
+
+            if (_context.Database.IsRelational())
+            {
+                await _context.PropertySignatureDetails
+                    .Where(sig =>
+                        sig.Id == command.SignatureId
+                        && sig.IsActive)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(sig => sig.SignStatus, command.UpdatedSignStatus)
+                        .SetProperty(sig => sig.UpdatedDate, now)
+                        .SetProperty(sig => sig.UpdatedBy, command.UpdatedBy),
+                        cancellationToken);
+            }
+            else
+            {
+                var tracked = _context.PropertySignatureDetails.Local
+                    .FirstOrDefault(sig => sig.Id == command.SignatureId);
+
+                if (tracked != null)
+                {
+                    tracked.SignStatus = command.UpdatedSignStatus;
+                    tracked.UpdatedDate = now;
+                    tracked.UpdatedBy = command.UpdatedBy;
+                }
+                else
+                {
+                    var signature = new PropertySignatureDetailsEntity
+                    {
+                        Id = command.SignatureId,
+                        SignStatus = command.UpdatedSignStatus,
+                        UpdatedDate = now,
+                        UpdatedBy = command.UpdatedBy
+                    };
+
+                    _context.PropertySignatureDetails.Attach(signature);
+                    _context.Entry(signature).Property(sig => sig.SignStatus).IsModified = true;
+                    _context.Entry(signature).Property(sig => sig.UpdatedDate).IsModified = true;
+                    _context.Entry(signature).Property(sig => sig.UpdatedBy).IsModified = true;
+                }
+            }
+
+            if (command.NextSignAuthorityId.HasValue
+                && !string.IsNullOrWhiteSpace(command.NextSignStatus))
+            {
+                var nextExists = await _context.PropertySignatureDetails
+                    .AnyAsync(sig =>
+                        sig.IsActive
+                        && sig.PropertyId == command.PropertyId
+                        && sig.SignAuthorityId == command.NextSignAuthorityId.Value,
+                        cancellationToken);
+
+                if (!nextExists)
+                {
+                    await _context.PropertySignatureDetails.AddAsync(
+                        new PropertySignatureDetailsEntity
+                        {
+                            UserId = command.UserId,
+                            PropertyId = command.PropertyId,
+                            SignAuthorityId = command.NextSignAuthorityId.Value,
+                            IsActive = command.IsActive,
+                            NoticeNo = command.NoticeNo,
+                            SignStatus = command.NextSignStatus,
+                            CreatedDate = now,
+                            CreatedBy = command.UpdatedBy
+                        },
+                        cancellationToken);
+                }
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            if (transaction != null)
+                await transaction.CommitAsync(cancellationToken);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (transaction != null)
+                await transaction.RollbackAsync(cancellationToken);
+
+            _logger.LogError(ex,
+                "Error updating signature row SignatureId={SignatureId}",
+                command.SignatureId);
+            throw;
+        }
+        finally
+        {
+            if (transaction != null)
+                await transaction.DisposeAsync();
         }
     }
 

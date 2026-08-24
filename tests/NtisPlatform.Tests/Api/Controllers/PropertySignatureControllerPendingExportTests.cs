@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Application.DTOs.PropertySignature;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Models;
 
@@ -81,5 +82,85 @@ public class PropertySignatureControllerPendingExportTests
         var response = Assert.IsType<PropertySignatureItemsResponse<IReadOnlyList<SignAuthorityGridResponseDto>>>(ok.Value);
         var item = Assert.Single(response.Items!);
         Assert.Equal("TOTAL", item.TotalRow.ZoneName);
+    }
+
+    [Fact]
+    public async Task GetPendingSigns_ReturnsRowsInsideItemsOnlyResponse()
+    {
+        var query = new PropertySignaturePendingSignsQueryParameters
+        {
+            UserId = 5,
+            SearchTerm = "WE020004"
+        };
+        var page = new PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>
+        {
+            Items = new List<PropertySignaturePendingSignDto>
+            {
+                new()
+                {
+                    PropertyId = 100,
+                    SignAuthorityId = 2,
+                    StructureName = "WE2-4",
+                    SrNoticeNo = "WE0200040000",
+                    NoOfUnits = 6,
+                    Demand = 424000m,
+                    SignStatus = "Pending",
+                    AuthorityCode = "TI"
+                }
+            },
+            TotalCount = 1,
+            PageNumber = 1,
+            PageSize = 10
+        };
+        var service = new Mock<IPropertySignatureService>();
+        service
+            .Setup(x => x.GetPendingSignsAsync(
+                It.Is<PropertySignaturePendingSignsQueryParameters>(q =>
+                    q.UserId == 5
+                    && q.SearchTerm == "WE020004"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(page);
+        var controller = CreateController(service);
+
+        var result = await controller.GetPendingSigns(query, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<PropertySignatureItemsResponse<IReadOnlyList<PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>>>>(ok.Value);
+        var item = Assert.Single(response.Items!);
+        Assert.Equal(page, item);
+    }
+
+    [Fact]
+    public async Task UpdatePropertySign_ReturnsUpdatedResultInsideItemsOnlyResponse()
+    {
+        var request = new PropertySignatureUpdateSignRequestDto
+        {
+            UserId = 5,
+            SignAuthorityId = 1,
+            PropertyId = 100,
+            AuthorityCode = "CLERK",
+            SignStatus = "PendingToClerk"
+        };
+        var updateResult = new PropertySignatureUpdateSignResponseDto
+        {
+            PropertyId = 100,
+            UpdatedSignAuthorityId = 1,
+            UpdatedSignStatus = "ApprovedByClerk",
+            NextSignAuthorityId = 2,
+            NextSignStatus = "PendingToTI",
+            Message = "Signature updated successfully and sent to the next authority."
+        };
+        var service = new Mock<IPropertySignatureService>();
+        service
+            .Setup(x => x.UpdateSignAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(updateResult);
+        var controller = CreateController(service);
+
+        var result = await controller.UpdatePropertySign(request, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<PropertySignatureItemsResponse<IReadOnlyList<PropertySignatureUpdateSignResponseDto>>>(ok.Value);
+        var item = Assert.Single(response.Items!);
+        Assert.Equal(updateResult, item);
     }
 }

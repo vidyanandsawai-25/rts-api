@@ -441,7 +441,7 @@ public class TaxZoningRangeServiceTests
         SetLanguage("hi");
         _localizationService
             .Setup(s => s.GetTranslations(
-                "Reports",
+                "TaxZoningRangeExport",
                 "hi",
                 It.Is<IEnumerable<string>>(keys => keys.Contains("TaxZoningReport_Col_SrNo"))))
             .Returns(new Dictionary<string, string>
@@ -467,7 +467,7 @@ public class TaxZoningRangeServiceTests
         Assert.Equal("पता", ws.Cell(5, 6).GetString());
 
         _localizationService.Verify(s => s.GetTranslations(
-            "Reports",
+            "TaxZoningRangeExport",
             "hi",
             It.Is<IEnumerable<string>>(keys => keys.Count() == 5)), Times.Once);
     }

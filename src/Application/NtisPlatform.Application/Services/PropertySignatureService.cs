@@ -7,6 +7,7 @@ using NtisPlatform.Core.Models;
 using System.Globalization;
 using ClosedXML.Excel;
 using NtisPlatform.Core.Models.AutomationDashboard;
+using NtisPlatform.Application.DTOs.PropertySignature;
 
 namespace NtisPlatform.Application.Services;
 
@@ -23,6 +24,26 @@ public class PropertySignatureService : IPropertySignatureService
     private const string ReasonKey = "Reason";
     private const string PendingSignAtKey = "PendingSignAt";
     private const string PendingOfficerNameKey = "PendingOfficerName";
+    private const string PendingToClerkStatus = "PendingToClerk";
+    private const string PendingToTiStatus = "PendingToTI";
+    private const string PendingToAcStatus = "PendingToAC";
+    private const string PendingToDcStatus = "PendingToDC";
+    private const string PendingToAcdStatus = "PendingToACD";
+    private const string ClerkAuthorityCode = "CLERK";
+    private const string TaxInspectorAuthorityCode = "TI";
+    private const string AssistantCommissionerAuthorityCode = "AC";
+    private const string DeputyCommissionerAuthorityCode = "DC";
+    private const string AdditionalCommissionerAuthorityCode = "ACD";
+
+    private static readonly IReadOnlyDictionary<string, SignWorkflowTransition> SignWorkflowTransitions =
+        new Dictionary<string, SignWorkflowTransition>(StringComparer.OrdinalIgnoreCase)
+        {
+            [PendingToClerkStatus] = new(ClerkAuthorityCode, "ApprovedByClerk", TaxInspectorAuthorityCode, PendingToTiStatus),
+            [PendingToTiStatus] = new(TaxInspectorAuthorityCode, "ApprovedByTI", AssistantCommissionerAuthorityCode, PendingToAcStatus),
+            [PendingToAcStatus] = new(AssistantCommissionerAuthorityCode, "ApprovedByAC", DeputyCommissionerAuthorityCode, PendingToDcStatus),
+            [PendingToDcStatus] = new(DeputyCommissionerAuthorityCode, "ApprovedByDC", AdditionalCommissionerAuthorityCode, PendingToAcdStatus),
+            [PendingToAcdStatus] = new(AdditionalCommissionerAuthorityCode, "ApprovedByACD", null, null)
+        };
 
     #endregion
 
@@ -74,11 +95,7 @@ public class PropertySignatureService : IPropertySignatureService
     /// Gets properties eligible for signing by the specified authority.
     /// Enforces sequential approval rules.
     /// </summary>
-    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(
-        int signAuthorityId,
-        int? zoneId,
-        int? wardId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(int signAuthorityId,int? zoneId,int? wardId,CancellationToken cancellationToken = default)
     {
         try
         {
@@ -170,17 +187,11 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Imports property approvals from Excel file.
     /// </summary>
-    public async Task<PropertySignatureExcelUploadResultDto> UploadApprovalsFromExcelAsync(
-        int userId,
-        int signAuthorityId,
-        Stream fileStream,
-        CancellationToken cancellationToken = default)
+    public async Task<PropertySignatureExcelUploadResultDto> UploadApprovalsFromExcelAsync(int userId,int signAuthorityId,Stream fileStream,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "User {UserId} uploading Excel approvals for SignAuthorityId={SignAuthorityId}",
-                userId, signAuthorityId);
+            _logger.LogInformation("User {UserId} uploading Excel approvals for SignAuthorityId={SignAuthorityId}",userId, signAuthorityId);
 
             var (headers, rows) = _excelUploadService.Read(fileStream);
             var missingHeaders = _excelUploadService.GetMissingRequiredHeaders(
@@ -217,9 +228,7 @@ public class PropertySignatureService : IPropertySignatureService
 
             var mergedRejected = parseRejected.Concat(submitResult.RejectedProperties).ToList();
 
-            _logger.LogInformation(
-                "Excel upload complete: {Approved} approved, {Rejected} rejected",
-                submitResult.ApprovedCount, mergedRejected.Count);
+            _logger.LogInformation("Excel upload complete: {Approved} approved, {Rejected} rejected",submitResult.ApprovedCount, mergedRejected.Count);
 
             return new PropertySignatureExcelUploadResultDto
             {
@@ -234,9 +243,7 @@ public class PropertySignatureService : IPropertySignatureService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error uploading Excel approvals for User {UserId}",
-                userId);
+            _logger.LogError(ex,"Error uploading Excel approvals for User {UserId}",userId);
             throw;
         }
     }
@@ -282,25 +289,16 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets approvals submitted by the current user.
     /// </summary>
-    public async Task<List<SignatureApprovalDto>> GetMyApprovalsAsync(
-        int userId,
-        int signAuthorityId,
-        int? zoneId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<SignatureApprovalDto>> GetMyApprovalsAsync(int userId,int signAuthorityId,int? zoneId,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "Retrieving approvals for User {UserId}, SignAuthorityId={SignAuthorityId}",
-                userId, signAuthorityId);
-
+            _logger.LogInformation("Retrieving approvals for User {UserId}, SignAuthorityId={SignAuthorityId}",userId, signAuthorityId);
             return await _repository.GetMyApprovalsAsync(userId, signAuthorityId, zoneId, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error retrieving approvals for User {UserId}",
-                userId);
+            _logger.LogError(ex,"Error retrieving approvals for User {UserId}", userId);
             throw;
         }
     }
@@ -308,9 +306,7 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets complete sign-off chain status for a property.
     /// </summary>
-    public async Task<PropertySignatureStatusDto?> GetPropertySignatureStatusAsync(
-        int propertyId,
-        CancellationToken cancellationToken = default)
+    public async Task<PropertySignatureStatusDto?> GetPropertySignatureStatusAsync(int propertyId,CancellationToken cancellationToken = default)
     {
         try
         {
@@ -319,9 +315,7 @@ public class PropertySignatureService : IPropertySignatureService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error retrieving signature status for PropertyId={PropertyId}",
-                propertyId);
+            _logger.LogError(ex,"Error retrieving signature status for PropertyId={PropertyId}",propertyId);
             throw;
         }
     }
@@ -329,20 +323,13 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Revokes (soft-deletes) an approval.
     /// </summary>
-    public async Task<bool> RevokeApprovalAsync(
-        int propertyId,
-        int signAuthorityId,
-        int updatedBy,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> RevokeApprovalAsync(int propertyId,int signAuthorityId,int updatedBy,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "Revoking approval for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}, User={UserId}",
-                propertyId, signAuthorityId, updatedBy);
+            _logger.LogInformation("Revoking approval for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}, User={UserId}",propertyId, signAuthorityId, updatedBy);
 
-            var revoked = await _repository.RevokeApprovalAsync(
-                propertyId, signAuthorityId, updatedBy, cancellationToken);
+            var revoked = await _repository.RevokeApprovalAsync(propertyId, signAuthorityId, updatedBy, cancellationToken);
 
             if (revoked)
                 _logger.LogInformation("Successfully revoked approval for PropertyId={PropertyId}", propertyId);
@@ -353,9 +340,7 @@ public class PropertySignatureService : IPropertySignatureService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error revoking approval for PropertyId={PropertyId}",
-                propertyId);
+            _logger.LogError(ex,"Error revoking approval for PropertyId={PropertyId}",propertyId);
             throw;
         }
     }
@@ -363,9 +348,7 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets sign-off grid data (zone-wise or division-wise).
     /// </summary>
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityGridDataAsync(
-        PropertySearchRequestDto? searchRequest = null,
-        CancellationToken cancellationToken = default)
+    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityGridDataAsync(PropertySearchRequestDto? searchRequest = null,CancellationToken cancellationToken = default)
     {
         try
         {
@@ -382,9 +365,7 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets ward-wise sign-off grid data for a zone.
     /// </summary>
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
-        int zoneId,
-        CancellationToken cancellationToken = default)
+    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(int zoneId,CancellationToken cancellationToken = default)
     {
         try
         {
@@ -404,23 +385,18 @@ public class PropertySignatureService : IPropertySignatureService
     /// Gets building-wise sub-grid data.
     /// </summary>
     public async Task<PropertySignaturePagedResultDto<PropertySignatureSubGridDto>> GetSubGridAsync(
-        PropertySignatureBuildingWiseQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+        PropertySignatureBuildingWiseQueryParameters queryParameters,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "Retrieving sub-grid data for WardId={WardId}, WorkflowStageId={WorkflowStageId}, NoticeNo={NoticeNo}",
+            _logger.LogInformation("Retrieving sub-grid data for WardId={WardId}, WorkflowStageId={WorkflowStageId}, NoticeNo={NoticeNo}",
                 queryParameters.WardId, queryParameters.WorkflowStageId, queryParameters.NoticeNo);
 
-            return await _repository.GetBuildingWiseDataAsync(
-                queryParameters, cancellationToken);
+            return await _repository.GetBuildingWiseDataAsync(queryParameters, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error retrieving sub-grid data for WardId={WardId}",
-                queryParameters.WardId);
+            _logger.LogError(ex,"Error retrieving sub-grid data for WardId={WardId}",queryParameters.WardId);
             throw;
         }
     }
@@ -429,23 +405,16 @@ public class PropertySignatureService : IPropertySignatureService
     /// Gets property-wise signature data.
     /// </summary>
     public async Task<PropertySignaturePagedResultDto<PropertySignaturePropertyWiseDto>> GetPropertyWiseDataAsync(
-        PropertySignaturePropertyWiseQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+        PropertySignaturePropertyWiseQueryParameters queryParameters,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "Retrieving property-wise data for PropertyNo={PropertyNo}, SearchType={SearchType}",
-                queryParameters.PropertyNo, queryParameters.SearchType);
-
-            return await _repository.GetPropertyWiseDataAsync(
-                queryParameters, cancellationToken);
+            _logger.LogInformation("Retrieving property-wise data for PropertyNo={PropertyNo}, SearchType={SearchType}",queryParameters.PropertyNo, queryParameters.SearchType);
+            return await _repository.GetPropertyWiseDataAsync(queryParameters, cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error retrieving property-wise data for PropertyNo={PropertyNo}",
-                queryParameters.PropertyNo);
+            _logger.LogError(ex,"Error retrieving property-wise data for PropertyNo={PropertyNo}",queryParameters.PropertyNo);
             throw;
         }
     }
@@ -453,15 +422,11 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets pending properties for export.
     /// </summary>
-    public async Task<List<PropertySignaturePendingExportDto>> GetPendingExportDataAsync(
-        int signAuthorityId,
-        CancellationToken cancellationToken = default)
+    public async Task<List<PropertySignaturePendingExportDto>> GetPendingExportDataAsync(int signAuthorityId,CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation(
-                "Retrieving pending export data for SignAuthorityId={SignAuthorityId}",
-                signAuthorityId);
+            _logger.LogInformation("Retrieving pending export data for SignAuthorityId={SignAuthorityId}",signAuthorityId);
 
             var authorities = await _repository.GetPendingExportAuthoritiesAsync(cancellationToken);
             var currentAuthority = authorities.FirstOrDefault(a => a.SignAuthorityId == signAuthorityId);
@@ -498,9 +463,159 @@ public class PropertySignatureService : IPropertySignatureService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "Error retrieving pending export data for SignAuthorityId={SignAuthorityId}",
-                signAuthorityId);
+            _logger.LogError(ex,"Error retrieving pending export data for SignAuthorityId={SignAuthorityId}",signAuthorityId);
+            throw;
+        }
+    }
+
+    public async Task<PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>> GetPendingSignsAsync(
+        PropertySignaturePendingSignsQueryParameters queryParameters,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Retrieving pending signs for UserId={UserId}", queryParameters.UserId);
+
+            var signAuthorityId = await _repository.GetSignAuthorityIdByUserRoleAsync(
+                queryParameters.UserId,
+                cancellationToken);
+
+            if (!signAuthorityId.HasValue)
+                throw new KeyNotFoundException(
+                    $"No active PTIS sign authority role is mapped for UserId {queryParameters.UserId}.");
+
+            var sourceRows = await _repository.GetPendingSignSourceDataAsync(
+                signAuthorityId.Value,
+                queryParameters.SearchTerm,
+                cancellationToken);
+
+            var pendingRows = sourceRows
+                .GroupBy(row => row.SignatureId)
+                .Select(group =>
+                {
+                    var first = group.First();
+                    var demandByUnitProperty = group
+                        .GroupBy(row => row.UnitPropertyId)
+                        .ToDictionary(unit => unit.Key, unit => unit.First().UnitDemand);
+
+                    return new
+                    {
+                        first.WardNo,
+                        PropertyNoSort = ParseSortNumber(first.PropertyNo, int.MaxValue),
+                        PartitionNoSort = ParseSortNumber(first.PartitionNo, 0),
+                        Row = new PropertySignaturePendingSignDto
+                        {
+                            PropertyId = first.PropertyId,
+                            SignAuthorityId = first.SignAuthorityId,
+                            StructureName = BuildStructureName(first.WardNo, first.PropertyNo, first.PartitionNo),
+                            SrNoticeNo = first.SrNoticeNo,
+                            NoOfUnits = demandByUnitProperty.Count,
+                            Demand = demandByUnitProperty.Values.Sum(),
+                            SignStatus = first.SignStatus,
+                            AuthorityCode = first.AuthorityCode
+                        }
+                    };
+                })
+                .OrderBy(row => row.WardNo)
+                .ThenBy(row => row.PropertyNoSort)
+                .ThenBy(row => row.PartitionNoSort)
+                .ThenBy(row => row.Row.SrNoticeNo)
+                .Select(row => row.Row)
+                .ToList();
+
+            return CreatePagedPendingSignResult(
+                pendingRows,
+                queryParameters.PageNumber,
+                queryParameters.PageSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving pending signs for UserId={UserId}", queryParameters.UserId);
+            throw;
+        }
+    }
+
+    public async Task<PropertySignatureUpdateSignResponseDto> UpdateSignAsync(PropertySignatureUpdateSignRequestDto request,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Updating signature for UserId={UserId}, PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}, SignStatus={SignStatus}",
+                request.UserId,
+                request.PropertyId,
+                request.SignAuthorityId,
+                request.SignStatus);
+
+            var transition = GetSignWorkflowTransition(request.SignStatus);
+            var authorityCode = NormalizeAuthorityCode(request.AuthorityCode);
+
+            if (!string.Equals(authorityCode, transition.CurrentAuthorityCode, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"The AuthorityCode {request.AuthorityCode} is not valid for {request.SignStatus}.");
+
+            await ValidateUpdateSignReferencesAsync(request, cancellationToken);
+
+            var source = await _repository.GetUpdateSignSourceAsync(
+                request.UserId,
+                request.PropertyId,
+                request.SignAuthorityId,
+                request.SignStatus,
+                cancellationToken);
+
+            if (source == null)
+                throw new InvalidOperationException(
+                    $"No active pending signature record found for UserId {request.UserId}, PropertyId {request.PropertyId}, SignAuthorityId {request.SignAuthorityId}, and SignStatus {request.SignStatus}.");
+
+            if (!string.Equals(source.AuthorityCode, authorityCode, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"The SignAuthorityId {request.SignAuthorityId} does not match AuthorityCode {request.AuthorityCode}.");
+
+            var authorities = await _repository.GetAuthoritiesAsync(cancellationToken);
+            var nextAuthority = transition.NextAuthorityCode == null
+                ? null
+                : authorities.FirstOrDefault(a =>
+                    string.Equals(a.AuthorityCode, transition.NextAuthorityCode, StringComparison.OrdinalIgnoreCase));
+
+            if (transition.NextAuthorityCode != null && nextAuthority == null)
+                throw new InvalidOperationException($"The next signing authority {transition.NextAuthorityCode} is not configured.");
+
+            var shouldInsertNext = nextAuthority != null
+                && !await _repository.SignatureExistsAsync(
+                    request.PropertyId,
+                    nextAuthority.Id,
+                    cancellationToken);
+
+            var command = new PropertySignatureUpdateSignCommandDto
+            {
+                SignatureId = source.SignatureId,
+                UserId = request.UserId,
+                PropertyId = request.PropertyId,
+                SignAuthorityId = request.SignAuthorityId,
+                NoticeNo = source.NoticeNo,
+                IsActive = source.IsActive,
+                UpdatedBy = request.UserId,
+                UpdatedSignStatus = transition.ApprovedSignStatus,
+                NextSignAuthorityId = shouldInsertNext ? nextAuthority?.Id : null,
+                NextSignStatus = shouldInsertNext ? transition.NextPendingSignStatus : null
+            };
+
+            var updated = await _repository.UpdateSignAsync(command, cancellationToken);
+
+            if (!updated)
+                throw new InvalidOperationException($"The pending signature record for PropertyId {request.PropertyId} could not be updated.");
+
+            return new PropertySignatureUpdateSignResponseDto
+            {
+                PropertyId = request.PropertyId,
+                UpdatedSignAuthorityId = request.SignAuthorityId,
+                UpdatedSignStatus = transition.ApprovedSignStatus,
+                NextSignAuthorityId = command.NextSignAuthorityId,
+                NextSignStatus = command.NextSignStatus 
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,"Error updating signature for UserId={UserId}, PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                request.UserId,
+                request.PropertyId,
+                request.SignAuthorityId);
             throw;
         }
     }
@@ -508,6 +623,41 @@ public class PropertySignatureService : IPropertySignatureService
     #endregion
 
     #region Private Helper Methods
+
+    private static SignWorkflowTransition GetSignWorkflowTransition(string signStatus)
+    {
+        if (string.IsNullOrWhiteSpace(signStatus)
+            || !SignWorkflowTransitions.TryGetValue(signStatus.Trim(), out var transition))
+            throw new InvalidOperationException("The SignStatus is not valid for signature update.");
+
+        return transition;
+    }
+
+    private static string NormalizeAuthorityCode(string authorityCode)
+        => authorityCode.Trim().ToUpperInvariant();
+
+    private async Task ValidateUpdateSignReferencesAsync(
+        PropertySignatureUpdateSignRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var referenceStatus = await _repository.GetUpdateSignReferenceStatusAsync(
+            request.UserId,
+            request.PropertyId,
+            request.SignAuthorityId,
+            cancellationToken);
+
+        var missingReferenceMessage = new[]
+        {
+            (!referenceStatus.UserExists, $"The UserId {request.UserId} was not found or is inactive."),
+            (!referenceStatus.PropertyExists, $"The PropertyId {request.PropertyId} was not found or is inactive."),
+            (!referenceStatus.SignAuthorityExists, $"The SignAuthorityId {request.SignAuthorityId} was not found or is inactive.")
+        }
+        .FirstOrDefault(validation => validation.Item1)
+        .Item2;
+
+        if (!string.IsNullOrWhiteSpace(missingReferenceMessage))
+            throw new KeyNotFoundException(missingReferenceMessage);
+    }
 
     /// <summary>
     /// Gets properties eligible for signing with sequential rule enforcement.
@@ -699,6 +849,51 @@ public class PropertySignatureService : IPropertySignatureService
     /// </summary>
     private static string NormalizeHeader(string value)
         => new string(value.Where(c => char.IsLetterOrDigit(c)).ToArray()).ToLowerInvariant();
+
+    private static string BuildStructureName(string wardNo, string propertyNo, string? partitionNo)
+        => string.IsNullOrWhiteSpace(partitionNo)
+            ? $"{wardNo}-{propertyNo}"
+            : $"{wardNo}-{propertyNo}-{partitionNo}";
+
+    private static int ParseSortNumber(string? value, int fallback)
+        => int.TryParse(value, out var number) ? number : fallback;
+
+    private static PropertySignaturePagedResultDto<PropertySignaturePendingSignDto> CreatePagedPendingSignResult(
+        IReadOnlyList<PropertySignaturePendingSignDto> rows,
+        int pageNumber,
+        int pageSize)
+    {
+        if (pageSize == -1)
+        {
+            return new PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>
+            {
+                Items = rows,
+                TotalCount = rows.Count,
+                PageNumber = 1,
+                PageSize = rows.Count == 0 ? 10 : rows.Count
+            };
+        }
+
+        var effectivePageNumber = pageNumber < 1 ? 1 : pageNumber;
+        var effectivePageSize = pageSize < 1 ? 10 : pageSize;
+
+        return new PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>
+        {
+            Items = rows
+                .Skip((effectivePageNumber - 1) * effectivePageSize)
+                .Take(effectivePageSize)
+                .ToList(),
+            TotalCount = rows.Count,
+            PageNumber = effectivePageNumber,
+            PageSize = effectivePageSize
+        };
+    }
+
+    private sealed record SignWorkflowTransition(
+        string CurrentAuthorityCode,
+        string ApprovedSignStatus,
+        string? NextAuthorityCode,
+        string? NextPendingSignStatus);
 
     /// <summary>
     /// Builds user-friendly approval message.

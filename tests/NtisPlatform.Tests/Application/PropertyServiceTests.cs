@@ -1013,6 +1013,9 @@ public class PropertyServiceTests
         _mockPropertyRepository.Setup(r => r.GetWaterConnectionsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WaterConnectionMasterEntity>());
 
+        _mockPropertyRepository.Setup(r => r.ExecuteSoftDeletePropertiesRelatedEntitiesAsync(It.IsAny<int[]>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Setup MarkEntitiesForDeletion to apply deletion flags to entities passed to it
         _mockPropertyRepository.Setup(r => r.MarkEntitiesForDeletion(It.IsAny<IEnumerable<IHardDeletable>>()))
             .Callback<IEnumerable<IHardDeletable>>(entities =>
@@ -1077,7 +1080,7 @@ public class PropertyServiceTests
         // Assert
         Assert.True(result);
         _mockRepository.Verify(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
-        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2)); // Once for children, once for parent
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once); // Once for parent (children done via direct SQL)
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -1143,11 +1146,10 @@ public class PropertyServiceTests
         Assert.NotNull(result);
         Assert.Equal(propertyIds.Length, result.SuccessCount);
         Assert.True(result.Errors == null || result.Errors.Count == 0);
-        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length)); // Once per property
-        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length));
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once); // Single transaction for bulk delete
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length));
-        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length * 2)); // Twice per property (children + parent)
-        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length)); // Once per property
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once); // Once at the end of transaction
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once); // Single commit
     }
 
     [Fact]
@@ -1231,7 +1233,7 @@ public class PropertyServiceTests
             .ReturnsAsync(entity);
 
         // Mock repository method to throw exception
-        _mockPropertyRepository.Setup(r => r.GetPropertyDetailsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        _mockPropertyRepository.Setup(r => r.ExecuteSoftDeletePropertiesRelatedEntitiesAsync(It.IsAny<int[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Delete operation failed"));
 
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))

@@ -161,6 +161,11 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 	/// </summary>
 	Task<List<WaterConnectionMasterEntity>> GetWaterConnectionsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Soft-deletes all related entities for a list of properties using EF Core batch updates (ExecuteUpdateAsync).
+	/// </summary>
+	Task ExecuteSoftDeletePropertiesRelatedEntitiesAsync(int[] propertyIds, CancellationToken cancellationToken = default);
+
 	Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
 
     Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);

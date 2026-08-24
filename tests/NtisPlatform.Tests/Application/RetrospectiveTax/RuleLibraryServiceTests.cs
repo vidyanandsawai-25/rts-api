@@ -371,7 +371,7 @@ public class RuleLibraryServiceTests
     public async Task GetLibraryAsync_PenaltyActUnlawful_ReturnsActPenaltySummary()
     {
         var rule = new RetrospectiveRuleMasterEntity { Id = 1, RuleCode = "FUR-03", RuleName = "R", RuleStatus = "Review", AuthorizationStatus = "UNAUTHORIZED", IsActive = true };
-        var penalty = new RetrospectivePenaltyRuleEntity { Id = 1, RuleId = 1, PenaltyMode = "ACT_UNLAWFUL", IsActive = true };
+        var penalty = new RetrospectivePenaltyRuleEntity { Id = 1, RuleId = 1, PenaltyMode = "ACT_PENALTY", IsActive = true };
 
         _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleMasterEntity> { rule }.BuildMock());
         _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());

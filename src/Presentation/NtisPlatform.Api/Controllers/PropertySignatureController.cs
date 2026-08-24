@@ -191,6 +191,51 @@ public class PropertySignatureController : ControllerBase
     }
 
     /// <summary>
+    /// Returns pending sign rows for the selected user and signing authority.
+    /// </summary>
+    [HttpGet("GetPendingSigns")]
+    public async Task<ActionResult<PropertySignatureItemsResponse<IReadOnlyList<PropertySignaturePagedResultDto<PropertySignaturePendingSignDto>>>>> GetPendingSigns(
+        [FromQuery] PropertySignaturePendingSignsQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _signatureService.GetPendingSignsAsync(queryParameters, cancellationToken);
+
+            return OkItem(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error retrieving pending signs for UserId={UserId}", queryParameters.UserId);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates the current pending signature status and creates the next pending signature row when applicable.
+    /// </summary>
+    [HttpPut("UpdatePropertySign")]
+    public async Task<ActionResult<PropertySignatureItemsResponse<IReadOnlyList<PropertySignatureUpdateSignResponseDto>>>> UpdatePropertySign(
+        [FromBody] PropertySignatureUpdateSignRequestDto request,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _signatureService.UpdateSignAsync(request, cancellationToken);
+             return OkItem(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error updating signature for UserId={UserId}, PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                request.UserId,
+                request.PropertyId,
+                request.SignAuthorityId);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Extracts UserId from JWT token claims.
     /// </summary>
     private int GetCurrentUserId()

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Exceptions;
 using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Api.Controllers;
@@ -57,7 +58,7 @@ public partial class PropertyController
                 new ApiResponse<PropertyTaxDetailsDto>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving property tax details"
+                    Message = ex is NtisPlatformException ? ex.Message : "An error occurred while retrieving property tax details"
                 });
         }
     }
@@ -119,7 +120,7 @@ public partial class PropertyController
                 new ApiResponse<PropertyTaxApartmentDetailsDto>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving aggregated property tax details"
+                    Message = ex is NtisPlatformException ? ex.Message : "An error occurred while retrieving aggregated property tax details"
                 });
         }
     }
@@ -168,7 +169,7 @@ public partial class PropertyController
                 new ApiResponse<PropertyTaxDetailsCVDto>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving property CV tax details"
+                    Message = ex is NtisPlatformException ? ex.Message : "An error occurred while retrieving property CV tax details"
                 });
         }
     }
@@ -229,7 +230,7 @@ public partial class PropertyController
                 new ApiResponse<PropertyTaxApartmentDetailsCVDto>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving aggregated property CV tax details"
+                    Message = ex is NtisPlatformException ? ex.Message : "An error occurred while retrieving aggregated property CV tax details"
                 });
         }
     }

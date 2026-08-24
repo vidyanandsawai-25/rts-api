@@ -13,6 +13,49 @@ namespace NtisPlatform.Tests.Application;
 public class AutomationDashboardGridResponseTests
 {
     [Fact]
+    public async Task GetMainCardsAsync_FormatsDemandInCrores()
+    {
+        var repository = new Mock<IAutomationDashboardRepository>();
+        repository
+            .Setup(x => x.ReadAssessmentStatusIdsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<string, int>
+            {
+                ["ASSESSED"] = 1,
+                ["UNASSESSED"] = 2
+            });
+        repository
+            .Setup(x => x.ReadPreviouslyRegisteredBreakdownAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((10, 4, 10, 12500000m));
+        repository
+            .Setup(x => x.ReadPropertyBreakdownByAssessmentStatusAsync(
+                1,
+                It.IsAny<PropertySearchRequestDto?>(),
+                true,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((20, 8, 20, 1706670769.43m));
+        repository
+            .Setup(x => x.ReadPropertyBreakdownByAssessmentStatusAsync(
+                2,
+                It.IsAny<PropertySearchRequestDto?>(),
+                false,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((5, 2, 5, 0m));
+        repository
+            .Setup(x => x.ReadAcdApprovedPropertyBreakdownAsync(
+                It.IsAny<PropertySearchRequestDto?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((3, 1, 3, 500000m));
+        var service = CreateAutomationDashboardService(repository.Object);
+
+        var result = await service.GetMainCardsAsync();
+
+        Assert.Equal("1.25Cr", result.PreviouslyRegistered.Demand);
+        Assert.Equal("170.67Cr", result.AssessmentApproved.Assessed.Demand);
+        Assert.Equal("0Cr", result.AssessmentApproved.Unassessed.Demand);
+        Assert.Equal("0.05Cr", result.AdditionalRevenueGenerated.Demand);
+    }
+
+    [Fact]
     public async Task GetGeoSequencingGridDataAsync_ReturnsZoneNo()
     {
         var repository = new Mock<IGeoSequencingStageRepository>();

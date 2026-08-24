@@ -196,6 +196,7 @@ public class PropertySearchResponseDto
     public string? CategoryName { get; set; }
     public string? PropertyDescription { get; set; }
     public string? Mobile { get; set; }
+    public string? AlternateMobile { get; set; }
     public string? PropertyHolderName { get; set; }
     public string? OccupierName { get; set; }
     public string? ShopBuildingName { get; set; }

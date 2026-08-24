@@ -34,7 +34,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 ? Convert.ToDecimal(baseResult.AnnualRentalValue ?? 0d)
                 : baseResult.RateableValue ?? 0m;
             var percentage = taxPercentage != null ? Convert.ToDecimal(taxPercentage.TaxPercentage) : 0m;
-            var amount = Math.Round(baseValue * percentage / 100m, 0, MidpointRounding.AwayFromZero);
+        
+            var amount = Math.Round(baseValue * percentage / 100m, 2, MidpointRounding.AwayFromZero);
 
             var resultsRow = new RVCalculationResultsEntity
             {

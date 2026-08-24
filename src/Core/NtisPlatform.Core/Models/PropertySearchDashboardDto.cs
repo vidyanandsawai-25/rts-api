@@ -9,7 +9,7 @@ public class DashboardCardBreakdownDto
     /// Since all properties are units, this equals PropertyCount.
     /// </summary>
     public int UnitCount { get; set; }
-    public decimal Demand { get; set; }
+    public string Demand { get; set; } = "0Cr";
 }
 
 public class AssessmentApprovedDto

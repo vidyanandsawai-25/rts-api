@@ -1428,5 +1428,255 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             cancellationToken);
     }
 
-}
 
+    public async Task ExecuteSoftDeletePropertiesRelatedEntitiesAsync(int[] propertyIds, CancellationToken cancellationToken = default)
+    {
+        var deletionTime = DateTime.Now;
+
+        // 1. PropertyDetails
+        await _context.PropertyDetails
+            .Where(pd => propertyIds.Contains(pd.PropertyId) && pd.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 2. RVCalculationResults
+        await _context.RVCalculationResults
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 3. PropertyTaxCalculationSection129Results
+        await _context.PropertyTaxCalculationSection129Results
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 4. RoomWiseSubmissionDetails
+        await _context.RoomWiseSubmissionDetails
+            .Where(x => x.PropertyId.HasValue && propertyIds.Contains(x.PropertyId.Value) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 5. RenterMast
+        await _context.RenterMast
+            .Where(x => _context.PropertyDetails.Where(pd => propertyIds.Contains(pd.PropertyId)).Select(pd => pd.Id).Contains(x.PropertyDetailsId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 6. RenterDetails
+        await _context.RenterDetails
+            .Where(x => _context.PropertyDetails.Where(pd => propertyIds.Contains(pd.PropertyId)).Select(pd => pd.Id).Contains(x.PropertyDetailsId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 7. RoomWiseMinusData
+        await _context.RoomWiseMinusData
+            .Where(x => _context.RoomWiseSubmissionDetails.Where(r => r.PropertyId.HasValue && propertyIds.Contains(r.PropertyId.Value)).Select(r => r.Id).Contains(x.RoomWiseSubmissionId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 8. PropertySocialDetails
+        await _context.Set<PropertySocialDetailsEntity>()
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.IsActive == true)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 9. WaterConnectionMaster
+        await _context.Set<WaterConnectionMasterEntity>()
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.IsActive == true)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 10. ApplyTaxesMaster
+        await _context.ApplyTaxesMaster
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 11. FlagMaster
+        await _context.FlagMaster
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 12. PlotDetails
+        await _context.PlotDetails
+            .Where(x => x.PropertyId.HasValue && propertyIds.Contains(x.PropertyId.Value) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 13. PolicyTaxDetails
+        await _context.PolicyTaxDetails
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 14. PropertyAssessmentDetails
+        await _context.PropertyAssessmentDetails
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 15. PropertyImagesMast
+        await _context.PropertyImagesMast
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 16. TaxPendingDetails
+        await _context.TaxPendingDetails
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 17. TaxPendingDetailsArchive
+        await _context.TaxPendingDetailsArchive
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 18. TaxPendingDetailsCV
+        await _context.TaxPendingDetailsCV
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 19. TaxPendingDetailsLookup
+        await _context.TaxPendingDetailsLookup
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 20. TaxPendingDetailsRetro
+        await _context.TaxPendingDetailsRetro
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 21. TaxPendingDetailsRV
+        await _context.TaxPendingDetailsRV
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 22. TransMast
+        await _context.TransMast
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 23. TransMastArchive
+        await _context.TransMastArchive
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 24. TransMastLookup
+        await _context.TransMastLookup
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+
+        // 25. PropertyMastDetails
+        await _context.PropertyMastDetails
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(p => p.MarkedForDeletion, true)
+                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
+                .SetProperty(p => p.IsActive, false)
+                .SetProperty(p => p.UpdatedDate, deletionTime),
+                cancellationToken);
+    }
+}

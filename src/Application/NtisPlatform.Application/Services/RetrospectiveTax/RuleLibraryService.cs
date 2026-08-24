@@ -186,7 +186,7 @@ public class RuleLibraryService : IRuleLibraryService
         if (penalty is null || penalty.PenaltyMode == "NONE")
             return "Do not apply penalty";
 
-        if (penalty.PenaltyMode == "ACT_UNLAWFUL")
+        if (penalty.PenaltyMode is "ACT_PENALTY" or "ACT_UNLAWFUL")
             return "Apply penalty as per the Act";
 
         if (penalty.PenaltyMode == "DATE_VALIDATION")
