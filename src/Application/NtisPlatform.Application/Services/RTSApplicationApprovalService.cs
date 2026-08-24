@@ -131,26 +131,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 CreatedDate = x.CreatedDate,
                 UpdatedDate = x.UpdatedDate,
                 SessionId = x.SessionId,
-                OwnerId = x.OwnerId,
+                OwnerId = x.OwnerId, 
                 DepartmentName = x.Department.DepartmentName,
                 ServiceName = x.Service.ServiceName,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
+                ApplicantName = x.ApplicantName,
+                ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
 
-                ApplicantDetails = x.FieldValueData    //this code only for citizen Name
-                .Where(fv => fv.FieldDefinition != null)
-                .Where(fv => fv.FieldDefinition!.FieldGroup ==
-                    x.FieldValueData
-                        .Where(f => f.FieldDefinition != null)
-                        .Select(f => f.FieldDefinition!.FieldGroup)
-                        .FirstOrDefault())
-                .Select(fv => new ApplicantFieldDto
-                {
-                    FieldLabel = fv.FieldDefinition!.FieldLabel,
-                    FieldValue = fv.TextValue
-                }).ToList()
             }).ToListAsync(cancellationToken);
 
         foreach (var item in items)
@@ -571,7 +561,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
         application.UserId = nextStage.UserId;
-        application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
+        application.ApplicationStatus = ApplicationStatus.DocumentVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
         application.UpdatedBy = dto.UpdatedBy;
@@ -583,8 +573,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = currentStage.Id,
             ActionByUserId = dto.UpdatedBy,
-            Status = ApplicationStatus.ApplicationVerified,
-            Action = $"Documents verified by {currentStage.StageName}",
+            Status = ApplicationStatus.DocumentVerified,
+            Action = $"{ApplicationStatus.DocumentVerified} by {currentStage.StageName}",
             Remark = dto.Remark,
             IsReverted = false,
             IsActive = true,
@@ -592,6 +582,26 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         });
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                name = "Citizen";
+                await _smsNotificationService.SendApplicationStageAdvancedAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    nextStage.StageName,
+                    application.ApplicationStatus,
+                    dto.Remark,
+                    cancellationToken);
+            }
+        }
+        catch { }
 
         return new RTSApplicationApprovalResponseDto
         {
@@ -746,7 +756,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowStageId = currentStage.Id,
             ActionByUserId = dto.UpdatedBy,
             Status = ApplicationStatus.ApplicationVerified,
-            Action = $"{ApplicationStatus.Approved} by {currentStage.StageName}",
+            Action = $"{ApplicationStatus.ApplicationVerified} by {currentStage.StageName}",
             Remark = dto.Remark,
             IsReverted = false,
             IsActive = true,

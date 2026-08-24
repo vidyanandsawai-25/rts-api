@@ -27,6 +27,8 @@ public class RTSApplicationDetailsDto
         [Required(ErrorMessage = "RTSApplicationDetails_ServiceId_Required")]
         [Range(1, int.MaxValue, ErrorMessage = "RTSApplicationDetails_ServiceId_InvalidRange")]
         public int ServiceId { get; set; }
+        public string? ApplicantName { get; set; }
+        public string? ApplicantMobileNo { get; set; }
         public int ApprovalFlowId { get; set; }
         public int CurrentApprovalFlowStageId { get; set; }
         public int CurrentStageOrder { get; set; }

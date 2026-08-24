@@ -6100,6 +6100,8 @@ public class ApplicationDbContext : DbContext
                 .IsRequired();
             entity.Property(e => e.ServiceId)
                 .IsRequired();
+            entity.Property(e => e.ApplicantMobileNo);
+            entity.Property(e => e.ApplicantName);
             entity.Property(e => e.CurrentStageOrder);
             entity.Property(e => e.ApprovalFlowId);  //fk
             entity.Property(e => e.CurrentApprovalFlowStageId);//fk
