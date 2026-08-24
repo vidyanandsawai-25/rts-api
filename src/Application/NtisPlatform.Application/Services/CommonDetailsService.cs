@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
@@ -338,8 +339,33 @@ public class CommonDetailsService : ICommonDetailsService
         {
             var fromPropertyNo = request.FromPropertyNo.Trim();
             var toPropertyNo = request.ToPropertyNo.Trim();
-            query = query.Where(pm => string.Compare(pm.PropertyNo, fromPropertyNo) >= 0
-                                   && string.Compare(pm.PropertyNo, toPropertyNo) <= 0);
+
+            if (long.TryParse(fromPropertyNo, out _) && long.TryParse(toPropertyNo, out _))
+            {
+                int fromLen = fromPropertyNo.Length;
+                int toLen = toPropertyNo.Length;
+
+                if (fromLen == toLen)
+                {
+                    query = query.Where(pm => pm.PropertyNo != null &&
+                        pm.PropertyNo.Length == fromLen &&
+                        string.Compare(pm.PropertyNo, fromPropertyNo) >= 0 &&
+                        string.Compare(pm.PropertyNo, toPropertyNo) <= 0);
+                }
+                else
+                {
+                    query = query.Where(pm => pm.PropertyNo != null &&
+                        pm.PropertyNo.Length >= fromLen &&
+                        pm.PropertyNo.Length <= toLen &&
+                        (pm.PropertyNo.Length > fromLen || string.Compare(pm.PropertyNo, fromPropertyNo) >= 0) &&
+                        (pm.PropertyNo.Length < toLen || string.Compare(pm.PropertyNo, toPropertyNo) <= 0));
+                }
+            }
+            else
+            {
+                query = query.Where(pm => string.Compare(pm.PropertyNo, fromPropertyNo) >= 0
+                                       && string.Compare(pm.PropertyNo, toPropertyNo) <= 0);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(request.Wing))
@@ -658,6 +684,13 @@ public class CommonDetailsService : ICommonDetailsService
                         ? found
                         : new List<BaseEntity>();
 
+                    var targetEntity = targets.FirstOrDefault();
+                    var perPropertyErrors = ValidateFieldValues(fieldConfigs, updateData, targetEntity);
+                    if (perPropertyErrors.Count > 0)
+                    {
+                        throw new ArgumentException($"Property {propertyId}: {string.Join("; ", perPropertyErrors)}");
+                    }
+
                     // Old-value snapshot mirrors the original single-row read: first row only.
                     var oldValue = targets.Count > 0
                         ? JsonSerializer.Serialize(SnapshotFields(targets[0], fieldsToUpdate))
@@ -768,9 +801,19 @@ public class CommonDetailsService : ICommonDetailsService
     public async Task<byte[]> ExportPropertiesToExcelAsync(ExportPropertiesRequestDto request, CancellationToken ct)
     {
         var (_, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
+        var fieldConfigs = await GetFormFieldsAsync(request.UpdateCode, ct);
+        var fieldConfigMap = fieldConfigs.ToDictionary(f => f.FieldName, StringComparer.OrdinalIgnoreCase);
+
+        // Build header labels using DisplayName (or stripped FieldName)
+        var headerLabels = safeColumns.Select(col =>
+        {
+            if (fieldConfigMap.TryGetValue(col, out var cfg) && !string.IsNullOrWhiteSpace(cfg.DisplayName))
+                return cfg.DisplayName.Trim();
+            return col.EndsWith("Id", StringComparison.OrdinalIgnoreCase) && col.Length > 2 ? col[..^2] : col;
+        }).ToList();
 
         var headers = new List<string> { "wardNo", "propertyNo", "partitionNo" };
-        headers.AddRange(safeColumns);
+        headers.AddRange(headerLabels);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Properties");
@@ -799,6 +842,8 @@ public class CommonDetailsService : ICommonDetailsService
             var paged = await FilterPropertiesAsync(filterRequest, ct);
 
             var rows = paged.Items.ToList();
+            var lookupMaps = await GetMasterLookupMapsAsync(fieldConfigs, ct);
+
             for (var r = 0; r < rows.Count; r++)
             {
                 var item = rows[r];
@@ -806,7 +851,21 @@ public class CommonDetailsService : ICommonDetailsService
                 worksheet.Cell(r + 2, 2).Value = item.PropertyNo;
                 worksheet.Cell(r + 2, 3).Value = item.PartitionNo;
                 for (var f = 0; f < safeColumns.Count; f++)
-                    SetCellValue(worksheet.Cell(r + 2, 4 + f), item.CurrentValues.GetValueOrDefault(safeColumns[f]));
+                {
+                    var colName = safeColumns[f];
+                    var rawVal = item.CurrentValues.GetValueOrDefault(colName);
+                    object? cellVal = rawVal;
+
+                    if (rawVal != null && lookupMaps.TryGetValue(colName, out var mapInfo) && TryExtractLong(rawVal, out long rawId))
+                    {
+                        if (mapInfo.IdToNameMap.TryGetValue(rawId, out var desc))
+                        {
+                            cellVal = desc;
+                        }
+                    }
+
+                    SetCellValue(worksheet.Cell(r + 2, 4 + f), cellVal);
+                }
             }
         }
 
@@ -840,8 +899,22 @@ public class CommonDetailsService : ICommonDetailsService
         if (missingIdentity.Count > 0)
             throw new ArgumentException($"Missing required column(s): {string.Join(", ", missingIdentity)}.");
 
-        // Value columns = configured fields whose header appears in the sheet (canonical FieldName casing).
-        var presentConfigs = fieldConfigs.Where(f => headerSet.Contains(f.FieldName)).ToList();
+        // Value columns = configured fields whose header appears in the sheet (flexible matching by DisplayName, FieldName, or stripped FieldName).
+        var presentConfigs = new List<BulkUpdateFieldConfigDto>();
+        foreach (var cfg in fieldConfigs)
+        {
+            var matchedHeader = headers.FirstOrDefault(h =>
+                string.Equals(h, cfg.DisplayName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(h, cfg.FieldName, StringComparison.OrdinalIgnoreCase) ||
+                (cfg.FieldName.EndsWith("Id", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(h, cfg.FieldName[..^2], StringComparison.OrdinalIgnoreCase)));
+
+            if (matchedHeader != null)
+            {
+                presentConfigs.Add(cfg);
+            }
+        }
+
         var valueFieldNames = presentConfigs.Select(f => f.FieldName).ToList();
         if (valueFieldNames.Count == 0)
             throw new ArgumentException("The uploaded file has no updatable value columns for this update type.");
@@ -938,7 +1011,28 @@ public class CommonDetailsService : ICommonDetailsService
         var (presentConfigs, valueFieldNames, idsByKey) =
             await PrepareExcelMatchContextAsync(target, fieldConfigs, headers, excelRows, ct);
 
+        var lookupMaps = await GetMasterLookupMapsAsync(presentConfigs, ct);
         var result = new BulkUpdateResultDto { UpdateCode = updateCode, TotalRequested = excelRows.Count };
+
+        // Preload existing entities for DB validation fallback (e.g. AssessmentYear vs ConstructionYear)
+        var allPropertyIds = idsByKey.Values.SelectMany(x => x).Distinct().ToList();
+        var existingEntitiesMap = new Dictionary<long, BaseEntity>();
+        if (allPropertyIds.Count > 0)
+        {
+            var loadedTargets = await _entityLoader.LoadByKeyAsync(
+                target.EntityType, target.KeyProperty, allPropertyIds, asNoTracking: true, ct);
+            var keyProp = target.EntityType.GetProperty(
+                target.KeyProperty, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            if (keyProp != null)
+            {
+                foreach (var e in loadedTargets)
+                {
+                    var val = keyProp.GetValue(e);
+                    if (val != null && long.TryParse(val.ToString(), out var pid))
+                        existingEntitiesMap.TryAdd(pid, e);
+                }
+            }
+        }
 
         // Validate + resolve every row up front. All-or-nothing: touch the DB only if all rows are clean.
         var errors = new List<string>();
@@ -969,11 +1063,21 @@ public class CommonDetailsService : ICommonDetailsService
                 continue;
             }
 
-            var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in valueFieldNames)
-                values[field] = row.Cells.GetValueOrDefault(field);
+            BaseEntity? existingEntity = null;
+            if (ids.Count == 1)
+            {
+                existingEntitiesMap.TryGetValue(ids[0], out existingEntity);
+            }
 
-            var rowErrors = ValidateFieldValues(presentConfigs, values);
+            var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            var lookupErrors = ProcessAndValidateLookupRowValues(presentConfigs, lookupMaps, row, values);
+            if (lookupErrors.Count > 0)
+            {
+                errors.AddRange(lookupErrors.Select(e => $"Row {row.RowNumber}: {e}"));
+                continue;
+            }
+
+            var rowErrors = ValidateFieldValues(presentConfigs, values, existingEntity);
             if (rowErrors.Count > 0)
             {
                 errors.AddRange(rowErrors.Select(e => $"Row {row.RowNumber}: {e}"));
@@ -1057,9 +1161,6 @@ public class CommonDetailsService : ICommonDetailsService
             {
                 hadFailures = true;
                 await _unitOfWork.RollbackTransactionAsync(ct);
-                // Rows that succeeded before the failure left their BulkUpdateHistoryEntity tracked as
-                // Added (rollback only undoes the DB transaction, not the change tracker) - discard them
-                // so the FinalizeActivityAsync save below doesn't resurrect and persist them.
                 _unitOfWork.DiscardChanges();
                 result.Errors.Insert(0,
                     "Transaction rolled back — no properties were updated; all changes were reverted.");
@@ -1115,7 +1216,28 @@ public class CommonDetailsService : ICommonDetailsService
         var (presentConfigs, valueFieldNames, idsByKey) =
             await PrepareExcelMatchContextAsync(target, fieldConfigs, headers, excelRows, ct);
 
-        var flaggedRows = new List<(ExcelRow Row, List<string> Issues)>();
+        var lookupMaps = await GetMasterLookupMapsAsync(presentConfigs, ct);
+        var flaggedRows = new List<(ExcelRow Row, List<string> Issues, Dictionary<string, object?> ResolvedValues)>();
+
+        // Preload existing entities for DB validation fallback (e.g. AssessmentYear vs ConstructionYear)
+        var allPropertyIds = idsByKey.Values.SelectMany(x => x).Distinct().ToList();
+        var existingEntitiesMap = new Dictionary<long, BaseEntity>();
+        if (allPropertyIds.Count > 0)
+        {
+            var loadedTargets = await _entityLoader.LoadByKeyAsync(
+                target.EntityType, target.KeyProperty, allPropertyIds, asNoTracking: true, ct);
+            var keyProp = target.EntityType.GetProperty(
+                target.KeyProperty, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            if (keyProp != null)
+            {
+                foreach (var e in loadedTargets)
+                {
+                    var val = keyProp.GetValue(e);
+                    if (val != null && long.TryParse(val.ToString(), out var pid))
+                        existingEntitiesMap.TryAdd(pid, e);
+                }
+            }
+        }
 
         foreach (var row in excelRows)
         {
@@ -1124,6 +1246,7 @@ public class CommonDetailsService : ICommonDetailsService
             var partitionNo = row.Cells.GetValueOrDefault("partitionNo")?.Trim();
             var issues = new List<string>();
 
+            List<long>? ids = null;
             if (string.IsNullOrWhiteSpace(wardNo) || string.IsNullOrWhiteSpace(propertyNo))
             {
                 issues.Add("wardNo and propertyNo are required.");
@@ -1131,37 +1254,48 @@ public class CommonDetailsService : ICommonDetailsService
             else
             {
                 var key = IdentityKey(wardNo, propertyNo, partitionNo);
-                if (!idsByKey.TryGetValue(key, out var ids))
+                if (!idsByKey.TryGetValue(key, out ids))
                     issues.Add($"No property found for wardNo='{wardNo}', propertyNo='{propertyNo}', partitionNo='{partitionNo}'.");
                 else if (ids.Count > 1)
                     issues.Add($"Multiple properties match wardNo='{wardNo}', propertyNo='{propertyNo}', partitionNo='{partitionNo}'.");
             }
 
-            var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in valueFieldNames)
-                values[field] = row.Cells.GetValueOrDefault(field);
+            BaseEntity? existingEntity = null;
+            if (ids != null && ids.Count == 1)
+            {
+                existingEntitiesMap.TryGetValue(ids[0], out existingEntity);
+            }
 
-            issues.AddRange(ValidateFieldValues(presentConfigs, values));
+            var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            issues.AddRange(ProcessAndValidateLookupRowValues(presentConfigs, lookupMaps, row, values));
+            issues.AddRange(ValidateFieldValues(presentConfigs, values, existingEntity));
 
             if (issues.Count > 0)
-                flaggedRows.Add((row, issues));
+                flaggedRows.Add((row, issues, values));
         }
 
         var columns = new List<string> { "wardNo", "propertyNo", "partitionNo" };
-        columns.AddRange(valueFieldNames);
+        foreach (var cfg in presentConfigs)
+        {
+            var label = !string.IsNullOrWhiteSpace(cfg.DisplayName) ? cfg.DisplayName.Trim() : cfg.FieldName;
+            columns.Add(label);
+        }
         columns.Add("ValidationRemark");
 
         var rows = flaggedRows.Select(fr =>
         {
-            var (row, issues) = fr;
+            var (row, issues, _) = fr;
             var rowData = new Dictionary<string, object?>
             {
                 ["wardNo"] = row.Cells.GetValueOrDefault("wardNo"),
                 ["propertyNo"] = row.Cells.GetValueOrDefault("propertyNo"),
                 ["partitionNo"] = row.Cells.GetValueOrDefault("partitionNo"),
             };
-            foreach (var field in valueFieldNames)
-                rowData[field] = row.Cells.GetValueOrDefault(field);
+            foreach (var cfg in presentConfigs)
+            {
+                var label = !string.IsNullOrWhiteSpace(cfg.DisplayName) ? cfg.DisplayName.Trim() : cfg.FieldName;
+                rowData[label] = GetCellValueFromRow(row, cfg);
+            }
             rowData["ValidationRemark"] = string.Join("; ", issues);
             return rowData;
         }).ToList();
@@ -1173,6 +1307,151 @@ public class CommonDetailsService : ICommonDetailsService
             TotalRows = excelRows.Count,
             FlaggedRowCount = flaggedRows.Count
         };
+    }
+
+    private static string? GetCellValueFromRow(ExcelRow row, BulkUpdateFieldConfigDto cfg)
+    {
+        if (row.Cells.TryGetValue(cfg.FieldName, out var v1) && !string.IsNullOrWhiteSpace(v1))
+            return v1;
+        if (!string.IsNullOrWhiteSpace(cfg.DisplayName) && row.Cells.TryGetValue(cfg.DisplayName, out var v2) && !string.IsNullOrWhiteSpace(v2))
+            return v2;
+        if (cfg.FieldName.EndsWith("Id", StringComparison.OrdinalIgnoreCase) && cfg.FieldName.Length > 2)
+        {
+            var stripped = cfg.FieldName[..^2];
+            if (row.Cells.TryGetValue(stripped, out var v3) && !string.IsNullOrWhiteSpace(v3))
+                return v3;
+        }
+        return row.Cells.GetValueOrDefault(cfg.FieldName);
+    }
+
+    private class MasterLookupMapInfo
+    {
+        public Dictionary<string, long> NameToIdMap { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<long, string> IdToNameMap { get; } = new();
+        public List<string> ValidNames { get; } = new();
+    }
+
+    private async Task<Dictionary<string, MasterLookupMapInfo>> GetMasterLookupMapsAsync(
+        List<BulkUpdateFieldConfigDto> configs, CancellationToken ct)
+    {
+        var result = new Dictionary<string, MasterLookupMapInfo>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var config in configs)
+        {
+            if (string.IsNullOrWhiteSpace(config.BindApi))
+                continue;
+
+            var entityType = FindEntityTypeFromBindApi(config.BindApi);
+            if (entityType == null)
+                continue;
+
+            var (_, valPropName) = ParseApiResponse(config.ApiResponse);
+            var mapInfo = new MasterLookupMapInfo();
+
+            try
+            {
+                var entities = await _entityLoader.LoadAllAsync(
+                    entityType, asNoTracking: true, ct);
+
+                foreach (var entity in entities)
+                {
+                    var id = entity.Id;
+                    var name = GetDisplayValueForEntity(entity, valPropName);
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        var trimmed = name.Trim();
+                        mapInfo.NameToIdMap[trimmed] = id;
+                        mapInfo.IdToNameMap[id] = trimmed;
+                        if (!mapInfo.ValidNames.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+                        {
+                            mapInfo.ValidNames.Add(trimmed);
+                        }
+                    }
+                }
+
+                result[config.FieldName] = mapInfo;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build lookup map for field '{FieldName}' (BindApi: '{BindApi}').", config.FieldName, config.BindApi);
+            }
+        }
+
+        return result;
+    }
+
+    private static List<string> ProcessAndValidateLookupRowValues(
+        List<BulkUpdateFieldConfigDto> presentConfigs,
+        Dictionary<string, MasterLookupMapInfo> lookupMaps,
+        ExcelRow row,
+        Dictionary<string, object?> targetValues)
+    {
+        var issues = new List<string>();
+
+        foreach (var config in presentConfigs)
+        {
+            var field = config.FieldName;
+            var rawVal = GetCellValueFromRow(row, config);
+            var label = !string.IsNullOrWhiteSpace(config.DisplayName) ? config.DisplayName.Trim() : field;
+
+            if (lookupMaps.TryGetValue(field, out var mapInfo))
+            {
+                if (string.IsNullOrWhiteSpace(rawVal))
+                {
+                    if (config.IsRequired)
+                    {
+                        issues.Add($"{label} is required.");
+                    }
+                    else
+                    {
+                        targetValues[field] = null;
+                    }
+                    continue;
+                }
+
+                var valStr = rawVal.Trim();
+
+                if (mapInfo.NameToIdMap.TryGetValue(valStr, out long resolvedId))
+                {
+                    targetValues[field] = resolvedId;
+                }
+                else if (TryExtractLong(rawVal, out long numericId) && mapInfo.IdToNameMap.ContainsKey(numericId))
+                {
+                    targetValues[field] = numericId;
+                }
+                else
+                {
+                    var optionsText = mapInfo.ValidNames.Count > 0
+                        ? $" Valid options: {string.Join(", ", mapInfo.ValidNames.Take(3))}{(mapInfo.ValidNames.Count > 5 ? "..." : "")}."
+                        : "";
+                    issues.Add($"Invalid {label} '{valStr}'.{optionsText}");
+                }
+            }
+            else
+            {
+                targetValues[field] = rawVal;
+            }
+        }
+
+        return issues;
+    }
+
+    private static bool TryExtractLong(object? val, out long id)
+    {
+        id = 0;
+        if (val == null) return false;
+
+        if (val is long l) { id = l; return true; }
+        if (val is int i) { id = i; return true; }
+        if (val is short s) { id = s; return true; }
+        if (val is byte b) { id = b; return true; }
+
+        if (val is JsonElement elem)
+        {
+            return TryExtractId(elem, out id);
+        }
+
+        return long.TryParse(val.ToString(), out id);
     }
 
     public async Task<PagedResult<UpdateHistoryDto>> GetUpdateHistoryAsync(
@@ -1289,6 +1568,8 @@ public class CommonDetailsService : ICommonDetailsService
         foreach (var item in items)
             item.Property = string.Join("-", new[] { item.WardNo, item.PropertyNo, item.PartitionNo }
                 .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        await EnrichUpdateHistoryItemsAsync(items, ct);
 
         return new PagedResult<UpdateHistoryDto>(items, totalCount, pageNumber, pageSize);
     }
@@ -1503,26 +1784,210 @@ public class CommonDetailsService : ICommonDetailsService
     /// Runs the configured field validation (required / max length / regex) against a value set and
     /// returns the collected error messages. Shared by <see cref="BulkUpdateAsync"/> and the Excel import.
     /// </summary>
+    private static bool MatchesYearVariable(string variableName, string fieldName, string? displayName)
+    {
+        var name = fieldName ?? "";
+        var disp = displayName ?? "";
+        var normName = name.Replace("_", "").Replace(" ", "");
+        var normDisp = disp.Replace("_", "").Replace(" ", "");
+
+        var pattern = $"^{variableName}[A-Za-z0-9]*$";
+
+        return Regex.IsMatch(name, pattern, RegexOptions.IgnoreCase) ||
+               Regex.IsMatch(disp, pattern, RegexOptions.IgnoreCase) ||
+               Regex.IsMatch(normName, pattern, RegexOptions.IgnoreCase) ||
+               Regex.IsMatch(normDisp, pattern, RegexOptions.IgnoreCase);
+    }
+
+    private static bool IsAssessmentYearField(string fieldName, string? displayName)
+    {
+        const string variableName = "AssessmentYear";
+        return MatchesYearVariable(variableName, fieldName, displayName);
+    }
+
+    private static bool IsConstructionYearField(string fieldName, string? displayName)
+    {
+        const string variableName = "ConstructionYear";
+        return MatchesYearVariable(variableName, fieldName, displayName);
+    }
+
+    /// <summary>
+    /// Runs the configured field validation (required / max length / regex / year rules) against a value set and
+    /// returns the collected error messages. Shared by <see cref="BulkUpdateAsync"/> and the Excel import.
+    /// Supports checking existing DB entity values when AssessmentYear or ConstructionYear are updated separately.
+    /// </summary>
     private static List<string> ValidateFieldValues(
-        IEnumerable<BulkUpdateFieldConfigDto> configs, IDictionary<string, object?> data)
+        IEnumerable<BulkUpdateFieldConfigDto> configs,
+        IDictionary<string, object?> data,
+        BaseEntity? existingEntity = null)
     {
         var errors = new List<string>();
-        foreach (var config in configs.Where(f => f.IsActive))
+        var activeConfigs = configs.Where(f => f.IsActive).ToList();
+
+        BulkUpdateFieldConfigDto? assessmentConfig = null;
+        BulkUpdateFieldConfigDto? constructionConfig = null;
+
+        foreach (var config in activeConfigs)
         {
             data.TryGetValue(config.FieldName, out var raw);
             var convertedValue = ConvertJsonElementToValue(raw);
-            var value = convertedValue?.ToString();
+            var value = convertedValue?.ToString()?.Trim();
+
+            var label = !string.IsNullOrWhiteSpace(config.DisplayName) ? config.DisplayName.Trim() : config.FieldName;
 
             if (config.IsRequired && string.IsNullOrWhiteSpace(value))
-                errors.Add($"{config.DisplayName} is required.");
+                errors.Add($"{label} is required.");
 
             if (config.MaxLength.HasValue && value?.Length > config.MaxLength)
-                errors.Add($"{config.DisplayName} exceeds max length of {config.MaxLength}.");
+                errors.Add($"{label} exceeds max length of {config.MaxLength}.");
 
             if (!string.IsNullOrEmpty(config.ValidationRegex) && !string.IsNullOrWhiteSpace(value))
-                if (!Regex.IsMatch(value, config.ValidationRegex))
-                    errors.Add($"{config.DisplayName} has invalid format.");
+            {
+                var cleanRegex = config.ValidationRegex;
+                if (cleanRegex.Contains("condition", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanRegex = Regex.Replace(cleanRegex, "condition", "", RegexOptions.IgnoreCase);
+                }
+
+                if (!string.IsNullOrWhiteSpace(cleanRegex) && !Regex.IsMatch(value, cleanRegex))
+                    errors.Add($"{label} has invalid format.");
+            }
+
+            // Year-specific validation rules
+            var isAssessOrConstYear = IsAssessmentYearField(config.FieldName, config.DisplayName)
+                || IsConstructionYearField(config.FieldName, config.DisplayName);
+            var isYearControl = string.Equals(config.ControlType, "year", StringComparison.OrdinalIgnoreCase)
+                || isAssessOrConstYear;
+
+            if (isYearControl && !string.IsNullOrWhiteSpace(value))
+            {
+                // Rule 1: 4-digit format check ('^[1-9]\d{3}$')
+                if (!Regex.IsMatch(value, @"^[1-9]\d{3}$"))
+                {
+                    errors.Add($"{label} must be a valid 4-digit year.");
+                }
+                else if (isAssessOrConstYear && int.TryParse(value, out var numYear))
+                {
+                    // Rule 2: Cannot exceed current year check - strictly for ConstructionYear and AssessmentYear
+                    var currentYear = DateTime.Now.Year;
+                    if (numYear > currentYear)
+                    {
+                        errors.Add($"{label} cannot exceed current year ({currentYear}).");
+                    }
+                }
+            }
+
+            if (IsAssessmentYearField(config.FieldName, config.DisplayName))
+                assessmentConfig = config;
+            else if (IsConstructionYearField(config.FieldName, config.DisplayName))
+                constructionConfig = config;
         }
+
+        // Rule 3: AssessmentYear >= ConstructionYear (from data or DB fallback)
+        bool isAssessInUpdate = false;
+        bool isConstInUpdate = false;
+        string? valAssessStr = null;
+        string? valConstStr = null;
+
+        if (assessmentConfig != null)
+        {
+            if (data.TryGetValue(assessmentConfig.FieldName, out var rawAssess) && rawAssess != null)
+            {
+                valAssessStr = ConvertJsonElementToValue(rawAssess)?.ToString()?.Trim();
+                if (!string.IsNullOrWhiteSpace(valAssessStr))
+                    isAssessInUpdate = true;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(valAssessStr))
+        {
+            foreach (var kvp in data)
+            {
+                if (IsAssessmentYearField(kvp.Key, null))
+                {
+                    var str = ConvertJsonElementToValue(kvp.Value)?.ToString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(str))
+                    {
+                        valAssessStr = str;
+                        isAssessInUpdate = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (constructionConfig != null)
+        {
+            if (data.TryGetValue(constructionConfig.FieldName, out var rawConst) && rawConst != null)
+            {
+                valConstStr = ConvertJsonElementToValue(rawConst)?.ToString()?.Trim();
+                if (!string.IsNullOrWhiteSpace(valConstStr))
+                    isConstInUpdate = true;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(valConstStr))
+        {
+            foreach (var kvp in data)
+            {
+                if (IsConstructionYearField(kvp.Key, null))
+                {
+                    var str = ConvertJsonElementToValue(kvp.Value)?.ToString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(str))
+                    {
+                        valConstStr = str;
+                        isConstInUpdate = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // DB Fallback if one of the year fields is missing from data
+        if (existingEntity != null)
+        {
+            var entityType = existingEntity.GetType();
+
+            if (string.IsNullOrWhiteSpace(valAssessStr))
+            {
+                var dbAssessProp = entityType.GetProperty("AssessmentYear", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                valAssessStr = dbAssessProp?.GetValue(existingEntity)?.ToString()?.Trim();
+            }
+
+            if (string.IsNullOrWhiteSpace(valConstStr))
+            {
+                var dbConstProp = entityType.GetProperty("ConstructionYear", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+                valConstStr = dbConstProp?.GetValue(existingEntity)?.ToString()?.Trim();
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(valAssessStr) && !string.IsNullOrWhiteSpace(valConstStr))
+        {
+            if (int.TryParse(valAssessStr, out var numAssess) && int.TryParse(valConstStr, out var numConst))
+            {
+                var currentYear = DateTime.Now.Year;
+                if (Regex.IsMatch(valAssessStr, @"^[1-9]\d{3}$") && Regex.IsMatch(valConstStr, @"^[1-9]\d{3}$") &&
+                    numAssess <= currentYear && numConst <= currentYear)
+                {
+                    if (numConst > numAssess)
+                    {
+                        if (isAssessInUpdate && isConstInUpdate)
+                        {
+                            errors.Add("Assessment Year must be greater than or equal to Construction Year.");
+                        }
+                        else if (isConstInUpdate)
+                        {
+                            errors.Add("Construction Year cannot be greater than Assessment Year.");
+                        }
+                        else
+                        {
+                            errors.Add("Assessment Year cannot be less than Construction Year.");
+                        }
+                    }
+                }
+            }
+        }
+
         return errors;
     }
 
@@ -1642,10 +2107,376 @@ public class CommonDetailsService : ICommonDetailsService
     }
 
     private static object ResolveNumber(JsonElement element)
-    {
+    {   
         if (element.TryGetInt32(out int intVal)) return intVal;
         if (element.TryGetInt64(out long longVal)) return longVal;
         if (element.TryGetDecimal(out decimal decimalVal)) return decimalVal;
         return element.GetDouble();
+    }
+
+    private async Task EnrichUpdateHistoryItemsAsync(List<UpdateHistoryDto> items, CancellationToken ct)
+    {
+        if (items == null || items.Count == 0)
+            return;
+
+        // 1. Dynamically build field configuration map from BulkUpdateFieldConfig & SourceTableDetails metadata in DB
+        var fieldSpecs = new Dictionary<string, (Type? EntityType, string KeyProp, string ValueProp, string DisplayLabel)>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var dbConfigs = await _fieldConfigRepo.GetQueryable()
+                .Where(fc => fc.IsActive)
+                .Select(fc => new { fc.FieldName, fc.DisplayName, fc.BindApi, fc.ApiResponse })
+                .ToListAsync(ct);
+
+            foreach (var cfg in dbConfigs)
+            {
+                var entityType = FindEntityTypeFromBindApi(cfg.BindApi);
+                var (keyProp, valProp) = ParseApiResponse(cfg.ApiResponse);
+                RegisterDynamicFieldSpec(fieldSpecs, cfg.FieldName, cfg.DisplayName, entityType, keyProp, valProp);
+            }
+
+            var stdConfigs = await _sourceTableDetailsRepo.GetQueryable()
+                .Where(std => std.IsActive)
+                .Select(std => new { std.FieldName, std.DisplayName, std.BindApi, std.ApiResponse })
+                .ToListAsync(ct);
+
+            foreach (var cfg in stdConfigs)
+            {
+                var entityType = FindEntityTypeFromBindApi(cfg.BindApi);
+                var (keyProp, valProp) = ParseApiResponse(cfg.ApiResponse);
+                RegisterDynamicFieldSpec(fieldSpecs, cfg.FieldName, cfg.DisplayName, entityType, keyProp, valProp);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load dynamic field configurations for history enrichment.");
+        }
+
+        // 2. Gather distinct IDs per EntityType across all items' OldValue and NewValue JSON strings
+        var idsToLoad = new Dictionary<Type, HashSet<long>>();
+
+        foreach (var item in items)
+        {
+            ExtractIdsFromJson(item.OldValue, fieldSpecs, idsToLoad);
+            ExtractIdsFromJson(item.NewValue, fieldSpecs, idsToLoad);
+        }
+
+        // 3. Query DB via IDynamicEntityLoader for all gathered IDs
+        var resolvedMap = new Dictionary<(Type EntityType, long Id), string>();
+
+        if (idsToLoad.Count > 0)
+        {
+            foreach (var (entityType, idSet) in idsToLoad)
+            {
+                if (idSet.Count == 0) continue;
+                try
+                {
+                    var loadedEntities = await _entityLoader.LoadByKeyAsync(
+                        entityType, "Id", idSet.ToList(), asNoTracking: true, cancellationToken: ct);
+
+                    foreach (var entity in loadedEntities)
+                    {
+                        var desc = GetDisplayValueForEntity(entity, fieldSpecs);
+                        if (!string.IsNullOrWhiteSpace(desc))
+                        {
+                            resolvedMap[(entityType, entity.Id)] = desc;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to load master lookup entities of type {EntityType} for history enrichment.", entityType.Name);
+                }
+            }
+        }
+
+        // 4. Transform OldValue and NewValue in all items
+        foreach (var item in items)
+        {
+            if (!string.IsNullOrWhiteSpace(item.OldValue))
+            {
+                item.OldValue = TransformJsonValues(item.OldValue, fieldSpecs, resolvedMap);
+            }
+            if (!string.IsNullOrWhiteSpace(item.NewValue))
+            {
+                item.NewValue = TransformJsonValues(item.NewValue, fieldSpecs, resolvedMap);
+            }
+        }
+    }
+
+    private static void RegisterDynamicFieldSpec(
+        Dictionary<string, (Type? EntityType, string KeyProp, string ValueProp, string DisplayLabel)> specs,
+        string rawFieldName, string? rawDisplayName, Type? entityType, string keyProp, string valueProp)
+    {
+        if (string.IsNullOrWhiteSpace(rawFieldName)) return;
+
+        var cleanName = rawFieldName.Trim('[', ']', ' ');
+        string displayLabel;
+
+        if (!string.IsNullOrWhiteSpace(rawDisplayName))
+        {
+            displayLabel = rawDisplayName.Trim();
+        }
+        else if (cleanName.EndsWith("Id", StringComparison.OrdinalIgnoreCase) && cleanName.Length > 2)
+        {
+            displayLabel = cleanName[..^2];
+        }
+        else
+        {
+            displayLabel = cleanName;
+        }
+
+        var spec = (entityType, keyProp, valueProp, displayLabel);
+
+        specs[cleanName] = spec;
+        specs[rawFieldName] = spec;
+
+        if (!cleanName.EndsWith("Id", StringComparison.OrdinalIgnoreCase))
+        {
+            specs[cleanName + "Id"] = spec;
+        }
+    }
+
+    private static (string KeyProp, string ValueProp) ParseApiResponse(string? apiResponse)
+    {
+        if (string.IsNullOrWhiteSpace(apiResponse))
+            return ("Id", "Description");
+
+        var tokens = apiResponse.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var keyProp = tokens.Length > 0 ? tokens[0] : "Id";
+        var valProp = tokens.Length > 1 ? tokens[1] : "Description";
+        return (keyProp, valProp);
+    }
+
+    private static readonly Lazy<List<Type>> BaseEntityTypes = new(() =>
+        typeof(BaseEntity).Assembly.GetTypes()
+            .Where(t => typeof(BaseEntity).IsAssignableFrom(t) && !t.IsAbstract)
+            .ToList());
+
+    private static readonly ConcurrentDictionary<string, Type?> BindApiTypeCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private static Type? FindEntityTypeFromBindApi(string? bindApi)
+    {
+        if (string.IsNullOrWhiteSpace(bindApi)) return null;
+
+        return BindApiTypeCache.GetOrAdd(bindApi.Trim(), ResolveEntityTypeFromBindApi);
+    }
+
+    private static Type? ResolveEntityTypeFromBindApi(string bindApi)
+    {
+        var segment = bindApi.Trim('/').Split('/').LastOrDefault();
+        if (string.IsNullOrWhiteSpace(segment)) return null;
+
+        var normSegment = segment.Replace("-", "").Replace("_", "");
+
+        var candidateNames = new[]
+        {
+            segment + "Entity",
+            segment + "MasterEntity",
+            segment,
+            segment + "MastEntity",
+            normSegment + "Entity",
+            normSegment + "MasterEntity",
+            normSegment,
+            normSegment + "MastEntity"
+        };
+
+        return BaseEntityTypes.Value
+            .FirstOrDefault(t =>
+                candidateNames.Any(c => string.Equals(t.Name, c, StringComparison.OrdinalIgnoreCase)) ||
+                t.Name.StartsWith(normSegment, StringComparison.OrdinalIgnoreCase) ||
+                t.Name.StartsWith(segment, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void ExtractIdsFromJson(
+        string? jsonString,
+        Dictionary<string, (Type? EntityType, string KeyProp, string ValueProp, string DisplayLabel)> fieldSpecs,
+        Dictionary<Type, HashSet<long>> idsToLoad)
+    {
+        if (string.IsNullOrWhiteSpace(jsonString)) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonString);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (fieldSpecs.TryGetValue(prop.Name, out var spec) && spec.EntityType != null && TryExtractId(prop.Value, out long id) && id > 0)
+                {
+                    if (!idsToLoad.TryGetValue(spec.EntityType, out var set))
+                    {
+                        set = new HashSet<long>();
+                        idsToLoad[spec.EntityType] = set;
+                    }
+                    set.Add(id);
+                }
+            }
+        }
+        catch
+        {
+            // Invalid JSON, skip
+        }
+    }
+
+    private static string TransformJsonValues(
+        string jsonString,
+        Dictionary<string, (Type? EntityType, string KeyProp, string ValueProp, string DisplayLabel)> fieldSpecs,
+        Dictionary<(Type EntityType, long Id), string> resolvedMap)
+    {
+        if (string.IsNullOrWhiteSpace(jsonString)) return jsonString;
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonString);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) return jsonString;
+
+            var dict = new Dictionary<string, object?>();
+            bool modified = false;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                var key = prop.Name;
+                var valElement = prop.Value;
+
+                if (fieldSpecs.TryGetValue(key, out var spec))
+                {
+                    var displayKey = !string.IsNullOrWhiteSpace(spec.DisplayLabel) ? spec.DisplayLabel : key;
+
+                    if (spec.EntityType != null && TryExtractId(valElement, out long rawId) && rawId > 0)
+                    {
+                        if (resolvedMap.TryGetValue((spec.EntityType, rawId), out var desc) && !string.IsNullOrWhiteSpace(desc))
+                        {
+                            dict[displayKey] = desc;
+                            modified = true;
+                            continue;
+                        }
+                    }
+
+                    if (!string.Equals(key, displayKey, StringComparison.Ordinal))
+                    {
+                        modified = true;
+                    }
+
+                    dict[displayKey] = ExtractJsonValue(valElement);
+                    continue;
+                }
+
+                var fallbackKey = (key.EndsWith("Id", StringComparison.OrdinalIgnoreCase) && key.Length > 2)
+                    ? key[..^2]
+                    : key;
+
+                if (!string.Equals(key, fallbackKey, StringComparison.Ordinal))
+                {
+                    modified = true;
+                }
+
+                dict[fallbackKey] = ExtractJsonValue(valElement);
+            }
+
+            if (modified)
+            {
+                return JsonSerializer.Serialize(dict);
+            }
+        }
+        catch
+        {
+            // Ignore parsing error, return original string
+        }
+
+        return jsonString;
+    }
+
+    private static object? ExtractJsonValue(JsonElement valElement)
+    {
+        return valElement.ValueKind switch
+        {
+            JsonValueKind.String => valElement.GetString(),
+            JsonValueKind.Number => valElement.TryGetInt64(out long lVal) ? lVal : (valElement.TryGetDouble(out double dVal) ? dVal : valElement.GetRawText()),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => valElement.GetRawText()
+        };
+    }
+
+    private static bool TryExtractId(JsonElement element, out long id)
+    {
+        if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out id))
+            return true;
+        if (element.ValueKind == JsonValueKind.String && long.TryParse(element.GetString(), out id))
+            return true;
+        id = 0;
+        return false;
+    }
+
+    private static string? GetDisplayValueForEntity(BaseEntity entity, string valPropName)
+    {
+        var type = entity.GetType();
+        if (!string.IsNullOrWhiteSpace(valPropName))
+        {
+            var propInfo = type.GetProperty(valPropName, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+            if (propInfo != null)
+            {
+                var val = propInfo.GetValue(entity)?.ToString();
+                if (!string.IsNullOrWhiteSpace(val)) return val;
+            }
+        }
+
+        // Dynamic fallback: return the first non-empty string property on the entity (excluding metadata fields)
+        var stringProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.PropertyType == typeof(string) && p.CanRead);
+
+        foreach (var p in stringProps)
+        {
+            if (p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("CreatedBy", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("UpdatedBy", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("IPAddress", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var val = p.GetValue(entity)?.ToString();
+            if (!string.IsNullOrWhiteSpace(val)) return val;
+        }
+
+        return null;
+    }
+
+    private static string? GetDisplayValueForEntity(
+        BaseEntity entity,
+        Dictionary<string, (Type? EntityType, string KeyProp, string ValueProp, string DisplayLabel)> fieldSpecs)
+    {
+        var type = entity.GetType();
+
+        // 1. Try matching ValueProp from ApiResponse configured for this entity type
+        foreach (var spec in fieldSpecs.Values)
+        {
+            if (spec.EntityType != null && (spec.EntityType == type || type.IsSubclassOf(spec.EntityType)))
+            {
+                var propInfo = type.GetProperty(spec.ValueProp, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                if (propInfo != null)
+                {
+                    var val = propInfo.GetValue(entity)?.ToString();
+                    if (!string.IsNullOrWhiteSpace(val)) return val;
+                }
+            }
+        }
+
+        // 2. Dynamic fallback: return the first non-empty string property on the entity (excluding metadata fields)
+        var stringProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.PropertyType == typeof(string) && p.CanRead);
+
+        foreach (var p in stringProps)
+        {
+            if (p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("CreatedBy", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("UpdatedBy", StringComparison.OrdinalIgnoreCase) ||
+                p.Name.Equals("IPAddress", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var val = p.GetValue(entity)?.ToString();
+            if (!string.IsNullOrWhiteSpace(val)) return val;
+        }
+
+        return null;
     }
 }
