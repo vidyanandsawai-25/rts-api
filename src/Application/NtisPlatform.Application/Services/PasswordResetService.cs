@@ -61,7 +61,7 @@ public class PasswordResetService : IPasswordResetService
 
     public async Task<ForgotPasswordAvailableMethodsResponseDto> GetAvailableMethodsAsync(ForgotPasswordAvailableMethodsRequestDto request, CancellationToken cancellationToken = default)
     {
-        var featureEnabled = await _securitySettings.GetAsync("2FALOGINFORFPASS", false, cancellationToken);
+        var featureEnabled = await _securitySettings.GetAsync("2FALOGINFORFPASS", true, cancellationToken);
         if (!featureEnabled)
         {
             return new ForgotPasswordAvailableMethodsResponseDto { Success = true, Methods = new List<string>(), Message = FeatureUnavailableMessage };
@@ -88,7 +88,7 @@ public class PasswordResetService : IPasswordResetService
 
     public async Task<ForgotPasswordResponseDto> ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default)
     {
-        var featureEnabled = await _securitySettings.GetAsync("2FALOGINFORFPASS", false, cancellationToken);
+        var featureEnabled = await _securitySettings.GetAsync("2FALOGINFORFPASS", true, cancellationToken);
         if (!featureEnabled)
         {
             return new ForgotPasswordResponseDto { Success = false, Message = FeatureUnavailableMessage };
@@ -159,7 +159,7 @@ public class PasswordResetService : IPasswordResetService
             return methods;
         }
 
-        if (!string.IsNullOrWhiteSpace(user.Email) && await _securitySettings.GetAsync("FPASSOTPMAIL", false, cancellationToken))
+        if (!string.IsNullOrWhiteSpace(user.Email) && await _securitySettings.GetAsync("FPASSOTPMAIL", true, cancellationToken))
         {
             methods.Add(ForgotPasswordMethodNames.Email);
         }

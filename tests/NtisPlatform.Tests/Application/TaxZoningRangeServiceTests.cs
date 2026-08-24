@@ -469,6 +469,96 @@ public class TaxZoningRangeServiceTests
         _localizationService.Verify(s => s.GetTranslations(
             "TaxZoningRangeExport",
             "hi",
-            It.Is<IEnumerable<string>>(keys => keys.Count() == 5)), Times.Once);
+            It.Is<IEnumerable<string>>(keys => keys.Count() == 7)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExportRangesToExcelAsync_WritesWardTotalAndGrandTotalRows()
+    {
+        SeedWardsAndZone();
+        SeedProperties(1, "A1", "A2", "A3");
+        SeedProperties(2, "B1", "B2");
+
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 1,
+            TaxZoneId = 10,
+            FromPropertyNo = "A1",
+            ToPropertyNo = "A3",
+            AssignEntireWard = false,
+            ZoneDescription = "Ward 1 range",
+            IsActive = true
+        });
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 2,
+            TaxZoneId = 10,
+            FromPropertyNo = "B1",
+            ToPropertyNo = "B2",
+            AssignEntireWard = false,
+            ZoneDescription = "Ward 2 range",
+            IsActive = true
+        });
+
+        var service = CreateService();
+        var bytes = await service.ExportRangesToExcelAsync(new TaxZoningRangeQueryParameters(), "Test ULB");
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+
+        // Ward W1 (sorted first): heading row4, header rows 5-6, one data row 7, "total" row 8.
+        Assert.Equal("total", ws.Cell(8, 1).GetString());
+        Assert.Equal(3, ws.Cell(8, 4).GetDouble());
+
+        // Blank spacer row 9, then ward W2: heading row 10, header rows 11-12, data row 13, "total" row 14.
+        Assert.Equal("total", ws.Cell(14, 1).GetString());
+        Assert.Equal(2, ws.Cell(14, 4).GetDouble());
+
+        // Blank spacer row 15, then the grand total row 16 - properties covered across every ward.
+        Assert.Equal("Grand Total", ws.Cell(16, 1).GetString());
+        Assert.Equal(5, ws.Cell(16, 4).GetDouble());
+    }
+
+    [Fact]
+    public async Task ExportRangesToExcelAsync_LocalizesTotalAndGrandTotalLabels()
+    {
+        SeedWardsAndZone();
+        SeedProperties(1, "A1");
+        _ranges.Add(new TaxZoningRangeEntity
+        {
+            Id = _nextRangeId++,
+            WardId = 1,
+            TaxZoneId = 10,
+            FromPropertyNo = "A1",
+            ToPropertyNo = "A1",
+            AssignEntireWard = false,
+            ZoneDescription = "Covers A1 only",
+            IsActive = true
+        });
+
+        SetLanguage("mr");
+        _localizationService
+            .Setup(s => s.GetTranslations(
+                "TaxZoningRangeExport",
+                "mr",
+                It.Is<IEnumerable<string>>(keys => keys.Contains("TaxZoningReport_Col_Total") && keys.Contains("TaxZoningReport_Col_GrandTotal"))))
+            .Returns(new Dictionary<string, string>
+            {
+                ["TaxZoningReport_Col_Total"] = "कुल",
+                ["TaxZoningReport_Col_GrandTotal"] = "कुल संख्या",
+            });
+
+        var service = CreateService();
+        var bytes = await service.ExportRangesToExcelAsync(new TaxZoningRangeQueryParameters(), "Test ULB");
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+
+        // Single ward, single range: heading row4, header rows 5-6, data row 7, ward "total" row 8.
+        Assert.Equal("कुल", ws.Cell(8, 1).GetString());
+        // Blank spacer row 9, grand total row 10.
+        Assert.Equal("कुल संख्या", ws.Cell(10, 1).GetString());
     }
 }

@@ -12,7 +12,7 @@ namespace NtisPlatform.Core.Entities.Master;
 public class SecurityAuditLogEntity
 {
     [Key]
-    public long Id { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Event type, e.g. "TwoFactorEnabled", "MfaVerificationFailed". See SecurityAuditEventType.

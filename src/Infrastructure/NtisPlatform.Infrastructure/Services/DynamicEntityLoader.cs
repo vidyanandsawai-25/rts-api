@@ -17,6 +17,9 @@ public class DynamicEntityLoader : IDynamicEntityLoader
     private static readonly MethodInfo LoadTypedMethod =
         typeof(DynamicEntityLoader).GetMethod(nameof(LoadTypedAsync), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
+    private static readonly MethodInfo LoadAllTypedMethod =
+        typeof(DynamicEntityLoader).GetMethod(nameof(LoadAllTypedAsync), BindingFlags.NonPublic | BindingFlags.Instance)!;
+
     private readonly ApplicationDbContext _context;
 
     public DynamicEntityLoader(ApplicationDbContext context)
@@ -31,10 +34,23 @@ public class DynamicEntityLoader : IDynamicEntityLoader
         bool asNoTracking,
         CancellationToken cancellationToken = default)
     {
+        if (keyValues == null || keyValues.Count == 0)
+            return Task.FromResult<IReadOnlyList<BaseEntity>>(Array.Empty<BaseEntity>());
+
         // Dispatch to the strongly-typed loader so EF can build a proper DbSet<T> query.
         var typed = LoadTypedMethod.MakeGenericMethod(entityType);
         return (Task<IReadOnlyList<BaseEntity>>)typed.Invoke(
             this, new object[] { keyProperty, keyValues, asNoTracking, cancellationToken })!;
+    }
+
+    public Task<IReadOnlyList<BaseEntity>> LoadAllAsync(
+        Type entityType,
+        bool asNoTracking,
+        CancellationToken cancellationToken = default)
+    {
+        var typed = LoadAllTypedMethod.MakeGenericMethod(entityType);
+        return (Task<IReadOnlyList<BaseEntity>>)typed.Invoke(
+            this, new object[] { asNoTracking, cancellationToken })!;
     }
 
     private async Task<IReadOnlyList<BaseEntity>> LoadTypedAsync<T>(
@@ -43,11 +59,26 @@ public class DynamicEntityLoader : IDynamicEntityLoader
         bool asNoTracking,
         CancellationToken cancellationToken) where T : BaseEntity
     {
+        if (keyValues == null || keyValues.Count == 0)
+            return Array.Empty<BaseEntity>();
+
         IQueryable<T> query = _context.Set<T>();
         if (asNoTracking)
             query = query.AsNoTracking();
 
         query = query.Where(BuildKeyPredicate<T>(keyProperty, keyValues));
+
+        var rows = await query.ToListAsync(cancellationToken);
+        return rows.Cast<BaseEntity>().ToList();
+    }
+
+    private async Task<IReadOnlyList<BaseEntity>> LoadAllTypedAsync<T>(
+        bool asNoTracking,
+        CancellationToken cancellationToken) where T : BaseEntity
+    {
+        IQueryable<T> query = _context.Set<T>();
+        if (asNoTracking)
+            query = query.AsNoTracking();
 
         var rows = await query.ToListAsync(cancellationToken);
         return rows.Cast<BaseEntity>().ToList();

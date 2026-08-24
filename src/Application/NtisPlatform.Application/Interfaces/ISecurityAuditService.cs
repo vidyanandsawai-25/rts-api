@@ -30,6 +30,9 @@ public static class SecurityAuditEventType
     public const string ForgotPasswordOtpRequested = "ForgotPasswordOtpRequested";
     public const string ForgotPasswordOtpVerified = "ForgotPasswordOtpVerified";
     public const string PasswordResetCompleted = "PasswordResetCompleted";
+
+    // Self-service authenticated password change
+    public const string PasswordChanged = "PasswordChanged";
 }
 
 /// <summary>

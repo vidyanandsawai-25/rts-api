@@ -86,26 +86,26 @@ public class EmailSettingsProvider : IEmailSettingsProvider
         var missingKeys = new List<string>();
 
         if (configMap.TryGetValue(SmtpHostKey, out var smtpHost))
-            settings.SmtpHost = smtpHost ?? string.Empty;
+            settings.SmtpHost = smtpHost?.Trim() ?? string.Empty;
         if (configMap.TryGetValue(SmtpPortKey, out var smtpPortRaw))
         {
-            if (int.TryParse(smtpPortRaw, out var port))
+            if (int.TryParse(smtpPortRaw?.Trim(), out var port))
                 settings.SmtpPort = port;
             else
                 _logger.LogWarning("Invalid SmtpPort value: {Value}", smtpPortRaw);
         }
         if (configMap.TryGetValue(SmtpUserNameKey, out var smtpUserName))
-            settings.SmtpUserName = smtpUserName ?? string.Empty;
+            settings.SmtpUserName = smtpUserName?.Trim() ?? string.Empty;
         if (configMap.TryGetValue(SmtpPasswordKey, out var smtpPassword))
-            settings.SmtpPassword = smtpPassword ?? string.Empty;
+            settings.SmtpPassword = smtpPassword?.Trim() ?? string.Empty;
         if (configMap.TryGetValue(FromEmailKey, out var fromEmail))
-            settings.FromEmail = fromEmail ?? string.Empty;
+            settings.FromEmail = fromEmail?.Trim() ?? string.Empty;
         if (configMap.TryGetValue(FromNameKey, out var fromName))
-            settings.FromName = fromName ?? string.Empty;
+            settings.FromName = fromName?.Trim() ?? string.Empty;
         if (configMap.TryGetValue(SecureSocketOptionsKey, out var secureSocketOptions))
-            settings.SecureSocketOptions = secureSocketOptions ?? "Auto";
+            settings.SecureSocketOptions = secureSocketOptions?.Trim() ?? "Auto";
         if (configMap.TryGetValue(LoginUrlKey, out var loginUrl))
-            settings.LoginUrl = loginUrl;
+            settings.LoginUrl = loginUrl?.Trim();
 
         // Validate required settings
         if (string.IsNullOrWhiteSpace(settings.SmtpHost))

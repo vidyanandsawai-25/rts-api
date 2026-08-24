@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Application.Services.CommonDetails;
 
@@ -27,6 +28,7 @@ public static class BulkUpdateTargetRegistry
             ["PTIS.SocietyDetailsMast"]  = new(typeof(SocietyDetailsEntity),     "PropertyId"),
             ["PTIS.PropertyMastDetails"] = new(typeof(PropertyAssessmentEntity), "PropertyId"),
             ["PTIS.PropertyDetails"]     = new(typeof(PropertyDetailsEntity),    "PropertyId"),
+            ["PTIS.PropertySocialDetails"] = new(typeof(PropertySocialDetailsEntity), "PropertyId"),
         };
 
     /// <summary>
@@ -42,4 +44,4 @@ public static class BulkUpdateTargetRegistry
     /// </summary>
     public static bool IsPropertyKeyedById(in BulkUpdateTarget target) =>
         string.Equals(target.KeyProperty, "Id", StringComparison.OrdinalIgnoreCase);
-}
+}   
