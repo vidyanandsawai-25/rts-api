@@ -588,7 +588,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
             if (!string.IsNullOrWhiteSpace(mobile))
             {
-                name = "Citizen";
                 await _smsNotificationService.SendApplicationStageAdvancedAsync(
                     application.Id,
                     application.ApplicationNo ?? $"APP{application.Id}",
@@ -1146,7 +1145,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 .ToListAsync(ct);
 
             string? mobile = null;
-            string? name = null;
+            string? name = "Citizen";
+
 
             foreach (var fv in fieldValues)
             {

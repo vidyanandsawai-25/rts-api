@@ -120,7 +120,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     {
         try
         {
-            string? applicantName = null;
+            string? applicantName = "Citizen";
             string? applicantMobile = null;
 
             var fieldDefinitions = await _fieldDefinitionRepository.GetQueryable()
@@ -144,7 +144,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                         applicantMobile = val;
                     }
                     else if (string.IsNullOrWhiteSpace(applicantName) &&
-                        (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
+                        (label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
                     {
                         applicantName = val;
                     }

@@ -303,7 +303,7 @@ public class RTSPaymentService : IRTSPaymentService
                 if (string.IsNullOrWhiteSpace(val)) continue;
 
                 if (string.IsNullOrWhiteSpace(applicantName) &&
-                    (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
+                    (label.Contains("full name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
                 {
                     applicantName = val;
                 }
@@ -611,7 +611,7 @@ public class RTSPaymentService : IRTSPaymentService
                     smsMobile = val;
                 }
                 else if (string.IsNullOrWhiteSpace(smsName) &&
-                    (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
+                    (label.Contains("Full Name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
                 {
                     smsName = val;
                 }
@@ -974,7 +974,7 @@ public class RTSPaymentService : IRTSPaymentService
             if (string.IsNullOrWhiteSpace(val)) continue;
 
             if (string.IsNullOrWhiteSpace(customerName) &&
-                (label.Contains("applicant") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
+                (label.Contains("Full Name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
             {
                 customerName = val;
             }
