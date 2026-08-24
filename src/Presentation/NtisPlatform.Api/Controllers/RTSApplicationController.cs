@@ -68,14 +68,10 @@ public class RTSApplicationController : ControllerBase
         var isGatewayActive = await _gatewayRepository.GetQueryable().AnyAsync(g => g.IsActive, ct);
         if (!isGatewayActive)
         {
-            return Ok(new
+            return BadRequest(new
             {
-                success = true,
-                isLive = false,
-                directLogin = true,
-                message = "SMS Gateway is disabled in database. Direct login enabled.",
-                txnId = $"direct_{sanitizedMobile}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}",
-                expiresInSeconds = 120
+                success = false,
+                message = "SMS Gateway is not active in database.",
             });
         }
 
@@ -89,16 +85,16 @@ public class RTSApplicationController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed sending OTP to {Mobile}", sanitizedMobile);
+            return StatusCode(500, new { success = false, message = "Failed to dispatch OTP SMS via gateway." });
         }
 
         return Ok(new
         {
             success = true,
             isLive = true,
-            directLogin = false,
             message = "OTP dispatched successfully via official SMS gateway.",
             txnId,
-            demoOtp = otp,
+            otp,
             expiresInSeconds = 120
         });
     }

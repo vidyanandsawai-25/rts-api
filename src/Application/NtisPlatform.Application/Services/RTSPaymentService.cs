@@ -1146,14 +1146,17 @@ public class RTSPaymentService : IRTSPaymentService
 
         if (app == null) return null;
 
+        var feeAmount = app.Service?.Fees ?? 0;
+        var isFeeRequired = (app.Service?.FeesRequired == true) || (feeAmount > 0);
+
         return new
         {
             applicationId = app.Id,
             applicationNo = app.ApplicationNo,
             serviceName = app.Service?.ServiceName,
-            requiredFee = app.Service?.Fees ?? 0,
-            isFeeRequired = app.Service?.FeesRequired ?? false,
-            paymentStatus = txn?.PaymentStatus?.StatusCode ?? (app.Service?.FeesRequired == true ? "PENDING" : "NOT_REQUIRED"),
+            requiredFee = feeAmount,
+            isFeeRequired,
+            paymentStatus = txn?.PaymentStatus?.StatusCode ?? (isFeeRequired ? "PENDING" : "NOT_REQUIRED"),
             statusNameEn = txn?.PaymentStatus?.StatusNameEn,
             statusNameMr = txn?.PaymentStatus?.StatusNameMr,
             badgeColor = txn?.PaymentStatus?.BadgeColor,
