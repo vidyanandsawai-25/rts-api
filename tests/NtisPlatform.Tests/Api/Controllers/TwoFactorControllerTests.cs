@@ -98,14 +98,14 @@ public class TwoFactorControllerTests
     }
 
     [Fact]
-    public async Task Enable_WithInvalidCode_ReturnsUnauthorized()
+    public async Task Enable_WithInvalidCode_ReturnsBadRequest()
     {
         _serviceMock.Setup(x => x.EnableAsync(42, "000000", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TwoFactorOperationResult<TwoFactorEmailVerificationPendingResponseDto>.Failed(TwoFactorOperationError.InvalidCode));
 
         var result = await _controller.Enable(new EnableTwoFactorRequestDto { Code = "000000" }, CancellationToken.None);
 
-        Assert.IsType<UnauthorizedObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -133,14 +133,14 @@ public class TwoFactorControllerTests
     }
 
     [Fact]
-    public async Task ConfirmEmail_WithInvalidCode_ReturnsUnauthorized()
+    public async Task ConfirmEmail_WithInvalidCode_ReturnsBadRequest()
     {
         _serviceMock.Setup(x => x.ConfirmEnableAsync(42, "000000", It.IsAny<CancellationToken>()))
             .ReturnsAsync(TwoFactorOperationResult<EnableTwoFactorResponseDto>.Failed(TwoFactorOperationError.InvalidCode));
 
         var result = await _controller.ConfirmEmail(new EnableTwoFactorRequestDto { Code = "000000" }, CancellationToken.None);
 
-        Assert.IsType<UnauthorizedObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]

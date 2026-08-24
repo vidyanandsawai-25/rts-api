@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Api.Extensions;
@@ -151,7 +151,7 @@ public partial class UserController : ControllerBase
 
     private IActionResult MapTwoFactorFailure(TwoFactorOperationError error) => error switch
     {
-        TwoFactorOperationError.InvalidCode => Unauthorized(new { message = "Invalid verification code." }),
+        TwoFactorOperationError.InvalidCode => BadRequest(new { message = "Invalid verification code." }),
         TwoFactorOperationError.AlreadyEnabled => Conflict(new { message = "Two-factor authentication is already enabled." }),
         TwoFactorOperationError.NotEnabled => Conflict(new { message = "Two-factor authentication is not enabled." }),
         TwoFactorOperationError.SetupNotStarted => Conflict(new { message = "Authenticator setup has not been started." }),
