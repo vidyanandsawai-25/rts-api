@@ -133,7 +133,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 SessionId = x.SessionId,
                 OwnerId = x.OwnerId, 
                 DepartmentName = x.Department.DepartmentName,
+                DepartmentNameLocal = x.Department.DepartmentNameLocal,
                 ServiceName = x.Service.ServiceName,
+                ServiceNameLocal = x.Service.ServiceNameLocal,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
                 ApplicantName = x.ApplicantName,
@@ -1147,7 +1149,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             string? mobile = null;
             string? name = "Citizen";
 
-
             foreach (var fv in fieldValues)
             {
                 var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
@@ -1180,7 +1181,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return (null, "Citizen", "RTS Service");
         }
     }
-
 
 
     // <summary>

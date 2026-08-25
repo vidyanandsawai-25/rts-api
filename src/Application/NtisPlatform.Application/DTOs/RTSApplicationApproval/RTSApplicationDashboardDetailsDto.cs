@@ -21,7 +21,9 @@ public class RTSApplicationDashboardDetailsDto
     public string? SessionId { get; set; }
     public int? OwnerId { get; set; }
     public string? DepartmentName { get; set; }
+    public string? DepartmentNameLocal { get; set; }
     public string? ServiceName { get; set; }
+    public string? ServiceNameLocal { get; set; }
     public string? Sla { get; set; }
     public int? RemainingDays { get; set; }
     public string? DueDays { get; set; }
