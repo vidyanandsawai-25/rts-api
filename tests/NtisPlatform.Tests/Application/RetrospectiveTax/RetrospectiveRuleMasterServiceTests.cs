@@ -519,7 +519,6 @@ public class RetrospectiveRuleMasterServiceTests
         RuleCode = "THA-05",
         RuleName = "New Rule",
         PriorityNo = 1,
-        MatchType = "CONDITION_BASED",
         AvailableEvidenceTypeIds = new List<int> { 1 },
         UnavailableEvidenceTypeIds = new List<int> { 2 },
         DateCondition = new NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleMaster.SaveRetrospectiveRuleDateConditionDto
@@ -537,7 +536,7 @@ public class RetrospectiveRuleMasterServiceTests
         PenaltyRule = new NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleMaster.SaveRetrospectivePenaltyRuleDto
         {
             IsPenaltyApplicable = true,
-            PenaltyMode = "ACT_UNLAWFUL"
+            PenaltyMode = "ACT_PENALTY"
         },
         UpdatedBy = 9
     };
@@ -601,7 +600,7 @@ public class RetrospectiveRuleMasterServiceTests
             It.IsAny<CancellationToken>()), Times.Once);
 
         _mockPenaltyRepository.Verify(r => r.AddAsync(
-            It.Is<RetrospectivePenaltyRuleEntity>(e => e.RuleId == 5 && e.PenaltyMode == "ACT_UNLAWFUL" && e.IsPenaltyApplicable && e.CreatedBy == 9),
+            It.Is<RetrospectivePenaltyRuleEntity>(e => e.RuleId == 5 && e.PenaltyMode == "ACT_PENALTY" && e.IsPenaltyApplicable && e.CreatedBy == 9),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -661,7 +660,7 @@ public class RetrospectiveRuleMasterServiceTests
         Assert.Equal(2m, existingAction.TaxMultiplier);
         _mockActionRepository.Verify(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("ACT_UNLAWFUL", existingPenalty.PenaltyMode);
+        Assert.Equal("ACT_PENALTY", existingPenalty.PenaltyMode);
         Assert.True(existingPenalty.IsPenaltyApplicable);
         _mockPenaltyRepository.Verify(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -690,7 +689,7 @@ public class RetrospectiveRuleMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
 
-        var existingPenalty = new RetrospectivePenaltyRuleEntity { Id = 12, RuleId = 1, PenaltyMode = "ACT_UNLAWFUL", IsPenaltyApplicable = true, IsActive = true };
+        var existingPenalty = new RetrospectivePenaltyRuleEntity { Id = 12, RuleId = 1, PenaltyMode = "ACT_PENALTY", IsPenaltyApplicable = true, IsActive = true };
         _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity> { existingPenalty }.BuildMock());
         _mockPenaltyRepository.Setup(r => r.UpdateAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -738,6 +737,226 @@ public class RetrospectiveRuleMasterServiceTests
         _mockDateConditionRepository.Verify(r => r.UpdateAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPenaltyRepository.Verify(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPenaltyRepository.Verify(r => r.UpdateAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region SaveAsync validation
+
+    [Fact]
+    public async Task SaveAsync_NewRule_AlwaysDefaultsMatchTypeToConditionBased()
+    {
+        // MatchType isn't exposed on the Rule Builder screen (no such field/dropdown), so
+        // SaveRetrospectiveRuleDto no longer accepts it -- a new rule always gets this default.
+        var request = BuildSaveRequest();
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleMasterEntity e, CancellationToken _) => { e.Id = 5; return e; });
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RetrospectiveRuleMasterEntity { Id = 5, RuleCode = "THA-05", RuleName = "New Rule", RuleStatus = "Draft" });
+        _mockEvidenceConditionService
+            .Setup(s => s.SetEvidenceStateForRuleAsync(5, It.IsAny<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.SetRetrospectiveRuleEvidenceConditionStateDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.RetrospectiveRuleEvidenceConditionStateDto>());
+        _mockDateConditionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleDateConditionEntity>().BuildMock());
+        _mockDateConditionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleDateConditionEntity e, CancellationToken _) => e);
+        _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());
+        _mockActionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
+        _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity>().BuildMock());
+        _mockPenaltyRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectivePenaltyRuleEntity e, CancellationToken _) => e);
+        SetupGetDetailMocksForSave(5);
+
+        await _service.SaveAsync(request, CancellationToken.None);
+
+        _mockRepository.Verify(r => r.AddAsync(
+            It.Is<RetrospectiveRuleMasterEntity>(e => e.MatchType == "CONDITION_BASED"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ExistingRule_DoesNotChangeMatchType()
+    {
+        // MatchType isn't part of the Save request anymore; updating a rule must leave whatever
+        // MatchType it already had untouched.
+        var request = BuildSaveRequest(1);
+        var existingRule = new RetrospectiveRuleMasterEntity { Id = 1, RuleCode = "THA-01", RuleName = "Old Name", MatchType = "PRIORITY_BASED", RuleStatus = "Draft", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingRule);
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockEvidenceConditionService
+            .Setup(s => s.SetEvidenceStateForRuleAsync(1, It.IsAny<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.SetRetrospectiveRuleEvidenceConditionStateDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.RetrospectiveRuleEvidenceConditionStateDto>());
+        _mockDateConditionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleDateConditionEntity>().BuildMock());
+        _mockDateConditionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleDateConditionEntity e, CancellationToken _) => e);
+        _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());
+        _mockActionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
+        _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity>().BuildMock());
+        _mockPenaltyRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectivePenaltyRuleEntity e, CancellationToken _) => e);
+        SetupGetDetailMocksForSave(1);
+
+        await _service.SaveAsync(request, CancellationToken.None);
+
+        Assert.Equal("PRIORITY_BASED", existingRule.MatchType);
+    }
+
+    [Fact]
+    public async Task SaveAsync_NewRule_AuthorizationStatusDefaultsToNull()
+    {
+        // AuthorizationStatus isn't exposed on the Rule Builder screen either (no such
+        // field/dropdown), so SaveRetrospectiveRuleDto no longer accepts it -- a new rule always
+        // gets null, matching the entity's own default.
+        var request = BuildSaveRequest();
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleMasterEntity e, CancellationToken _) => { e.Id = 5; return e; });
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RetrospectiveRuleMasterEntity { Id = 5, RuleCode = "THA-05", RuleName = "New Rule", RuleStatus = "Draft" });
+        _mockEvidenceConditionService
+            .Setup(s => s.SetEvidenceStateForRuleAsync(5, It.IsAny<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.SetRetrospectiveRuleEvidenceConditionStateDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.RetrospectiveRuleEvidenceConditionStateDto>());
+        _mockDateConditionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleDateConditionEntity>().BuildMock());
+        _mockDateConditionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleDateConditionEntity e, CancellationToken _) => e);
+        _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());
+        _mockActionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
+        _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity>().BuildMock());
+        _mockPenaltyRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectivePenaltyRuleEntity e, CancellationToken _) => e);
+        SetupGetDetailMocksForSave(5);
+
+        await _service.SaveAsync(request, CancellationToken.None);
+
+        _mockRepository.Verify(r => r.AddAsync(
+            It.Is<RetrospectiveRuleMasterEntity>(e => e.AuthorizationStatus == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ExistingRule_DoesNotChangeAuthorizationStatus()
+    {
+        var request = BuildSaveRequest(1);
+        var existingRule = new RetrospectiveRuleMasterEntity { Id = 1, RuleCode = "THA-01", RuleName = "Old Name", AuthorizationStatus = "AUTHORIZED", RuleStatus = "Draft", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingRule);
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<RetrospectiveRuleMasterEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockEvidenceConditionService
+            .Setup(s => s.SetEvidenceStateForRuleAsync(1, It.IsAny<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.SetRetrospectiveRuleEvidenceConditionStateDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.RetrospectiveTax.RetrospectiveRuleEvidenceCondition.RetrospectiveRuleEvidenceConditionStateDto>());
+        _mockDateConditionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleDateConditionEntity>().BuildMock());
+        _mockDateConditionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleDateConditionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleDateConditionEntity e, CancellationToken _) => e);
+        _mockActionRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectiveRuleActionEntity>().BuildMock());
+        _mockActionRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveRuleActionEntity e, CancellationToken _) => e);
+        _mockPenaltyRepository.Setup(r => r.GetQueryable()).Returns(new List<RetrospectivePenaltyRuleEntity>().BuildMock());
+        _mockPenaltyRepository
+            .Setup(r => r.AddAsync(It.IsAny<RetrospectivePenaltyRuleEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectivePenaltyRuleEntity e, CancellationToken _) => e);
+        SetupGetDetailMocksForSave(1);
+
+        await _service.SaveAsync(request, CancellationToken.None);
+
+        Assert.Equal("AUTHORIZED", existingRule.AuthorizationStatus);
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidDateConditionComparatorCode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.DateCondition!.ComparatorCode = "NOT_A_REAL_COMPARATOR";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidDateConditionCompareOperator_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.DateCondition!.CompareOperator = "NOT_A_REAL_OPERATOR";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionTaxStartMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.TaxStartMode = "NOT_A_REAL_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionRetrospectiveLimitType_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.RetrospectiveLimitType = "NOT_A_REAL_LIMIT";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionTaxCalculationMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.TaxCalculationMode = "NOT_A_REAL_CALC_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyMode = "NOT_A_REAL_PENALTY_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyDateSourceType_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyDateSourceType = "NOT_A_REAL_SOURCE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidPenaltyDateCondition_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.PenaltyDateCondition = "NOT_A_REAL_CONDITION";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidElseAction_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.PenaltyRule!.ElseAction = "NOT_A_REAL_ACTION";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
     }
 
     #endregion

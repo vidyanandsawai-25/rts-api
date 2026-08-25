@@ -703,7 +703,7 @@ public class UserControllerTests
     }
 
     [Fact]
-    public async Task EnableTwoFactorForUser_WithInvalidTotpCode_ReturnsUnauthorized()
+    public async Task EnableTwoFactorForUser_WithInvalidTotpCode_ReturnsBadRequest()
     {
         // Arrange
         var userId = 1006;
@@ -717,7 +717,7 @@ public class UserControllerTests
         var result = await _controller.EnableTwoFactorForUser(userId, request, CancellationToken.None);
 
         // Assert
-        Assert.IsType<UnauthorizedObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
@@ -762,7 +762,7 @@ public class UserControllerTests
     }
 
     [Fact]
-    public async Task ConfirmTwoFactorEmailForUser_WithInvalidCode_ReturnsUnauthorized()
+    public async Task ConfirmTwoFactorEmailForUser_WithInvalidCode_ReturnsBadRequest()
     {
         // Arrange
         var userId = 1006;
@@ -776,7 +776,7 @@ public class UserControllerTests
         var result = await _controller.ConfirmTwoFactorEmailForUser(userId, request, CancellationToken.None);
 
         // Assert
-        Assert.IsType<UnauthorizedObjectResult>(result);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]

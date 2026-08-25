@@ -56,7 +56,7 @@ public class RetrospectivePenaltyRuleControllerTests
     public async Task GetById_CallsService_AndReturnsOkObjectResult()
     {
         // Arrange
-        var dto = new RetrospectivePenaltyRuleDto { Id = 1, RuleId = 10, PenaltyMode = "ACT_UNLAWFUL" };
+        var dto = new RetrospectivePenaltyRuleDto { Id = 1, RuleId = 10, PenaltyMode = "ACT_PENALTY" };
         _mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
@@ -72,8 +72,8 @@ public class RetrospectivePenaltyRuleControllerTests
     public async Task Create_CallsService_AndReturnsOkObjectResult()
     {
         // Arrange
-        var createDto = new CreateRetrospectivePenaltyRuleDto { RuleId = 10, PenaltyMode = "ACT_UNLAWFUL" };
-        var resultDto = new RetrospectivePenaltyRuleDto { Id = 1, RuleId = 10, PenaltyMode = "ACT_UNLAWFUL" };
+        var createDto = new CreateRetrospectivePenaltyRuleDto { RuleId = 10, PenaltyMode = "ACT_PENALTY" };
+        var resultDto = new RetrospectivePenaltyRuleDto { Id = 1, RuleId = 10, PenaltyMode = "ACT_PENALTY" };
 
         _mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(resultDto);
@@ -92,13 +92,13 @@ public class RetrospectivePenaltyRuleControllerTests
         // Arrange
         var items = new[]
         {
-            new CreateRetrospectivePenaltyRuleDto { RuleId = 10, PenaltyMode = "ACT_UNLAWFUL" },
+            new CreateRetrospectivePenaltyRuleDto { RuleId = 10, PenaltyMode = "ACT_PENALTY" },
             new CreateRetrospectivePenaltyRuleDto { RuleId = 11, PenaltyMode = "NONE" }
         };
 
         var bulkResult = new BulkResult<RetrospectivePenaltyRuleDto>(2, 0, new List<RetrospectivePenaltyRuleDto>
         {
-            new() { Id = 1, RuleId = 10, PenaltyMode = "ACT_UNLAWFUL" },
+            new() { Id = 1, RuleId = 10, PenaltyMode = "ACT_PENALTY" },
             new() { Id = 2, RuleId = 11, PenaltyMode = "NONE" }
         });
 

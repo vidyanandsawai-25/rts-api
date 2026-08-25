@@ -405,4 +405,140 @@ public class AuthService : IAuthService
             Message = "Logged out successfully"
         };
     }
+
+    /// <inheritdoc />
+    public async Task<ChangePasswordResponseDto> ChangePasswordAsync(int? userId, ChangePasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (request == null)
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = "Invalid request payload." };
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = "Current password is required." };
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = "New password is required." };
+        }
+
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = "New password and confirmation password do not match." };
+        }
+
+        UserEntity? user = null;
+        if (userId.HasValue && userId.Value > 0)
+        {
+            user = await _userRepository.GetByIdAsync(userId.Value, cancellationToken);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.UserName))
+        {
+            user = await _userRepository.GetByUsernameOrEmailAsync(request.UserName.Trim(), cancellationToken);
+        }
+
+        if (user == null || !user.IsActive)
+        {
+            _logger.LogWarning("Change password attempted for non-existent or inactive user: {UserIdOrName}", userId?.ToString() ?? request.UserName);
+            return new ChangePasswordResponseDto { Success = false, Message = "User not found or account is inactive." };
+        }
+
+        // Verify current password
+        if (string.IsNullOrEmpty(user.PasswordHash) || !_passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
+        {
+            _logger.LogWarning("Change password failed for user {UserId}: incorrect current password.", user.Id);
+            return new ChangePasswordResponseDto { Success = false, Message = "Current password is incorrect." };
+        }
+
+        // Ensure new password is not identical to current password
+        if (string.Equals(request.CurrentPassword, request.NewPassword, StringComparison.Ordinal))
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = "New password must be different from current password." };
+        }
+
+        // Validate password against dynamic security policies
+        var validationError = await ValidatePasswordPolicyAsync(request.NewPassword, cancellationToken);
+        if (validationError != null)
+        {
+            return new ChangePasswordResponseDto { Success = false, Message = validationError };
+        }
+
+        // Hash new password
+        string newPasswordHash;
+        try
+        {
+            newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to hash new password during change password for user {UserId}", user.Id);
+            return new ChangePasswordResponseDto { Success = false, Message = "Unable to process the new password. Please choose a different password." };
+        }
+
+        var newSecurityStamp = Guid.NewGuid().ToString("N");
+        var updated = await _userRepository.ResetPasswordAsync(user.Id, newPasswordHash, newSecurityStamp, cancellationToken);
+        if (!updated)
+        {
+            _logger.LogError("Failed to update password for user {UserId}", user.Id);
+            return new ChangePasswordResponseDto { Success = false, Message = "An error occurred while updating the password." };
+        }
+
+        // Revoke all existing refresh tokens for security
+        await _refreshTokenRepository.RevokeAllUserTokensAsync(user.Id, cancellationToken);
+
+        _logger.LogInformation("Password changed successfully for user {UserId}", user.Id);
+
+        return new ChangePasswordResponseDto
+        {
+            Success = true,
+            Message = "Password has been changed successfully. Please log in with your new password."
+        };
+    }
+
+    private async Task<string?> ValidatePasswordPolicyAsync(string password, CancellationToken cancellationToken)
+    {
+        var minLength = await _securitySettings.GetAsync("MINPASSWORDLENGTH", 6, cancellationToken);
+        var maxLength = await _securitySettings.GetAsync("MAXPASSWORDLENGTH", 128, cancellationToken);
+        var requireUppercase = await _securitySettings.GetAsync("REQUIREUPPERCASE", false, cancellationToken);
+        var requireLowercase = await _securitySettings.GetAsync("REQUIRELOWERCASE", false, cancellationToken);
+        var requireDigit = await _securitySettings.GetAsync("REQUIREDIGIT", false, cancellationToken);
+        var requireSpecial = await _securitySettings.GetAsync("REQUIRESPECIALCHAR", false, cancellationToken);
+
+        if (minLength < 1) minLength = 6;
+        if (maxLength <= minLength || maxLength > 1000) maxLength = 128;
+
+        if (password.Length < minLength)
+        {
+            return $"Password must be at least {minLength} characters long.";
+        }
+
+        if (password.Length > maxLength)
+        {
+            return $"Password cannot exceed {maxLength} characters.";
+        }
+
+        if (requireUppercase && !password.Any(char.IsUpper))
+        {
+            return "Password must contain at least one uppercase letter (A-Z).";
+        }
+
+        if (requireLowercase && !password.Any(char.IsLower))
+        {
+            return "Password must contain at least one lowercase letter (a-z).";
+        }
+
+        if (requireDigit && !password.Any(char.IsDigit))
+        {
+            return "Password must contain at least one number (0-9).";
+        }
+
+        if (requireSpecial && !password.Any(ch => !char.IsLetterOrDigit(ch)))
+        {
+            return "Password must contain at least one special character.";
+        }
+
+        return null;
+    }
 }

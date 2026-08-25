@@ -268,15 +268,15 @@ public class ReferenceValidationService : IReferenceValidationService
                 ("Calculation Evidence", (ctx, id) => ctx.RetrospectiveCalculationEvidence.Where(e => e.EvidenceTypeId == id).Cast<object>())
             );
 
+        // Evidence Condition, Date Condition, Action, Penalty Rule, Rule Summary and Audit Log are
+        // this rule's own composition/child sections (created via the Rule Builder's Save
+        // endpoint) -- every real rule has them, so treating them as blocking references made
+        // Delete/Deactivate permanently fail for any rule that was actually built out. Only Tax
+        // Calculation is a genuine "used elsewhere" reference: deleting a rule that a real
+        // calculation already applied would corrupt that calculation's traceability.
         config.ForEntity<RetrospectiveRuleMasterEntity>()
             .CheckReferences(
-                ("Rule Evidence Condition", (ctx, id) => ctx.RetrospectiveRuleEvidenceCondition.Where(c => c.RuleId == id).Cast<object>()),
-                ("Rule Date Condition", (ctx, id) => ctx.RetrospectiveRuleDateCondition.Where(c => c.RuleId == id).Cast<object>()),
-                ("Rule Action", (ctx, id) => ctx.RetrospectiveRuleAction.Where(a => a.RuleId == id).Cast<object>()),
-                ("Penalty Rule", (ctx, id) => ctx.RetrospectivePenaltyRule.Where(p => p.RuleId == id).Cast<object>()),
-                ("Rule Summary", (ctx, id) => ctx.RetrospectiveRuleSummary.Where(s => s.RuleId == id).Cast<object>()),
-                ("Tax Calculation", (ctx, id) => ctx.RetrospectiveTaxCalculation.Where(c => c.AppliedRuleId == id).Cast<object>()),
-                ("Rule Audit Log", (ctx, id) => ctx.RetrospectiveRuleAuditLog.Where(l => l.RuleId == id).Cast<object>())
+                ("Tax Calculation", (ctx, id) => ctx.RetrospectiveTaxCalculation.Where(c => c.AppliedRuleId == id).Cast<object>())
             );
 
         config.ForEntity<RetrospectiveTaxPolicyEntity>()
@@ -354,10 +354,11 @@ public class ReferenceValidationService : IReferenceValidationService
 
         var referencingTables = new List<string>();
 
-        // Get all FK relationships referencing this entity
+        // Get all FK relationships referencing this entity, ignoring cascade deletes
         var foreignKeys = entityType.GetReferencingForeignKeys()
-            .Where(fk => fk.PrincipalKey.Properties
-                .Any(p => p.Name == referencedColumnName))
+            .Where(fk => fk.PrincipalKey.Properties.Any(p => p.Name == referencedColumnName)
+                && fk.DeleteBehavior != DeleteBehavior.Cascade
+                && fk.DeleteBehavior != DeleteBehavior.ClientCascade)
             .ToList();
 
         foreach (var fk in foreignKeys)

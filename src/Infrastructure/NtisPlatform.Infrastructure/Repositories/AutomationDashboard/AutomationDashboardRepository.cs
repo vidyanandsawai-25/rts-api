@@ -27,7 +27,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
     #region Public API Methods
 
-    public async Task<List<WorkflowStageProjection>> ReadWorkflowStagesAsync(
+    public async Task<List<PropertyWorkflowStageMasterEntity>> ReadWorkflowStagesAsync(
         int? workflowStageId = null,
         CancellationToken cancellationToken = default)
     {
@@ -40,23 +40,17 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         return await stagesBaseQuery
             .OrderBy(s => s.DisplayOrder)
-            .Select(s => new WorkflowStageProjection
-            {
-                WorkflowStageId = s.Id,
-                StageName = s.StageName,
-                DisplayOrder = s.DisplayOrder
-            })
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<Dictionary<int, WorkflowStageCountProjection>> ReadWorkflowStageCountsAsync(
+    public async Task<Dictionary<int, (int PropertyCount, int StructureCount, int UnitCount)>> ReadWorkflowStageCountsAsync(
         IEnumerable<int> stageIds,
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
     {
         var selectedStageIds = stageIds.Distinct().ToList();
         if (!selectedStageIds.Any())
-            return new Dictionary<int, WorkflowStageCountProjection>();
+            return new Dictionary<int, (int PropertyCount, int StructureCount, int UnitCount)>();
     
         var propertiesBaseQuery = _context.PropertyMast
             .AsNoTracking()
@@ -89,36 +83,74 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             PropertyCount = g.Count(),
             StructureCount = g.Count(x => x.PartitionNo == null || x.PartitionNo.Trim() == "")
         })
-        .ToDictionaryAsync(x => x.WorkflowStageId, x => new WorkflowStageCountProjection
-        {
-            WorkflowStageId = x.WorkflowStageId,
-            PropertyCount = x.PropertyCount,
-            StructureCount = x.StructureCount,
-            UnitCount = x.PropertyCount
-        }, cancellationToken);
+        .ToDictionaryAsync(
+            x => x.WorkflowStageId,
+            x => (x.PropertyCount, x.StructureCount, UnitCount: x.PropertyCount),
+            cancellationToken);
     }
 
-    public async Task<List<WorkflowStageCompletionProjection>> ReadWorkflowStageCompletionsAsync(int propertyId,CancellationToken cancellationToken = default)
+    public Task<List<int>> ReadCompletedWorkflowStageIdsAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
     {
-        var completedStageIds = _context.PropertyWorkflowDetails
-            .AsNoTracking()
-            .Where(pwd => pwd.IsActive && pwd.PropertyId == propertyId)
-            .Select(pwd => pwd.WorkflowStageId)
-            .Distinct();
+        return (
+            from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+            join stage in _context.PropertyWorkflowStageMaster.AsNoTracking() on pwd.WorkflowStageId equals stage.Id
+            where pwd.IsActive
+                  && stage.IsActive
+                  && pwd.PropertyId == propertyId
+            select pwd.WorkflowStageId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+    }
 
-        return await _context.PropertyWorkflowStageMaster
-            .AsNoTracking()
-            .Where(stage => stage.IsActive)
-            .OrderBy(stage => stage.DisplayOrder)
-            .ThenBy(stage => stage.Id)
-            .Select(stage => new WorkflowStageCompletionProjection
+    public async Task<Dictionary<int, (int? UserId, string? OfficerName)>> ReadWorkflowStageOfficerDetailsAsync(
+        int propertyId,
+        IEnumerable<int> stageIds,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedStageIds = stageIds.Distinct().ToList();
+        if (!selectedStageIds.Any())
+            return new Dictionary<int, (int? UserId, string? OfficerName)>();
+
+        var stageOfficers = await (
+            from workflowDetail in _context.PropertyWorkflowDetails.AsNoTracking()
+            join stage in _context.PropertyWorkflowStageMaster.AsNoTracking() on workflowDetail.WorkflowStageId equals stage.Id
+            join user in _context.UserMasters.AsNoTracking() on workflowDetail.CreatedBy equals user.Id into users
+            from user in users.DefaultIfEmpty()
+            where workflowDetail.IsActive
+                  && workflowDetail.PropertyId == propertyId
+                  && stage.IsActive
+                  && selectedStageIds.Contains(workflowDetail.WorkflowStageId)
+            select new
             {
-                WorkflowStageId = stage.Id,
-                StageName = stage.StageName,
-                DisplayOrder = stage.DisplayOrder,
-                IsCompleted = completedStageIds.Contains(stage.Id)
+                StageId = workflowDetail.WorkflowStageId,
+                UserId = workflowDetail.CreatedBy,
+                FirstName = user == null ? null : user.FirstName,
+                MiddleName = user == null ? null : user.MiddleName,
+                LastName = user == null ? null : user.LastName,
+                workflowDetail.CreatedDate,
+                workflowDetail.Id
             })
             .ToListAsync(cancellationToken);
+
+        return stageOfficers
+            .GroupBy(stage => stage.StageId)
+            .Select(group => group
+                .OrderByDescending(stage => stage.CreatedDate ?? DateTime.MinValue)
+                .ThenByDescending(stage => stage.Id)
+                .First())
+            .ToDictionary(
+                stage => stage.StageId,
+                stage => (stage.UserId, FormatOfficerName(stage.FirstName, stage.MiddleName, stage.LastName)));
+    }
+
+    private static string? FormatOfficerName(string? firstName, string? middleName, string? lastName)
+    {
+        var officerName = string.Join(" ", new[] { firstName, middleName, lastName }
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
+
+        return string.IsNullOrWhiteSpace(officerName) ? null : officerName;
     }
 
     private static IQueryable<PropertyEntity> ApplyDashboardFilters(IQueryable<PropertyEntity> query,PropertySearchRequestDto? request)
@@ -166,7 +198,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return (propertyCount, propertyCount - unitsOnlyCount, unitsOnlyCount);
     }
 
-    public async Task<DashboardCardBreakdownProjection> ReadPreviouslyRegisteredBreakdownAsync(CancellationToken cancellationToken = default)
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPreviouslyRegisteredBreakdownAsync(CancellationToken cancellationToken = default)
     {
         var counts = await _context.PropertyMastOld
             .AsNoTracking()
@@ -180,13 +212,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return new DashboardCardBreakdownProjection
-        {
-            PropertyCount = counts?.PropertyCount ?? 0,
-            StructureCount = counts?.StructureCount ?? 0,
-            UnitCount = counts?.PropertyCount ?? 0,
-            Demand = counts == null ? 0m : Convert.ToDecimal(counts.Demand)
-        };
+        return (
+            counts?.PropertyCount ?? 0,
+            counts?.StructureCount ?? 0,
+            counts?.PropertyCount ?? 0,
+            counts == null ? 0m : Convert.ToDecimal(counts.Demand));
     }
 
     public async Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
@@ -199,7 +229,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
     }
 
-    public async Task<DashboardCardBreakdownProjection> ReadPropertyBreakdownByAssessmentStatusAsync(
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadPropertyBreakdownByAssessmentStatusAsync(
         int statusId,
         PropertySearchRequestDto? searchRequest = null,
         bool includeDemand = false,
@@ -210,16 +240,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         var (propertyCount, structureCount, unitCount) = await CountDashboardPropertiesAsync(statusQuery, cancellationToken);
         var demand = includeDemand ? await GetNewTaxTotalDemandAsync(statusQuery, cancellationToken) : 0m;
 
-        return new DashboardCardBreakdownProjection
-        {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = demand
-        };
+        return (propertyCount, structureCount, unitCount, demand);
     }
 
-    public async Task<DashboardCardBreakdownProjection> ReadAcdApprovedPropertyBreakdownAsync(
+    public async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> ReadAcdApprovedPropertyBreakdownAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
     {
@@ -243,13 +267,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         var currentDemand = await GetNewTaxTotalDemandAsync(approvedProperties, cancellationToken);
 
-        return new DashboardCardBreakdownProjection
-        {
-            PropertyCount = counts?.PropertyCount ?? 0,
-            StructureCount = counts?.StructureCount ?? 0,
-            UnitCount = counts?.PropertyCount ?? 0,
-            Demand = currentDemand
-        };
+        return (
+            counts?.PropertyCount ?? 0,
+            counts?.StructureCount ?? 0,
+            counts?.PropertyCount ?? 0,
+            currentDemand);
     }
 
     private async Task<decimal> GetNewTaxTotalDemandAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)

@@ -597,26 +597,69 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                     var rv = await _rateableValueService.CalculateAndSaveAsync(detail.PropertyId);
                     detail.Status = nameof(JobDetailStatus.Added);
 
-                    // Prefer TaxTotal if present to avoid double-counting (TaxTotal is sum of individual taxes)
+                    bool isCarpetAreaZero = rv.Details.Count > 0 && rv.Details.All(d => d.CarpetAreaSqFeet == 0 && d.CarpetAreaSqMeter == 0);
+                    bool isRateMissing = rv.Details.Count > 0 && rv.Details.All(d => d.MonthlyRate == 0 && d.YearlyRate == 0);
+
+                    decimal totalTaxAmount = 0m;
                     if (rv.Policy?.Taxes != null && rv.Policy.Taxes.TryGetValue("TaxTotal", out var taxTotal))
                     {
-                        detail.Amount = taxTotal;
+                        totalTaxAmount = taxTotal;
                     }
                     else
                     {
-                        detail.Amount = rv.Policy?.Taxes?.Values.Sum() ?? 0m;
+                        totalTaxAmount = rv.Policy?.Taxes?.Values.Sum() ?? 0m;
                     }
 
-                    detail.TaxHead = rv.Policy?.Taxes.Count > 0
-                        ? string.Join(", ", rv.Policy.Taxes.Keys)
-                        : NetTaxPolicyCode;
-                    detail.Message = "Rateable Value Tax added successfully";
+                    // If RateableValue is positive but the calculated tax amount is 0, the tax percentage configuration is missing.
+                    bool isTaxPercentageMissing = rv.TotalRateableValue > 0 && totalTaxAmount == 0m;
+
+                    if (isCarpetAreaZero || isRateMissing || isTaxPercentageMissing)
+                    {
+                        detail.Amount = 0m;
+                        detail.TaxHead = NetTaxPolicyCode;
+                        detail.Message = "Related data is not available for the selected property factors. Therefore, the tax value has been calculated as 0.";
+                    }
+                    else
+                    {
+                        detail.Amount = totalTaxAmount;
+                        detail.TaxHead = rv.Policy?.Taxes.Count > 0
+                            ? string.Join(", ", rv.Policy.Taxes.Keys)
+                            : NetTaxPolicyCode;
+                        detail.Message = "Rateable Value Tax added successfully";
+                    }
                 }
             }
             catch (Exception ex)
             {
                 detail.Status = nameof(JobDetailStatus.Failed);
-                detail.Message = Truncate(ex.Message, 2000);
+                
+                string errorMessage = ex.Message;
+                try
+                {
+                    var prop = await _propertyRepo.GetQueryable()
+                        .Include(p => p.Ward)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.Id == detail.PropertyId, cancellationToken);
+
+                    if (prop != null)
+                    {
+                        var wardNo = prop.Ward?.WardNo;
+                        var propCode = !string.IsNullOrWhiteSpace(prop.PropertyNo)
+                            ? $"{(string.IsNullOrWhiteSpace(wardNo) ? "" : $"{wardNo}-")}{prop.PropertyNo}{(string.IsNullOrWhiteSpace(prop.PartitionNo) ? "" : $"-{prop.PartitionNo}")}"
+                            : $"PropertyId={detail.PropertyId}";
+
+                        errorMessage = errorMessage.Replace($"PropertyId={detail.PropertyId}", propCode)
+                                                 .Replace($"PropertyId = {detail.PropertyId}", propCode)
+                                                 .Replace($"propertyId={detail.PropertyId}", propCode)
+                                                 .Replace(detail.PropertyId.ToString(), propCode);
+                    }
+                }
+                catch (Exception dbEx)
+                {
+                    _logger.LogError(dbEx, "Failed to load property details for error message formatting");
+                }
+
+                detail.Message = Truncate(errorMessage, 2000);
                 _logger.LogWarning(ex,
                     "Add Tax failed for PropertyId={PropertyId}, JobCode={JobCode}", detail.PropertyId, job.JobCode);
             }

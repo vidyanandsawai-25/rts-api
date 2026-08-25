@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
+namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
 
 /// <summary>
@@ -29,5 +29,3 @@ public class RTSApplicationDashboardDetailsDto
     public string? DueDays { get; set; }
     public string? OverdueDays { get; set; }
 }
-
-

@@ -137,7 +137,7 @@ public class RetrospectivePenaltyRuleServiceTests
                 Id = 1,
                 RuleId = 10,
                 IsPenaltyApplicable = true,
-                PenaltyMode = "ACT_UNLAWFUL",
+                PenaltyMode = "ACT_PENALTY",
                 IsActive = true,
                 CreatedBy = 1,
                 CreatedDate = DateTime.Now
@@ -380,7 +380,7 @@ public class RetrospectivePenaltyRuleServiceTests
         {
             RuleId = 10,
             IsPenaltyApplicable = true,
-            PenaltyMode = "ACT_UNLAWFUL",
+            PenaltyMode = "ACT_PENALTY",
             IsActive = true,
             UpdatedBy = 2
         };

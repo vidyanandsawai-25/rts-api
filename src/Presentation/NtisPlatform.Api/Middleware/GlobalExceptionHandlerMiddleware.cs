@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Core.Exceptions;
 
 namespace NtisPlatform.Api.Middleware;
 
@@ -38,7 +39,7 @@ public class GlobalExceptionHandlerMiddleware
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         // Handle ValidationException with detailed response
-        if (exception is ValidationException validationException)
+        if (exception is NtisPlatform.Application.Exceptions.ValidationException validationException)
         {
             _logger.LogWarning(validationException, "A validation error occurred: {Message}", validationException.Message);
             await HandleValidationExceptionAsync(context, validationException);
@@ -54,6 +55,8 @@ public class GlobalExceptionHandlerMiddleware
             ArgumentException => HttpStatusCode.BadRequest,
             InvalidOperationException => HttpStatusCode.BadRequest,
             KeyNotFoundException => HttpStatusCode.NotFound,
+            EntityNotFoundException => HttpStatusCode.NotFound,
+            NtisPlatformException => HttpStatusCode.BadRequest,
             _ => HttpStatusCode.InternalServerError
         };
 
@@ -75,7 +78,7 @@ public class GlobalExceptionHandlerMiddleware
         await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
     }
 
-    private async Task HandleValidationExceptionAsync(HttpContext context, ValidationException exception)
+    private async Task HandleValidationExceptionAsync(HttpContext context, NtisPlatform.Application.Exceptions.ValidationException exception)
     {
         var response = new ValidationErrorResponse
         {
@@ -98,7 +101,14 @@ public class GlobalExceptionHandlerMiddleware
 
     private string GetErrorMessage(Exception exception, HttpStatusCode statusCode)
     {
-        // In production, return generic messages for security
+        // Domain and business exceptions (NtisPlatformException and PropertyValidationException)
+        // carry user-facing operational error messages that should be presented to the client in all environments.
+        if (exception is NtisPlatformException || exception is PropertyValidationException)
+        {
+            return exception.Message;
+        }
+
+        // In production, return generic messages for security on unhandled framework/system exceptions
         if (!_environment.IsDevelopment())
         {
             return statusCode switch

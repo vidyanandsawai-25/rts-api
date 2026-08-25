@@ -43,4 +43,13 @@ public interface IAuthService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Logout result</returns>
     Task<LogoutResponseDto> LogoutAsync(LogoutRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Changes the password for an authenticated user or unauthenticated user (via username + current password) after verifying policy compliance.
+    /// </summary>
+    /// <param name="userId">The ID of the calling authenticated user (if authenticated)</param>
+    /// <param name="request">Change password request containing current and new passwords</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Result of the password change attempt</returns>
+    Task<ChangePasswordResponseDto> ChangePasswordAsync(int? userId, ChangePasswordRequestDto request, CancellationToken cancellationToken = default);
 }

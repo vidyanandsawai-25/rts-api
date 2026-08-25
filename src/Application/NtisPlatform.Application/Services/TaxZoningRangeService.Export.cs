@@ -134,18 +134,26 @@ public partial class TaxZoningRangeService
             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Column headers resolve via the DB-backed "Reports" resource so they follow the
+        // Column headers resolve via the DB-backed "TaxZoningRangeExport" resource so they follow the
         // requesting user's language (see LanguageMiddleware / HttpContextKeys.CurrentLanguage);
         // title/subtitle rows below remain fixed Marathi statutory-form text.
         var language = GetLanguage();
-        var headerLabels = _localizationService.GetTranslations("Reports", language, new[]
+        var headerLabels = _localizationService.GetTranslations("TaxZoningRangeExport", language, new[]
         {
             "TaxZoningReport_Col_SrNo",
             "TaxZoningReport_Col_PropertyNo",
             "TaxZoningReport_Col_TotalProperties",
             "TaxZoningReport_Col_TaxZone",
             "TaxZoningReport_Col_Address",
+            "TaxZoningReport_Col_Total",
+            "TaxZoningReport_Col_GrandTotal",
         });
+
+        // Safe fallback logic if keys are missing from database
+        string GetHeaderLabel(string key, string fallback)
+        {
+            return headerLabels.TryGetValue(key, out var val) && val != key ? val : fallback;
+        }
 
         // Compute current Indian financial year: Apr–Mar
         var now = DateTime.Now;
@@ -166,6 +174,7 @@ public partial class TaxZoningRangeService
         ExportMergedTitle(ws, 3, "वार्ड व मालमत्ता क्र. निहाय वस्तीचा प्रकार यादी", 11, bold: true);
 
         int row = 4;
+        var grandTotalProperties = 0;
 
         foreach (var wardGroup in groups)
         {
@@ -189,14 +198,14 @@ public partial class TaxZoningRangeService
             // D (merged 2 rows): Total Properties
             // E (merged 2 rows): Type of Use
             // F (merged 2 rows): Address
-            ExportColHeaderMergedRows(ws, row, 1, headerLabels["TaxZoningReport_Col_SrNo"]);              // A spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 1, GetHeaderLabel("TaxZoningReport_Col_SrNo", "Sr. No."));              // A spans 2 rows
             var propNoRange = ws.Range(row, 2, row, 3);
             propNoRange.Merge();
             ExportColHeaderStyle(propNoRange);
-            ws.Cell(row, 2).Value = headerLabels["TaxZoningReport_Col_PropertyNo"];
-            ExportColHeaderMergedRows(ws, row, 4, headerLabels["TaxZoningReport_Col_TotalProperties"]);   // D spans 2 rows
-            ExportColHeaderMergedRows(ws, row, 5, headerLabels["TaxZoningReport_Col_TaxZone"]);         // E spans 2 rows
-            ExportColHeaderMergedRows(ws, row, 6, headerLabels["TaxZoningReport_Col_Address"]);           // F spans 2 rows
+            ws.Cell(row, 2).Value = GetHeaderLabel("TaxZoningReport_Col_PropertyNo", "Property No.");
+            ExportColHeaderMergedRows(ws, row, 4, GetHeaderLabel("TaxZoningReport_Col_TotalProperties", "Total Properties"));   // D spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 5, GetHeaderLabel("TaxZoningReport_Col_TaxZone", "Tax Zone"));         // E spans 2 rows
+            ExportColHeaderMergedRows(ws, row, 6, GetHeaderLabel("TaxZoningReport_Col_Address", "Address"));           // F spans 2 rows
             row++;
 
             // ── Column header row 2 of 2 ─────────────────────────────────────
@@ -235,8 +244,34 @@ public partial class TaxZoningRangeService
                 row++;
             }
 
-            row++; // blank spacer between wards
+            // ── Ward "total" row — properties covered in zoning for this ward ──
+            var wardTotal = items.Sum(x => x.TotalProperties);
+            grandTotalProperties += wardTotal;
+
+            ExportBorder(ws.Range(row, 1, row, ExportTotalCols));
+            ws.Range(row, 1, row, 3).Merge();
+            ws.Cell(row, 1).Value = GetHeaderLabel("TaxZoningReport_Col_Total", "total");
+            ws.Cell(row, 1).Style.Font.Bold = true;
+            ws.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            ws.Cell(row, 4).Value = wardTotal;
+            ws.Cell(row, 4).Style.Font.Bold = true;
+            ws.Cell(row, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            row++;
+
+            row++; // blank spacer between wards (and before the grand total row)
         }
+
+        // ── Grand total row — total properties covered in zoning across all wards ──
+        var grandTotalRange = ws.Range(row, 1, row, ExportTotalCols);
+        ExportBorder(grandTotalRange);
+        grandTotalRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F5F9");
+        ws.Range(row, 1, row, 3).Merge();
+        ws.Cell(row, 1).Value = GetHeaderLabel("TaxZoningReport_Col_GrandTotal", "Grand Total");
+        ws.Cell(row, 1).Style.Font.Bold = true;
+        ws.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+        ws.Cell(row, 4).Value = grandTotalProperties;
+        ws.Cell(row, 4).Style.Font.Bold = true;
+        ws.Cell(row, 4).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
         ws.Column(1).Width = 8;
         ws.Column(2).Width = 14;

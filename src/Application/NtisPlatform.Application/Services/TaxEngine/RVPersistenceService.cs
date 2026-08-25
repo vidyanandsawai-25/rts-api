@@ -223,7 +223,8 @@ public sealed class RVPersistenceService : IRVPersistenceService
             if (isSpecial)
                 continue;
 
-            decimal taxAmount = taxGroup.Sum(x => x.TaxAmount ?? 0m);
+
+            decimal taxAmount = Math.Round(taxGroup.Sum(x => x.TaxAmount ?? 0m), 0, MidpointRounding.AwayFromZero);
 
             newPolicyRecords.Add(new PolicyTaxDetailsEntity
             {
@@ -351,40 +352,37 @@ public sealed class RVPersistenceService : IRVPersistenceService
             // Calculate the actual sum of individual tax records saved (excludes education/employment already added separately)
             decimal actualTotalTaxAmount = newPolicyRecords.Sum(x => x.TaxAmount ?? 0m);
 
-            if (actualTotalTaxAmount > 0)
+            newPolicyRecords.Add(new PolicyTaxDetailsEntity
             {
-                newPolicyRecords.Add(new PolicyTaxDetailsEntity
-                {
-                    PropertyId           = propertyId,
-                    PolicyCodeId         = netTaxPolicyCodeId,
-                    PolicyCodeMaster     = policyCodeMaster,
-                    CalculationValue     = totalRv,
-                    TaxId                = taxTotalId,
-                    TaxAmount            = actualTotalTaxAmount,
-                    IsActive             = true,
-                    MarkedForDeletion    = false,
-                    MarkedForDeletionDate = null,
-                    CreatedDate          = now,
-                    UpdatedDate          = now
-                });
+                PropertyId           = propertyId,
+                PolicyCodeId         = netTaxPolicyCodeId,
+                PolicyCodeMaster     = policyCodeMaster,
+                CalculationValue     = totalRv,
+                TaxId                = taxTotalId,
+                TaxAmount            = actualTotalTaxAmount,
+                IsActive             = true,
+                MarkedForDeletion    = false,
+                MarkedForDeletionDate = null,
+                CreatedDate          = now,
+                UpdatedDate          = now
+            });
 
-                newTransmastRecords.Add(new TransMastEntity
-                {
-                    PropertyId        = propertyId,
-                    FinanceYearId     = yearMasterId,
-                    TaxId             = taxTotalId,
-                    TaxAmount         = actualTotalTaxAmount,
-                    CalculationType   = "RV",
-                    CalculationValue  = totalRv,
-                    CalculationAnnualValue    = totalALV,
-                    IsActive          = true,
-                    MarkedForDeletion = false,
-                    CreatedDate       = now,
-                    UpdatedDate       = now
-                });
+            newTransmastRecords.Add(new TransMastEntity
+            {
+                PropertyId        = propertyId,
+                FinanceYearId     = yearMasterId,
+                TaxId             = taxTotalId,
+                TaxAmount         = actualTotalTaxAmount,
+                CalculationType   = "RV",
+                CalculationValue  = totalRv,
+                CalculationAnnualValue    = totalALV,
+                IsActive          = true,
+                MarkedForDeletion = false,
+                CreatedDate       = now,
+                UpdatedDate       = now
+            });
 
-                _logger.LogDebug("Saved TaxTotal record with amount={TaxAmount} for PropertyId={PropertyId}", actualTotalTaxAmount, propertyId);
-            }
+            _logger.LogDebug("Saved TaxTotal record with amount={TaxAmount} for PropertyId={PropertyId}", actualTotalTaxAmount, propertyId);
         }
 
         if (newPolicyRecords.Any())

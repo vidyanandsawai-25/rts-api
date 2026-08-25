@@ -16,7 +16,7 @@ public class AutomationDashboardControllerResponseTests
         var service = new Mock<IAutomationDashboardService>();
         var expected = new MainCardsResponseDto
         {
-            PreviouslyRegistered = new DashboardCardBreakdownDto { PropertyCount = 10 }
+            PreviouslyRegistered = new DashboardCardBreakdownDto { PropertyCount = 10, Demand = "1.25Cr" }
         };
 
         service
@@ -30,6 +30,7 @@ public class AutomationDashboardControllerResponseTests
 
         var item = Assert.Single(response.Items!);
         Assert.Equal(10, item.PreviouslyRegistered.PropertyCount);
+        Assert.Equal("1.25Cr", item.PreviouslyRegistered.Demand);
     }
 
     [Fact]

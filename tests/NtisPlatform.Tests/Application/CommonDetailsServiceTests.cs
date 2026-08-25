@@ -1014,8 +1014,8 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal("wardNo", headerRow.Cell(1).GetString());
         Assert.Equal("propertyNo", headerRow.Cell(2).GetString());
         Assert.Equal("partitionNo", headerRow.Cell(3).GetString());
-        Assert.Equal("OwnerName", headerRow.Cell(4).GetString());
-        Assert.Equal("MobileNo", headerRow.Cell(5).GetString());
+        Assert.Equal("Owner Name", headerRow.Cell(4).GetString());
+        Assert.Equal("Mobile No", headerRow.Cell(5).GetString());
 
         var usedRange = ws.RangeUsed()!;
         Assert.Equal(6, usedRange.RowCount()); // header + 5 properties
@@ -1038,8 +1038,8 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal("wardNo", headerRow.Cell(1).GetString());
         Assert.Equal("propertyNo", headerRow.Cell(2).GetString());
         Assert.Equal("partitionNo", headerRow.Cell(3).GetString());
-        Assert.Equal("OwnerName", headerRow.Cell(4).GetString());
-        Assert.Equal("MobileNo", headerRow.Cell(5).GetString());
+        Assert.Equal("Owner Name", headerRow.Cell(4).GetString());
+        Assert.Equal("Mobile No", headerRow.Cell(5).GetString());
 
         var usedRange = ws.RangeUsed()!;
         Assert.Equal(1, usedRange.RowCount()); // header only, no data rows
@@ -1152,7 +1152,7 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal(1, result.TotalRows);
         Assert.Equal(0, result.FlaggedRowCount);
         Assert.Empty(result.Rows);
-        Assert.Equal(["wardNo", "propertyNo", "partitionNo", "MobileNo", "ValidationRemark"], result.Columns);
+        Assert.Equal(["wardNo", "propertyNo", "partitionNo", "Mobile No", "ValidationRemark"], result.Columns);
     }
 
     [Fact]
@@ -1702,6 +1702,224 @@ public class CommonDetailsServiceTests : IDisposable
         for (var r = 2; r <= usedRange.RowCount(); r++)
             idColumnValues.Add(ws.Cell(r, 1).GetValue<int>());
         Assert.Equal(new[] { 2, 1 }, idColumnValues);
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_EnrichesOldAndNewValues_WithDynamicLookupDescriptions()
+    {
+        // Arrange: Seed PropertyCategoryMaster, BulkUpdateFieldConfig for CategoryId, and BulkUpdateHistory Entity
+        _context.BulkUpdateFieldConfigs.Add(new BulkUpdateFieldConfigEntity
+        {
+            Id = 99,
+            BulkUpdateMasterId = 1,
+            FieldName = "CategoryId",
+            DisplayName = "Category",
+            ControlType = "select",
+            DataType = "int",
+            BindApi = "/api/master/property-category",
+            ApiResponse = "id,propertyCategoryName",
+            SequenceNo = 10,
+            IsActive = true
+        });
+
+        _context.PropertyCategoryMaster.Add(new PropertyCategoryEntity
+        {
+            Id = 10,
+            PropertyCategoryName = "Commercial Test Category",
+            IsActive = true
+        });
+        _context.PropertyCategoryMaster.Add(new PropertyCategoryEntity
+        {
+            Id = 20,
+            PropertyCategoryName = "Residential Test Category",
+            IsActive = true
+        });
+
+        _context.BulkUpdateHistory.Add(new BulkUpdateHistoryEntity
+        {
+            Id = 999,
+            BulkUpdateMasterId = 1,
+            PropertyId = 1,
+            OldValue = "{\"CategoryId\":10}",
+            NewValue = "{\"CategoryId\":\"20\"}",
+            UpdatedColumns = "CategoryId",
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetUpdateHistoryAsync(new UpdateHistoryQueryParameters { Id = 999 }, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.Items);
+        var historyItem = result.Items.First();
+        Assert.Contains("Commercial Test Category", historyItem.OldValue);
+        Assert.Contains("Residential Test Category", historyItem.NewValue);
+    }
+
+    [Fact]
+    public async Task ExportPropertiesToExcelAsync_UsesDisplayNameHeader_AndResolvesLookupDescription()
+    {
+        // Arrange
+        _context.BulkUpdateMasters.Add(new BulkUpdateMasterEntity
+        {
+            Id = 4,
+            UpdateCode = "CATEGORY",
+            UpdateName = "Category Update",
+            ReferenceTableName = "PTIS.PropertyMast",
+            IsActive = true
+        });
+
+        _context.BulkUpdateFieldConfigs.Add(new BulkUpdateFieldConfigEntity
+        {
+            Id = 100,
+            BulkUpdateMasterId = 4,
+            FieldName = "CategoryId",
+            DisplayName = "Category",
+            ControlType = "select",
+            DataType = "int",
+            BindApi = "/api/master/property-category",
+            ApiResponse = "id,propertyCategoryName",
+            SequenceNo = 1,
+            IsActive = true
+        });
+
+        _context.PropertyCategoryMaster.Add(new PropertyCategoryEntity
+        {
+            Id = 55,
+            PropertyCategoryName = "Export Category Test",
+            IsActive = true
+        });
+
+        var prop1 = _context.PropertyMast.First(p => p.Id == 1);
+        prop1.CategoryId = 55;
+        await _context.SaveChangesAsync();
+
+        var request = new ExportPropertiesRequestDto
+        {
+            UpdateCode = "CATEGORY",
+            WardId = 1
+        };
+
+        // Act
+        var bytes = await _service.ExportPropertiesToExcelAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.NotEmpty(bytes);
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+        Assert.NotNull(ws);
+        var headerCell = ws.Cell(1, 4).GetString();
+        Assert.Equal("Category", headerCell);
+
+        var dataCell = ws.Cell(2, 4).GetString();
+        Assert.Equal("Export Category Test", dataCell);
+    }
+
+    [Fact]
+    public async Task DynamicEntityLoader_LoadByKeyAsync_EmptyKeys_ReturnsEmptyList_WithoutQueryingDb()
+    {
+        // Arrange
+        var loader = new DynamicEntityLoader(_context);
+
+        // Act
+        var emptyResult = await loader.LoadByKeyAsync(typeof(PropertyEntity), "Id", Array.Empty<long>(), asNoTracking: true);
+        var nullResult = await loader.LoadByKeyAsync(typeof(PropertyEntity), "Id", null!, asNoTracking: true);
+
+        // Assert
+        Assert.Empty(emptyResult);
+        Assert.Empty(nullResult);
+    }
+
+    [Fact]
+    public async Task DynamicEntityLoader_LoadAllAsync_ReturnsAllEntities()
+    {
+        // Arrange
+        var loader = new DynamicEntityLoader(_context);
+
+        // Act
+        var allProps = await loader.LoadAllAsync(typeof(PropertyEntity), asNoTracking: true);
+
+        // Assert
+        Assert.NotEmpty(allProps);
+        Assert.Equal(_context.PropertyMast.Count(), allProps.Count);
+    }
+
+    [Fact]
+    public void ValidateFieldValues_YearValidation_EnforcesFourDigits_FutureYear_AndAssessmentLessThanConstruction()
+    {
+        // Arrange
+        var configs = new List<BulkUpdateFieldConfigDto>
+        {
+            new BulkUpdateFieldConfigDto { FieldName = "ConstructionYear", DisplayName = "Construction Year", ControlType = "year", IsActive = true },
+            new BulkUpdateFieldConfigDto { FieldName = "AssessmentYear", DisplayName = "Assessment Year", ControlType = "year", IsActive = true },
+            new BulkUpdateFieldConfigDto { FieldName = "TestYear", DisplayName = "Test Year", ControlType = "year", IsActive = true }
+        };
+
+        // Scenario 1: Invalid 4-digit format & Future Year for AssessmentYear, plus future year 2027 for TestYear
+        var data1 = new Dictionary<string, object?>
+        {
+            ["ConstructionYear"] = "25",
+            ["AssessmentYear"] = "2030",
+            ["TestYear"] = "2027"
+        };
+
+        // Act 1
+        var methodInfo = typeof(CommonDetailsService).GetMethod("ValidateFieldValues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var errors1 = (List<string>)methodInfo.Invoke(null, new object?[] { configs, data1, null })!;
+
+        // Assert 1
+        Assert.Contains("Construction Year must be a valid 4-digit year.", errors1);
+        Assert.Contains($"Assessment Year cannot exceed current year ({DateTime.Now.Year}).", errors1);
+        // TestYear is a generic year field (like TestYear = 2027), so it MUST NOT get "cannot exceed current year" error
+        Assert.DoesNotContain(errors1, e => e.Contains("Test Year cannot exceed current year"));
+
+        // Scenario 2: Both fields updated together -> AssessmentYear < ConstructionYear
+        var data2 = new Dictionary<string, object?>
+        {
+            ["ConstructionYear"] = "2025",
+            ["AssessmentYear"] = "2020"
+        };
+
+        // Act 2
+        var errors2 = (List<string>)methodInfo.Invoke(null, new object?[] { configs, data2, null })!;
+
+        // Assert 2: Common message when both fields are updated together
+        Assert.Contains("Assessment Year must be greater than or equal to Construction Year.", errors2);
+    }
+
+    [Fact]
+    public void ValidateFieldValues_SeparateYearUpdate_ValidatesAgainstDatabaseEntity()
+    {
+        // Arrange
+        var assessmentConfig = new List<BulkUpdateFieldConfigDto>
+        {
+            new BulkUpdateFieldConfigDto { FieldName = "AssessmentYear", DisplayName = "Assessment Year", ControlType = "year", IsActive = true }
+        };
+
+        var constructionConfig = new List<BulkUpdateFieldConfigDto>
+        {
+            new BulkUpdateFieldConfigDto { FieldName = "ConstructionYear", DisplayName = "Construction Year", ControlType = "year", IsActive = true }
+        };
+
+        var existingEntity = new PropertyDetailsEntity
+        {
+            ConstructionYear = "2025",
+            AssessmentYear = "2024"
+        };
+
+        var methodInfo = typeof(CommonDetailsService).GetMethod("ValidateFieldValues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        // Act & Assert 1: Updating only AssessmentYear = 2020 (less than DB ConstructionYear 2025)
+        var dataAssessOnly = new Dictionary<string, object?> { ["AssessmentYear"] = "2020" };
+        var errorsAssessOnly = (List<string>)methodInfo.Invoke(null, new object?[] { assessmentConfig, dataAssessOnly, existingEntity })!;
+        Assert.Contains("Assessment Year cannot be less than Construction Year.", errorsAssessOnly);
+
+        // Act & Assert 2: Updating only ConstructionYear = 2025 (greater than DB AssessmentYear 2024)
+        var dataConstOnly = new Dictionary<string, object?> { ["ConstructionYear"] = "2025" };
+        var errorsConstOnly = (List<string>)methodInfo.Invoke(null, new object?[] { constructionConfig, dataConstOnly, existingEntity })!;
+        Assert.Contains("Construction Year cannot be greater than Assessment Year.", errorsConstOnly);
     }
 
     #endregion

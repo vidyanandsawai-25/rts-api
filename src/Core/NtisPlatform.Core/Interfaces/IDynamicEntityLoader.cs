@@ -21,4 +21,13 @@ public interface IDynamicEntityLoader
         IReadOnlyCollection<long> keyValues,
         bool asNoTracking,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Loads every row of <paramref name="entityType"/>. Returns the rows as <see cref="BaseEntity"/>;
+    /// callers read concrete properties by reflection. Useful for populating lookup tables/maps.
+    /// </summary>
+    Task<IReadOnlyList<BaseEntity>> LoadAllAsync(
+        Type entityType,
+        bool asNoTracking,
+        CancellationToken cancellationToken = default);
 }

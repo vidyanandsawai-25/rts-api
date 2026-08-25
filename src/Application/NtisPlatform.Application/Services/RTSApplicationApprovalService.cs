@@ -131,7 +131,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 CreatedDate = x.CreatedDate,
                 UpdatedDate = x.UpdatedDate,
                 SessionId = x.SessionId,
-                OwnerId = x.OwnerId, 
+                OwnerId = x.OwnerId,
                 DepartmentName = x.Department.DepartmentName,
                 DepartmentNameLocal = x.Department.DepartmentNameLocal,
                 ServiceName = x.Service.ServiceName,

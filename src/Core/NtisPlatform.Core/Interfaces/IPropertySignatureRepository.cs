@@ -109,4 +109,54 @@ public interface IPropertySignatureRepository
     /// </summary>
     Task<List<PropertySignaturePendingExportSourceDto>> GetPendingExportSourceDataAsync(
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets flat pending-sign source rows for a user and signing authority.
+    /// Unit and demand grouping is applied in the service layer.
+    /// </summary>
+    Task<List<PropertySignaturePendingSignSourceDto>> GetPendingSignSourceDataAsync(
+         int signAuthorityId,
+        string? searchTerm = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves the signing authority mapped to the user's active PTIS role.
+    /// </summary>
+    Task<int?> GetSignAuthorityIdByUserRoleAsync(
+        int userId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the active reference status for UpdateSign inputs.
+    /// </summary>
+    Task<(bool UserExists, bool PropertyExists, bool SignAuthorityExists)> GetUpdateSignReferenceStatusAsync(
+        int userId,
+        int propertyId,
+        int signAuthorityId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the active signature row to be updated for a specific pending status.
+    /// </summary>
+    Task<PropertySignatureUpdateSignSourceDto?> GetUpdateSignSourceAsync(
+        int userId,
+        int propertyId,
+        int signAuthorityId,
+        string signStatus,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns whether an active signature row already exists for the property and authority.
+    /// </summary>
+    Task<bool> SignatureExistsAsync(
+        int propertyId,
+        int signAuthorityId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates the current signature row and inserts the next pending row in a single transaction.
+    /// </summary>
+    Task<bool> UpdateSignAsync(
+        PropertySignatureUpdateSignCommandDto command,
+        CancellationToken cancellationToken = default);
 }

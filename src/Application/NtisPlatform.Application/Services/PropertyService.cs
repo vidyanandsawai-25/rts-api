@@ -14,6 +14,7 @@ using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Options;
+using NtisPlatform.Application.Utilities;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -265,39 +266,43 @@ public partial class PropertyService
         PropertyEntity entity,
         CancellationToken cancellationToken)
     {
-        // Get all active properties with the same WardId and PropertyNo that have partition numbers
-        // Order by PropertyId descending (highest ID = highest partition)
+        // Get all active properties with the same WardId, PropertyNo, and SocietyDetailId (wing) that have partition numbers
         // Exclude properties already marked for deletion to handle bulk delete scenarios
-        var relatedProperties = await _repository.GetQueryable()
+        var relatedPropertiesRaw = await _repository.GetQueryable()
             .AsNoTracking()
             .Where(p => p.WardId == entity.WardId &&
                        p.PropertyNo == entity.PropertyNo &&
+                       p.SocietyDetailId == entity.SocietyDetailId &&
                        p.IsActive == true &&
                        p.MarkedForDeletion == false &&
                        !string.IsNullOrWhiteSpace(p.PartitionNo))
-            .OrderByDescending(p => p.Id)
             .Select(p => new { p.Id, p.PartitionNo })
             .ToListAsync(cancellationToken);
 
-        if (relatedProperties.Count == 0)
+        if (relatedPropertiesRaw.Count == 0)
         {
             // No related properties found - allow deletion
             return ValidationResult.Success();
         }
 
-        // Get the property with highest PropertyId (newest/highest partition)
+        // Sort naturally in memory by PartitionNo descending (highest partition first)
+        var relatedProperties = relatedPropertiesRaw
+            .OrderByDescending(p => p.PartitionNo, NaturalStringComparer.Instance)
+            .ToList();
+
+        // Get the property with highest partition
         var highestProperty = relatedProperties.First();
 
-        // Check if the property being deleted has the highest PropertyId
-        if (entity.Id != highestProperty.Id)
+        // Check if the property being deleted has the highest partition
+        if (entity.PartitionNo != highestProperty.PartitionNo)
         {
             _logger.LogWarning(
                 "Attempted to delete property with partition '{PartitionNo}' (PropertyId={PropertyId}), " +
-                "but the highest PropertyId is {HighestPropertyId} (partition '{HighestPartition}'). Deletion blocked.",
+                "but the highest partition is '{HighestPartition}' (PropertyId={HighestPropertyId}). Deletion blocked.",
                 entity.PartitionNo,
                 entity.Id,
-                highestProperty.Id,
-                highestProperty.PartitionNo);
+                highestProperty.PartitionNo,
+                highestProperty.Id);
 
             return ValidationResult.Failure(
                 $"Property with partition '{entity.PartitionNo}' cannot be deleted. " +
@@ -310,58 +315,63 @@ public partial class PropertyService
 
     /// <summary>
     /// Validates partition deletion sequence for bulk deletion.
-    /// Ensures all properties being deleted are sequential by PropertyId and start from the highest.
-    /// Since PropertyId is auto-incremented, higher ID = newer/higher partition (A7 > A6 > A1).
-    /// Example: Can delete [552380, 552379, 552378] but NOT [552380, 552378, 552376] (gaps not allowed).
+    /// Ensures all properties being deleted are sequential by PartitionNo and start from the highest.
+    /// Example: Can delete [A7, A6, A5] but NOT [A7, A5, A3] (gaps not allowed).
     /// </summary>
     private async Task<ValidationResult> ValidateBulkPartitionDeletionSequenceAsync(
         List<PropertyEntity> entities,
         CancellationToken cancellationToken)
     {
-        // Group properties by WardId and PropertyNo to validate each group separately
+        // Group properties by WardId, PropertyNo, and SocietyDetailId (wing) to validate each group separately
         var groupedByProperty = entities
             .Where(e => !string.IsNullOrWhiteSpace(e.PartitionNo))
-            .GroupBy(e => new { e.WardId, e.PropertyNo });
+            .GroupBy(e => new { e.WardId, e.PropertyNo, e.SocietyDetailId });
 
         foreach (var group in groupedByProperty)
         {
-            // Get all active properties for this WardId/PropertyNo combination, ordered by PropertyId descending
+            // Get all active properties for this WardId/PropertyNo/SocietyDetailId combination
             // Exclude properties already marked for deletion to handle sequential bulk delete
-            var allActiveProperties = await _repository.GetQueryable()
+            var allActivePropertiesRaw = await _repository.GetQueryable()
                 .AsNoTracking()
                 .Where(p => p.WardId == group.Key.WardId &&
                            p.PropertyNo == group.Key.PropertyNo &&
+                           p.SocietyDetailId == group.Key.SocietyDetailId &&
                            p.IsActive == true &&
                            p.MarkedForDeletion == false &&
                            !string.IsNullOrWhiteSpace(p.PartitionNo))
-                .OrderByDescending(p => p.Id)
                 .Select(p => new { p.Id, p.PartitionNo })
                 .ToListAsync(cancellationToken);
 
-            if (allActiveProperties.Count == 0)
+            if (allActivePropertiesRaw.Count == 0)
             {
                 continue;
             }
 
-            // Get properties to be deleted, sorted by PropertyId descending
+            // Sort all active properties naturally descending by PartitionNo
+            var allActiveProperties = allActivePropertiesRaw
+                .OrderByDescending(p => p.PartitionNo, NaturalStringComparer.Instance)
+                .ToList();
+
+            // Get properties to be deleted, sorted naturally descending by PartitionNo
             var propertiesToDelete = group
-                .OrderByDescending(g => g.Id)
+                .OrderByDescending(g => g.PartitionNo, NaturalStringComparer.Instance)
                 .Select(g => new { g.Id, g.PartitionNo })
                 .ToList();
 
-            // VALIDATION 1: Check if deletion starts from the highest PropertyId
+            // VALIDATION 1: Check if deletion starts from the highest partition
             var highestActiveProperty = allActiveProperties.First();
-            if (propertiesToDelete.First().Id != highestActiveProperty.Id)
+            if (propertiesToDelete.First().PartitionNo != highestActiveProperty.PartitionNo)
             {
                 _logger.LogWarning(
                     "Bulk deletion validation failed: Attempted to delete starting from PropertyId={FirstId} (partition '{FirstPartition}'), " +
-                    "but highest PropertyId is {HighestId} (partition '{HighestPartition}') for Ward={WardId}, PropertyNo={PropertyNo}",
+                    "but highest partition is '{HighestPartition}' (PropertyId={HighestId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
                     propertiesToDelete.First().Id,
                     propertiesToDelete.First().PartitionNo,
-                    highestActiveProperty.Id,
                     highestActiveProperty.PartitionNo,
+                    highestActiveProperty.Id,
                     group.Key.WardId,
-                    group.Key.PropertyNo);
+                    group.Key.PropertyNo,
+                    group.Key.SocietyDetailId);
 
                 return ValidationResult.Failure(
                     $"Bulk deletion must start from the highest partition. " +
@@ -370,7 +380,7 @@ public partial class PropertyService
                     $"Please include all partitions starting from '{highestActiveProperty.PartitionNo}' without gaps.");
             }
 
-            // VALIDATION 2: Check for sequential PropertyIds (no gaps)
+            // VALIDATION 2: Check for sequential partition numbers (no gaps)
             for (int i = 0; i < propertiesToDelete.Count; i++)
             {
                 // If we've exhausted active properties but still have properties to delete,
@@ -379,11 +389,12 @@ public partial class PropertyService
                 {
                     _logger.LogWarning(
                         "Bulk deletion validation failed: Property {PropertyId} (partition '{PartitionNo}') is already marked for deletion " +
-                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}",
+                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
                         propertiesToDelete[i].Id,
                         propertiesToDelete[i].PartitionNo,
                         group.Key.WardId,
-                        group.Key.PropertyNo);
+                        group.Key.PropertyNo,
+                        group.Key.SocietyDetailId);
 
                     return ValidationResult.Failure(
                         $"Partition '{propertiesToDelete[i].PartitionNo}' is already marked for deletion or is not an active property. " +
@@ -391,19 +402,20 @@ public partial class PropertyService
                 }
 
                 var expectedProperty = allActiveProperties[i];
-                if (propertiesToDelete[i].Id != expectedProperty.Id)
+                if (propertiesToDelete[i].PartitionNo != expectedProperty.PartitionNo)
                 {
                     _logger.LogWarning(
-                        "Bulk deletion validation failed: Gap detected in PropertyId sequence. " +
-                        "Expected PropertyId={ExpectedId} (partition '{ExpectedPartition}') at position {Position}, " +
-                        "but found PropertyId={ActualId} (partition '{ActualPartition}') for Ward={WardId}, PropertyNo={PropertyNo}",
-                        expectedProperty.Id,
+                        "Bulk deletion validation failed: Gap detected in PartitionNo sequence. " +
+                        "Expected partition '{ExpectedPartition}' (PropertyId={ExpectedId}) at position {Position}, " +
+                        "but found partition '{ActualPartition}' (PropertyId={ActualId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
                         expectedProperty.PartitionNo,
+                        expectedProperty.Id,
                         i,
-                        propertiesToDelete[i].Id,
                         propertiesToDelete[i].PartitionNo,
+                        propertiesToDelete[i].Id,
                         group.Key.WardId,
-                        group.Key.PropertyNo);
+                        group.Key.PropertyNo,
+                        group.Key.SocietyDetailId);
 
                     var validSequence = string.Join(" → ", allActiveProperties.Take(propertiesToDelete.Count)
                         .Select(p => p.PartitionNo));
@@ -544,19 +556,14 @@ public partial class PropertyService
                 return (false, validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.");
             }
 
-            // Mark property details and their related entities
-            await MarkPropertyDetailsAndRelatedAsync(propertyId, cancellationToken);
-
-            // Mark all other related entities
-            await MarkRelatedEntitiesForDeletionAsync(propertyId, cancellationToken);
+            // Soft-delete all related entities using EF Core Batch Updates (ExecuteUpdateAsync)
+            await _propertyRepository.ExecuteSoftDeletePropertiesRelatedEntitiesAsync(new[] { propertyId }, cancellationToken);
 
             // Soft-delete related rule application logs
             if (_ruleLogService != null)
             {
                 await _ruleLogService.DeleteByPropertyIdAsync(propertyId, cancellationToken);
             }
-
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // Delete parent entity using repository method (applies soft deletion logic)
             await _repository.DeleteAsync(entity, cancellationToken);
@@ -639,33 +646,40 @@ public partial class PropertyService
         var deletedIds = new List<int>();
         var errors = new List<string>();
 
-        foreach (var entity in entities)
+        // Run the whole bulk delete in a single fast transaction
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        try
         {
-            // Each property gets its own transaction to prevent partial deletes
-            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            // 1. Soft-delete all related entities for ALL property IDs at once! (Only 25 queries total!)
+            await _propertyRepository.ExecuteSoftDeletePropertiesRelatedEntitiesAsync(ids, cancellationToken);
 
-            try
+            // 2. Soft-delete related rule application logs
+            if (_ruleLogService != null)
             {
-                // Skip partition validation since we already validated the entire sequence upfront
-                var (success, errorMessage) = await DeletePropertyInternalAsync(entity.Id, cancellationToken, skipPartitionValidation: true);
-
-                if (success)
+                foreach (var id in ids)
                 {
-                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
-                    deletedIds.Add(entity.Id);
-                }
-                else
-                {
-                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    errors.Add($"Property {entity.Id}: {errorMessage}");
+                    await _ruleLogService.DeleteByPropertyIdAsync(id, cancellationToken);
                 }
             }
-            catch (Exception ex)
+
+            // 3. Delete parent entities (soft delete)
+            foreach (var entity in entities)
             {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                errors.Add($"Property {entity.Id}: {ex.Message}");
-                _logger.LogError(ex, "Bulk delete failed for property {PropertyId}", entity.Id);
+                await _repository.DeleteAsync(entity, cancellationToken);
             }
+
+            // 4. Save parent entity state updates and commit transaction
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            deletedIds.AddRange(ids);
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            errors.Add($"Bulk delete failed: {ex.Message}");
+            _logger.LogError(ex, "Bulk delete failed for IDs: {Ids}", string.Join(", ", ids));
         }
 
         return new BulkResult<int>(

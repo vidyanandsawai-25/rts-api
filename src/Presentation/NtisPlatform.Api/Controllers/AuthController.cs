@@ -486,4 +486,57 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during logout" });
         }
     }
+
+    /// <summary>
+    /// Changes password for the authenticated user or an unauthenticated user with must-change-password requirement.
+    /// Requires current password verification and validates new password policy compliance.
+    /// </summary>
+    /// <param name="request">Current and new password payload (plus optional UserName for unauthenticated reset)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Result of the password change attempt</returns>
+    [HttpPost("change-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(ChangePasswordResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        int? userId = null;
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var parsedId) && parsedId > 0)
+        {
+            userId = parsedId;
+        }
+
+        if (!userId.HasValue && string.IsNullOrWhiteSpace(request.UserName))
+        {
+            return BadRequest(new { message = "Username is required." });
+        }
+
+        try
+        {
+            var response = await _authService.ChangePasswordAsync(userId, request, cancellationToken);
+
+            if (!response.Success)
+            {
+                return BadRequest(new { message = response.Message });
+            }
+
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during change password");
+            return StatusCode(500, new { message = "An error occurred during password change" });
+        }
+    }
 }

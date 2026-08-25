@@ -29,16 +29,7 @@ public class SaveRetrospectiveRuleDto
 
     public int PriorityNo { get; set; }
 
-    /// <summary>CONDITION_BASED / EXACT_EVIDENCE_MATCH / PRIORITY_BASED</summary>
-    [Required(ErrorMessage = "RetrospectiveRuleMaster_MatchType_Required")]
-    [StringLength(30, ErrorMessage = "RetrospectiveRuleMaster_MatchType_MaxLen_30")]
-    public string MatchType { get; set; } = "CONDITION_BASED";
-
     public bool IsFallbackRule { get; set; }
-
-    /// <summary>AUTHORIZED / UNAUTHORIZED / UNDETERMINED</summary>
-    [StringLength(30, ErrorMessage = "RetrospectiveRuleMaster_AuthorizationStatus_MaxLen_30")]
-    public string? AuthorizationStatus { get; set; }
 
     public bool LegalCapEnabled { get; set; } = true;
     public int LegalCapYears { get; set; } = 6;

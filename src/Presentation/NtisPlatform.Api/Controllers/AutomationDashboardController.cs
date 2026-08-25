@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
 using NtisPlatform.Core.Models;
@@ -56,7 +57,7 @@ namespace NtisPlatform.Api.Controllers
         }
 
         [HttpGet("TrackStageStatus")]
-        public async Task<ActionResult<AutomationDashboardItemsResponse<IReadOnlyList<TrackStageStatusDto>>>> TrackStageStatus([FromQuery] int propertyId,CancellationToken cancellationToken = default)
+        public async Task<ActionResult<AutomationDashboardItemsResponse<IReadOnlyList<PropertyWorkflowStageMasterDto>>>> TrackStageStatus([FromQuery] int propertyId,CancellationToken cancellationToken = default)
         {
             try
             {
@@ -278,7 +279,7 @@ namespace NtisPlatform.Api.Controllers
             });
     }
 
-    public sealed class AutomationDashboardItemsResponse<T>
+    public class AutomationDashboardItemsResponse<T>
     {
         public T? Items { get; set; }
     }

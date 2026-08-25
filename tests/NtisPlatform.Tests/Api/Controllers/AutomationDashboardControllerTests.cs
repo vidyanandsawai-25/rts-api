@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Application.DTOs.Master.PropertyWorkflowStageMaster;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
-using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Tests.Api.Controllers;
 
@@ -17,10 +17,10 @@ public class AutomationDashboardControllerTests
     [Fact]
     public async Task TrackStageStatus_WithValidPropertyId_ReturnsWorkflowStages()
     {
-        var stages = new List<TrackStageStatusDto>
+        var stages = new List<PropertyWorkflowStageMasterDto>
         {
-            new() { WorkflowStageId = 1, StageName = "GeoSequencing", DisplayOrder = 1, IsCompleted = 1 },
-            new() { WorkflowStageId = 2, StageName = "InternalSurvey", DisplayOrder = 2, IsCompleted = 0 }
+            new() { Id = 1, StageName = "GeoSequencing", OfficerName = "Geo Officer", DisplayOrder = 1, IsCompleted = 1 },
+            new() { Id = 2, StageName = "InternalSurvey", OfficerName = "Survey Officer", DisplayOrder = 2, IsCompleted = 0 }
         };
         var service = new Mock<IAutomationDashboardService>();
         service
@@ -31,7 +31,7 @@ public class AutomationDashboardControllerTests
         var result = await controller.TrackStageStatus(10, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var response = Assert.IsType<AutomationDashboardItemsResponse<IReadOnlyList<TrackStageStatusDto>>>(ok.Value);
+        var response = Assert.IsType<AutomationDashboardItemsResponse<IReadOnlyList<PropertyWorkflowStageMasterDto>>>(ok.Value);
         Assert.Equal(stages, response.Items);
     }
 }

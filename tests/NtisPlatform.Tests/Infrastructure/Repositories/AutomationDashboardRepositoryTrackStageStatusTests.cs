@@ -224,6 +224,26 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
                 IsActive = false,
                 CreatedDate = createdDate
             });
+        context.UserMasters.AddRange(
+            new UserEntity
+            {
+                Id = 1,
+                UserName = "geo.officer",
+                FirstName = "Geo",
+                MiddleName = "Stage",
+                LastName = "Officer",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new UserEntity
+            {
+                Id = 2,
+                UserName = "other.officer",
+                FirstName = "Other",
+                LastName = "Officer",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
         context.PropertyWorkflowDetails.AddRange(
             new PropertyWorkflowDetailsEntity
             {
@@ -231,6 +251,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
                 PropertyId = 100,
                 WorkflowStageId = 1,
                 IsActive = true,
+                CreatedBy = 2,
                 CreatedDate = createdDate
             },
             new PropertyWorkflowDetailsEntity
@@ -239,6 +260,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
                 PropertyId = 100,
                 WorkflowStageId = 3,
                 IsActive = true,
+                CreatedBy = 2,
                 CreatedDate = createdDate
             },
             new PropertyWorkflowDetailsEntity
@@ -247,6 +269,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
                 PropertyId = 100,
                 WorkflowStageId = 2,
                 IsActive = false,
+                CreatedBy = 2,
                 CreatedDate = createdDate
             },
             new PropertyWorkflowDetailsEntity
@@ -255,16 +278,24 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
                 PropertyId = 200,
                 WorkflowStageId = 2,
                 IsActive = true,
+                CreatedBy = 2,
                 CreatedDate = createdDate
             });
         await context.SaveChangesAsync();
         var repository = new AutomationDashboardRepository(context);
 
-        var result = await repository.ReadWorkflowStageCompletionsAsync(100, CancellationToken.None);
+        var stages = await repository.ReadWorkflowStagesAsync(cancellationToken: CancellationToken.None);
+        var completedStageIds = await repository.ReadCompletedWorkflowStageIdsAsync(100, CancellationToken.None);
+        var officerDetails = await repository.ReadWorkflowStageOfficerDetailsAsync(
+            100,
+            stages.Select(stage => stage.Id),
+            CancellationToken.None);
 
-        Assert.Equal(new[] { 1, 2 }, result.Select(x => x.WorkflowStageId));
-        Assert.True(result[0].IsCompleted);
-        Assert.False(result[1].IsCompleted);
+        Assert.Equal(new[] { 1, 2 }, stages.Select(x => x.Id));
+        Assert.Equal(new[] { 1 }, completedStageIds);
+        Assert.Equal(2, officerDetails[1].UserId);
+        Assert.Equal("Other Officer", officerDetails[1].OfficerName);
+        Assert.False(officerDetails.ContainsKey(2));
     }
 
     [Fact]
@@ -419,7 +450,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
 
         var stages = await repository.ReadWorkflowStagesAsync(cancellationToken: CancellationToken.None);
         var result = await repository.ReadWorkflowStageCountsAsync(
-            stages.Select(s => s.WorkflowStageId),
+            stages.Select(s => s.Id),
             null,
             CancellationToken.None);
 
