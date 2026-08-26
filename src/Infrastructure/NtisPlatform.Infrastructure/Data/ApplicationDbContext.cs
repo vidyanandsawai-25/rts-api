@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Asset_Management;
+using NtisPlatform.Core.Entities.GIS;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Entities.RetrospectiveTax;
@@ -63,6 +64,17 @@ public class ApplicationDbContext : DbContext
     public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
+
+    // GIS Engine DbSets
+    public DbSet<GisCorporationConfigEntity> GisCorporationConfigs { get; set; } = null!;
+    public DbSet<GisDepartmentUserAccessEntity> GisDepartmentUserAccesses { get; set; } = null!;
+    public DbSet<GisLayerMasterEntity> GisLayerMasters { get; set; } = null!;
+    public DbSet<GisLayerJsonEntity> GisLayerJsons { get; set; } = null!;
+    public DbSet<GisKpiMasterEntity> GisKpiMasters { get; set; } = null!;
+    public DbSet<GisDepartmentKpiMappingEntity> GisDepartmentKpiMappings { get; set; } = null!;
+    public DbSet<GisFilterMasterEntity> GisFilterMasters { get; set; } = null!;
+    public DbSet<GisDepartmentFilterMappingEntity> GisDepartmentFilterMappings { get; set; } = null!;
+    public DbSet<GisUploadHistoryEntity> GisUploadHistories { get; set; } = null!;
     public DbSet<SourceTableEntity> SourceTables { get; set; } = null!;
     public DbSet<SourceTableDetailsEntity> SourceTableDetails { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
