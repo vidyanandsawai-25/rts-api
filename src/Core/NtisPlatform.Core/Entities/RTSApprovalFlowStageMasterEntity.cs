@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -16,6 +16,8 @@ public class RTSApprovalFlowStageMasterEntity:BaseEntity
     public bool CanReturn { get; set; }
     public bool CanPay { get; set; }
     public bool CanEdit { get; set; }
+    public bool CanIssueCertificate { get; set; }
+    public bool CanEditCertificate { get; set; }
     public bool IsFinalStage { get; set; }
     public virtual RTSApprovalFlowMasterEntity ApprovalFlow { get; set; } = null!;
     public virtual UserEntity User { get; set; } = null!;
