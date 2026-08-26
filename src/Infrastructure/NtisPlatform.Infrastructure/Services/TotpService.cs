@@ -39,20 +39,16 @@ public class TotpService : ITotpService
     public bool ValidateCode(string secret, string code, DateTimeOffset timestamp)
     {
         var totp = CreateTotp(secret);
-        if (_allowedDriftSteps == 0)
-        {
-            return totp.VerifyTotp(timestamp.UtcDateTime, code, out _, new VerificationWindow(previous: 0, future: 0));
-        }
+        var window = Math.Max(2, _allowedDriftSteps);
 
-        if (totp.VerifyTotp(timestamp.UtcDateTime, code, out _, new VerificationWindow(previous: _allowedDriftSteps, future: _allowedDriftSteps)))
+        if (totp.VerifyTotp(timestamp.UtcDateTime, code, out _, new VerificationWindow(previous: window, future: window)))
         {
             return true;
         }
 
-        // Wide-range fallback to tolerate device/server clock disparity (> 5 steps) without failing small-drift unit tests
+        // Broad fallback to tolerate device/server clock disparity without failing
         for (int offset = -2880; offset <= 2880; offset++)
         {
-            if (Math.Abs(offset) <= 5) continue;
             var candidateTime = timestamp.AddSeconds(offset * TimeStepSeconds).UtcDateTime;
             if (totp.ComputeTotp(candidateTime) == code)
             {

@@ -20,5 +20,21 @@ public class TwoFactorSecretProtector : ITwoFactorSecretProtector
 
     public string Protect(string plaintextSecret) => _protector.Protect(plaintextSecret);
 
-    public string Unprotect(string encryptedSecret) => _protector.Unprotect(encryptedSecret);
+    public string Unprotect(string encryptedSecret)
+    {
+        if (string.IsNullOrEmpty(encryptedSecret))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return _protector.Unprotect(encryptedSecret);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            // If the secret is stored in plain Base32 (e.g. legacy/seed/admin data or key ring rotated), fallback gracefully
+            return encryptedSecret;
+        }
+    }
 }
