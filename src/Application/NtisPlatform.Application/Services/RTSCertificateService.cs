@@ -308,8 +308,13 @@ public class RTSCertificateService : IRTSCertificateService
             "HEALTH" => "HLT",
             _ => "SRV"
         };
-        string certNo = $"CERT/RTS/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D5}";
-        var certGuid = Guid.NewGuid();
+        // Check if certificate already exists for this application
+        var existingCert = await _issuedCertRepository.GetQueryable()
+            .FirstOrDefaultAsync(c => c.ApplicationId == app.Id && c.IsActive, ct);
+
+        string certNo = existingCert?.CertificateNo ?? $"CERT/RTS/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D5}";
+        var certGuid = existingCert?.CertificateGuid ?? Guid.NewGuid();
+        int issuedCertId = existingCert?.Id ?? 0;
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
         string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "मंजुरी अधिकारी";
@@ -317,32 +322,57 @@ public class RTSCertificateService : IRTSCertificateService
 
         string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid);
 
-        var issuedCert = new RTSIssuedCertificateEntity
+        if (existingCert != null)
         {
-            CertificateGuid = certGuid,
-            CertificateNo = certNo,
-            ApplicationId = app.Id,
-            ServiceId = app.ServiceId,
-            TemplateId = template?.Id ?? 0,
-            OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null,
-            MergedHtmlContent = mergedHtml,
-            QrCodePayload = $"https://onesolutionakola.tabamc.in/service/verify-certificate/{certGuid}",
-            IssuedByUserId = userId,
-            IssuedAt = DateTime.UtcNow,
-            IsDigitallySigned = true,
-            DigitalSignatureInfo = $"Digitally Signed by {officerName} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} | CertNo: {certNo}",
-            IsActive = true,
-            CreatedBy = userId,
-            CreatedDate = DateTime.UtcNow
-        };
+            existingCert.TemplateId = template?.Id ?? 0;
+            existingCert.OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null;
+            existingCert.MergedHtmlContent = mergedHtml;
+            existingCert.QrCodePayload = $"https://onesolutionakola.tabamc.in/service/verify-certificate/{certGuid}";
+            existingCert.IssuedByUserId = userId;
+            existingCert.IssuedAt = DateTime.UtcNow;
+            existingCert.IsDigitallySigned = true;
+            existingCert.DigitalSignatureInfo = $"Digitally Signed by {officerName} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} | CertNo: {certNo}";
+            existingCert.UpdatedBy = userId;
+            existingCert.UpdatedDate = DateTime.UtcNow;
 
-        await _issuedCertRepository.AddAsync(issuedCert, ct);
+            await _issuedCertRepository.UpdateAsync(existingCert, ct);
+        }
+        else
+        {
+            var issuedCert = new RTSIssuedCertificateEntity
+            {
+                CertificateGuid = certGuid,
+                CertificateNo = certNo,
+                ApplicationId = app.Id,
+                ServiceId = app.ServiceId,
+                TemplateId = template?.Id ?? 0,
+                OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null,
+                MergedHtmlContent = mergedHtml,
+                QrCodePayload = $"https://onesolutionakola.tabamc.in/service/verify-certificate/{certGuid}",
+                IssuedByUserId = userId,
+                IssuedAt = DateTime.UtcNow,
+                IsDigitallySigned = true,
+                DigitalSignatureInfo = $"Digitally Signed by {officerName} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} | CertNo: {certNo}",
+                IsActive = true,
+                CreatedBy = userId,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            await _issuedCertRepository.AddAsync(issuedCert, ct);
+            issuedCertId = issuedCert.Id;
+        }
 
         // If SignAndApprove is checked, complete the application workflow approval
-        if (request.SignAndApprove && app.ApplicationStatus != ApplicationStatus.Approved)
+        if (request.SignAndApprove)
         {
-            app.ApplicationStatus = ApplicationStatus.Approved;
-            app.Remark = string.IsNullOrWhiteSpace(request.ActionRemark) ? $"Certificate issued ({certNo}) & Approved" : request.ActionRemark;
+            if (app.ApplicationStatus != ApplicationStatus.Approved)
+            {
+                app.ApplicationStatus = ApplicationStatus.Approved;
+            }
+            if (!string.IsNullOrWhiteSpace(request.ActionRemark))
+            {
+                app.Remark = request.ActionRemark;
+            }
             app.UpdatedBy = userId;
             app.UpdatedDate = DateTime.UtcNow;
             await _applicationRepository.UpdateAsync(app, ct);
@@ -352,7 +382,7 @@ public class RTSCertificateService : IRTSCertificateService
 
         return await GetIssuedCertificateByGuidAsync(certGuid, ct) ?? new RTSIssuedCertificateDto
         {
-            Id = issuedCert.Id,
+            Id = issuedCertId,
             CertificateGuid = certGuid,
             CertificateNo = certNo,
             ApplicationId = app.Id,
@@ -362,7 +392,7 @@ public class RTSCertificateService : IRTSCertificateService
             ApplicantName = app.ApplicantName ?? "",
             ApplicantMobile = app.ApplicantMobileNo ?? "",
             MergedHtmlContent = mergedHtml,
-            IssuedAt = issuedCert.IssuedAt,
+            IssuedAt = DateTime.UtcNow,
             IsDigitallySigned = true
         };
     }
