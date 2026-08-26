@@ -271,9 +271,7 @@ public class RTSCertificateService : IRTSCertificateService
         response.CitizenAutoValues = autoValues;
 
         // Perform merge
-        string rawHtml = template != null
-            ? $"{template.HeaderContent ?? ""}\n{template.BodyContent}\n{template.FooterContent ?? ""}"
-            : BuildDefaultCertificateTemplateHtml(app);
+        string rawHtml = BuildFullCertificateHtml(template, app);
 
         response.MergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, response.SampleCertificateNo, "श्री. एस. के. जोशी (प्र. सहाय्यक आयुक्त)", isLiveSigned: false);
 
@@ -301,14 +299,21 @@ public class RTSCertificateService : IRTSCertificateService
             .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
         // Generate Certificate Number
-        string certNo = $"CERT/RTS/SRV/{DateTime.UtcNow:yyyy}/{app.Id:D5}";
+        string deptCode = app.Department?.DepartmentName?.ToUpperInvariant() switch
+        {
+            "EDUCATION" => "EDU",
+            "TOWN PLANNING" => "TP",
+            "NULM" => "NULM",
+            "PWD" => "PWD",
+            "HEALTH" => "HLT",
+            _ => "SRV"
+        };
+        string certNo = $"CERT/RTS/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D5}";
         var certGuid = Guid.NewGuid();
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
         string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "मंजुरी अधिकारी";
-        string rawHtml = template != null
-            ? $"{template.HeaderContent ?? ""}\n{template.BodyContent}\n{template.FooterContent ?? ""}"
-            : BuildDefaultCertificateTemplateHtml(app);
+        string rawHtml = BuildFullCertificateHtml(template, app);
 
         string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid);
 
@@ -571,6 +576,59 @@ public class RTSCertificateService : IRTSCertificateService
         html = html.Replace("{{DigitalSignature}}", signatureHtml, StringComparison.OrdinalIgnoreCase);
 
         return html;
+    }
+
+    private string BuildFullCertificateHtml(RTSCertificateTemplateMasterEntity? template, RTSApplicationDetailsEntity app)
+    {
+        string body = template?.BodyContent ?? BuildDefaultCertificateTemplateHtml(app);
+        string? header = template?.HeaderContent;
+        string? footer = template?.FooterContent;
+
+        if (!string.IsNullOrWhiteSpace(header) && !string.IsNullOrWhiteSpace(footer))
+        {
+            return $"{header}\n{body}\n{footer}";
+        }
+
+        return $@"
+        <div class='certificate-container max-w-3xl mx-auto p-6 md:p-8 bg-white border-4 border-double border-slate-700 font-sans text-slate-900 leading-relaxed shadow-lg rounded-sm'>
+            <div class='text-center border-b-2 border-slate-800 pb-3 mb-4'>
+                <div class='flex items-center justify-center gap-3 mb-1'>
+                    <div class='w-12 h-12 rounded-full border border-slate-400 flex items-center justify-center bg-slate-100 text-[10px] font-bold text-slate-800 shadow-xs'>
+                        मनपा अकोला
+                    </div>
+                    <div>
+                        <h1 class='text-xl md:text-2xl font-bold text-slate-900 tracking-wide'>{{{{ULBNameMarathi}}}}</h1>
+                        <h2 class='text-sm md:text-base font-semibold text-slate-700'>{{{{DepartmentNameMarathi}}}}</h2>
+                    </div>
+                </div>
+                <div class='inline-block bg-slate-900 text-white px-4 py-1 rounded-full font-bold text-xs md:text-sm mt-1 shadow-xs'>
+                    {{{{ServiceNameMarathi}}}} / अधिकृत दाखला
+                </div>
+            </div>
+
+            <div class='flex flex-wrap justify-between items-center text-xs font-semibold text-slate-700 mb-4 border-b border-slate-200 pb-2 bg-slate-50 p-2 rounded'>
+                <div>प्रमाणपत्र क्र.: <span class='font-bold text-slate-900 font-mono'>{{{{CertificateNo}}}}</span></div>
+                <div>अर्ज क्र.: <span class='font-bold text-slate-900 font-mono'>{{{{ApplicationNo}}}}</span></div>
+                <div>दिनांक: <span class='font-bold text-slate-900'>{{{{IssueDate}}}}</span></div>
+            </div>
+
+            <div class='my-4'>
+                {body}
+            </div>
+
+            <div class='mt-6 pt-4 border-t border-slate-300 flex flex-wrap justify-between items-end gap-4'>
+                <div>
+                    {{{{QRCode}}}}
+                </div>
+                <div class='text-right'>
+                    {{{{DigitalSignature}}}}
+                </div>
+            </div>
+
+            <div class='text-center text-[10px] text-slate-500 mt-4 pt-2 border-t border-slate-200'>
+                सदर प्रमाणपत्र महाराष्ट्र लोकसेवा हक्क अधिनियम, २०१५ अंतर्गत अधिकृतरीत्या जारी करण्यात आले असून यावर सक्षम प्राधिकाऱ्यांची डिजिटल स्वाक्षरी आहे.
+            </div>
+        </div>";
     }
 
     private string BuildDefaultCertificateTemplateHtml(RTSApplicationDetailsEntity app)
