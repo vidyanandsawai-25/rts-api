@@ -117,7 +117,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
 
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
-            !string.Equals(queryParameters.ApplicationStatus, "overdue", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
 
