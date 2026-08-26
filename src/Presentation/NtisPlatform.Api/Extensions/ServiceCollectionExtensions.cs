@@ -431,6 +431,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IOldWardMasterService, OldWardMasterService>();
 
+        // GIS Engine Master Services
+        services.AddScoped<IGisCorporationConfigService, GisCorporationConfigService>();
+        services.AddScoped<IGisDepartmentUserAccessService, GisDepartmentUserAccessService>();
+        services.AddScoped<IGisLayerMasterService, GisLayerMasterService>();
+        services.AddScoped<IGisKpiMasterService, GisKpiMasterService>();
+        services.AddScoped<IGisDepartmentKpiMappingService, GisDepartmentKpiMappingService>();
+        services.AddScoped<IGisFilterMasterService, GisFilterMasterService>();
+        services.AddScoped<IGisDepartmentFilterMappingService, GisDepartmentFilterMappingService>();
+        services.AddScoped<IGisUploadHistoryService, GisUploadHistoryService>();
+
         // Retrospective Tax Rule Engine
         services.AddScoped<IEvidenceTypeMasterService, EvidenceTypeMasterService>();
         services.AddScoped<IRetrospectiveRuleMasterService, RetrospectiveRuleMasterService>();
