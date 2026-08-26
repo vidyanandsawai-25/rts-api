@@ -172,6 +172,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateActivityEntity> BulkUpdateActivity { get; set; } = null!;
     public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
+    public DbSet<RTSCertificateTemplateMasterEntity> RTSCertificateTemplateMasters { get; set; } = null!;
+    public DbSet<RTSIssuedCertificateEntity> RTSIssuedCertificates { get; set; } = null!;
 
     //Asset Start
     public DbSet<CVRateMasterEntity> CVRateMaster { get; set; } = null!;
@@ -6244,6 +6246,14 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.CanIssueCertificate)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanEditCertificate)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.Property(e => e.IsFinalStage)
                 .IsRequired()
                 .HasDefaultValue(false);
@@ -6252,6 +6262,78 @@ public class ApplicationDbContext : DbContext
                 .WithMany(e => e.ApprovalFlowStages)
                 .HasForeignKey(e => e.ApprovalFlowId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RTSCertificateTemplateMasterEntity>(entity =>
+        {
+            entity.ToTable("CertificateTemplateMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.TemplateName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.TemplateCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.HeaderContent).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.BodyContent).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.FooterContent).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.DefaultConditionsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.OfficerFieldsConfigJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RTSIssuedCertificateEntity>(entity =>
+        {
+            entity.ToTable("IssuedCertificate", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.CertificateGuid).IsRequired();
+            entity.Property(e => e.CertificateNo).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.TemplateId).IsRequired();
+            entity.Property(e => e.OfficerInputsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.MergedHtmlContent).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.QrCodePayload).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IssuedByUserId).IsRequired();
+            entity.Property(e => e.IssuedAt).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.IsDigitallySigned).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DigitalSignatureInfo).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.CertificateGuid).IsUnique();
+            entity.HasIndex(e => e.CertificateNo).IsUnique();
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Template)
+                .WithMany(t => t.IssuedCertificates)
+                .HasForeignKey(e => e.TemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.IssuedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.IssuedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
