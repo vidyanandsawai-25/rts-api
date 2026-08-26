@@ -23,4 +23,14 @@ public class RTSApplicationQueryParameters:BaseQueryParameters
     [Sortable]
     [Searchable]
     public string? ApplicationStatus { get; set; }
+    [Sortable]
+
+    public DateTime? CreatedDate { get; set; }
+    [Sortable]
+    [Searchable]
+    public string? ApplicantName { get; set; }
+    [Sortable]
+    public DateTime? UpdatedDate { get; set; }
+
+
 }

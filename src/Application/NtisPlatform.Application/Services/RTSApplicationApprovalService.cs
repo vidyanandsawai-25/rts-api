@@ -4,6 +4,7 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -100,6 +101,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     RTSApplicationQueryParameters queryParameters,
     CancellationToken cancellationToken = default)
     {
+        var today = DateTime.Today;
+
         var query = _repository.GetQueryable()
             .Where(x => !x.MarkedForDeletion && x.IsActive).AsQueryable();
 
@@ -112,13 +115,59 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus))
+
+        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
+            !string.Equals(queryParameters.ApplicationStatus, "overdue", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
+
             query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
+
+        else if (queryParameters.ApplicationStatus == "Overdue Applications")
+        {
+            query = query.Where(x =>
+                x.ApplicationStatus != ApplicationStatus.Approved &&
+                x.ApplicationStatus != ApplicationStatus.Rejected &&
+                x.CreatedDate.HasValue &&
+                !string.IsNullOrWhiteSpace(x.Service.Sla) &&
+                x.Service.Sla.Contains(" ") &&
+                x.CreatedDate.Value.AddDays(
+                    Convert.ToInt32(
+                        x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")).Trim()
+                    )
+                ) < today);
+        }
+
+        else if (queryParameters.ApplicationStatus == "DueToday")
+        {
+            query = query.Where(x =>
+                x.ApplicationStatus != ApplicationStatus.Approved &&
+                x.ApplicationStatus != ApplicationStatus.Rejected &&
+                x.Service != null &&
+                x.Service.Sla != null &&
+                x.Service.Sla.Contains(" ") &&
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value.AddDays(
+                    Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))
+                ).Date == today.Date);
+        }
+        else if (queryParameters.ApplicationStatus == "Today's Applications")
+        {
+            query = query.Where(x =>
+                x.IsActive &&
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value.Date == today.Date);
+        }
+
+        query = query.ApplySearch<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
+
+        query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
+
+
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderByDescending(x => x.CreatedDate)
             .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
             .Take(queryParameters.PageSize)
             .Select(x => new RTSApplicationDashboardDetailsDto
