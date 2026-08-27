@@ -2,8 +2,10 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
@@ -15,6 +17,8 @@ public class PropertyTypeMasterServiceTests
     private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IHardDeleteCleanupService> _mockHardDeleteCleanupService;
+    private readonly Mock<IRepository<PropertyEntity, int>> _mockPropertyRepository;
     private readonly PropertyTypeMasterService _service;
 
     public PropertyTypeMasterServiceTests()
@@ -23,6 +27,8 @@ public class PropertyTypeMasterServiceTests
         _mockReferenceValidator = new Mock<IReferenceValidationService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockHardDeleteCleanupService = new Mock<IHardDeleteCleanupService>();
+        _mockPropertyRepository = new Mock<IRepository<PropertyEntity, int>>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -36,7 +42,13 @@ public class PropertyTypeMasterServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new PropertyTypeMasterService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
+        _service = new PropertyTypeMasterService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object,
+            _mockHardDeleteCleanupService.Object,
+            _mockPropertyRepository.Object);
     }
 
     [Fact]
@@ -120,7 +132,9 @@ public class PropertyTypeMasterServiceTests
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper,
-            _mockReferenceValidator.Object);
+            _mockReferenceValidator.Object,
+            _mockHardDeleteCleanupService.Object,
+            _mockPropertyRepository.Object);
 
         var qp = new PropertyTypeMasterQueryParameters
         {
@@ -339,5 +353,70 @@ public class PropertyTypeMasterServiceTests
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ForceDeleteAsync_WithLinkedProperties_ThrowsValidationException()
+    {
+        // Arrange
+        int idToDelete = 1;
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyTypeId = idToDelete },
+            new() { Id = 2, PropertyTypeId = idToDelete }
+        };
+
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => _service.ForceDeleteAsync(idToDelete, CancellationToken.None));
+
+        Assert.Contains("2 properties", ex.Message);
+
+        _mockHardDeleteCleanupService.Verify(
+            s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ForceDeleteAsync_NoLinkedProperties_CallsHardDeleteAndReturnsResult()
+    {
+        // Arrange
+        int idToDelete = 1;
+        var properties = new List<PropertyEntity>();
+
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockHardDeleteCleanupService
+            .Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _service.ForceDeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockHardDeleteCleanupService.Verify(
+            s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(idToDelete, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ForceDeleteAsync_NoLinkedProperties_EntityNotFound_ReturnsFalse()
+    {
+        // Arrange
+        int idToDelete = 9999;
+        var properties = new List<PropertyEntity>();
+
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockHardDeleteCleanupService
+            .Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _service.ForceDeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.False(result);
     }
 }

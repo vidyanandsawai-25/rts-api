@@ -3,26 +3,23 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
- 
+
 public class PropertyTypeMasterController : ControllerBase
 {
     private readonly IPropertyTypeMasterService _service;
-    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<PropertyTypeMasterController> _logger;
-    private readonly IReferenceValidationService _referenceValidationService;
 
-    public PropertyTypeMasterController(IPropertyTypeMasterService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<PropertyTypeMasterController> logger)
+    public PropertyTypeMasterController(IPropertyTypeMasterService service, ILogger<PropertyTypeMasterController> logger)
     {
         _service = service;
-        _cleanupService = cleanupService;
         _logger = logger;
-        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -47,6 +44,23 @@ public class PropertyTypeMasterController : ControllerBase
 
     [Authorize]
     [HttpDelete("{id}/purge")]
-    public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<PropertyTypeMasterEntity, int>(_cleanupService, _referenceValidationService, id ,_logger, ct);
+    public async Task<IActionResult> Purge(int id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ForceDeleteAsync(id, ct);
+            return result
+                ? Ok(new ApiResponse<object> { Success = true, Message = "Record permanently deleted successfully." })
+                : Ok(new ApiResponse<object> { Success = false, Message = "Record not found." });
+        }
+        catch (Exception ex) when (ex is not Application.Exceptions.ValidationException)
+        {
+            _logger.LogError(ex, "Purge operation failed for id: {Id}", id);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while deleting the record"
+            });
+        }
+    }
 }
