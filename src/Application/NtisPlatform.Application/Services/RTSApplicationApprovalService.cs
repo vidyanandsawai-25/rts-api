@@ -209,7 +209,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             }
             var dueDate = item.CreatedDate.Value.Date.AddDays(slaDays.Value);
             var diff = (dueDate - DateTime.Today).Days;
-            item.RemainingDays = Math.Max(diff, 0);
+            item.RemainingDays = diff;
         }
 
 
