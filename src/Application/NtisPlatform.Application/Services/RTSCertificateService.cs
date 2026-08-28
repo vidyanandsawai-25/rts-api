@@ -564,6 +564,10 @@ public class RTSCertificateService : IRTSCertificateService
                 {
                     cleanUrl = $"https://{cleanUrl}";
                 }
+                if (cleanUrl.EndsWith("/service", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanUrl = cleanUrl[..^8].TrimEnd('/');
+                }
                 return $"{cleanUrl}/service/verify-certificate";
             }
         }
