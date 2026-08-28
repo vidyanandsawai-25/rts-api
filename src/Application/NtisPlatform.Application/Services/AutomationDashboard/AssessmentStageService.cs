@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
@@ -34,6 +35,17 @@ public class AssessmentStageService : IAssessmentStageService
 
     private readonly IAssessmentStageRepository _repository;
     private readonly ILogger<AssessmentStageService> _logger;
+
+    private sealed record AssessmentDemandLookup(
+        IReadOnlyDictionary<int, decimal> OldDemandByProperty,
+        IReadOnlyDictionary<int, decimal> CurrentDemandByProperty,
+        IReadOnlyDictionary<int, decimal> RetroDemandByProperty)
+    {
+        public static readonly AssessmentDemandLookup Empty = new(
+            new Dictionary<int, decimal>(),
+            new Dictionary<int, decimal>(),
+            new Dictionary<int, decimal>());
+    }
 
     public AssessmentStageService(
         IAssessmentStageRepository repository,
@@ -150,43 +162,20 @@ public class AssessmentStageService : IAssessmentStageService
     {
         var workflowStageId = queryParameters.WorkflowStageId!.Value;
 
-        // Execute sequentially to avoid DbContext concurrency issues
-        var properties = await _repository.GetStagePropertiesAsync(workflowStageId, cancellationToken, queryParameters);
-        var zoneCounts = GetZoneCounts(properties);
+        var aggregates = await _repository.GetStageAggregatesAsync(workflowStageId, cancellationToken, queryParameters);
+        var zoneCounts = GetZoneCounts(aggregates);
         if (!zoneCounts.Any())
             return new AssessmentGridResponseDto();
 
-        // Fetch classifications sequentially
-        Dictionary<int, PropertyClassificationDto> assessedByZone;
-        if (assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId))
-        {
-            assessedByZone = await GetClassificationByZoneAsync(
-                properties.Where(p => p.AssessmentStatusId == assessedStatusId),
-                AssessmentTypeAssessed,
-                cancellationToken);
-        }
-        else
-        {
-            assessedByZone = new Dictionary<int, PropertyClassificationDto>();
-        }
+        var assessedByZone = assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId)
+            ? GetAggregateClassificationByZone(aggregates.Where(p => p.AssessmentStatusId == assessedStatusId), AssessmentTypeAssessed)
+            : new Dictionary<int, PropertyClassificationDto>();
 
-        Dictionary<int, PropertyClassificationDto> unassessedByZone;
-        if (assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId))
-        {
-            unassessedByZone = await GetClassificationByZoneAsync(
-                properties.Where(p => p.AssessmentStatusId == unassessedStatusId),
-                AssessmentTypeUnassessed,
-                cancellationToken);
-        }
-        else
-        {
-            unassessedByZone = new Dictionary<int, PropertyClassificationDto>();
-        }
+        var unassessedByZone = assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId)
+            ? GetAggregateClassificationByZone(aggregates.Where(p => p.AssessmentStatusId == unassessedStatusId), AssessmentTypeUnassessed)
+            : new Dictionary<int, PropertyClassificationDto>();
 
-        var rentedByZone = await GetClassificationByZoneAsync(
-            properties.Where(p => p.IsRented),
-            AssessmentTypeRented,
-            cancellationToken);
+        var rentedByZone = GetAggregateClassificationByZone(aggregates.Where(p => p.IsRented), AssessmentTypeRented);
 
         return BuildGridResponse(
             zoneCounts.Select(zone => CreateZoneData(zone, new[]
@@ -214,7 +203,8 @@ public class AssessmentStageService : IAssessmentStageService
         if (!zoneCounts.Any())
             return new AssessmentGridResponseDto();
 
-        var classificationByZone = await GetClassificationByZoneAsync(properties, assessmentType, cancellationToken);
+        var demandLookup = await GetDemandLookupAsync(properties.Select(p => p.PropertyId), cancellationToken);
+        var classificationByZone = GetClassificationByZone(properties, assessmentType, demandLookup);
         return BuildGridResponse(
             zoneCounts.Select(zone => CreateZoneData(zone, new[]
             {
@@ -229,8 +219,7 @@ public class AssessmentStageService : IAssessmentStageService
     /// Implements sequential data fetching to avoid DbContext concurrency issues.
     /// </summary>
     private async Task<AssessmentGridResponseDto> GetAssessedAssessmentGridDataAsync(
-        AssessmentGridQueryParameters queryParameters,
-        IReadOnlyDictionary<string, int> assessmentStatusIds,
+        AssessmentGridQueryParameters queryParameters,IReadOnlyDictionary<string, int> assessmentStatusIds,
         CancellationToken cancellationToken)
     {
         var workflowStageId = queryParameters.WorkflowStageId!.Value;
@@ -238,25 +227,16 @@ public class AssessmentStageService : IAssessmentStageService
         if (!assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId))
             return new AssessmentGridResponseDto();
 
-        // Execute sequentially to avoid DbContext concurrency issues
-        var assessedProperties = await _repository.GetAssessedClassificationPropertiesAsync(
+        var aggregates = await _repository.GetAssessedClassificationAggregatesAsync(
             workflowStageId, assessedStatusId, cancellationToken, queryParameters);
 
-        if (!assessedProperties.Any())
+        if (!aggregates.Any())
             return new AssessmentGridResponseDto();
-
-        var classifiedProperties = await ClassifyAssessedPropertiesAsync(assessedProperties, cancellationToken);
-
-        var oldDemandByProperty = await _repository.GetOldDemandByPropertyAsync(classifiedProperties, cancellationToken);
-        var currentDemandByProperty = await _repository.GetCurrentDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
-        var retroDemandByProperty = await _repository.GetRetroDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
 
         var classificationTypes = GetAssessedClassificationTypes();
 
         return BuildGridResponse(
-            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateAssessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, classificationTypes,
-                    oldDemandByProperty, currentDemandByProperty, retroDemandByProperty)),
+            CreateClassificationZoneData(aggregates, classificationTypes),
             zoneData => CalculateTotalRow(zoneData, classificationTypes),
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, AssessmentTypeAssessed));
     }
@@ -275,24 +255,16 @@ public class AssessmentStageService : IAssessmentStageService
         if (!assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId))
             return new AssessmentGridResponseDto();
 
-        // Execute sequentially to avoid DbContext concurrency issues
-        var unassessedProperties = await _repository.GetUnassessedPropertiesAsync(
+        var aggregates = await _repository.GetUnassessedClassificationAggregatesAsync(
             workflowStageId, unassessedStatusId, cancellationToken, queryParameters);
 
-        if (!unassessedProperties.Any())
+        if (!aggregates.Any())
             return new AssessmentGridResponseDto();
-
-        var classifiedProperties = await ClassifyUnassessedPropertiesAsync(unassessedProperties, cancellationToken);
-
-        var currentDemandByProperty = await _repository.GetCurrentDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
-        var retroDemandByProperty = await _repository.GetRetroDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
 
         var propertyTypes = GetUnassessedPropertyTypes();
 
         return BuildGridResponse(
-            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateUnassessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, propertyTypes,
-                    currentDemandByProperty, retroDemandByProperty)),
+            CreateClassificationZoneData(aggregates, propertyTypes, oldDemandApplies: false),
             zoneData => CalculateUnassessedTotalRow(zoneData, propertyTypes),
             zoneData => CalculateUnassessedGrandTotalRow(zoneData, propertyTypes, AssessmentTypeUnassessed));
     }
@@ -304,29 +276,21 @@ public class AssessmentStageService : IAssessmentStageService
     {
         var workflowStageId = queryParameters.WorkflowStageId!.Value;
 
-        var rentedProperties = (await _repository.GetRentedPropertyDemandDataAsync(workflowStageId, cancellationToken, queryParameters))
-            .Select(p => new RentedClassifiedPropertyProjection
-            {
-                PropertyId = p.PropertyId,
-                PartitionNo = p.PartitionNo,
-                ZoneId = p.ZoneId,
-                ZoneName = p.ZoneName,
-                ZoneNo = p.ZoneNo,
-                ClassificationType = p.HasRenterTaxLiability ? RentedClassificationRenter : RentedClassificationOwner,
-                OldDemand = p.OldDemand,
-                CurrentDemand = p.CurrentDemand,
-                RetroDemand = p.RetroDemand
-            })
-            .ToList();
-
-        if (!rentedProperties.Any())
+        var aggregates = await _repository.GetStageAggregatesAsync(workflowStageId, cancellationToken, queryParameters);
+        var zoneCounts = GetZoneCounts(aggregates);
+        if (!zoneCounts.Any())
             return new AssessmentGridResponseDto();
 
         var classificationTypes = GetRentedClassificationTypes();
+        var ownerByZone = GetAggregateClassificationByZone(aggregates.Where(p => !p.IsRented), RentedClassificationOwner);
+        var renterByZone = GetAggregateClassificationByZone(aggregates.Where(p => p.IsRented), RentedClassificationRenter);
 
         return BuildGridResponse(
-            rentedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateRentedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, classificationTypes)),
+            zoneCounts.Select(zone => CreateZoneData(zone, new[]
+            {
+                ownerByZone.GetValueOrDefault(zone.ZoneId) ?? CreateEmptyClassification(RentedClassificationOwner),
+                renterByZone.GetValueOrDefault(zone.ZoneId) ?? CreateEmptyClassification(RentedClassificationRenter)
+            })),
             zoneData => CalculateTotalRow(zoneData, classificationTypes),
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, RentedGrandTotalClassificationType));
     }
@@ -335,23 +299,43 @@ public class AssessmentStageService : IAssessmentStageService
     /// Creates one classification row per zone with counts and all demand totals.
     /// Implements sequential data fetching to avoid DbContext concurrency issues.
     /// </summary>
-    private async Task<Dictionary<int, PropertyClassificationDto>> GetClassificationByZoneAsync(
-        IEnumerable<AssessmentStagePropertyProjection> properties,string classificationType,CancellationToken cancellationToken)
+    private async Task<AssessmentDemandLookup> GetDemandLookupAsync(
+        IEnumerable<int> propertyIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = propertyIds.Distinct().ToList();
+        if (!ids.Any())
+            return AssessmentDemandLookup.Empty;
+
+        var oldDemandByProperty = await _repository.GetOldDemandByPropertyIdsAsync(ids, cancellationToken);
+        var currentDemandByProperty = await _repository.GetCurrentDemandByPropertyAsync(ids, cancellationToken);
+        var retroDemandByProperty = await _repository.GetRetroDemandByPropertyAsync(ids, cancellationToken);
+
+        return new AssessmentDemandLookup(oldDemandByProperty, currentDemandByProperty, retroDemandByProperty);
+    }
+
+    private static Dictionary<int, PropertyClassificationDto> GetClassificationByZone(
+        IEnumerable<AssessmentStagePropertyProjection> properties,string classificationType,AssessmentDemandLookup demandLookup)
     {
         var rows = properties.ToList();
         var countsByZone = GetZoneCounts(rows);
-
-        // Execute sequentially to avoid DbContext concurrency issues
-        var oldDemandByZone = await _repository.GetOldDemandByZoneAsync(rows, cancellationToken);
-        var currentDemandByZone = await _repository.GetCurrentDemandByZoneAsync(rows, cancellationToken);
-        var retroDemandByZone = await _repository.GetRetroDemandByZoneAsync(rows, cancellationToken);
+        var rowsByZone = rows
+            .GroupBy(p => p.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         return countsByZone.ToDictionary(
             z => z.ZoneId,
-            z => CreateClassification(classificationType, z.StructureCount, z.UnitCount,
-                oldDemandByZone.GetValueOrDefault(z.ZoneId),
-                currentDemandByZone.GetValueOrDefault(z.ZoneId),
-                retroDemandByZone.GetValueOrDefault(z.ZoneId)));
+            z =>
+            {
+                var zoneRows = rowsByZone.GetValueOrDefault(z.ZoneId) ?? new List<AssessmentStagePropertyProjection>();
+                return CreateClassification(
+                    classificationType,
+                    z.StructureCount,
+                    z.UnitCount,
+                    zoneRows.Sum(p => demandLookup.OldDemandByProperty.GetValueOrDefault(p.PropertyId)),
+                    zoneRows.Sum(p => demandLookup.CurrentDemandByProperty.GetValueOrDefault(p.PropertyId)),
+                    zoneRows.Sum(p => demandLookup.RetroDemandByProperty.GetValueOrDefault(p.PropertyId)));
+            });
     }
 
     /// <summary>
@@ -421,7 +405,7 @@ public class AssessmentStageService : IAssessmentStageService
         var propertyIds = properties.Select(p => p.PropertyId).Distinct().ToList();
 
         // Execute sequentially to avoid DbContext concurrency issues
-        var mixedPropertyIds = await _repository.GetMixedPropertyIdsAsync(propertyIds, cancellationToken);
+        var mixedPropertyIds = (await _repository.GetMixedPropertyIdsAsync(propertyIds, cancellationToken)).ToHashSet();
         var propertyUseDetails = await _repository.GetPropertyUseDetailsAsync(propertyIds, cancellationToken);
 
         var detailsByProperty = propertyUseDetails
@@ -483,6 +467,99 @@ public class AssessmentStageService : IAssessmentStageService
                 UnitCount = g.Count()
             }).OrderBy(z => z.ZoneName).ToList();
 
+    private static List<AssessmentZoneCountProjection> GetZoneCounts(IEnumerable<AssessmentStageAggregateProjection> aggregates)
+        => aggregates.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo })
+            .Select(g => new AssessmentZoneCountProjection
+            {
+                ZoneId = g.Key.ZoneId,
+                ZoneName = g.Key.ZoneName,
+                ZoneNo = g.Key.ZoneNo,
+                StructureCount = g.Sum(p => p.StructureCount),
+                UnitCount = g.Sum(p => p.UnitCount)
+            }).OrderBy(z => z.ZoneName).ToList();
+
+    private static Dictionary<int, PropertyClassificationDto> GetAggregateClassificationByZone(
+        IEnumerable<AssessmentStageAggregateProjection> aggregates,
+        string classificationType)
+        => aggregates
+            .GroupBy(p => p.ZoneId)
+            .ToDictionary(
+                g => g.Key,
+                g => CreateClassification(
+                    classificationType,
+                    g.Sum(p => p.StructureCount),
+                    g.Sum(p => p.UnitCount),
+                    g.Sum(p => p.OldDemand),
+                    g.Sum(p => p.CurrentDemand),
+                    g.Sum(p => p.RetroDemand)));
+
+    private static List<AssessmentZoneDataDto> CreateClassificationZoneData(
+        IEnumerable<AssessmentStageAggregateProjection> aggregates,
+        IEnumerable<string> classificationTypes,
+        bool oldDemandApplies = true)
+    {
+        var rows = aggregates.ToList();
+        var rowsByZone = rows
+            .GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo })
+            .OrderBy(g => g.Key.ZoneName);
+        var orderedTypes = classificationTypes.ToList();
+
+        return rowsByZone.Select(zone =>
+        {
+            var classificationsByType = zone
+                .GroupBy(p => p.ClassificationType)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            return new AssessmentZoneDataDto
+            {
+                ZoneId = zone.Key.ZoneId,
+                ZoneName = zone.Key.ZoneName,
+                ZoneNo = zone.Key.ZoneNo,
+                TotalStructure = zone.Sum(p => p.StructureCount),
+                TotalUnit = zone.Sum(p => p.UnitCount),
+                Classifications = orderedTypes.Select(type =>
+                {
+                    var typeRows = classificationsByType.GetValueOrDefault(type) ?? new List<AssessmentStageAggregateProjection>();
+                    return oldDemandApplies
+                        ? CreateClassification(
+                            type,
+                            typeRows.Sum(p => p.StructureCount),
+                            typeRows.Sum(p => p.UnitCount),
+                            typeRows.Sum(p => p.OldDemand),
+                            typeRows.Sum(p => p.CurrentDemand),
+                            typeRows.Sum(p => p.RetroDemand))
+                        : CreateUnassessedAggregateClassification(type, typeRows);
+                }).ToList()
+            };
+        }).ToList();
+    }
+
+    private static PropertyClassificationDto CreateUnassessedAggregateClassification(
+        string type,
+        IEnumerable<AssessmentStageAggregateProjection> aggregates)
+    {
+        var rows = aggregates.ToList();
+        var currentDemand = rows.Sum(p => p.CurrentDemand);
+        var retroDemand = rows.Sum(p => p.RetroDemand);
+
+        return new PropertyClassificationDto
+        {
+            Type = type,
+            Structure = rows.Sum(p => p.StructureCount),
+            Unit = rows.Sum(p => p.UnitCount),
+            OldDemandValue = null,
+            CurrentDemandValue = currentDemand,
+            RetroDemandValue = retroDemand,
+            TotalDemandValue = currentDemand + retroDemand,
+            AdditionalRevenueGeneratedValue = currentDemand + retroDemand,
+            OldDemand = null,
+            CurrentDemand = FormatDemand(currentDemand),
+            RetroDemand = FormatDemand(retroDemand),
+            TotalDemand = FormatDemand(currentDemand + retroDemand),
+            AdditionalRevenueGenerated = FormatDemand(currentDemand + retroDemand)
+        };
+    }
+
     // Creates the common classification DTO and derived demand values.
     private static PropertyClassificationDto CreateClassification(string type, int structure, int unit, decimal oldDemand, decimal currentDemand, decimal retroDemand)
         => new()
@@ -490,11 +567,16 @@ public class AssessmentStageService : IAssessmentStageService
             Type = type,
             Structure = structure,
             Unit = unit,
-            OldDemand = oldDemand,
-            CurrentDemand = currentDemand,
-            RetroDemand = retroDemand,
-            TotalDemand = oldDemand + currentDemand + retroDemand,
-            AdditionalRevenueGenerated = currentDemand - oldDemand
+            OldDemandValue = oldDemand,
+            CurrentDemandValue = currentDemand,
+            RetroDemandValue = retroDemand,
+            TotalDemandValue = oldDemand + currentDemand + retroDemand,
+            AdditionalRevenueGeneratedValue = currentDemand - oldDemand,
+            OldDemand = FormatDemand(oldDemand),
+            CurrentDemand = FormatDemand(currentDemand),
+            RetroDemand = FormatDemand(retroDemand),
+            TotalDemand = FormatDemand(oldDemand + currentDemand + retroDemand),
+            AdditionalRevenueGenerated = FormatDemand(currentDemand - oldDemand)
         };
 
     private static PropertyClassificationDto CreateEmptyClassification(string type)
@@ -652,7 +734,14 @@ public class AssessmentStageService : IAssessmentStageService
         Func<List<AssessmentZoneDataDto>, AssessmentZoneDataDto> grandTotalRowFactory)
     {
         var zones = zoneData.ToList();
-        return new AssessmentGridResponseDto { ZoneData = zones, TotalRow = totalRowFactory(zones), GrandTotalRow = grandTotalRowFactory(zones) };
+        var totalRow = totalRowFactory(zones);
+        var grandTotalRow = grandTotalRowFactory(zones);
+
+        ApplyDemandFormatting(zones);
+        ApplyDemandFormatting(totalRow);
+        ApplyDemandFormatting(grandTotalRow);
+
+        return new AssessmentGridResponseDto { ZoneData = zones, TotalRow = totalRow, GrandTotalRow = grandTotalRow };
     }
 
     // Creates a normal zone row from precomputed zone counts.
@@ -772,11 +861,16 @@ public class AssessmentStageService : IAssessmentStageService
             Type = type,
             Structure = rows.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo)),
             Unit = rows.Count,
+            OldDemandValue = null,
+            CurrentDemandValue = currentDemand,
+            RetroDemandValue = retroDemand,
+            TotalDemandValue = currentDemand + retroDemand,
+            AdditionalRevenueGeneratedValue = currentDemand + retroDemand,
             OldDemand = null,
-            CurrentDemand = currentDemand,
-            RetroDemand = retroDemand,
-            TotalDemand = currentDemand + retroDemand,
-            AdditionalRevenueGenerated = currentDemand + retroDemand
+            CurrentDemand = FormatDemand(currentDemand),
+            RetroDemand = FormatDemand(retroDemand),
+            TotalDemand = FormatDemand(currentDemand + retroDemand),
+            AdditionalRevenueGenerated = FormatDemand(currentDemand + retroDemand)
         };
     }
 
@@ -865,28 +959,84 @@ public class AssessmentStageService : IAssessmentStageService
             type,
             rows.Sum(c => c.Structure),
             rows.Sum(c => c.Unit),
-            rows.Sum(c => c.OldDemand ?? 0m),
-            rows.Sum(c => c.CurrentDemand),
-            rows.Sum(c => c.RetroDemand));
+            rows.Sum(c => c.OldDemandValue ?? 0m),
+            rows.Sum(c => c.CurrentDemandValue),
+            rows.Sum(c => c.RetroDemandValue));
     }
 
     // Sums unassessed demand and count fields without old demand.
     private static PropertyClassificationDto SumUnassessedClassifications(string type, IEnumerable<PropertyClassificationDto> classifications)
     {
         var rows = classifications.ToList();
-        var currentDemand = rows.Sum(c => c.CurrentDemand);
-        var retroDemand = rows.Sum(c => c.RetroDemand);
+        var currentDemand = rows.Sum(c => c.CurrentDemandValue);
+        var retroDemand = rows.Sum(c => c.RetroDemandValue);
         return new PropertyClassificationDto
         {
             Type = type,
             Structure = rows.Sum(c => c.Structure),
             Unit = rows.Sum(c => c.Unit),
+            OldDemandValue = null,
+            CurrentDemandValue = currentDemand,
+            RetroDemandValue = retroDemand,
+            TotalDemandValue = currentDemand + retroDemand,
+            AdditionalRevenueGeneratedValue = currentDemand + retroDemand,
             OldDemand = null,
-            CurrentDemand = currentDemand,
-            RetroDemand = retroDemand,
-            TotalDemand = currentDemand + retroDemand,
-            AdditionalRevenueGenerated = currentDemand + retroDemand
+            CurrentDemand = FormatDemand(currentDemand),
+            RetroDemand = FormatDemand(retroDemand),
+            TotalDemand = FormatDemand(currentDemand + retroDemand),
+            AdditionalRevenueGenerated = FormatDemand(currentDemand + retroDemand)
         };
+    }
+
+    private static string FormatDemand(decimal value)
+    {
+        var isNegative = value < 0m;
+        var absoluteValue = Math.Abs(value);
+
+        var formattedValue = absoluteValue switch
+        {
+            >= 10000000m => $"{FormatScaledDemand(absoluteValue / 10000000m)} Cr",
+            >= 100000m => $"{FormatScaledDemand(absoluteValue / 100000m)} Lakh",
+            >= 1000m => $"{FormatScaledDemand(absoluteValue / 1000m)}K",
+            _ => FormatScaledDemand(absoluteValue)
+        };
+
+        return isNegative ? $"-{formattedValue}" : formattedValue;
+    }
+
+    private static string FormatScaledDemand(decimal value)
+        => decimal.Truncate(value) == value
+            ? value.ToString("0", CultureInfo.InvariantCulture)
+            : value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static void ApplyDemandFormatting(IEnumerable<AssessmentZoneDataDto> zones)
+    {
+        foreach (var zone in zones)
+        {
+            ApplyDemandFormatting(zone);
+        }
+    }
+
+    private static void ApplyDemandFormatting(AssessmentZoneDataDto? zone)
+    {
+        if (zone == null)
+            return;
+
+        foreach (var classification in zone.Classifications)
+        {
+            ApplyDemandFormatting(classification);
+        }
+    }
+
+    private static void ApplyDemandFormatting(PropertyClassificationDto classification)
+    {
+        classification.OldDemand = classification.OldDemandValue.HasValue
+            ? FormatDemand(classification.OldDemandValue.Value)
+            : null;
+        classification.CurrentDemand = FormatDemand(classification.CurrentDemandValue);
+        classification.RetroDemand = FormatDemand(classification.RetroDemandValue);
+        classification.TotalDemand = FormatDemand(classification.TotalDemandValue);
+        classification.AdditionalRevenueGenerated = FormatDemand(classification.AdditionalRevenueGeneratedValue);
     }
 }
 

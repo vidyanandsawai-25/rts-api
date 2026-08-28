@@ -25,6 +25,32 @@ public interface IAssessmentStageRepository
         AssessmentGridQueryParameters? queryParameters = null);
 
     /// <summary>
+    /// Reads compact zone/status/renter aggregates for Assessment Total and Rented grids.
+    /// </summary>
+    Task<List<AssessmentStageAggregateProjection>> GetStageAggregatesAsync(
+        int workflowStageId,
+        CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null);
+
+    /// <summary>
+    /// Reads Assessed tab rows already grouped by zone and assessment classification.
+    /// </summary>
+    Task<List<AssessmentStageAggregateProjection>> GetAssessedClassificationAggregatesAsync(
+        int workflowStageId,
+        int assessedStatusId,
+        CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null);
+
+    /// <summary>
+    /// Reads Unassessed tab rows already grouped by zone and property type classification.
+    /// </summary>
+    Task<List<AssessmentStageAggregateProjection>> GetUnassessedClassificationAggregatesAsync(
+        int workflowStageId,
+        int unassessedStatusId,
+        CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null);
+
+    /// <summary>
     /// Reads assessed properties with old mapped values needed for classification.
     /// </summary>
     Task<List<AssessedClassificationPropertyProjection>> GetAssessedClassificationPropertiesAsync(

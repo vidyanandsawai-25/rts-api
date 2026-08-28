@@ -39,9 +39,24 @@ public class PropertyClassificationDto
     public int Unit { get; set; }
      // Demand columns
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public decimal? OldDemand { get; set; }
-    public decimal CurrentDemand { get; set; }
-    public decimal RetroDemand { get; set; }
-    public decimal TotalDemand { get; set; }
-    public decimal AdditionalRevenueGenerated { get; set; }
+    public string? OldDemand { get; set; }
+    public string CurrentDemand { get; set; } = "0";
+    public string RetroDemand { get; set; } = "0";
+    public string TotalDemand { get; set; } = "0";
+    public string AdditionalRevenueGenerated { get; set; } = "0";
+
+    [JsonIgnore]
+    public decimal? OldDemandValue { get; set; }
+
+    [JsonIgnore]
+    public decimal CurrentDemandValue { get; set; }
+
+    [JsonIgnore]
+    public decimal RetroDemandValue { get; set; }
+
+    [JsonIgnore]
+    public decimal TotalDemandValue { get; set; }
+
+    [JsonIgnore]
+    public decimal AdditionalRevenueGeneratedValue { get; set; }
 }

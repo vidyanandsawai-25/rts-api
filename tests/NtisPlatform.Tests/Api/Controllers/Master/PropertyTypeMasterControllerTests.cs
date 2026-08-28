@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
-using NtisPlatform.Core.Entities.Master;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
@@ -14,17 +13,14 @@ namespace NtisPlatform.Tests.Api.Controllers.Master;
 public class PropertyTypeMasterControllerTests
 {
     private readonly Mock<IPropertyTypeMasterService> _serviceMock;
-    private readonly Mock<IHardDeleteCleanupService> _cleanupServiceMock;
     private readonly Mock<ILogger<PropertyTypeMasterController>> _loggerMock;
     private readonly PropertyTypeMasterController _controller;
 
     public PropertyTypeMasterControllerTests()
     {
         _serviceMock = new Mock<IPropertyTypeMasterService>();
-        _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
         _loggerMock = new Mock<ILogger<PropertyTypeMasterController>>();
-        var referenceValidation = new Mock<IReferenceValidationService>();
-        _controller = new PropertyTypeMasterController(_serviceMock.Object, _cleanupServiceMock.Object, referenceValidation.Object,_loggerMock.Object);
+        _controller = new PropertyTypeMasterController(_serviceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -130,9 +126,9 @@ public class PropertyTypeMasterControllerTests
     }
 
     [Fact]
-    public async Task Purge_WithValidId_CallsForceHardDeleteAndReturnsOk()
+    public async Task Purge_WithValidId_ReturnsOk()
     {
-        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(1, It.IsAny<CancellationToken>()))
+        _serviceMock.Setup(s => s.ForceDeleteAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var result = await _controller.Purge(1, CancellationToken.None);
@@ -141,13 +137,13 @@ public class PropertyTypeMasterControllerTests
         var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
         Assert.True(response.Success);
         Assert.Contains("permanently deleted", response.Message, StringComparison.OrdinalIgnoreCase);
-        _cleanupServiceMock.Verify(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(1, It.IsAny<CancellationToken>()), Times.Once);
+        _serviceMock.Verify(s => s.ForceDeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task Purge_WithInvalidId_ReturnsOkWithFailureMessage()
     {
-        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(999, It.IsAny<CancellationToken>()))
+        _serviceMock.Setup(s => s.ForceDeleteAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var result = await _controller.Purge(999, CancellationToken.None);
@@ -156,6 +152,18 @@ public class PropertyTypeMasterControllerTests
         var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
         Assert.False(response.Success);
         Assert.Contains("not found", response.Message, StringComparison.OrdinalIgnoreCase);
-        _cleanupServiceMock.Verify(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(999, It.IsAny<CancellationToken>()), Times.Once);
+        _serviceMock.Verify(s => s.ForceDeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Purge_WithLinkedProperties_PropagatesValidationException()
+    {
+        // Business rule enforced by PropertyTypeMasterService.ForceDeleteAsync
+        _serviceMock.Setup(s => s.ForceDeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ValidationException(
+                "Cannot delete this Property Type because it is linked to 2 properties.",
+                NtisPlatform.Application.Enums.OperationType.Delete));
+
+        await Assert.ThrowsAsync<ValidationException>(() => _controller.Purge(1, CancellationToken.None));
     }
 }

@@ -159,17 +159,11 @@ public class AutomationDashboardGridResponseTests
 
         repository.Setup(x => x.GetAssessmentStatusIdsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { ["Assessed"] = 1, ["Unassessed"] = 2 });
-        repository.Setup(x => x.GetStagePropertiesAsync(4, It.IsAny<CancellationToken>(), It.IsAny<AssessmentGridQueryParameters?>()))
-            .ReturnsAsync(new List<AssessmentStagePropertyProjection>
+        repository.Setup(x => x.GetStageAggregatesAsync(4, It.IsAny<CancellationToken>(), It.IsAny<AssessmentGridQueryParameters?>()))
+            .ReturnsAsync(new List<AssessmentStageAggregateProjection>
             {
-                new() { PropertyId = 100, ZoneId = 14, ZoneName = "Zone 14", ZoneNo = "Z14", PartitionNo = "", AssessmentStatusId = 1 }
+                new() { ZoneId = 14, ZoneName = "Zone 14", ZoneNo = "Z14", StructureCount = 1, UnitCount = 1, AssessmentStatusId = 1 }
             });
-        repository.Setup(x => x.GetOldDemandByZoneAsync(It.IsAny<IEnumerable<AssessmentStagePropertyProjection>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<int, decimal>());
-        repository.Setup(x => x.GetCurrentDemandByZoneAsync(It.IsAny<IEnumerable<AssessmentStagePropertyProjection>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<int, decimal>());
-        repository.Setup(x => x.GetRetroDemandByZoneAsync(It.IsAny<IEnumerable<AssessmentStagePropertyProjection>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<int, decimal>());
 
         var service = new AssessmentStageService(repository.Object, logger.Object);
 

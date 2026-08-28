@@ -4,6 +4,7 @@ using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Infrastructure.Data;
+using System.Collections.Concurrent;
 
 namespace NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
 
@@ -15,9 +16,20 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
     private const int SqlServerInClauseBatchSize = 1800;
     private const string AssessmentTypeAssessed = "Assessed";
     private const string AssessmentTypeUnassessed = "Unassessed";
+    private const string AssessedClassificationAdditionalConstruction = "Additional Construction";
+    private const string AssessedClassificationChangeOfUse = "Change Of Use";
+    private const string AssessedClassificationNoChange = "NoChange";
+    private const string AssessedClassificationUnderassessed = "Underassessed";
+    private const string PropertyTypeResidential = "Residential";
+    private const string PropertyTypeCommercial = "Commercial";
+    private const string PropertyTypeIndustrial = "Industrial";
+    private const string PropertyTypeMixedUse = "Mixed Use";
+    private const string PropertyTypePublicUtility = "Public Utility";
+    private const string PropertyTypeOpenPlots = "Open Plots";
     private const string TaxTotalCode = "TaxTotal";
     private const string TaxTotalName = "TaxTotal";
     private const string RenterTaxLiability = "RENTER";
+    private static readonly string[] MixedPropertyTypes = { "R-C", "C-R", "C-I", "I-C", "I-R", "R-I" };
 
     public AssessmentStageRepository(ApplicationDbContext context) : base(context)
     {
@@ -45,6 +57,151 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         CancellationToken cancellationToken = default,
         AssessmentGridQueryParameters? queryParameters = null)
     {
+        return await BuildStagePropertyQuery(workflowStageId, queryParameters)
+            .OrderBy(x => x.ZoneId)
+            .ThenBy(x => x.PropertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<AssessmentStageAggregateProjection>> GetStageAggregatesAsync(
+        int workflowStageId,
+        CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null)
+    {
+        var stageQuery = BuildStagePropertyQuery(workflowStageId, queryParameters);
+
+        var aggregates = await stageQuery
+            .GroupBy(x => new { x.ZoneId, x.ZoneName, x.ZoneNo, x.AssessmentStatusId, x.IsRented })
+            .Select(g => new AssessmentStageAggregateProjection
+            {
+                ZoneId = g.Key.ZoneId,
+                ZoneName = g.Key.ZoneName,
+                ZoneNo = g.Key.ZoneNo,
+                AssessmentStatusId = g.Key.AssessmentStatusId,
+                IsRented = g.Key.IsRented,
+                StructureCount = g.Count(x => x.PartitionNo == null || x.PartitionNo == string.Empty),
+                UnitCount = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        if (!aggregates.Any())
+            return aggregates;
+
+        var currentDemandByKey = await (
+            from row in stageQuery
+            join tm in _context.TransMast.AsNoTracking() on row.PropertyId equals tm.PropertyId
+            join tax in _context.TaxMaster.AsNoTracking() on tm.TaxId equals tax.Id
+            where tm.IsActive
+                  && !tm.MarkedForDeletion
+                  && tax.IsActive
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
+            group tm by new { row.ZoneId, row.AssessmentStatusId, row.IsRented } into g
+            select new
+            {
+                g.Key.ZoneId,
+                g.Key.AssessmentStatusId,
+                g.Key.IsRented,
+                Demand = g.Sum(x => x.TaxAmount)
+            }).ToDictionaryAsync(
+                x => (x.ZoneId, x.AssessmentStatusId, x.IsRented),
+                x => x.Demand,
+                cancellationToken);
+
+        var retroDemandByKey = await (
+            from row in stageQuery
+            join retro in _context.TaxPendingDetailsRetro.AsNoTracking() on row.PropertyId equals retro.PropertyId
+            join tax in _context.TaxMaster.AsNoTracking() on retro.TaxId equals tax.Id
+            where retro.IsActive
+                  && !retro.MarkedForDeletion
+                  && tax.IsActive
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
+            group retro by new { row.ZoneId, row.AssessmentStatusId, row.IsRented } into g
+            select new
+            {
+                g.Key.ZoneId,
+                g.Key.AssessmentStatusId,
+                g.Key.IsRented,
+                Demand = g.Sum(x => x.PendingAmount ?? 0m)
+            }).ToDictionaryAsync(
+                x => (x.ZoneId, x.AssessmentStatusId, x.IsRented),
+                x => x.Demand,
+                cancellationToken);
+
+        var oldDemandByKey = await (
+            from row in stageQuery
+            join propertyMap in _context.PropertyMapMasters.AsNoTracking() on row.PropertyId equals propertyMap.Id
+            join tmo in _context.TransMastOld.AsNoTracking() on propertyMap.ParentPropertyMapId equals tmo.PropertyMastOldId
+            join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
+            where propertyMap.IsActive
+                  && propertyMap.ParentPropertyMapId.HasValue
+                  && tmo.IsActive
+                  && !tmo.MarkedForDeletion
+                  && tax.IsActive
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
+            group tmo by new { row.ZoneId, row.AssessmentStatusId, row.IsRented } into g
+            select new
+            {
+                g.Key.ZoneId,
+                g.Key.AssessmentStatusId,
+                g.Key.IsRented,
+                Demand = g.Sum(x => x.TaxAmount)
+            }).ToDictionaryAsync(
+                x => (x.ZoneId, x.AssessmentStatusId, x.IsRented),
+                x => x.Demand,
+                cancellationToken);
+
+        foreach (var aggregate in aggregates)
+        {
+            var key = (aggregate.ZoneId, aggregate.AssessmentStatusId, aggregate.IsRented);
+            aggregate.OldDemand = oldDemandByKey.GetValueOrDefault(key);
+            aggregate.CurrentDemand = currentDemandByKey.GetValueOrDefault(key);
+            aggregate.RetroDemand = retroDemandByKey.GetValueOrDefault(key);
+        }
+
+        return aggregates;
+    }
+
+    public async Task<List<AssessmentStageAggregateProjection>> GetAssessedClassificationAggregatesAsync(
+        int workflowStageId,
+        int assessedStatusId,
+        CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null)
+    {
+        var sourceQuery = BuildAssessedClassificationQuery(workflowStageId, assessedStatusId, queryParameters);
+        return await GetClassificationAggregatesAsync(sourceQuery, includeOldDemand: true, cancellationToken);
+    }
+
+    //public async Task<List<AssessmentStageAggregateProjection>> GetUnassessedClassificationAggregatesAsync(
+    //    int workflowStageId,
+    //    int unassessedStatusId,
+    //    CancellationToken cancellationToken = default,
+    //    AssessmentGridQueryParameters? queryParameters = null)
+    //{
+    //    var sourceQuery = BuildUnassessedClassificationQuery(workflowStageId, unassessedStatusId, queryParameters);
+    //    return await GetClassificationAggregatesAsync(sourceQuery, includeOldDemand: false, cancellationToken);
+    //}
+    public async Task<List<AssessmentStageAggregateProjection>> GetUnassessedClassificationAggregatesAsync(
+        int workflowStageId,int unassessedStatusId,CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null)
+    {
+        var sourceQuery = BuildUnassessedClassificationQuery(
+            workflowStageId,
+            unassessedStatusId,
+            queryParameters);
+
+        return await GetClassificationAggregatesAsync(
+            sourceQuery,
+            includeOldDemand: false,
+            cancellationToken);
+    }
+
+    private IQueryable<AssessmentStagePropertyProjection> BuildStagePropertyQuery(
+        int workflowStageId,
+        AssessmentGridQueryParameters? queryParameters)
+    {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
             queryParameters);
@@ -56,7 +213,18 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             .Select(pwd => pwd.PropertyId)
             .Distinct();
 
-        var query =
+        var renterPropertyIds = (
+            from pd in _context.PropertyDetails.AsNoTracking()
+            join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
+            where pd.IsActive
+                  && !pd.MarkedForDeletion
+                  && rm.IsActive
+                  && !rm.MarkedForDeletion
+                  && rm.TaxLiability != null
+                  && rm.TaxLiability.Trim().ToUpper() == RenterTaxLiability
+            select (int?)pd.PropertyId).Distinct();
+
+        return
             from propertyId in stagePropertyIds
             join p in properties
                 on propertyId equals p.Id
@@ -67,6 +235,10 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             join z in _context.ZoneMaster.AsNoTracking().Where(z => z.IsActive)
                 on w.ZoneId equals z.Id
 
+            join renterPropertyId in renterPropertyIds
+                on p.Id equals renterPropertyId.Value into renterJoin
+            from renterPropertyId in renterJoin.DefaultIfEmpty()
+
             select new AssessmentStagePropertyProjection
             {
                 PropertyId = p.Id,
@@ -74,53 +246,374 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
                 ZoneNo = z.ZoneNo,
-                AssessmentStatusId = p.PropertyAssessmentStatusId
+                AssessmentStatusId = p.PropertyAssessmentStatusId,
+                IsRented = renterPropertyId.HasValue
             };
-
-        var stageProperties = await query
-            .OrderBy(x => x.ZoneId)
-            .ThenBy(x => x.PropertyId)
-            .ToListAsync(cancellationToken);
-
-        if (!stageProperties.Any())
-            return stageProperties;
-
-        var renterPropertyIds = new HashSet<int>();
-        foreach (var batch in BatchIds(stageProperties.Select(p => p.PropertyId)))
-        {
-            var batchRenterPropertyIds = await (
-                from pd in _context.PropertyDetails.AsNoTracking()
-                join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
-                where batch.Contains(pd.PropertyId)
-                      && pd.IsActive
-                      && !pd.MarkedForDeletion
-                      && rm.IsActive
-                      && !rm.MarkedForDeletion
-                      && rm.TaxLiability != null
-                      && rm.TaxLiability.Trim().ToUpper() == "RENTER"
-                select pd.PropertyId
-            ).Distinct().ToListAsync(cancellationToken);
-
-            foreach (var propertyId in batchRenterPropertyIds)
-                renterPropertyIds.Add(propertyId);
-        }
-
-        foreach (var property in stageProperties)
-            property.IsRented = renterPropertyIds.Contains(property.PropertyId);
-
-        return stageProperties;
     }
 
-    // Reads assessed properties with old mapped values for classification comparisons.
-    public async Task<List<AssessedClassificationPropertyProjection>> GetAssessedClassificationPropertiesAsync(
-        int workflowStageId,
-        int assessedStatusId,
-        CancellationToken cancellationToken = default,
-        AssessmentGridQueryParameters? queryParameters = null)
+    private async Task<List<AssessmentStageAggregateProjection>> GetClassificationAggregatesAsync(
+          IQueryable<AssessmentStageClassificationPropertyProjection> sourceQuery, bool includeOldDemand, CancellationToken cancellationToken)
     {
-        var properties = ApplyMainGridPropertyTypeFilters(
-            _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
-            queryParameters);
+        // ============================================================
+        // 1. MATERIALIZE ONLY REQUIRED DATA
+        //
+        // Classification grouping happens AFTER this query executes.
+        //
+        // This avoids the previous EF Core problem where the complex
+        // ClassificationType expression was being placed inside
+        // SQL GROUP BY.
+        // ============================================================
+
+        var sourceRows = await sourceQuery
+            .Select(x => new
+            {
+                PropertyId = x.PropertyId,
+                ZoneId = x.ZoneId,
+                ZoneName = x.ZoneName ?? string.Empty,
+                ZoneNo = x.ZoneNo ?? string.Empty,
+                ClassificationType = x.ClassificationType ?? string.Empty,
+                PartitionNo = x.PartitionNo ?? string.Empty
+            })
+            .ToListAsync(cancellationToken);
+
+        if (sourceRows.Count == 0)
+        {
+            return new List<AssessmentStageAggregateProjection>();
+        }
+
+        // ============================================================
+        // 2. UNIQUE PROPERTY IDS
+        // ============================================================
+
+        var propertyIds = sourceRows.Select(x => x.PropertyId).Distinct().ToList();
+
+        // ============================================================
+        // 3. CURRENT DEMAND
+        // ============================================================
+
+        var currentDemandByProperty = await (from tm in _context.TransMast.AsNoTracking()
+            join tax in _context.TaxMaster.AsNoTracking() on tm.TaxId equals tax.Id
+            where propertyIds.Contains(tm.PropertyId)
+                  && tm.IsActive && !tm.MarkedForDeletion
+                  && tax.IsActive && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
+            group tm by tm.PropertyId into g
+            select new
+            {
+                PropertyId = g.Key,
+                // Nullable aggregation makes the query safer if
+                // database data contains NULL.
+                Demand = g.Sum(x => (decimal?)x.TaxAmount) ?? 0m
+            })
+            .ToDictionaryAsync(x => x.PropertyId,x => x.Demand,cancellationToken);
+
+
+        // ============================================================
+        // 4. RETRO DEMAND
+        // ============================================================
+
+        var retroDemandByProperty = await (
+            from retro in _context.TaxPendingDetailsRetro.AsNoTracking()
+            join tax in _context.TaxMaster.AsNoTracking() on retro.TaxId equals tax.Id
+            where propertyIds.Contains(retro.PropertyId)
+                  && retro.IsActive
+                  && !retro.MarkedForDeletion
+                  && tax.IsActive
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
+            group retro by retro.PropertyId
+            into g
+            select new
+            {
+                PropertyId = g.Key, Demand = g.Sum(x => x.PendingAmount ?? 0m)
+            })
+            .ToDictionaryAsync( x => x.PropertyId, x => x.Demand, cancellationToken);
+
+
+        // ============================================================
+        // 5. OLD DEMAND
+        // ============================================================
+
+        var oldDemandByProperty = new Dictionary<int, decimal>();
+
+        if (includeOldDemand)
+        {
+            oldDemandByProperty = await (
+                from propertyMap in
+                    _context.PropertyMapMasters.AsNoTracking()
+
+                join tmo in
+                    _context.TransMastOld.AsNoTracking()
+                    on propertyMap.ParentPropertyMapId
+                    equals (int?)tmo.PropertyMastOldId
+                join tax in
+                    _context.TaxMaster.AsNoTracking()
+                    on tmo.TaxId equals tax.Id
+                where propertyIds.Contains(propertyMap.Id)
+                      && propertyMap.IsActive
+                      && propertyMap.ParentPropertyMapId.HasValue
+                      && tmo.IsActive
+                      && !tmo.MarkedForDeletion
+                      && tax.IsActive
+                      && tax.TaxCode == TaxTotalCode
+                      && tax.TaxName == TaxTotalName
+
+                group tmo by propertyMap.Id
+                into g
+                select new
+                {
+                    PropertyId = g.Key,
+                    Demand =
+                        g.Sum(x => (decimal?)x.TaxAmount)
+                        ?? 0m
+                })
+                .ToDictionaryAsync(x => x.PropertyId,x => x.Demand,cancellationToken);
+        }
+
+
+        // ============================================================
+        // 6. GROUP IN MEMORY
+        //
+        // Avoid grouping ClassificationType inside SQL.
+        // ============================================================
+
+        var groupedRows = sourceRows.GroupBy(x => new
+        {
+                x.ZoneId,
+                x.ZoneName,
+                x.ZoneNo,
+                x.ClassificationType
+         }).ToList();
+
+
+        // ============================================================
+        // 7. FINAL RESULT
+        // ============================================================
+
+        var aggregates = new List<AssessmentStageAggregateProjection>(groupedRows.Count);foreach (var group in groupedRows)
+        {
+            // Demand must only be counted once per property.
+            var groupPropertyIds = group.Select(x => x.PropertyId).Distinct().ToList();
+            decimal currentDemand = 0m;
+            decimal retroDemand = 0m;
+            decimal oldDemand = 0m;
+
+            foreach (var propertyId in groupPropertyIds)
+            {
+                // ----------------------------------------------------
+                // Current
+                // ----------------------------------------------------
+
+                if (currentDemandByProperty.TryGetValue(propertyId,out var currentValue))
+                {
+                    currentDemand += currentValue;
+                }
+
+                // ----------------------------------------------------
+                // Retro
+                // ----------------------------------------------------
+
+                if (retroDemandByProperty.TryGetValue(propertyId,out var retroValue))
+                {
+                    retroDemand += retroValue;
+                }
+
+                // ----------------------------------------------------
+                // Old
+                // ----------------------------------------------------
+
+                if (includeOldDemand && oldDemandByProperty.TryGetValue(propertyId,out var oldValue))
+                {
+                    oldDemand += oldValue;
+                }
+            }
+
+
+            aggregates.Add(
+                new AssessmentStageAggregateProjection
+                {
+
+                    ZoneId = group.Key.ZoneId,
+                    ZoneName = group.Key.ZoneName,
+                    ZoneNo = group.Key.ZoneNo,
+                    ClassificationType = group.Key.ClassificationType,
+                    StructureCount = group.Count(x => string.IsNullOrEmpty(x.PartitionNo)),
+                    UnitCount = group.Count(),
+                    CurrentDemand = currentDemand,
+                    RetroDemand = retroDemand,
+                    OldDemand = oldDemand
+                });
+        }
+
+
+        return aggregates;
+    }
+
+    private IQueryable<AssessmentStageClassificationPropertyProjection> BuildAssessedClassificationQuery(
+        int workflowStageId,int assessedStatusId,AssessmentGridQueryParameters? queryParameters)
+    {
+        var properties = ApplyMainGridPropertyTypeFilters(_context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),queryParameters);
+
+        var useSummary =
+            from pd in _context.PropertyDetails.AsNoTracking()
+            join tou in _context.TypeOfUse.AsNoTracking() on pd.TypeOfUseId equals tou.Id into typeOfUseJoin
+            from tou in typeOfUseJoin.DefaultIfEmpty()
+            where pd.IsActive && !pd.MarkedForDeletion
+            group new { pd, tou } by pd.PropertyId into g
+            select new
+            {
+                PropertyId = g.Key,
+                NewCarpetArea = g.Sum(x => x.pd.CarpetAreaSqMeter ?? 0d),
+                HasUseR = g.Any(x => x.tou != null
+                    && (((x.tou.TypeOfUseCode ?? "").Trim().ToUpper() == "R")
+                        || ((x.tou.Type ?? "").Trim().ToUpper() == "R")
+                        || ((x.tou.Description ?? "").Trim().ToUpper().Contains("RESIDENTIAL")))),
+                HasUseC = g.Any(x => x.tou != null
+                    && (((x.tou.TypeOfUseCode ?? "").Trim().ToUpper() == "C")
+                        || ((x.tou.Type ?? "").Trim().ToUpper() == "C")
+                        || ((x.tou.Description ?? "").Trim().ToUpper().Contains("COMMERCIAL")))),
+                HasUseI = g.Any(x => x.tou != null
+                    && (((x.tou.TypeOfUseCode ?? "").Trim().ToUpper() == "I")
+                        || ((x.tou.Type ?? "").Trim().ToUpper() == "I")
+                        || ((x.tou.Description ?? "").Trim().ToUpper().Contains("INDUSTRIAL"))))
+            };
+
+        var currentRv =
+            from tm in _context.TransMast.AsNoTracking()
+            where tm.IsActive && !tm.MarkedForDeletion && tm.CalculationType == "RV"
+            group tm by tm.PropertyId into g
+            select new
+            {
+                PropertyId = g.Key,
+                CurrentRv = (double)(g.Max(x => (decimal?)x.CalculationValue) ?? 0m)
+            };
+
+        return
+            from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+            join p in properties on pwd.PropertyId equals p.Id
+            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldPropertyJoin
+            from pmo in oldPropertyJoin.DefaultIfEmpty()
+            join use in useSummary on p.Id equals use.PropertyId into useJoin
+            from use in useJoin.DefaultIfEmpty()
+            join rv in currentRv on p.Id equals rv.PropertyId into currentRvJoin
+            from rv in currentRvJoin.DefaultIfEmpty()
+            let oldUse = pmo == null ? string.Empty : (pmo.OldUseType ?? string.Empty).Trim().ToUpper()
+            let oldUseR = oldUse == "R" || oldUse.StartsWith("R") || oldUse.Contains("RESIDENTIAL")
+            let oldUseC = oldUse == "C" || oldUse.StartsWith("C") || oldUse.Contains("COMMERCIAL")
+            let oldUseI = oldUse == "I" || oldUse.StartsWith("I") || oldUse.Contains("INDUSTRIAL")
+            let oldUseExists = oldUseR || oldUseC || oldUseI
+            let hasAdditionalConstruction = pmo != null
+                && pmo.OldConstructionArea.HasValue
+                && (use == null ? 0d : use.NewCarpetArea) > (pmo.OldConstructionArea ?? 0d)
+            let hasChangeOfUse = !hasAdditionalConstruction
+                && oldUseExists
+                && ((oldUseR && use != null && (use.HasUseC || use.HasUseI))
+                    || (oldUseC && use != null && (use.HasUseR || use.HasUseI))
+                    || (oldUseI && use != null && (use.HasUseR || use.HasUseC)))
+            let isUnderassessed = !hasAdditionalConstruction
+                && !hasChangeOfUse
+                && pmo != null
+                && pmo.OldRV.HasValue
+                && rv != null
+                && rv.CurrentRv != 0d
+                && (pmo.OldRV ?? 0d) != rv.CurrentRv
+            where pwd.WorkflowStageId == workflowStageId
+                  && w.IsActive
+                  && z.IsActive
+                  && p.PropertyAssessmentStatusId == assessedStatusId
+                  && (pmo == null || (pmo.IsActive && !pmo.MarkedForDeletion))
+            select new AssessmentStageClassificationPropertyProjection
+            {
+                PropertyId = p.Id,
+                PartitionNo = p.PartitionNo,
+                ZoneId = z.Id,
+                ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo,
+                ClassificationType = hasAdditionalConstruction
+                    ? AssessedClassificationAdditionalConstruction : hasChangeOfUse
+                    ? AssessedClassificationChangeOfUse : isUnderassessed
+                    ? AssessedClassificationUnderassessed : AssessedClassificationNoChange
+            };
+    }
+
+ 
+    private IQueryable<AssessmentStageClassificationPropertyProjection>BuildUnassessedClassificationQuery(
+        int workflowStageId,int unassessedStatusId,AssessmentGridQueryParameters? queryParameters)
+    {
+
+        // 1. BASE PROPERTY QUERY
+        var properties = ApplyMainGridPropertyTypeFilters(_context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),queryParameters);
+
+        // 2. MAIN CLASSIFICATION QUERY
+        var query =
+            from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+            join p in properties on pwd.PropertyId equals p.Id
+            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+        // Property Type LEFT JOIN
+            join pt in _context.PropertyTypeMasters.AsNoTracking()
+                on p.PropertyTypeId equals pt.Id
+                into propertyTypeJoin
+             from pt in propertyTypeJoin.DefaultIfEmpty()
+
+         // Normalized Property Type
+            let propertyType = ( pt != null ? pt.Type : null ) ?? string.Empty
+            let normalizedPropertyType = propertyType.Trim().ToUpper()
+
+         // Mixed
+            let isMixed = MixedPropertyTypes.Contains(normalizedPropertyType)
+            let isOpenPlot = p.OpenPlot == true || _context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => pd.IsOpenPlot == true || _context.TypeOfUse.AsNoTracking()
+                    .Where(tou => tou.Id == pd.TypeOfUseId)
+                    .Any(tou => ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("OPEN")))
+
+            let hasIndustrial =_context.PropertyDetails.AsNoTracking().Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking().Where(tou => tou.Id == pd.TypeOfUseId)
+                    .Any(tou => (tou.Type ?? string.Empty).Trim().ToUpper() == "I"
+                            || ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("INDUSTRIAL")))
+
+            let hasPublicUtility =_context.PropertyDetails.AsNoTracking().Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking().Where(tou => tou.Id == pd.TypeOfUseId)
+                    .Any(tou => (tou.Type ?? string.Empty).Trim().ToUpper() == "N"
+                            || (tou.TypeOfUseCode ?? string.Empty).Trim().ToUpper() == "PU"
+                            || ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("PUBLIC")))
+
+            let hasResidential =_context.PropertyDetails.AsNoTracking().Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking().Where(tou => tou.Id == pd.TypeOfUseId)
+                    .Any(tou => (tou.Type ?? string.Empty).Trim().ToUpper() == "R" || ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("RESIDENTIAL")))
+
+            let hasCommercial =_context.PropertyDetails.AsNoTracking().Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking().Where(tou => tou.Id == pd.TypeOfUseId)
+                    .Any(tou => (tou.Type ?? string.Empty).Trim().ToUpper() == "C" || ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("COMMERCIAL")))
+            where pwd.WorkflowStageId == workflowStageId && w.IsActive && z.IsActive && p.PropertyAssessmentStatusId == unassessedStatusId
+
+
+            // FINAL PROJECTION
+
+            select new AssessmentStageClassificationPropertyProjection
+            {
+                PropertyId = p.Id,
+                PartitionNo = p.PartitionNo ?? string.Empty,
+                ZoneId = z.Id,
+                ZoneName = z.Description ?? z.ZoneNo ?? string.Empty,
+                ZoneNo = z.ZoneNo ?? string.Empty,
+                ClassificationType = isMixed
+                        ? PropertyTypeMixedUse : isOpenPlot
+                        ? PropertyTypeOpenPlots : hasIndustrial
+                        ? PropertyTypeIndustrial : hasPublicUtility
+                        ? PropertyTypePublicUtility : hasResidential
+                        ? PropertyTypeResidential : hasCommercial
+                        ? PropertyTypeCommercial : PropertyTypeResidential
+            };
+          return query;
+    }
+    public async Task<List<AssessedClassificationPropertyProjection>> GetAssessedClassificationPropertiesAsync(
+        int workflowStageId,int assessedStatusId,CancellationToken cancellationToken = default,AssessmentGridQueryParameters? queryParameters = null)
+    {
+        var properties = ApplyMainGridPropertyTypeFilters(_context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),queryParameters);
 
         return await (
             from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
@@ -148,8 +641,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
     // Reads unassessed properties with zone and open-plot data.
     public async Task<List<UnassessedPropertyProjection>> GetUnassessedPropertiesAsync(
-        int workflowStageId,int unassessedStatusId,CancellationToken cancellationToken = default,
-        AssessmentGridQueryParameters? queryParameters = null)
+        int workflowStageId,int unassessedStatusId,CancellationToken cancellationToken = default,AssessmentGridQueryParameters? queryParameters = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
