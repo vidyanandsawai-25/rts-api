@@ -117,7 +117,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
 
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
-            !string.Equals(queryParameters.ApplicationStatus, "overdue", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
 
@@ -209,7 +209,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             }
             var dueDate = item.CreatedDate.Value.Date.AddDays(slaDays.Value);
             var diff = (dueDate - DateTime.Today).Days;
-            item.RemainingDays = Math.Max(diff, 0);
+            item.RemainingDays = diff;
         }
 
 
