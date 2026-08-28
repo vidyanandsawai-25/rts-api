@@ -179,8 +179,7 @@ namespace NtisPlatform.Api.Controllers
         /// Shows property classification by type (Assessed/Unassessed/Rented) with demand calculations.
         /// </summary>
         [HttpGet("AssessmentGrid")]
-        public async Task<ActionResult<AutomationDashboardItemsResponse<IReadOnlyList<AssessmentGridResponseDto>>>> GetAssessmentGridData(
-            [FromQuery] AssessmentGridQueryParameters queryParameters,CancellationToken cancellationToken = default)
+        public async Task<ActionResult<AutomationDashboardItemsResponse<IReadOnlyList<AssessmentGridResponseDto>>>> GetAssessmentGridData([FromQuery] AssessmentGridQueryParameters queryParameters,CancellationToken cancellationToken = default)
         {
             try
             {

@@ -96,3 +96,27 @@ public class AssessmentZoneCountProjection : AutomationDashboardZoneDisplayDto
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }
+
+/// <summary>
+/// Aggregated Assessment grid values grouped by zone, assessment status, and renter flag.
+/// </summary>
+public class AssessmentStageAggregateProjection : AutomationDashboardZoneDisplayDto
+{
+    public int? AssessmentStatusId { get; set; }
+    public bool IsRented { get; set; }
+    public string ClassificationType { get; set; } = string.Empty;
+    public int StructureCount { get; set; }
+    public int UnitCount { get; set; }
+    public decimal OldDemand { get; set; }
+    public decimal CurrentDemand { get; set; }
+    public decimal RetroDemand { get; set; }
+}
+
+/// <summary>
+/// Property-level Assessment classification source used only while building grouped database aggregates.
+/// </summary>
+public class AssessmentStageClassificationPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
+{
+    public string PartitionNo { get; set; } = string.Empty;
+    public string ClassificationType { get; set; } = string.Empty;
+}
