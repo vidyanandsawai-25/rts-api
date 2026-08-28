@@ -194,9 +194,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
         var placeholders = new Dictionary<string, string>
         {
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "UserName", citizenName },
+            { "CitizenName", "Citizen" },
+            { "ApplicantName", "Citizen" },
+            { "UserName", "Citizen" },
             { "ApplicationNo", applicationNo },
             { "ServiceName", serviceName },
             { "Status", status },
@@ -261,8 +261,24 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         CancellationToken ct = default)
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
-        var certUrl = $"{baseUrl}?cert={Uri.EscapeDataString(applicationNo)}";
+        var certUrl = $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED", certUrl, ct);
+    }
+
+    /// <summary>
+    /// Certificate generation & digital signature action (after Certificate Decision & Inputs)
+    /// </summary>
+    public async Task SendApplicationCertificateIssuedAsync(
+        int applicationId,
+        string applicationNo,
+        string citizenName,
+        string mobileNo,
+        string serviceName,
+        CancellationToken ct = default)
+    {
+        var baseUrl = await GetPortalBaseUrlAsync(ct);
+        var certUrl = $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED (Certificate Issued)", certUrl, ct);
     }
 
     /// <summary>
@@ -319,9 +335,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         var receiptUrl = $"{baseUrl}?receipt={Uri.EscapeDataString(receiptNo)}";
         var placeholders = new Dictionary<string, string>
         {
-            { "CitizenName", citizenName },
-            { "ApplicantName", citizenName },
-            { "UserName", citizenName },
+            { "CitizenName", "Citizen" },
+            { "ApplicantName", "Citizen" },
+            { "UserName", "Citizen" },
             { "ApplicationNo", applicationNo },
             { "Amount", amount.ToString("F2") },
             { "ReceiptNo", receiptNo },

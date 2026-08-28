@@ -1190,40 +1190,38 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     {
         try
         {
-            var fieldValues = await _fieldValueRepository.GetQueryable()
-                .Include(f => f.FieldDefinition)
-                .Where(f => f.ApplicationId == applicationId && !f.MarkedForDeletion && f.IsActive)
-                .ToListAsync(ct);
+            var app = await _repository.GetByIdAsync(applicationId, ct);
+            string? mobile = app?.ApplicantMobileNo;
 
-            string? mobile = null;
-            string? name = "Citizen";
-
-            foreach (var fv in fieldValues)
+            if (string.IsNullOrWhiteSpace(mobile))
             {
-                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
-                var label = (fv.FieldDefinition?.FieldLabel ?? string.Empty).ToLowerInvariant();
-                var val = fv.TextValue?.Trim();
+                var fieldValues = await _fieldValueRepository.GetQueryable()
+                    .Include(f => f.FieldDefinition)
+                    .Where(f => f.ApplicationId == applicationId && !f.MarkedForDeletion && f.IsActive)
+                    .ToListAsync(ct);
 
-                if (string.IsNullOrWhiteSpace(val)) continue;
+                foreach (var fv in fieldValues)
+                {
+                    var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                    var label = (fv.FieldDefinition?.FieldLabel ?? string.Empty).ToLowerInvariant();
+                    var val = fv.TextValue?.Trim();
 
-                if (string.IsNullOrWhiteSpace(mobile) &&
-                    (code.Contains("mobile") || code.Contains("phone") || code.Contains("contact") ||
-                     label.Contains("mobile") || label.Contains("मोबाईल") || label.Contains("फोन")))
-                {
-                    mobile = val;
-                }
-                else if (string.IsNullOrWhiteSpace(name) &&
-                    (code.Contains("applicant") || code.Contains("name") ||
-                     label.Contains("applicant") || label.Contains("name") || label.Contains("नाव")))
-                {
-                    name = val;
+                    if (string.IsNullOrWhiteSpace(val)) continue;
+
+                    if (string.IsNullOrWhiteSpace(mobile) &&
+                        (code.Contains("mobile") || code.Contains("phone") || code.Contains("contact") ||
+                         label.Contains("mobile") || label.Contains("मोबाईल") || label.Contains("फोन")))
+                    {
+                        mobile = val;
+                        break;
+                    }
                 }
             }
 
             var svc = await _serviceRepository.GetByIdAsync(serviceId, ct);
             var serviceName = svc?.ServiceName ?? "RTS Service";
 
-            return (mobile, name ?? "Citizen", serviceName);
+            return (mobile, "Citizen", serviceName);
         }
         catch
         {

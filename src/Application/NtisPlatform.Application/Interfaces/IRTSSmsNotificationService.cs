@@ -37,6 +37,11 @@ public interface IRTSSmsNotificationService
     Task SendApplicationApprovedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, CancellationToken ct = default);
 
     /// <summary>
+    /// Sends SMS when certificate is generated & digitally signed after Certificate Decision & Inputs
+    /// </summary>
+    Task SendApplicationCertificateIssuedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, CancellationToken ct = default);
+
+    /// <summary>
     /// Sends SMS when application is rejected
     /// </summary>
     Task SendApplicationRejectedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, string? remark = null, CancellationToken ct = default);

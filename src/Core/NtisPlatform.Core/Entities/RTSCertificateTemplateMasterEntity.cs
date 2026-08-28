@@ -14,9 +14,9 @@ public class RTSCertificateTemplateMasterEntity : BaseEntity, IHardDeletable
     public string? DefaultConditionsJson { get; set; }
     public string? OfficerFieldsConfigJson { get; set; }
 
+
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
-
     public virtual RTSServiceEntity? Service { get; set; }
     public virtual ICollection<RTSIssuedCertificateEntity> IssuedCertificates { get; set; } = new List<RTSIssuedCertificateEntity>();
 }
