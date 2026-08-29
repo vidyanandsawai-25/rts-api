@@ -21,6 +21,9 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly IRepository<RTSDepartmentEntity, int> _departmentRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
+    private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
+    private readonly IRepository<UserRoleAllocationEntity, int> _userRoleAllocationRepository;
+    private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _stageRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IRTSDigitalSignatureService _digitalSignatureService;
     private readonly IUnitOfWork _unitOfWork;
@@ -35,6 +38,9 @@ public class RTSCertificateService : IRTSCertificateService
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<UserEntity, int> userRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
+        IRepository<TrackApplicationHistoryEntity, int> historyRepository,
+        IRepository<UserRoleAllocationEntity, int> userRoleAllocationRepository,
+        IRepository<RTSApprovalFlowStageMasterEntity, int> stageRepository,
         IRTSSmsNotificationService smsNotificationService,
         IRTSDigitalSignatureService digitalSignatureService,
         IUnitOfWork unitOfWork,
@@ -48,6 +54,9 @@ public class RTSCertificateService : IRTSCertificateService
         _departmentRepository = departmentRepository;
         _userRepository = userRepository;
         _ulbRepository = ulbRepository;
+        _historyRepository = historyRepository;
+        _userRoleAllocationRepository = userRoleAllocationRepository;
+        _stageRepository = stageRepository;
         _smsNotificationService = smsNotificationService;
         _digitalSignatureService = digitalSignatureService;
         _unitOfWork = unitOfWork;
@@ -283,7 +292,6 @@ public class RTSCertificateService : IRTSCertificateService
 
         // Perform merge
         string rawHtml = BuildFullCertificateHtml(template, app);
-
         string previewOfficerName = !string.IsNullOrWhiteSpace(app.User?.FirstName)
             ? $"{app.User.FirstName} {app.User.LastName}".Trim()
             : "सक्षम प्राधिकारी";
@@ -323,13 +331,40 @@ public class RTSCertificateService : IRTSCertificateService
         var existingCert = await _issuedCertRepository.GetQueryable()
             .FirstOrDefaultAsync(c => c.ApplicationId == app.Id && c.IsActive, ct);
 
-        string certNo = existingCert?.CertificateNo ?? $"CERT/RTS/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D5}";
+        string certNo = existingCert?.CertificateNo ?? $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}";
         var certGuid = existingCert?.CertificateGuid ?? Guid.NewGuid();
         int issuedCertId = existingCert?.Id ?? 0;
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
-        string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "मंजुरी अधिकारी";
-        string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? autoValues.GetValueOrDefault("DepartmentName") ?? "सहाय्यक आयुक्त / कर अधीक्षक";
+        string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "सक्षम प्राधिकारी";
+        string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? "";
+        if (string.IsNullOrWhiteSpace(officerDesignation) || officerDesignation == "सक्षम प्राधिकारी")
+        {
+            if (user != null)
+            {
+                var userRole = await _userRoleAllocationRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Include(r => r.UserRole)
+                    .FirstOrDefaultAsync(r => r.UserId == user.Id && r.IsActive, ct);
+                if (!string.IsNullOrWhiteSpace(userRole?.UserRole?.UserRoleName))
+                {
+                    officerDesignation = userRole.UserRole.UserRoleName;
+                }
+                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentNameLocal))
+                {
+                    officerDesignation = $"{app.Department.DepartmentNameLocal} - सक्षम अधिकारी";
+                }
+                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName))
+                {
+                    officerDesignation = $"{app.Department.DepartmentName} - Competent Authority";
+                }
+            }
+        }
+        if (string.IsNullOrWhiteSpace(officerDesignation))
+        {
+            officerDesignation = "सक्षम प्राधिकारी";
+        }
+
         string rawHtml = BuildFullCertificateHtml(template, app);
 
         var signatureResult = _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml);
@@ -379,6 +414,24 @@ public class RTSCertificateService : IRTSCertificateService
             issuedCertId = issuedCert.Id;
         }
 
+        // Immutable ERP Audit Trail
+        var auditHistory = new TrackApplicationHistoryEntity
+        {
+            ApplicationId = app.Id,
+            ApprovalFlowId = app.ApprovalFlowId,
+            ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+            ActionByUserId = userId,
+            Status = ApplicationStatus.Approved,
+            Action = "IssueCertificateAndDigitalSign",
+            Remark = !string.IsNullOrWhiteSpace(request.ActionRemark)
+                ? request.ActionRemark
+                : $"प्रमाणपत्र क्र. {certNo} डिजिटल स्वाक्षरीने अधिकृतरीत्या जारी केले. (DSC Hash: {signatureResult.SignatureHash[..Math.Min(16, signatureResult.SignatureHash.Length)]}...)",
+            IsReverted = false,
+            CreatedBy = userId,
+            CreatedDate = DateTime.UtcNow
+        };
+        await _historyRepository.AddAsync(auditHistory, ct);
+
         // If SignAndApprove is checked, complete the application workflow approval
         if (request.SignAndApprove)
         {
@@ -422,7 +475,7 @@ public class RTSCertificateService : IRTSCertificateService
                 await _smsNotificationService.SendApplicationCertificateIssuedAsync(
                     app.Id,
                     appNo,
-                    "Citizen",
+                    app.ApplicantName ?? "नागरिक",
                     mobile,
                     serviceName,
                     ct);
@@ -430,24 +483,25 @@ public class RTSCertificateService : IRTSCertificateService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to dispatch approval SMS upon certificate generation for Application {AppId}", app.Id);
+            _logger.LogWarning(ex, "Failed to dispatch certificate approval SMS to applicant.");
         }
 
-        return await GetIssuedCertificateByGuidAsync(certGuid, ct) ?? new RTSIssuedCertificateDto
-        {
-            Id = issuedCertId,
-            CertificateGuid = certGuid,
-            CertificateNo = certNo,
-            ApplicationId = app.Id,
-            ApplicationNo = app.ApplicationNo ?? $"RTS{app.Id:D8}",
-            ServiceName = app.Service?.ServiceName ?? "",
-            DepartmentName = app.Department?.DepartmentName ?? "",
-            ApplicantName = app.ApplicantName ?? "",
-            ApplicantMobile = app.ApplicantMobileNo ?? "",
-            MergedHtmlContent = mergedHtml,
-            IssuedAt = DateTime.UtcNow,
-            IsDigitallySigned = true
-        };
+        return await GetIssuedCertificateByGuidAsync(certGuid, ct)
+            ?? new RTSIssuedCertificateDto
+            {
+                CertificateGuid = certGuid,
+                CertificateNo = certNo,
+                ApplicationId = app.Id,
+                ApplicationNo = app.ApplicationNo ?? $"RTS{app.Id:D8}",
+                ServiceName = app.Service?.ServiceName ?? "",
+                ApplicantName = app.ApplicantName ?? "",
+                MergedHtmlContent = mergedHtml,
+                QrCodePayload = qrPayload,
+                IssuedByUserId = userId,
+                IssuedAt = DateTime.UtcNow,
+                IsDigitallySigned = true,
+                DigitalSignatureInfo = signatureResult.SignatureInfo
+            };
     }
 
     public async Task<RTSIssuedCertificateDto?> GetIssuedCertificateByApplicationNoAsync(string applicationNo, CancellationToken ct)
@@ -532,11 +586,33 @@ public class RTSCertificateService : IRTSCertificateService
         }
 
         var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "नागरी स्थानिक संस्था (ULB)";
+
         string deptName = "";
         if (cert.Service != null)
         {
             var dept = await _departmentRepository.GetByIdAsync(cert.Service.DepartmentId, ct);
-            deptName = dept?.DepartmentName ?? "";
+            deptName = dept?.DepartmentNameLocal ?? dept?.DepartmentName ?? "";
+        }
+
+        string officerName = cert.IssuedByUser != null ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim() : "सक्षम प्राधिकारी";
+        string officerDesignation = "सक्षम प्राधिकारी";
+
+        if (cert.IssuedByUser != null)
+        {
+            var userRole = await _userRoleAllocationRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(r => r.UserRole)
+                .FirstOrDefaultAsync(r => r.UserId == cert.IssuedByUser.Id && r.IsActive, ct);
+
+            if (!string.IsNullOrWhiteSpace(userRole?.UserRole?.UserRoleName))
+            {
+                officerDesignation = userRole.UserRole.UserRoleName;
+            }
+            else if (!string.IsNullOrWhiteSpace(deptName))
+            {
+                officerDesignation = $"{deptName} - सक्षम अधिकारी";
+            }
         }
 
         var dscMetadata = _digitalSignatureService.GetCertificateMetadata();
@@ -547,20 +623,20 @@ public class RTSCertificateService : IRTSCertificateService
             CertificateGuid = cert.CertificateGuid,
             CertificateNo = cert.CertificateNo,
             ApplicationNo = cert.Application?.ApplicationNo ?? $"RTS{cert.ApplicationId:D8}",
-            ServiceName = cert.Service?.ServiceName ?? "",
+            ServiceName = cert.Service?.ServiceNameLocal ?? cert.Service?.ServiceName ?? "",
             DepartmentName = deptName,
             ApplicantName = cert.Application?.ApplicantName ?? "",
-            UlbName = ulb?.UlbName ?? "अकोला महानगरपालिका",
+            UlbName = ulbName,
             IssuedAt = cert.IssuedAt,
-            IssuedByOfficer = cert.IssuedByUser != null ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim() : "सक्षम प्राधिकारी",
-            OfficerDesignation = "सहाय्यक आयुक्त / कर अधीक्षक",
+            IssuedByOfficer = officerName,
+            OfficerDesignation = officerDesignation,
             IsDigitallySigned = cert.IsDigitallySigned,
             DigitalSignatureInfo = cert.DigitalSignatureInfo,
-            DscSignerName = dscMetadata?.SignerName ?? "DS AKOLA MUNICIPAL CORPORATION, AKOLA",
-            DscIssuer = dscMetadata?.Issuer ?? "e-Mudhra Sub CA for Class 2 Document Signer 2022",
-            DscSerialNumber = dscMetadata?.SerialNumber ?? "0190D769",
-            DscThumbprint = dscMetadata?.Thumbprint ?? "22B73E13F6DF3898C64B65539A9435DE3CB55C52",
-            DscValidUntil = dscMetadata?.ValidTo ?? new DateTime(2027, 10, 13, 15, 26, 35, DateTimeKind.Utc),
+            DscSignerName = dscMetadata?.SignerName ?? "Authorized Document Signer",
+            DscIssuer = dscMetadata?.Issuer ?? "Certifying Authority",
+            DscSerialNumber = dscMetadata?.SerialNumber ?? "",
+            DscThumbprint = dscMetadata?.Thumbprint ?? "",
+            DscValidUntil = dscMetadata?.ValidTo,
             MergedHtmlContent = cert.MergedHtmlContent,
             Message = "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
         };

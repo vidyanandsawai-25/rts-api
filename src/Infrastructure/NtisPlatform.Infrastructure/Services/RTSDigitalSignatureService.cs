@@ -68,36 +68,40 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
 
                 if (string.IsNullOrWhiteSpace(resolvedPath))
                 {
-                    _logger.LogWarning("DSC PFX certificate file not found at any candidate path. Signature will use system fallback.");
+                    _logger.LogWarning("DSC PFX certificate file not found at any candidate path. Signature will use dynamic fallback.");
                     return;
                 }
 
-                _logger.LogInformation("Loading DSC PFX certificate from: {Path}", resolvedPath);
+                _logger.LogInformation("Loading DSC PFX certificate dynamically from: {Path}", resolvedPath);
                 var certBytes = File.ReadAllBytes(resolvedPath);
                 _cachedCertificate = new X509Certificate2(certBytes, password, X509KeyStorageFlags.Exportable | X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.EphemeralKeySet);
+
+                // Dynamically extract Signer CN and Issuer CN using X509 API
+                string simpleSubject = _cachedCertificate.GetNameInfo(X509NameType.SimpleName, false) ?? _cachedCertificate.Subject;
+                string simpleIssuer = _cachedCertificate.GetNameInfo(X509NameType.SimpleName, true) ?? _cachedCertificate.Issuer;
 
                 _cachedMetadata = new DigitalSignatureMetadataDto
                 {
                     IsAvailable = true,
-                    SignerName = _configuration.GetValue<string>("DigitalSignature:SignerName") ?? "DS AKOLA MUNICIPAL CORPORATION, AKOLA",
+                    SignerName = !string.IsNullOrWhiteSpace(simpleSubject) ? simpleSubject : (_configuration.GetValue<string>("DigitalSignature:SignerName") ?? "Authorized Document Signer"),
                     SignerSubject = _cachedCertificate.Subject,
-                    Issuer = _cachedCertificate.Issuer,
+                    Issuer = !string.IsNullOrWhiteSpace(simpleIssuer) ? simpleIssuer : (_configuration.GetValue<string>("DigitalSignature:Issuer") ?? "Certifying Authority"),
                     SerialNumber = _cachedCertificate.SerialNumber,
                     Thumbprint = _cachedCertificate.Thumbprint,
                     ValidFrom = _cachedCertificate.NotBefore,
                     ValidTo = _cachedCertificate.NotAfter,
                     Algorithm = _cachedCertificate.SignatureAlgorithm.FriendlyName ?? "sha256RSA",
                     HasPrivateKey = _cachedCertificate.HasPrivateKey,
-                    Organization = "AKOLA MUNICIPAL CORPORATION, AKOLA",
-                    Location = _configuration.GetValue<string>("DigitalSignature:Location") ?? "Akola, Maharashtra"
+                    Organization = simpleSubject,
+                    Location = _configuration.GetValue<string>("DigitalSignature:Location") ?? "Maharashtra, India"
                 };
 
-                _logger.LogInformation("DSC Certificate loaded successfully: Subject={Subject}, Issuer={Issuer}, ValidTo={ValidTo}, HasPrivateKey={HasPrivateKey}",
-                    _cachedCertificate.Subject, _cachedCertificate.Issuer, _cachedCertificate.NotAfter, _cachedCertificate.HasPrivateKey);
+                _logger.LogInformation("DSC Certificate loaded dynamically: Signer={Signer}, Issuer={Issuer}, ValidTo={ValidTo}, HasPrivateKey={HasPrivateKey}",
+                    _cachedMetadata.SignerName, _cachedMetadata.Issuer, _cachedMetadata.ValidTo, _cachedMetadata.HasPrivateKey);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to load AMC_DSC.pfx certificate.");
+                _logger.LogError(ex, "Failed to load dynamic DSC certificate.");
             }
         }
     }
@@ -114,9 +118,9 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
         return new DigitalSignatureMetadataDto
         {
             IsAvailable = false,
-            SignerName = _configuration.GetValue<string>("DigitalSignature:SignerName") ?? "DS AKOLA MUNICIPAL CORPORATION, AKOLA",
-            Organization = "AKOLA MUNICIPAL CORPORATION, AKOLA",
-            Location = "Akola, Maharashtra"
+            SignerName = _configuration.GetValue<string>("DigitalSignature:SignerName") ?? "सक्षम प्राधिकारी",
+            Organization = "नागरी संस्था",
+            Location = "महाराष्ट्र"
         };
     }
 
@@ -131,7 +135,7 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
         string signatureHash = string.Empty;
         bool isCryptographicallySigned = false;
 
-        // Perform cryptographic hash signature
+        // Perform cryptographic RSA-SHA256 signature using Private Key
         try
         {
             if (_cachedCertificate != null && _cachedCertificate.HasPrivateKey)
@@ -149,22 +153,23 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not compute RSA cryptographic hash with private key, generating SHA-256 digest fallback.");
+            _logger.LogWarning(ex, "Could not compute RSA cryptographic signature with private key, using SHA-256 digest fallback.");
         }
 
         if (string.IsNullOrEmpty(signatureHash))
         {
             using var sha = SHA256.Create();
-            string payload = $"{certNo}|{officerName}|{now:O}|AMC_DSC_0190D769";
+            string payload = $"{certNo}|{officerName}|{now:O}|{metadata.SerialNumber}";
             byte[] hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(payload));
             signatureHash = Convert.ToBase64String(hashBytes);
         }
 
-        string signerName = !string.IsNullOrWhiteSpace(metadata.SignerName) ? metadata.SignerName : "DS AKOLA MUNICIPAL CORPORATION, AKOLA";
-        string serialNo = !string.IsNullOrWhiteSpace(metadata.SerialNumber) ? metadata.SerialNumber : "0190D769";
-        string thumbprint = !string.IsNullOrWhiteSpace(metadata.Thumbprint) ? metadata.Thumbprint : "22B73E13F6DF3898C64B65539A9435DE3CB55C52";
+        string signerName = metadata.SignerName;
+        string serialNo = metadata.SerialNumber;
+        string thumbprint = metadata.Thumbprint;
+        string issuer = metadata.Issuer;
 
-        string sigInfo = $"Digitally Signed by {signerName} (e-Mudhra Class 2 DSC Verified) | Officer: {officerName ?? "मंजुरी अधिकारी"} | CertNo: {certNo} | Serial: {serialNo} | Thumbprint: {thumbprint} | SignedAt: {istTime:yyyy-MM-dd HH:mm:ss} IST";
+        string sigInfo = $"Digitally Signed by {signerName} ({issuer}) | Officer: {officerName ?? "सक्षम अधिकारी"} | CertNo: {certNo} | Serial: {serialNo} | Thumbprint: {thumbprint} | SignedAt: {istTime:yyyy-MM-dd HH:mm:ss} IST";
 
         string cardHtml = GenerateSignatureHtml(officerName, officerDesignation, istTime, certNo);
 
@@ -182,11 +187,11 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
     public string GenerateSignatureHtml(string? officerName, string? officerDesignation, DateTime signingTime, string certNo)
     {
         var metadata = GetCertificateMetadata();
-        string signerName = !string.IsNullOrWhiteSpace(metadata.SignerName) ? metadata.SignerName : "DS AKOLA MUNICIPAL CORPORATION, AKOLA";
-        string caName = "e-Mudhra Sub CA for Class 2 Document Signer";
-        string serial = !string.IsNullOrWhiteSpace(metadata.SerialNumber) ? metadata.SerialNumber : "0190D769";
+        string signerName = metadata.SignerName;
+        string caName = metadata.Issuer;
+        string serial = metadata.SerialNumber;
 
-        string effectiveOfficer = !string.IsNullOrWhiteSpace(officerName) ? officerName : "मंजुरी अधिकारी";
+        string effectiveOfficer = !string.IsNullOrWhiteSpace(officerName) ? officerName : "सक्षम प्राधिकारी";
         string effectiveDesignation = !string.IsNullOrWhiteSpace(officerDesignation) ? officerDesignation : "Designated Officer";
 
         return $@"
@@ -196,7 +201,7 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
                     <span class='text-emerald-700 font-bold text-sm'>✔</span>
                     <span>Digitally Signed (DSC Verified)</span>
                 </div>
-                <span class='text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold'>e-Mudhra Class 2</span>
+                <span class='text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold'>DSC Verified</span>
             </div>
             <div class='font-bold text-slate-900 text-xs leading-tight'>{signerName}</div>
             <div class='text-[10px] text-slate-700 font-semibold mt-0.5'>Authorized Signatory: <span class='text-slate-950 font-bold'>{effectiveOfficer}</span></div>
@@ -206,7 +211,7 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
                 <div class='text-[8px] text-slate-400 truncate' title='Cert Serial: {serial}'>Cert Serial: {serial} | CA: {caName}</div>
             </div>
             <div class='text-[9px] text-emerald-800 font-bold mt-1.5 flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded'>
-                <span>🔒</span> <span>e-Sign Verified & Authentic (AMC RTS)</span>
+                <span>🔒</span> <span>e-Sign Verified & Authentic (Official RTS)</span>
             </div>
         </div>";
     }
