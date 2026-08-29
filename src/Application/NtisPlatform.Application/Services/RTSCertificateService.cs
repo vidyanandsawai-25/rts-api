@@ -22,6 +22,7 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
+    private readonly IRTSDigitalSignatureService _digitalSignatureService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RTSCertificateService> _logger;
 
@@ -35,6 +36,7 @@ public class RTSCertificateService : IRTSCertificateService
         IRepository<UserEntity, int> userRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
         IRTSSmsNotificationService smsNotificationService,
+        IRTSDigitalSignatureService digitalSignatureService,
         IUnitOfWork unitOfWork,
         ILogger<RTSCertificateService> logger)
     {
@@ -47,6 +49,7 @@ public class RTSCertificateService : IRTSCertificateService
         _userRepository = userRepository;
         _ulbRepository = ulbRepository;
         _smsNotificationService = smsNotificationService;
+        _digitalSignatureService = digitalSignatureService;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -326,7 +329,10 @@ public class RTSCertificateService : IRTSCertificateService
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
         string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "मंजुरी अधिकारी";
+        string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? autoValues.GetValueOrDefault("DepartmentName") ?? "सहाय्यक आयुक्त / कर अधीक्षक";
         string rawHtml = BuildFullCertificateHtml(template, app);
+
+        var signatureResult = _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml);
 
         string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid);
 
@@ -342,7 +348,7 @@ public class RTSCertificateService : IRTSCertificateService
             existingCert.IssuedByUserId = userId;
             existingCert.IssuedAt = DateTime.UtcNow;
             existingCert.IsDigitallySigned = true;
-            existingCert.DigitalSignatureInfo = $"Digitally Signed by {officerName} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} | CertNo: {certNo}";
+            existingCert.DigitalSignatureInfo = signatureResult.SignatureInfo;
             existingCert.UpdatedBy = userId;
             existingCert.UpdatedDate = DateTime.UtcNow;
 
@@ -363,7 +369,7 @@ public class RTSCertificateService : IRTSCertificateService
                 IssuedByUserId = userId,
                 IssuedAt = DateTime.UtcNow,
                 IsDigitallySigned = true,
-                DigitalSignatureInfo = $"Digitally Signed by {officerName} at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss UTC} | CertNo: {certNo}",
+                DigitalSignatureInfo = signatureResult.SignatureInfo,
                 IsActive = true,
                 CreatedBy = userId,
                 CreatedDate = DateTime.UtcNow
@@ -533,6 +539,8 @@ public class RTSCertificateService : IRTSCertificateService
             deptName = dept?.DepartmentName ?? "";
         }
 
+        var dscMetadata = _digitalSignatureService.GetCertificateMetadata();
+
         return new CertificateVerificationResponseDto
         {
             IsValid = true,
@@ -547,6 +555,12 @@ public class RTSCertificateService : IRTSCertificateService
             IssuedByOfficer = cert.IssuedByUser != null ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim() : "सक्षम प्राधिकारी",
             OfficerDesignation = "सहाय्यक आयुक्त / कर अधीक्षक",
             IsDigitallySigned = cert.IsDigitallySigned,
+            DigitalSignatureInfo = cert.DigitalSignatureInfo,
+            DscSignerName = dscMetadata?.SignerName ?? "DS AKOLA MUNICIPAL CORPORATION, AKOLA",
+            DscIssuer = dscMetadata?.Issuer ?? "e-Mudhra Sub CA for Class 2 Document Signer 2022",
+            DscSerialNumber = dscMetadata?.SerialNumber ?? "0190D769",
+            DscThumbprint = dscMetadata?.Thumbprint ?? "22B73E13F6DF3898C64B65539A9435DE3CB55C52",
+            DscValidUntil = dscMetadata?.ValidTo ?? new DateTime(2027, 10, 13, 15, 26, 35, DateTimeKind.Utc),
             MergedHtmlContent = cert.MergedHtmlContent,
             Message = "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
         };
@@ -814,19 +828,7 @@ public class RTSCertificateService : IRTSCertificateService
         </div>";
 
         string officerDesignationDynamic = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
-        string signatureHtml = $@"
-        <div class='digital-signature-card bg-emerald-50/90 border-2 border-emerald-600 p-2.5 rounded-lg text-left inline-block shadow-xs min-w-[220px] font-sans text-xs'>
-            <div class='flex items-center gap-1.5 text-emerald-800 font-bold text-[11px] pb-1 border-b border-emerald-300 mb-1'>
-                <span class='text-emerald-700 font-bold text-sm'>✔</span>
-                <span>Digitally Signed (DSC Verified)</span>
-            </div>
-            <div class='font-bold text-slate-900 text-xs'>{officerName ?? ""}</div>
-            <div class='text-[10px] text-slate-700 font-medium'>{officerDesignationDynamic}</div>
-            <div class='text-[9px] text-slate-500 font-mono mt-0.5'>Date: {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss} IST</div>
-            <div class='text-[9px] text-emerald-700 font-bold mt-1 flex items-center gap-1'>
-                <span>🔒</span> <span>e-Sign Verified & Authentic</span>
-            </div>
-        </div>";
+        string signatureHtml = _digitalSignatureService.GenerateSignatureHtml(officerName, officerDesignationDynamic, DateTime.UtcNow, sampleCertNo ?? "");
 
         html = html.Replace("{{OfficialSealStamp}}", sealStampHtml, StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{QRCode}}", qrCodeHtml, StringComparison.OrdinalIgnoreCase);

@@ -117,6 +117,12 @@ public class CertificateVerificationResponseDto
     public string? IssuedByOfficer { get; set; }
     public string? OfficerDesignation { get; set; }
     public bool IsDigitallySigned { get; set; }
+    public string? DigitalSignatureInfo { get; set; }
+    public string? DscSignerName { get; set; }
+    public string? DscIssuer { get; set; }
+    public string? DscSerialNumber { get; set; }
+    public string? DscThumbprint { get; set; }
+    public DateTime? DscValidUntil { get; set; }
     public string? MergedHtmlContent { get; set; }
 }
 
