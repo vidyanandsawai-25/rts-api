@@ -266,17 +266,32 @@ public class RTSCertificateService : IRTSCertificateService
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
-        string deptName = app.Department?.DepartmentName?.Trim() ?? string.Empty;
-        string deptCode = deptName.Length >= 2
-            ? deptName.Substring(0, Math.Min(3, deptName.Length)).ToUpperInvariant()
-            : "SRV";
+        if (app.Service != null && !app.Service.IsCertificateRequired)
+        {
+            return new CertificatePreviewResponseDto
+            {
+                HasTemplate = false,
+                TemplateId = 0,
+                TemplateName = "No Certificate Required",
+                SampleCertificateNo = string.Empty,
+                MergedHtml = "<div class='p-4 text-center text-slate-500 font-semibold'>या सेवेसाठी कोणतेही प्रमाणपत्र जारी करण्याची आवश्यकता नाही (IsCertificateRequired=false).</div>"
+            };
+        }
+
+        string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
+            ? app.Department.DepartmentCode.Trim()
+            : (!string.IsNullOrWhiteSpace(app.Service?.Department?.DepartmentCode)
+                ? app.Service.Department.DepartmentCode.Trim()
+                : (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName) && app.Department.DepartmentName.Length >= 2
+                    ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
+                    : "SRV"));
 
         var response = new CertificatePreviewResponseDto
         {
             HasTemplate = template != null,
             TemplateId = template?.Id ?? 0,
             TemplateName = template?.TemplateName ?? "Default Certificate Template",
-            SampleCertificateNo = $"CERT/RTS/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D5}"
+            SampleCertificateNo = $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}"
         };
 
         if (template != null)
@@ -313,6 +328,11 @@ public class RTSCertificateService : IRTSCertificateService
         if (app == null)
             throw new KeyNotFoundException($"Application with ID {request.ApplicationId} not found.");
 
+        if (app.Service != null && !app.Service.IsCertificateRequired)
+        {
+            throw new InvalidOperationException($"Service '{app.Service.ServiceName}' is configured with IsCertificateRequired=false (No certificate issuance required).");
+        }
+
         var user = await _userRepository.GetQueryable()
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
@@ -321,11 +341,14 @@ public class RTSCertificateService : IRTSCertificateService
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
-        // Generate Dynamic Certificate Department Code from Department Name
-        string deptName = app.Department?.DepartmentName?.Trim() ?? string.Empty;
-        string deptCode = deptName.Length >= 2
-            ? deptName.Substring(0, Math.Min(3, deptName.Length)).ToUpperInvariant()
-            : "SRV";
+        // Generate 100% Dynamic Certificate Department Code from DepartmentMaster.DepartmentCode
+        string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
+            ? app.Department.DepartmentCode.Trim()
+            : (!string.IsNullOrWhiteSpace(app.Service?.Department?.DepartmentCode)
+                ? app.Service.Department.DepartmentCode.Trim()
+                : (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName) && app.Department.DepartmentName.Length >= 2
+                    ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
+                    : "SRV"));
 
         // Check if certificate already exists for this application
         var existingCert = await _issuedCertRepository.GetQueryable()
@@ -687,6 +710,20 @@ public class RTSCertificateService : IRTSCertificateService
         string ulbShortCode = !string.IsNullOrWhiteSpace(ulb?.UlbNameLocal) ? ulb.UlbNameLocal.Split(' ').FirstOrDefault() ?? "मनपा" : "मनपा";
         string currentYear = DateTime.UtcNow.Year.ToString();
 
+        string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
+            ? app.Department.DepartmentCode.Trim()
+            : (!string.IsNullOrWhiteSpace(app.Service?.Department?.DepartmentCode)
+                ? app.Service.Department.DepartmentCode.Trim()
+                : (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName) && app.Department.DepartmentName.Length >= 2
+                    ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
+                    : "SRV"));
+
+        string serviceCode = !string.IsNullOrWhiteSpace(app.Service?.ServiceCode)
+            ? app.Service.ServiceCode.Trim()
+            : $"SRV{app.ServiceId:D3}";
+
+        string standardOutwardNo = $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}";
+
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["ApplicationNo"] = app.ApplicationNo ?? $"RTS{app.Id:D8}",
@@ -700,9 +737,13 @@ public class RTSCertificateService : IRTSCertificateService
             ["ServiceTitle"] = srvNameMarathi,
             ["ServiceName"] = srvNameEng,
             ["ServiceNameMarathi"] = srvNameMarathi,
+            ["ServiceCode"] = serviceCode,
             ["DepartmentName"] = deptNameMarathi,
             ["DepartmentNameMarathi"] = deptNameMarathi,
             ["DepartmentNameEnglish"] = app.Department?.DepartmentName ?? "",
+            ["DepartmentCode"] = deptCode,
+            ["OutwardNo"] = standardOutwardNo,
+            ["OrderNo"] = standardOutwardNo,
             ["ULBCode"] = ulbCode,
             ["ULBShortCode"] = ulbShortCode,
             ["Year"] = currentYear,
@@ -803,9 +844,11 @@ public class RTSCertificateService : IRTSCertificateService
         }
 
         // Automatic Dynamic Fallback for OutwardNo / OrderNo if left blank by officer
-        string fallbackOutward = sampleCertNo ?? $"OUT/RTS/{DateTime.UtcNow:yyyy}";
+        string fallbackOutward = citizenValues.GetValueOrDefault("OutwardNo") ?? sampleCertNo ?? $"OUT/RTS/{DateTime.UtcNow:yyyy}";
         html = html.Replace("[[OutwardNo]]", fallbackOutward, StringComparison.OrdinalIgnoreCase);
         html = html.Replace("[[OrderNo]]", fallbackOutward, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{OutwardNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{OrderNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
 
         // Check if [[SpecialConditions]] exists; replace with customConditions if provided
         if (!string.IsNullOrWhiteSpace(customConditions))

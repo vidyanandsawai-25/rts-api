@@ -25,6 +25,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     private readonly IRepository<SMSMasterEntity, int> _smsMasterRepository;
     private readonly IRepository<SMSTypeEntity, int> _smsTypeRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
+    private readonly IRepository<RTSApplicationDetailsEntity, int> _applicationRepository;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<RTSSmsNotificationService> _logger;
 
@@ -33,6 +34,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         IRepository<SMSMasterEntity, int> smsMasterRepository,
         IRepository<SMSTypeEntity, int> smsTypeRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
+        IRepository<RTSApplicationDetailsEntity, int> applicationRepository,
         IHttpContextAccessor httpContextAccessor,
         ILogger<RTSSmsNotificationService> logger)
     {
@@ -40,6 +42,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         _smsMasterRepository = smsMasterRepository;
         _smsTypeRepository = smsTypeRepository;
         _ulbRepository = ulbRepository;
+        _applicationRepository = applicationRepository;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
@@ -121,6 +124,21 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
         try
         {
+            // If linked to an application, check if the Service has SMS notifications enabled
+            if (applicationId.HasValue && applicationId.Value > 0)
+            {
+                var app = await _applicationRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Include(a => a.Service)
+                    .FirstOrDefaultAsync(a => a.Id == applicationId.Value, ct);
+
+                if (app?.Service != null && !app.Service.IsSmsEnabled)
+                {
+                    _logger.LogInformation("SMS notifications disabled for Service '{ServiceName}' (IsSmsEnabled=false). Skipping dispatch.", app.Service.ServiceName);
+                    return;
+                }
+            }
+
             var corporationName = await GetCorporationNameAsync(ct);
             placeholders["CorporationName"] = corporationName;
             placeholders["UlbName"] = corporationName;

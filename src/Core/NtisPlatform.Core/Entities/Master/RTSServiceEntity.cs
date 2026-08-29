@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace NtisPlatform.Core.Entities.Master;
 
 public class RTSServiceEntity : BaseEntity
@@ -17,5 +19,11 @@ public class RTSServiceEntity : BaseEntity
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
+    public bool IsSmsEnabled { get; set; } = true;
+    public string? ServiceCode { get; set; }
+
+    [ForeignKey(nameof(DepartmentId))]
+    public virtual RTSDepartmentEntity? Department { get; set; }
     public virtual List<RTSApprovalFlowMasterEntity> ApprovalFlows { get; set; } = new List<RTSApprovalFlowMasterEntity>();
 }

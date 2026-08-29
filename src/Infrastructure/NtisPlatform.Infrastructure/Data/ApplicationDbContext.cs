@@ -5885,6 +5885,8 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
+            entity.Property(e => e.DepartmentCode)
+                  .HasMaxLength(20);
             entity.Property(e => e.DepartmentName)
                   .IsRequired()
                   .HasMaxLength(100);
@@ -5957,6 +5959,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentId)
                 .IsRequired();
             entity.Property(e => e.GovtServiceCode);
+            entity.Property(e => e.ServiceCode)
+                .HasMaxLength(20);
             entity.Property(e => e.ServiceName)
                 .IsRequired()
                 .HasMaxLength(200);
@@ -5977,6 +5981,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FeesRequired)
                 .IsRequired()
                 .HasDefaultValue(false);
+            entity.Property(e => e.IsCertificateRequired)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.IsSmsEnabled)
+                .IsRequired()
+                .HasDefaultValue(true);
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -5988,7 +5998,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate)
                 .HasColumnType("datetime");
 
-            entity.HasOne<RTSDepartmentEntity>()
+            entity.HasOne(e => e.Department)
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
