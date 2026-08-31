@@ -315,6 +315,14 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.Id == applicationId)
             .Select(x => new RTSApplicationViewDetailsDto
             {
+                ApplicationId = x.Id,
+                ApplicationNo = x.ApplicationNo,
+                ServiceId = x.ServiceId,
+                ServiceName = x.Service != null ? x.Service.ServiceName : null,
+                DepartmentId = x.DepartmentId,
+                DepartmentName = x.Department != null ? x.Department.DepartmentName : null,
+                ApplicationStatus = x.ApplicationStatus,
+                Remark = x.Remark,
                 Documents = x.FieldValueData
                     .Where(fv =>
                         !fv.MarkedForDeletion &&
@@ -977,9 +985,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        if (!fieldValues.Any())
-            throw new InvalidOperationException("Applicant field values were not found.");
-
         foreach (var item in dto.FieldValue)
         {
             var fieldValue = fieldValues.FirstOrDefault(x =>
@@ -987,16 +992,33 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.FieldDefinitionId == item.FieldDefinitionId);
 
             if (fieldValue == null)
-                throw new InvalidOperationException(
-                    $"Field definition {item.FieldDefinitionId} was not found for this application.");
-
-            fieldValue.TextValue = item.TextValue;
-            fieldValue.NumberValue = item.NumberValue;
-            fieldValue.DateValue = item.DateValue;
-            fieldValue.BooleanValue = item.BooleanValue;
-            fieldValue.DocumentGuid = item.DocumentGuid;
-            fieldValue.UpdatedBy = dto.UpdatedBy;
-            fieldValue.UpdatedDate = DateTime.Now;
+            {
+                var newFieldValue = new RTSFieldValueEntity
+                {
+                    ApplicationId = applicationId,
+                    FieldDefinitionId = item.FieldDefinitionId,
+                    TextValue = item.TextValue,
+                    NumberValue = item.NumberValue,
+                    DateValue = item.DateValue,
+                    BooleanValue = item.BooleanValue,
+                    DocumentGuid = item.DocumentGuid,
+                    IsActive = true,
+                    CreatedBy = dto.UpdatedBy,
+                    CreatedDate = DateTime.Now
+                };
+                await _fieldValueRepository.AddAsync(newFieldValue, cancellationToken);
+            }
+            else
+            {
+                fieldValue.TextValue = item.TextValue;
+                fieldValue.NumberValue = item.NumberValue;
+                fieldValue.DateValue = item.DateValue;
+                fieldValue.BooleanValue = item.BooleanValue;
+                fieldValue.DocumentGuid = item.DocumentGuid;
+                fieldValue.UpdatedBy = dto.UpdatedBy;
+                fieldValue.UpdatedDate = DateTime.Now;
+                await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
+            }
         }
 
         var wasReverted = application.IsReverted || application.ApplicationStatus == ApplicationStatus.Reverted;
@@ -1028,6 +1050,25 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         await _historyRepository.AddAsync(history, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                var statusText = wasReverted ? "RESUBMITTED" : "CORRECTED";
+                await _smsNotificationService.SendApplicationStatusUpdateAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    statusText,
+                    null,
+                    cancellationToken);
+            }
+        }
+        catch { }
 
         return new RTSApplicationApprovalResponseDto
         {
