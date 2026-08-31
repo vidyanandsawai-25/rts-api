@@ -755,6 +755,11 @@ public class RTSCertificateService : IRTSCertificateService
         return "/service/verify-certificate";
     }
 
+    private static readonly JsonSerializerOptions JsonCaseInsensitiveOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     // Helper Methods
     private async Task<Dictionary<string, string>> BuildAutoValuesDictionaryAsync(RTSApplicationDetailsEntity app, CancellationToken ct)
     {
@@ -836,7 +841,56 @@ public class RTSCertificateService : IRTSCertificateService
                     dict[$"Field:{code}"] = val;
                     dict[code] = val;
 
-                    // Common synonyms
+                    // Common synonyms for Education, Student, School Leaving
+                    if (code.Contains("Mother", StringComparison.OrdinalIgnoreCase) || code.Contains("आई", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["MotherName"] = val;
+                    }
+                    if (code.Contains("Father", StringComparison.OrdinalIgnoreCase) || code.Contains("वडील", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["FatherName"] = val;
+                    }
+                    if (code.Contains("Student", StringComparison.OrdinalIgnoreCase) || code.Contains("विद्यार्थी", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["StudentName"] = val;
+                        if (string.IsNullOrWhiteSpace(app.ApplicantName) || app.ApplicantName == "सन्माननीय नागरिक")
+                            dict["ApplicantName"] = val;
+                    }
+                    if (code.Equals("dateOfBirth", StringComparison.OrdinalIgnoreCase) || code.Contains("DOB", StringComparison.OrdinalIgnoreCase) || code.Contains("जन्म", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["DOB"] = val;
+                        dict["DateOfBirth"] = val;
+                    }
+                    if (code.Contains("Caste", StringComparison.OrdinalIgnoreCase) || code.Contains("जात", StringComparison.OrdinalIgnoreCase) || code.Contains("प्रवर्ग", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["CasteCategory"] = val;
+                        dict["Caste"] = val;
+                    }
+                    if (code.Contains("BirthPlace", StringComparison.OrdinalIgnoreCase) || code.Contains("जन्मस्थान", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["BirthPlace"] = val;
+                    }
+                    if (code.Contains("School", StringComparison.OrdinalIgnoreCase) || code.Contains("शाळा", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["SchoolName"] = val;
+                    }
+                    if (code.Contains("Standard", StringComparison.OrdinalIgnoreCase) || code.Contains("इयत्ता", StringComparison.OrdinalIgnoreCase) || code.Contains("Class", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["StandardStudied"] = val;
+                        dict["LastStandardStudied"] = val;
+                    }
+                    if (code.Contains("Reason", StringComparison.OrdinalIgnoreCase) || code.Contains("कारण", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["ReasonForLeaving"] = val;
+                        dict["LeavingReason"] = val;
+                    }
+                    if (code.Contains("YearOfLeaving", StringComparison.OrdinalIgnoreCase) || code.Contains("LeavingYear", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["LeavingDate"] = val;
+                        dict["LeavingYear"] = val;
+                    }
+
+                    // Common Property, Zone, Ward, Address synonyms
                     if (code.Contains("Address", StringComparison.OrdinalIgnoreCase) || code.Contains("Patt", StringComparison.OrdinalIgnoreCase) || code.Contains("Addr", StringComparison.OrdinalIgnoreCase))
                     {
                         dict["ApplicantAddress"] = val;
@@ -885,10 +939,14 @@ public class RTSCertificateService : IRTSCertificateService
     {
         string html = rawTemplateHtml;
 
-        // 1. Replace Citizen dynamic fields {{TagName}}
+        // 1. Replace Citizen dynamic fields {{TagName}} AND [[TagName]]
         foreach (var (k, v) in citizenValues)
         {
-            html = html.Replace($"{{{{{k}}}}}", v ?? "", StringComparison.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(v))
+            {
+                html = html.Replace($"{{{{{k}}}}}", v, StringComparison.OrdinalIgnoreCase);
+                html = html.Replace($"[[{k}]]", v, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         // Common system tags
@@ -897,7 +955,7 @@ public class RTSCertificateService : IRTSCertificateService
         html = html.Replace("{{OfficerDesignation}}", citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "", StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{ApprovalDate}}", DateTime.UtcNow.ToString("dd/MM/yyyy"), StringComparison.OrdinalIgnoreCase);
 
-        // 2. Replace Officer Inputs [[FieldKey]]
+        // 2. Replace Officer Inputs [[FieldKey]] AND {{FieldKey}}
         if (officerInputs != null)
         {
             foreach (var (k, v) in officerInputs)
@@ -905,6 +963,7 @@ public class RTSCertificateService : IRTSCertificateService
                 if (!string.IsNullOrWhiteSpace(v))
                 {
                     html = html.Replace($"[[{k}]]", v, StringComparison.OrdinalIgnoreCase);
+                    html = html.Replace($"{{{{{k}}}}}", v, StringComparison.OrdinalIgnoreCase);
                 }
             }
         }
@@ -981,6 +1040,10 @@ public class RTSCertificateService : IRTSCertificateService
                 {
                     html = html.Replace("{{OfficerFieldsBlock}}", dynamicOfficerBlock, StringComparison.OrdinalIgnoreCase);
                 }
+                else if (html.Contains("[[OfficerFieldsBlock]]", StringComparison.OrdinalIgnoreCase))
+                {
+                    html = html.Replace("[[OfficerFieldsBlock]]", dynamicOfficerBlock, StringComparison.OrdinalIgnoreCase);
+                }
                 else if (html.Contains("{{DigitalSignature}}", StringComparison.OrdinalIgnoreCase))
                 {
                     html = html.Replace("{{DigitalSignature}}", $"{dynamicOfficerBlock}\n{{{{DigitalSignature}}}}", StringComparison.OrdinalIgnoreCase);
@@ -992,8 +1055,8 @@ public class RTSCertificateService : IRTSCertificateService
             }
         }
 
-        // Clean any remaining unreplaced {{OfficerFieldsBlock}} or [[OfficerField]] tags
         html = html.Replace("{{OfficerFieldsBlock}}", "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerFieldsBlock]]", "", StringComparison.OrdinalIgnoreCase);
         html = Regex.Replace(html, @"\[\[\w+\]\]", "");
 
         // 3. Inject Dynamic Official Seal Stamp, QR Code and Digital Signature Blocks
@@ -1061,7 +1124,16 @@ public class RTSCertificateService : IRTSCertificateService
         {
             try
             {
-                dto.OfficerFields = JsonSerializer.Deserialize<List<OfficerFieldConfigDto>>(entity.OfficerFieldsConfigJson) ?? new();
+                string json = entity.OfficerFieldsConfigJson.Trim();
+                if (json.StartsWith("\"") && json.EndsWith("\""))
+                {
+                    try { json = JsonSerializer.Deserialize<string>(json) ?? json; } catch {}
+                }
+                if (json.Contains("\\\""))
+                {
+                    json = json.Replace("\\\"", "\"");
+                }
+                dto.OfficerFields = JsonSerializer.Deserialize<List<OfficerFieldConfigDto>>(json, JsonCaseInsensitiveOptions) ?? new();
             }
             catch {}
         }
@@ -1070,7 +1142,16 @@ public class RTSCertificateService : IRTSCertificateService
         {
             try
             {
-                dto.DefaultConditions = JsonSerializer.Deserialize<List<string>>(entity.DefaultConditionsJson) ?? new();
+                string json = entity.DefaultConditionsJson.Trim();
+                if (json.StartsWith("\"") && json.EndsWith("\""))
+                {
+                    try { json = JsonSerializer.Deserialize<string>(json) ?? json; } catch {}
+                }
+                if (json.Contains("\\\""))
+                {
+                    json = json.Replace("\\\"", "\"");
+                }
+                dto.DefaultConditions = JsonSerializer.Deserialize<List<string>>(json, JsonCaseInsensitiveOptions) ?? new();
             }
             catch {}
         }
