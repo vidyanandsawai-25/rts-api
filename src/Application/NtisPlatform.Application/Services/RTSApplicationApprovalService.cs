@@ -316,7 +316,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (currentStages != null)
+            if (currentStages != null && application.Status==ApplicationStatus.Reverted)
             {
                 var hasPreviousStage = await _approvalFlowStageRepository
                     .GetQueryable()
@@ -328,10 +328,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 result.isRevertedToCitizen = !hasPreviousStage;
             }
         }
-
-
-
-
 
 
         result.TotalApprovalStages = result.ApprovalStages.Count;
