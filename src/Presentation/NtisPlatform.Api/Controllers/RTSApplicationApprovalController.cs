@@ -215,4 +215,23 @@ public class RTSApplicationApprovalController : ControllerBase
             Items = result
         });
     }
+
+    /// <summary>
+    /// Complete RTS Application Audit Trail & Track History
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{applicationId}/track-history")]
+    [ProducesResponseType(typeof(ApiResponse<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetTrackApplicationHistory(int applicationId, CancellationToken ct)
+    {
+        var result = await _service.GetTrackApplicationHistoryAsync(applicationId, ct);
+        return Ok(new ApiResponse<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>>
+        {
+            Success = true,
+            Message = "Application Track History & Audit Trail Retrieved Successfully",
+            Items = result
+        });
+    }
 }
+

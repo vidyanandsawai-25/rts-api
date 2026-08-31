@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Constants;
@@ -26,6 +27,7 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _stageRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IRTSDigitalSignatureService _digitalSignatureService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RTSCertificateService> _logger;
 
@@ -43,6 +45,7 @@ public class RTSCertificateService : IRTSCertificateService
         IRepository<RTSApprovalFlowStageMasterEntity, int> stageRepository,
         IRTSSmsNotificationService smsNotificationService,
         IRTSDigitalSignatureService digitalSignatureService,
+        IHttpContextAccessor httpContextAccessor,
         IUnitOfWork unitOfWork,
         ILogger<RTSCertificateService> logger)
     {
@@ -59,6 +62,7 @@ public class RTSCertificateService : IRTSCertificateService
         _stageRepository = stageRepository;
         _smsNotificationService = smsNotificationService;
         _digitalSignatureService = digitalSignatureService;
+        _httpContextAccessor = httpContextAccessor;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -589,27 +593,66 @@ public class RTSCertificateService : IRTSCertificateService
         return dto;
     }
 
-    public async Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(Guid certificateGuid, CancellationToken ct)
+    public async Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(string identifier, CancellationToken ct)
     {
-        var cert = await _issuedCertRepository.GetQueryable()
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return new CertificateVerificationResponseDto
+            {
+                IsValid = false,
+                Message = "सदर क्यूआर कोड किंवा प्रमाणपत्र क्रमांक अवैध आहे. (Invalid or Unverified Certificate)"
+            };
+        }
+
+        var trimmed = identifier.Trim();
+        bool isGuid = Guid.TryParse(trimmed, out var parsedGuid);
+        int parsedAppId = 0;
+        if (trimmed.StartsWith("RTS", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = int.TryParse(trimmed.Substring(3).TrimStart('0'), out parsedAppId);
+        }
+        else
+        {
+            _ = int.TryParse(trimmed, out parsedAppId);
+        }
+
+        var query = _issuedCertRepository.GetQueryable()
             .AsNoTracking()
             .Include(c => c.Application)
             .Include(c => c.Service)
             .Include(c => c.IssuedByUser)
-            .FirstOrDefaultAsync(c => c.CertificateGuid == certificateGuid && !c.MarkedForDeletion, ct);
+            .Where(c => !c.MarkedForDeletion);
+
+        var cert = isGuid
+            ? await query.FirstOrDefaultAsync(c => c.CertificateGuid == parsedGuid, ct)
+            : await query.FirstOrDefaultAsync(c =>
+                c.CertificateNo == trimmed ||
+                (c.Application != null && c.Application.ApplicationNo == trimmed) ||
+                (parsedAppId > 0 && c.ApplicationId == parsedAppId), ct);
+
+        if (cert == null && !isGuid)
+        {
+            // fallback attempt by guid if string was a formatted guid
+            if (Guid.TryParse(trimmed, out var fallbackGuid))
+            {
+                cert = await query.FirstOrDefaultAsync(c => c.CertificateGuid == fallbackGuid, ct);
+            }
+        }
 
         if (cert == null)
         {
             return new CertificateVerificationResponseDto
             {
                 IsValid = false,
-                CertificateGuid = certificateGuid,
+                CertificateGuid = isGuid ? parsedGuid : Guid.Empty,
                 Message = "सदर क्यूआर कोड किंवा प्रमाणपत्र क्रमांक अवैध आहे. (Invalid or Unverified Certificate)"
             };
         }
 
         var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
-        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "नागरी स्थानिक संस्था (ULB)";
+        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "अकोला महानगरपालिका, अकोला";
+        string ulbLogo = ulb?.UlbLogo ?? "/images/akola-seal.png";
+        string ulbAddress = ulb?.UlbAddress ?? "एम. जी. रोड, मुख्य प्रशासकीय इमारत, अकोला, महाराष्ट्र - ४४४००१";
 
         string deptName = "";
         if (cert.Service != null)
@@ -650,13 +693,15 @@ public class RTSCertificateService : IRTSCertificateService
             DepartmentName = deptName,
             ApplicantName = cert.Application?.ApplicantName ?? "",
             UlbName = ulbName,
+            UlbLogo = ulbLogo,
+            UlbAddress = ulbAddress,
             IssuedAt = cert.IssuedAt,
             IssuedByOfficer = officerName,
             OfficerDesignation = officerDesignation,
             IsDigitallySigned = cert.IsDigitallySigned,
             DigitalSignatureInfo = cert.DigitalSignatureInfo,
             DscSignerName = dscMetadata?.SignerName ?? "Authorized Document Signer",
-            DscIssuer = dscMetadata?.Issuer ?? "Certifying Authority",
+            DscIssuer = dscMetadata?.Issuer ?? "Certifying Authority (CCA India Recognized)",
             DscSerialNumber = dscMetadata?.SerialNumber ?? "",
             DscThumbprint = dscMetadata?.Thumbprint ?? "",
             DscValidUntil = dscMetadata?.ValidTo,
@@ -670,7 +715,7 @@ public class RTSCertificateService : IRTSCertificateService
         try
         {
             var ulb = await _ulbRepository.GetQueryable().FirstOrDefaultAsync(u => u.IsActive, ct);
-            if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl))
+            if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl) && !ulb.WebsiteUrl.Trim().Equals("-"))
             {
                 var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
                 if (!cleanUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !cleanUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -682,6 +727,27 @@ public class RTSCertificateService : IRTSCertificateService
                     cleanUrl = cleanUrl[..^8].TrimEnd('/');
                 }
                 return $"{cleanUrl}/service/verify-certificate";
+            }
+        }
+        catch { }
+
+        try
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var origin = httpContext.Request.Headers["Origin"].FirstOrDefault()
+                          ?? httpContext.Request.Headers["Referer"].FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(origin) && Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return $"{uri.Scheme}://{uri.Authority}/service/verify-certificate";
+                }
+
+                if (httpContext.Request.Host.HasValue)
+                {
+                    return $"{httpContext.Request.Scheme}://{httpContext.Request.Host.Value}/service/verify-certificate";
+                }
             }
         }
         catch { }

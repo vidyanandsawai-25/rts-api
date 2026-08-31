@@ -22,7 +22,7 @@ public class RTSCertificateVerificationController : ControllerBase
 
     [HttpGet("verify/{certificateGuid}")]
     [ProducesResponseType(typeof(ApiResponse<CertificateVerificationResponseDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> VerifyCertificate(Guid certificateGuid, CancellationToken ct)
+    public async Task<IActionResult> VerifyCertificate(string certificateGuid, CancellationToken ct)
     {
         var result = await _service.VerifyCertificatePublicAsync(certificateGuid, ct);
         return Ok(new ApiResponse<CertificateVerificationResponseDto>

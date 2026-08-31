@@ -248,7 +248,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           .Select(x => new ApplicationApprovalStageDetailsDto
           {
               ApprovalStages = x.Service.ApprovalFlows
-                .Where(flow => flow.IsActive)
+                .Where(flow => flow.IsActive && (x.ApprovalFlowId == 0 || flow.Id == x.ApprovalFlowId))
                 .OrderByDescending(flow => flow.Id)
                 .Take(1)
                 .SelectMany(flow => flow.ApprovalFlowStages)
@@ -1247,5 +1247,65 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     {
         var numericPart = new string(sla?.Where(char.IsDigit).ToArray() ?? []);
         return int.TryParse(numericPart, out var days) ? days : null;
+    }
+
+    public async Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(
+        int applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        var histories = await _historyRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(h => h.Application)
+            .Include(h => h.ApprovalFlowStage)
+            .Where(h => h.ApplicationId == applicationId && h.IsActive)
+            .OrderBy(h => h.Id)
+            .ToListAsync(cancellationToken);
+
+        var userIds = histories.Where(h => h.ActionByUserId.HasValue).Select(h => h.ActionByUserId!.Value).Distinct().ToList();
+        var users = await _userRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => new { u.UserName, u.FirstName, u.LastName }, cancellationToken);
+
+        var result = new List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>();
+        foreach (var h in histories)
+        {
+            string? userName = null;
+            string? officerName = null;
+            if (h.ActionByUserId.HasValue && users.TryGetValue(h.ActionByUserId.Value, out var user))
+            {
+                userName = user.UserName;
+                officerName = $"{user.FirstName} {user.LastName}".Trim();
+                if (string.IsNullOrWhiteSpace(officerName)) officerName = user.UserName;
+            }
+
+            bool isDsc = h.Action != null && (
+                h.Action.Contains("DigitalSign", StringComparison.OrdinalIgnoreCase) ||
+                h.Action.Contains("DSC", StringComparison.OrdinalIgnoreCase) ||
+                (h.Remark != null && h.Remark.Contains("DSC Hash", StringComparison.OrdinalIgnoreCase))
+            );
+
+            result.Add(new NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto
+            {
+                Id = h.Id,
+                ApplicationId = h.ApplicationId,
+                ApplicationNo = h.Application?.ApplicationNo,
+                ApprovalFlowId = h.ApprovalFlowId,
+                ApprovalFlowStageId = h.ApprovalFlowStageId,
+                StageName = h.ApprovalFlowStage?.StageName,
+                ActionByUserId = h.ActionByUserId,
+                ActionByUserName = userName,
+                ActionByOfficerName = officerName,
+                Action = h.Action ?? string.Empty,
+                Status = h.Status,
+                Remark = h.Remark,
+                IsReverted = h.IsReverted,
+                IsDigitallySigned = isDsc,
+                DigitalSignatureInfo = isDsc ? h.Remark : null,
+                CreatedDate = h.CreatedDate ?? DateTime.UtcNow
+            });
+        }
+
+        return result;
     }
 }

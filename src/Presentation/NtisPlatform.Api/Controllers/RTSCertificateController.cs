@@ -189,6 +189,20 @@ public class RTSCertificateController : ControllerBase
         });
     }
 
+    [HttpGet("dsc-metadata")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<DigitalSignatureMetadataDto>), StatusCodes.Status200OK)]
+    public IActionResult GetDscMetadata([FromServices] IRTSDigitalSignatureService dscService)
+    {
+        var metadata = dscService.GetCertificateMetadata();
+        return Ok(new ApiResponse<DigitalSignatureMetadataDto>
+        {
+            Success = true,
+            Message = "DSC metadata retrieved successfully",
+            Items = metadata
+        });
+    }
+
     private int GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("id") ?? User.FindFirst("UserId");

@@ -113,6 +113,8 @@ public class CertificateVerificationResponseDto
     public string? DepartmentName { get; set; }
     public string? ApplicantName { get; set; }
     public string? UlbName { get; set; }
+    public string? UlbLogo { get; set; }
+    public string? UlbAddress { get; set; }
     public DateTime? IssuedAt { get; set; }
     public string? IssuedByOfficer { get; set; }
     public string? OfficerDesignation { get; set; }

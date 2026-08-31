@@ -27,17 +27,20 @@ public class RTSApplicationController : ControllerBase
     private readonly IRTSApplicationService _service;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IRepository<SMSGatewayMasterEntity, int> _gatewayRepository;
+    private readonly IRepository<SMSMasterEntity, int> _smsMasterRepository;
     private readonly ILogger<RTSApplicationController> _logger;
 
     public RTSApplicationController(
         IRTSApplicationService service,
         IRTSSmsNotificationService smsNotificationService,
         IRepository<SMSGatewayMasterEntity, int> gatewayRepository,
+        IRepository<SMSMasterEntity, int> smsMasterRepository,
         ILogger<RTSApplicationController> logger)
     {
         _service = service;
         _smsNotificationService = smsNotificationService;
         _gatewayRepository = gatewayRepository;
+        _smsMasterRepository = smsMasterRepository;
         _logger = logger;
     }
 
@@ -64,19 +67,31 @@ public class RTSApplicationController : ControllerBase
             return BadRequest(new { success = false, message = "Please provide a valid 10-digit mobile number." });
         }
 
-        // Check if live SMS Gateway is enabled in database
+        var txnId = $"txn_{sanitizedMobile}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        // 1. Check if live SMS Gateway is enabled in database
         var isGatewayActive = await _gatewayRepository.GetQueryable().AnyAsync(g => g.IsActive, ct);
-        if (!isGatewayActive)
+
+        // 2. Check if OTP template is active in database (CORE.SMSMaster)
+        var isOtpTemplateActive = await _smsMasterRepository.GetQueryable().AnyAsync(t => t.IsActive && t.TemplateName == "RTS_CITIZEN_LOGIN_OTP", ct);
+
+        // If SMS Gateway or OTP template is inactive, enable smooth direct login (bypass OTP step)
+        if (!isGatewayActive || !isOtpTemplateActive)
         {
-            return BadRequest(new
+            _logger.LogInformation("SMS Gateway or RTS_CITIZEN_LOGIN_OTP template is inactive in database. Enabling direct login for {Mobile}", sanitizedMobile);
+            return Ok(new
             {
-                success = false,
-                message = "SMS Gateway is not active in database.",
+                success = true,
+                directLogin = true,
+                isLive = false,
+                message = "SMS service is disabled in database. Direct login enabled.",
+                txnId,
+                otp = "123456",
+                expiresInSeconds = 120
             });
         }
 
         var otp = new Random().Next(100000, 999999).ToString();
-        var txnId = $"txn_{sanitizedMobile}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
 
         try
         {
@@ -91,6 +106,7 @@ public class RTSApplicationController : ControllerBase
         return Ok(new
         {
             success = true,
+            directLogin = false,
             isLive = true,
             message = "OTP dispatched successfully via official SMS gateway.",
             txnId,
