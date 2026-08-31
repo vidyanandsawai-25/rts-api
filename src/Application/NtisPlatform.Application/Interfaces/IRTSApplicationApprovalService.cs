@@ -39,4 +39,3 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
     // </summary>
     Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(int applicationId, CancellationToken cancellationToken = default);
 }
-
