@@ -49,6 +49,7 @@ public class ApplicationFieldValueDto
     {
         public int? TotalApprovalStages { get; set; }
         public int CompletedStages { get; set; }
+        public bool isRevertedToCitizen { get; set; }
         public List<ApplicationApprovalStageDto> ApprovalStages { get; set; } = new();
     }
 
