@@ -965,7 +965,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (currentStage == null)
             throw new InvalidOperationException("Current approval stage was not found.");
 
-        if (!currentStage.CanEdit)
+        if (!currentStage.CanEdit && application.ApplicationStatus != ApplicationStatus.Reverted && !application.IsReverted)
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application correction.");
 
@@ -999,10 +999,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             fieldValue.UpdatedDate = DateTime.Now;
         }
 
-            application.Remark = dto.Remark;
-            application.UpdatedBy = dto.UpdatedBy;
-            application.UpdatedDate = DateTime.Now;
+        var wasReverted = application.IsReverted || application.ApplicationStatus == ApplicationStatus.Reverted;
+        if (wasReverted)
+        {
+            application.ApplicationStatus = ApplicationStatus.Pending;
+            application.IsReverted = false;
+        }
 
+        application.Remark = dto.Remark;
+        application.UpdatedBy = dto.UpdatedBy;
+        application.UpdatedDate = DateTime.Now;
 
         var history = new TrackApplicationHistoryEntity
         {
@@ -1010,9 +1016,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = application.CurrentApprovalFlowStageId,
             ActionByUserId = dto.UpdatedBy,
-            Status = ApplicationStatus.Correction,
-            Action = $"{ApplicationStatus.Correction} at {currentStage.StageName}",
-            Remark = dto.Remark,
+            Status = wasReverted ? ApplicationStatus.Pending : ApplicationStatus.Correction,
+            Action = wasReverted ? "Application Corrected & Resubmitted" : $"{ApplicationStatus.Correction} at {currentStage.StageName}",
+            Remark = dto.Remark ?? (wasReverted ? "Corrections updated and resubmitted" : null),
             IsReverted = false,
             IsActive = true,
             CreatedBy = dto.UpdatedBy,
