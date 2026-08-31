@@ -80,6 +80,7 @@ public class OldPropertyInfoDto
 public class OldPropertySuggestionDto : OldPropertyInfoDto
 {
     public bool IsMapped { get; set; }
+    public int? MappedNewPropertyId { get; set; }
     public string? MappedNewPropertyNo { get; set; }
     public List<PropertyDetailsOldDto> PropertyDetailsOld { get; set; } = new();
 

@@ -464,7 +464,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
 
         var oldIds = oldRaw.Select(x => x.id).ToList();
         var detailsLookup = new Dictionary<int, List<PropertyDetailsOldDto>>();
-        var mappingLookup = new Dictionary<int, string>();
+        var mappingLookup = new Dictionary<int, (int PropertyIdNew, string PropertyNoFormatted)>();
         var transMastOldLookup = new Dictionary<int, List<TransMastOldDto>>();
 
         if (oldIds.Any())
@@ -535,6 +535,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                             select new
                             {
                                 PropertyIdOld = pmd.PropertyIdOld.Value,
+                                PropertyIdNew = pm.Id,
                                 WardNo = pm.Ward != null ? pm.Ward.WardNo : string.Empty,
                                 PropertyNo = pm.PropertyNo,
                                 PartitionNo = pm.PartitionNo
@@ -560,53 +561,59 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
 
                 if (!string.IsNullOrWhiteSpace(baseNo))
                 {
-                    mappingLookup[m.PropertyIdOld] = baseNo;
+                    mappingLookup[m.PropertyIdOld] = (m.PropertyIdNew, baseNo);
                 }
             }
         }
 
-        var oldSuggestions = oldRaw.Select(x => new OldPropertySuggestionDto
+        var oldSuggestions = oldRaw.Select(x =>
         {
-            Id = x.dto.Id,
-            OldPropertyNo = x.dto.OldPropertyNo,
-            OldOwnerName = x.dto.OldOwnerName,
-            OldOwnerNameEnglish = x.dto.OldOwnerNameEnglish,
-            OldWardNo = x.dto.OldWardNo,
-            OldEgovNo = x.dto.OldEgovNo,
-            OldMobileNo = x.dto.OldMobileNo,
-            OldPartitionNo = x.dto.OldPartitionNo,
-            OldAddress = x.dto.OldAddress,
-            OldAddressEnglish = x.dto.OldAddressEnglish,
-            OldZoneNo = x.dto.OldZoneNo,
-            OldPlotNo = x.dto.OldPlotNo,
-            OldCSN = x.dto.OldCSN,
-            OldALV = x.dto.OldALV,
-            OldRV = x.dto.OldRV,
-            OldGeneralTax = x.dto.OldGeneralTax,
-            OldTotalTax = x.dto.OldTotalTax,
-            OldPlotArea = x.dto.OldPlotArea,
-            OldConstructionArea = x.dto.OldConstructionArea,
-            OldFloor = x.dto.OldFloor,
-            OldUseType = x.dto.OldUseType,
-            OldOccupierName = x.dto.OldOccupierName,
-            OldOccupierNameEnglish = x.dto.OldOccupierNameEnglish,
-            OldSocietyName = x.dto.OldSocietyName,
-            OldFlatOrShopNumber = x.dto.OldFlatOrShopNumber,
-            OldWing = x.dto.OldWing,
-            OldEmailId = x.dto.OldEmailId,
-            OldParkingAreaSqFt = x.dto.OldParkingAreaSqFt,
-            OldParkingAreaSqMtr = x.dto.OldParkingAreaSqMtr,
-            OldPropertyTypeId = x.dto.OldPropertyTypeId,
-            OldAssessmentYear = x.dto.OldAssessmentYear,
-            OldConstructionYear = x.dto.OldConstructionYear,
-            OldConstructionTypeOfUseId = x.dto.OldConstructionTypeOfUseId,
-            NoOfOldToilets = x.dto.NoOfOldToilets,
-            OldTotalRooms = x.dto.OldTotalRooms,
-            OldAssessmentDate = x.dto.OldAssessmentDate,
-            IsMapped = mappingLookup.ContainsKey(x.id),
-            MappedNewPropertyNo = mappingLookup.TryGetValue(x.id, out var newPropNo) ? newPropNo : null,
-            PropertyDetailsOld = detailsLookup.TryGetValue(x.id, out var details) ? details : new List<PropertyDetailsOldDto>(),
-            TransMastOldRecords = transMastOldLookup.TryGetValue(x.id, out var tmo) ? tmo : new List<TransMastOldDto>()
+            var isMapped = mappingLookup.TryGetValue(x.id, out var mapInfo);
+
+            return new OldPropertySuggestionDto
+            {
+                Id = x.dto.Id,
+                OldPropertyNo = x.dto.OldPropertyNo,
+                OldOwnerName = x.dto.OldOwnerName,
+                OldOwnerNameEnglish = x.dto.OldOwnerNameEnglish,
+                OldWardNo = x.dto.OldWardNo,
+                OldEgovNo = x.dto.OldEgovNo,
+                OldMobileNo = x.dto.OldMobileNo,
+                OldPartitionNo = x.dto.OldPartitionNo,
+                OldAddress = x.dto.OldAddress,
+                OldAddressEnglish = x.dto.OldAddressEnglish,
+                OldZoneNo = x.dto.OldZoneNo,
+                OldPlotNo = x.dto.OldPlotNo,
+                OldCSN = x.dto.OldCSN,
+                OldALV = x.dto.OldALV,
+                OldRV = x.dto.OldRV,
+                OldGeneralTax = x.dto.OldGeneralTax,
+                OldTotalTax = x.dto.OldTotalTax,
+                OldPlotArea = x.dto.OldPlotArea,
+                OldConstructionArea = x.dto.OldConstructionArea,
+                OldFloor = x.dto.OldFloor,
+                OldUseType = x.dto.OldUseType,
+                OldOccupierName = x.dto.OldOccupierName,
+                OldOccupierNameEnglish = x.dto.OldOccupierNameEnglish,
+                OldSocietyName = x.dto.OldSocietyName,
+                OldFlatOrShopNumber = x.dto.OldFlatOrShopNumber,
+                OldWing = x.dto.OldWing,
+                OldEmailId = x.dto.OldEmailId,
+                OldParkingAreaSqFt = x.dto.OldParkingAreaSqFt,
+                OldParkingAreaSqMtr = x.dto.OldParkingAreaSqMtr,
+                OldPropertyTypeId = x.dto.OldPropertyTypeId,
+                OldAssessmentYear = x.dto.OldAssessmentYear,
+                OldConstructionYear = x.dto.OldConstructionYear,
+                OldConstructionTypeOfUseId = x.dto.OldConstructionTypeOfUseId,
+                NoOfOldToilets = x.dto.NoOfOldToilets,
+                OldTotalRooms = x.dto.OldTotalRooms,
+                OldAssessmentDate = x.dto.OldAssessmentDate,
+                IsMapped = isMapped,
+                MappedNewPropertyId = isMapped ? mapInfo.PropertyIdNew : null,
+                MappedNewPropertyNo = isMapped ? mapInfo.PropertyNoFormatted : null,
+                PropertyDetailsOld = detailsLookup.TryGetValue(x.id, out var details) ? details : new List<PropertyDetailsOldDto>(),
+                TransMastOldRecords = transMastOldLookup.TryGetValue(x.id, out var tmo) ? tmo : new List<TransMastOldDto>()
+            };
         }).ToList();
 
         return new PropertyMapSearchResultDto
