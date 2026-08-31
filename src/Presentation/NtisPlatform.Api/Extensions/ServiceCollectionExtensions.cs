@@ -459,6 +459,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IULBDocumentService, ULBDocumentService>();
         services.AddScoped<IULBDocumentQueryService, ULBDocumentQueryService>();
         services.AddScoped<IULBDocumentTypeService, ULBDocumentTypeService>();
+        services.AddScoped<IAliasMasterService, AliasMasterService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
         services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
         services.AddScoped<IPropertyRuleEvaluationMasterService, PropertyRuleEvaluationMasterService>();
