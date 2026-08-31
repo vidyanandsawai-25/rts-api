@@ -1453,6 +1453,7 @@ public class PropertyMapMasterServiceTests
         var sug = result.OldPropertySuggestions.First();
         Assert.Equal(10, sug.Id);
         Assert.True(sug.IsMapped);
+        Assert.Equal(20, sug.MappedNewPropertyId);
         Assert.Equal("WARD-5-PROP-NEW-123/PART-A", sug.MappedNewPropertyNo);
     }
 
