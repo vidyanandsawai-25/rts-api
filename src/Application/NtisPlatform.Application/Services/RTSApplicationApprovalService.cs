@@ -977,9 +977,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        if (!fieldValues.Any())
-            throw new InvalidOperationException("Applicant field values were not found.");
-
         foreach (var item in dto.FieldValue)
         {
             var fieldValue = fieldValues.FirstOrDefault(x =>
@@ -987,16 +984,33 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.FieldDefinitionId == item.FieldDefinitionId);
 
             if (fieldValue == null)
-                throw new InvalidOperationException(
-                    $"Field definition {item.FieldDefinitionId} was not found for this application.");
-
-            fieldValue.TextValue = item.TextValue;
-            fieldValue.NumberValue = item.NumberValue;
-            fieldValue.DateValue = item.DateValue;
-            fieldValue.BooleanValue = item.BooleanValue;
-            fieldValue.DocumentGuid = item.DocumentGuid;
-            fieldValue.UpdatedBy = dto.UpdatedBy;
-            fieldValue.UpdatedDate = DateTime.Now;
+            {
+                var newFieldValue = new RTSFieldValueEntity
+                {
+                    ApplicationId = applicationId,
+                    FieldDefinitionId = item.FieldDefinitionId,
+                    TextValue = item.TextValue,
+                    NumberValue = item.NumberValue,
+                    DateValue = item.DateValue,
+                    BooleanValue = item.BooleanValue,
+                    DocumentGuid = item.DocumentGuid,
+                    IsActive = true,
+                    CreatedBy = dto.UpdatedBy,
+                    CreatedDate = DateTime.Now
+                };
+                await _fieldValueRepository.AddAsync(newFieldValue, cancellationToken);
+            }
+            else
+            {
+                fieldValue.TextValue = item.TextValue;
+                fieldValue.NumberValue = item.NumberValue;
+                fieldValue.DateValue = item.DateValue;
+                fieldValue.BooleanValue = item.BooleanValue;
+                fieldValue.DocumentGuid = item.DocumentGuid;
+                fieldValue.UpdatedBy = dto.UpdatedBy;
+                fieldValue.UpdatedDate = DateTime.Now;
+                await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
+            }
         }
 
         var wasReverted = application.IsReverted || application.ApplicationStatus == ApplicationStatus.Reverted;
