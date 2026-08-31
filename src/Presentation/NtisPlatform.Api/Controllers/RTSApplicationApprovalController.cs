@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
+using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 
@@ -221,12 +222,12 @@ public class RTSApplicationApprovalController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpGet("{applicationId}/track-history")]
-    [ProducesResponseType(typeof(ApiResponse<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<List<RTSTrackApplicationHistoryDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetTrackApplicationHistory(int applicationId, CancellationToken ct)
     {
         var result = await _service.GetTrackApplicationHistoryAsync(applicationId, ct);
-        return Ok(new ApiResponse<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>>
+        return Ok(new ApiResponse<List<RTSTrackApplicationHistoryDto>>
         {
             Success = true,
             Message = "Application Track History & Audit Trail Retrieved Successfully",
