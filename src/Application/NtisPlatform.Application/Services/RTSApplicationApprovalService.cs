@@ -315,6 +315,14 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.Id == applicationId)
             .Select(x => new RTSApplicationViewDetailsDto
             {
+                ApplicationId = x.Id,
+                ApplicationNo = x.ApplicationNo,
+                ServiceId = x.ServiceId,
+                ServiceName = x.Service != null ? x.Service.ServiceName : null,
+                DepartmentId = x.DepartmentId,
+                DepartmentName = x.Department != null ? x.Department.DepartmentName : null,
+                ApplicationStatus = x.ApplicationStatus,
+                Remark = x.Remark,
                 Documents = x.FieldValueData
                     .Where(fv =>
                         !fv.MarkedForDeletion &&

@@ -6,6 +6,14 @@ namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 /// </summary>
 public class RTSApplicationViewDetailsDto
 {
+    public int ApplicationId { get; set; }
+    public string? ApplicationNo { get; set; }
+    public int ServiceId { get; set; }
+    public string? ServiceName { get; set; }
+    public int DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
+    public string? ApplicationStatus { get; set; }
+    public string? Remark { get; set; }
     public List<ApplicationDocumentDto> Documents { get; set; } = new();
     public List<ApplicationFieldValueDto> ApplicationDetails { get; set; } = new();
 }
