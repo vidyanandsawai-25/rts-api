@@ -56,6 +56,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxZoningRangeEntity> TaxZoningRange { get; set; } = null!;
     public DbSet<ULBDocumentTypeEntity> ULBDocumentType { get; set; } = null!;
     public DbSet<ULBDocumentEntity> ULBDocument { get; set; } = null!;
+    public DbSet<AliasMasterEntity> AliasMaster { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<PropertyRuleEvaluationMasterEntity> PropertyRuleEvaluationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
@@ -814,6 +815,28 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsLatest)
                 .HasDatabaseName("IX_ULBDocument_IsLatest")
                 .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
+        });
+
+        // AliasMaster configuration
+        modelBuilder.Entity<AliasMasterEntity>(entity =>
+        {
+            entity.ToTable("AliasMaster", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.KeyName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.LabelName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.EnglishName).HasMaxLength(200);
+            entity.Property(e => e.RegionalName).HasMaxLength(200);
+            entity.Property(e => e.HindiName).HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => e.KeyName)
+                .IsUnique()
+                .HasDatabaseName("UQ_AliasMaster_KeyName");
         });
 
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
