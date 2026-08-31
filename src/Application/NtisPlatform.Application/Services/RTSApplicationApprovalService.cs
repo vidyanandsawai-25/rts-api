@@ -299,7 +299,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         // Check if this application was reverted by the Clerk (first stage) to the Citizen
         var application = await _historyRepository.GetQueryable()
             .AsNoTracking()
-            .Where(x => x.ApplicationId == applicationId && x.IsActive && x.IsReverted)
+            .Where(x => x.ApplicationId == applicationId && x.IsActive)
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
