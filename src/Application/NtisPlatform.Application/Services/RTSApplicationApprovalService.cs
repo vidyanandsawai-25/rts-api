@@ -1043,6 +1043,25 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        try
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                var statusText = wasReverted ? "RESUBMITTED" : "CORRECTED";
+                await _smsNotificationService.SendApplicationStatusUpdateAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    statusText,
+                    null,
+                    cancellationToken);
+            }
+        }
+        catch { }
+
         return new RTSApplicationApprovalResponseDto
         {
             ApplicationId = application.Id,
