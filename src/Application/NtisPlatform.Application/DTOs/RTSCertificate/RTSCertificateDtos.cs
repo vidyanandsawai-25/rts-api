@@ -24,6 +24,7 @@ public class RTSCertificateTemplateDto
     public string? HeaderContent { get; set; }
     public string BodyContent { get; set; } = string.Empty;
     public string? FooterContent { get; set; }
+    public string? DesignJson { get; set; }
     public string? DefaultConditionsJson { get; set; }
     public string? OfficerFieldsConfigJson { get; set; }
     public bool IsActive { get; set; }
@@ -36,12 +37,27 @@ public class RTSCertificateTemplateDto
 
 public class CreateRTSCertificateTemplateDto
 {
+    private string? _designJson;
+
     public int ServiceId { get; set; }
     public string TemplateName { get; set; } = string.Empty;
     public string TemplateCode { get; set; } = string.Empty;
     public string? HeaderContent { get; set; }
     public string BodyContent { get; set; } = string.Empty;
     public string? FooterContent { get; set; }
+    public string? DesignJson
+    {
+        get => _designJson;
+        set
+        {
+            _designJson = value;
+            DesignJsonSpecified = true;
+        }
+    }
+
+    [JsonIgnore]
+    public bool DesignJsonSpecified { get; private set; }
+
     public string? DefaultConditionsJson { get; set; }
     public string? OfficerFieldsConfigJson { get; set; }
     public bool IsActive { get; set; } = true;
@@ -92,6 +108,7 @@ public class RTSIssuedCertificateDto
     public string DepartmentName { get; set; } = string.Empty;
     public string ApplicantName { get; set; } = string.Empty;
     public string ApplicantMobile { get; set; } = string.Empty;
+    public Dictionary<string, string> OfficerInputs { get; set; } = new();
     public string MergedHtmlContent { get; set; } = string.Empty;
     public string? QrCodePayload { get; set; }
     public int IssuedByUserId { get; set; }
