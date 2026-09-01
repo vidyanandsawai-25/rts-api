@@ -24,5 +24,5 @@ public interface IRTSCertificateService
     Task<RTSIssuedCertificateDto?> GetIssuedCertificateByGuidAsync(Guid certificateGuid, CancellationToken ct);
 
     // Public QR Verification
-    Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(Guid certificateGuid, CancellationToken ct);
+    Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(string identifier, CancellationToken ct);
 }
