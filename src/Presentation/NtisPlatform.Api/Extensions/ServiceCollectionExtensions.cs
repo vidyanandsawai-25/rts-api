@@ -696,6 +696,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, TypeWiseSurveyFormDataProvider>();
+        services.AddScoped<IReportDataProvider, SurveyFormDataProvider>();
         services.AddScoped<IPropertyMappingService, PropertyMappingService>();
         services.AddScoped<IPropertyMergeService, PropertyMergeService>();
         services.AddScoped<IPropertyMergeSingleService, PropertyMergeSingleService>();

@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.Wordprocessing;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
@@ -73,7 +72,6 @@ public class BlankHearingFormatDataProvider : IPagedReportDataProvider
     public async Task<object> GetDataAsync(Dictionary<string, string> parameters, CancellationToken ct = default)
     {
         var (rows, _) = await BuildPageAsync(Guid.Empty, parameters, 0, int.MaxValue, ct);
-        // var rows = await BuildPageAsync(reportRequestId, parameters, 0, int.MaxValue, ct);
         return rows;
     }
 

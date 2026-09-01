@@ -165,17 +165,8 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         };
     }
 
-    private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
-        Guid reportRequestId,
-        Dictionary<string, string> parameters,
-        int skip,
-        int take,
-        CancellationToken ct)
+    private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(Guid reportRequestId, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
     {
-        /*
-         * Parse request parameters
-         */
-
         parameters.TryGetValue("ownerId", out var ownerIdText);
 
         var ownerIds = string.IsNullOrWhiteSpace(ownerIdText)
@@ -212,10 +203,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
 
         var financeYear = ParseFinanceYear(parameters);
 
-        /*
-         * Resolve the selected financial year only when it is provided.
-         */
-
         var activeYearId = 0;
 
         if (financeYear != 0)
@@ -224,10 +211,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                 .Select(x => x.Id)
                 .FirstOrDefaultAsync(ct);
         }
-
-        /*
-         * Resolve the user who requested the report.
-         */
 
         var requestedByUserId = await _reportRequestRepository
             .GetQueryable()
@@ -242,29 +225,18 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                 ct)
             : null;
 
-        /*
-         * Create the base property query.
-         */
-
         var propQuery =
             from property in _propertyRepository.GetQueryable()
 
-            join propertyType in
-                _propertyTypeMasterRepository.GetQueryable()
-                on property.PropertyTypeId equals propertyType.Id
-                into propertyTypeJoin
+            join propertyType in _propertyTypeMasterRepository.GetQueryable() on property.PropertyTypeId equals propertyType.Id into propertyTypeJoin
 
             from propertyType in propertyTypeJoin.DefaultIfEmpty()
 
-            join ward in _wardRepository.GetQueryable()
-                on property.WardId equals ward.Id
-                into wardJoin
+            join ward in _wardRepository.GetQueryable() on property.WardId equals ward.Id into wardJoin
 
             from ward in wardJoin.DefaultIfEmpty()
 
-            join zone in _zoneRepository.GetQueryable()
-                on ward.ZoneId equals zone.Id
-                into zoneJoin
+            join zone in _zoneRepository.GetQueryable() on ward.ZoneId equals zone.Id into zoneJoin
 
             from zone in zoneJoin.DefaultIfEmpty()
 
@@ -286,22 +258,13 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                   && !property.MarkedForDeletion
 
                   && (ownerIds.Count == 0 || ownerIds.Contains(property.Id))
-
                   && (zoneId == 0 || ward.ZoneId == zoneId)
-
                   && (wardId == 0 || property.WardId == wardId)
-
                   && (propertyNoText == null || property.PropertyNo == propertyNoText)
-
                   && (partitionNoText == null || property.PartitionNo == partitionNoText)
-
-                  && (assessmentStatus == 0
-                      || property.PropertyAssessmentStatusId == assessmentStatus)
-
+                  && (assessmentStatus == 0 || property.PropertyAssessmentStatusId == assessmentStatus)
                   && (string.IsNullOrEmpty(type) || propertyType.Type == type)
-
                   && (propertyTypeId == 0 || propertyType.Id == propertyTypeId)
-
                   && (string.IsNullOrEmpty(propertyDescription) || propertyType.PropertyDescription == propertyDescription)
 
             select new
@@ -333,10 +296,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                 UlbState = ulb.State
             };
 
-        /*
-         * Apply the finance-year transaction filter only when the
-         * caller explicitly supplies a financial year.
-         */
 
         if (financeYear != 0 && activeYearId > 0)
         {
@@ -351,8 +310,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         }
 
         /*
-         * Load all properties matching the main filters.
-         *
          * The From/To range is applied after materialization because
          * PropertyNo can contain either numeric or alphanumeric data.
          * This follows WarrentNoticeDataProvider behavior.
@@ -364,13 +321,7 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
             .ThenBy(x => x.PartitionNo)
             .ToListAsync(ct);
 
-        /*
-         * Apply inclusive From Property Number.
-         */
-
-        if (int.TryParse(
-                fromPropertyNoText,
-                out var fromPropertyNo))
+        if (int.TryParse(fromPropertyNoText, out var fromPropertyNo))
         {
             properties = properties
                 .Where(x =>
@@ -380,8 +331,7 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                     && currentPropertyNo >= fromPropertyNo)
                 .ToList();
         }
-        else if (!string.IsNullOrWhiteSpace(
-                     fromPropertyNoText))
+        else if (!string.IsNullOrWhiteSpace(fromPropertyNoText))
         {
             properties = properties
                 .Where(x =>
@@ -392,13 +342,8 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                 .ToList();
         }
 
-        /*
-         * Apply inclusive To Property Number.
-         */
 
-        if (int.TryParse(
-                toPropertyNoText,
-                out var toPropertyNo))
+        if (int.TryParse( toPropertyNoText, out var toPropertyNo))
         {
             properties = properties
                 .Where(x =>
@@ -408,8 +353,7 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                     && currentPropertyNo <= toPropertyNo)
                 .ToList();
         }
-        else if (!string.IsNullOrWhiteSpace(
-                     toPropertyNoText))
+        else if (!string.IsNullOrWhiteSpace(toPropertyNoText))
         {
             properties = properties
                 .Where(x =>
@@ -419,10 +363,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                         StringComparison.OrdinalIgnoreCase) <= 0)
                 .ToList();
         }
-
-        /*
-         * Apply paging after the From/To range is selected.
-         */
 
         var takePlusOne = take == int.MaxValue
             ? int.MaxValue
@@ -443,10 +383,6 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
                 .Take(take)
                 .ToList();
         }
-
-        /*
-         * Create report rows.
-         */
 
         var rows = fetched
             .Select(property =>
@@ -479,9 +415,7 @@ public class PermissionNoticeDataProvider : IPagedReportDataProvider
         return (rows, hasMore);
     }
 
-    private static string? GetParameter(
-        IDictionary<string, string> parameters,
-        string key)
+    private static string? GetParameter(IDictionary<string, string> parameters, string key)
     {
         if (!parameters.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
         {
