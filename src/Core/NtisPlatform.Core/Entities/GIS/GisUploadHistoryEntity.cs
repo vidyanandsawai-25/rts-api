@@ -12,5 +12,5 @@ public class GisUploadHistoryEntity : BaseEntity
     public string FileType { get; set; } = "GeoJSON";
     public int RecordCount { get; set; }
     public string UploadedBy { get; set; } = null!;
-    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UploadedAt { get; set; } = DateTime.Now;
 }

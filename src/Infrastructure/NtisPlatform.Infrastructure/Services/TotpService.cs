@@ -41,22 +41,11 @@ public class TotpService : ITotpService
         var totp = CreateTotp(secret);
         var window = Math.Max(2, _allowedDriftSteps);
 
-        if (totp.VerifyTotp(timestamp.UtcDateTime, code, out _, new VerificationWindow(previous: window, future: window)))
-        {
-            return true;
-        }
-
-        // Broad fallback to tolerate device/server clock disparity without failing
-        for (int offset = -2880; offset <= 2880; offset++)
-        {
-            var candidateTime = timestamp.AddSeconds(offset * TimeStepSeconds).UtcDateTime;
-            if (totp.ComputeTotp(candidateTime) == code)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return totp.VerifyTotp(
+            timestamp.UtcDateTime,
+            code,
+            out _,
+            new VerificationWindow(previous: window, future: window));
     }
 
     public string ComputeCode(string secret, DateTimeOffset timestamp)

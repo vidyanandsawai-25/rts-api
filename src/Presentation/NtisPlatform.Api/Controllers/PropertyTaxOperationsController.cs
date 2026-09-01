@@ -42,7 +42,7 @@ public class PropertyTaxOperationsController : ControllerBase
     [HttpGet("server-time")]
     [ProducesResponseType(typeof(DateTime), StatusCodes.Status200OK)]
     public IActionResult ServerTime()
-        => Ok(DateTime.UtcNow);
+        => Ok(DateTime.Now);
 
     // GET api/property-tax/operations/export-properties?status=eligible&financeYearId=3002
     [HttpGet("export-properties")]

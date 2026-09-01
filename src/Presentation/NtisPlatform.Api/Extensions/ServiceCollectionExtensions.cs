@@ -384,6 +384,8 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVPersistenceService,
                            NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationSignatureService,
+                           NtisPlatform.Application.Services.TaxEngine.RVCalculationSignatureService>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<NtisPlatform.Application.Interfaces.IFinanceYearProvider, NtisPlatform.Application.Services.SystemFinanceYearProvider>();
         services.AddScoped<NtisPlatform.Application.Interfaces.IPolicyCodeLookupService, NtisPlatform.Application.Services.PolicyCodeLookupService>();

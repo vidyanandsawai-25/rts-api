@@ -40,6 +40,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly TimeProvider _timeProvider;
         private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
         private readonly ITaxApplicabilityService _taxApplicabilityService;
+        private readonly IRVCalculationSignatureService _signatureService;
         private readonly IRepository<PropertyRuleEvaluationMasterEntity, int>? _evalMasterRepo;
 
         public RateableValueService(
@@ -56,6 +57,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             TimeProvider timeProvider,
             IRVCalculationCleanupService rvCalculationCleanupService,
             ITaxApplicabilityService taxApplicabilityService,
+            IRVCalculationSignatureService signatureService,
             IRepository<PropertyRuleEvaluationMasterEntity, int>? evalMasterRepo = null)
         {
             _masterDataService = masterDataService;
@@ -71,10 +73,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _timeProvider = timeProvider;
             _rvCalculationCleanupService = rvCalculationCleanupService;
             _taxApplicabilityService = taxApplicabilityService;
+            _signatureService = signatureService;
             _evalMasterRepo = evalMasterRepo;
         }
 
-        public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
+        public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId, bool forceRecalculate = false)
         {
             var operationStopwatch = Stopwatch.StartNew();
             _logger.LogInformation("Starting RV tax calculation for PropertyId={PropertyId}", propertyId);
@@ -110,7 +113,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     { "PropertyId", propertyId.ToString() }
                 });
 
-                // 3. Load master data — sequential; TaxMasterDataService uses IMemoryCache
+                // 3. Load the minimal master data needed either for the fast-path response or for a
+                // full recalculation. TaxMasterDataService uses IMemoryCache so these are cheap.
                 _logger.LogDebug("Loading master data for PropertyId={PropertyId}, WardId={WardId}",
                     propertyId, property.WardId);
 
@@ -119,17 +123,63 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var floors = await _masterDataService.GetActiveFloorsAsync();
                 var subFloors = await _masterDataService.GetActiveSubFloorsAsync();
                 var constructionTypes = await _masterDataService.GetActiveConstructionTypesAsync();
-                var rateSectionId = await _masterDataService.GetRateSectionIdForWardAsync(property.WardId);
-                var rates = await _masterDataService.GetRatesForSectionAsync(rateSectionId);
-                var depreciations = await _masterDataService.GetActiveDepreciationsAsync();
-                var yearRanges = await _masterDataService.GetActiveYearRangesAsync();
                 var activeTaxes = await _masterDataService.GetActiveTaxesAsync();
-                var propertyCategories = await _masterDataService.GetActivePropertyCategoriesAsync() ?? new List<PropertyCategoryEntity>();
 
                 // Taxes explicitly disabled for this property via ApplyTaxesMaster (UI: "which tax should
                 // not apply to this property"). An active, non-deleted entry means the tax is exempted —
                 // its amount must be zeroed out in the calculation result below.
                 var exemptedTaxIdSet = await _taxApplicabilityService.GetExemptedTaxIdsAsync(propertyId);
+
+                if (activeTaxes.Count == 0)
+                    _logger.LogWarning(
+                        "No active taxes found in TaxMaster for PropertyId={PropertyId}. " +
+                        "No tax rows will be generated.", propertyId);
+
+                // 3b. Fast path: skip recalculation (and every remaining query below) when nothing
+                // relevant has changed since the last run. Reuses the already-merged social-attribute
+                // view from the property context (current property + "main" property for
+                // Apartment/Industry partitions) instead of re-querying PropertySocialDetails scoped
+                // to just this propertyId, which would miss inherited attribute changes.
+                var signatureHash = RVCalculationSignatureBuilder.GenerateSignature(
+                    financeYear, property, propertyAssessment, details, renters ?? new List<RenterMastEntity>(), exemptedTaxIdSet,
+                    certificates, propertyContext.Parameters.SocialAttributes);
+
+                if (!forceRecalculate)
+                {
+                    var existingSignature = await _signatureService.GetAsync(propertyId);
+                    if (existingSignature != null && existingSignature.SignatureHash == signatureHash)
+                    {
+                        var (existingResultsRows, existingTaxDetailRows, existingPolicyRows) =
+                            await _persistenceService.GetExistingActiveResultsAsync(propertyId);
+
+                        if (existingResultsRows.Count > 0)
+                        {
+                            var existingTaxMasterCache = new TaxGetterCache<TaxMasterEntity>(
+                                activeTaxes,
+                                x => x.Id,
+                                x => string.IsNullOrWhiteSpace(x.TaxNameAlias) ? x.TaxName : x.TaxNameAlias!,
+                                x => x.TaxCategoryMaster?.CategoryCode ?? string.Empty);
+
+                            var existingResponse = RateableValueResponseMapper.Map(
+                                propertyId, financeYear, details, existingResultsRows, existingTaxDetailRows, existingPolicyRows,
+                                floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
+                                renters ?? new List<RenterMastEntity>(), certificates, existingTaxMasterCache);
+
+                            _logger.LogInformation(
+                                "RV calculation skipped for PropertyId={PropertyId}: input signature unchanged. Duration={DurationMs}ms",
+                                propertyId, operationStopwatch.ElapsedMilliseconds);
+
+                            return existingResponse;
+                        }
+                    }
+                }
+
+                // 4. Load the remaining master data needed only for a full recalculation.
+                var rateSectionId = await _masterDataService.GetRateSectionIdForWardAsync(property.WardId);
+                var rates = await _masterDataService.GetRatesForSectionAsync(rateSectionId);
+                var depreciations = await _masterDataService.GetActiveDepreciationsAsync();
+                var yearRanges = await _masterDataService.GetActiveYearRangesAsync();
+                var propertyCategories = await _masterDataService.GetActivePropertyCategoriesAsync() ?? new List<PropertyCategoryEntity>();
 
                 // Plot / OpenPlot rule: only Plot-category properties whose selected type of use is
                 // OpenPlot (and non-Plot properties whose type of use is NOT OpenPlot) get taxed.
@@ -144,18 +194,12 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     propertyId, typeOfUses.Count, activeTaxes.Count, rates.Count,
                     rateSectionId, property.WardId);
 
-                if (activeTaxes.Count == 0)
-                    _logger.LogWarning(
-                        "No active taxes found in TaxMaster for PropertyId={PropertyId}. " +
-                        "No tax rows will be generated.", propertyId);
-
                 if (rates.Count == 0)
                     _logger.LogWarning(
                         "No rates found for RateSectionId={RateSectionId} (WardId={WardId}). " +
                         "All base rates will be zero for PropertyId={PropertyId}.",
                         rateSectionId, property.WardId, propertyId);
 
-                // 4. Load tax-related master data
                 // Note: We now keep ALL tax percentages and filter per-detail using YearRangeRVIdForDetail
                 // to support properties with mixed assessment years across details.
                 var allTaxPercentages = await _masterDataService.GetActiveTaxPercentagesAsync();
@@ -211,16 +255,17 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 // Resolve PropertyRuleEvaluationMaster ID map for parameter-specific rule execution
                 var evalMasterMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var ruleEvaluationMasters = new List<PropertyRuleEvaluationMasterEntity>();
                 if (_evalMasterRepo != null)
                 {
                     try
                     {
                         var targetKeys = new[] { "Rate", "Rent", "Maintenance" };
-                        var masters = await _evalMasterRepo.GetQueryable()
+                        ruleEvaluationMasters = await _evalMasterRepo.GetQueryable()
                             .Where(x => x.IsActive && (targetKeys.Contains(x.ParameterCode) || targetKeys.Contains(x.ParameterName)))
                             .AsNoTracking()
                             .ToListAsync();
-                        foreach (var m in masters)
+                        foreach (var m in ruleEvaluationMasters)
                         {
                             if (!string.IsNullOrWhiteSpace(m.ParameterCode))
                                 evalMasterMap[m.ParameterCode.Trim()] = m.Id;
@@ -722,6 +767,35 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                     _logger.LogInformation(
                         "Policy and TransmastRV rows saved for PropertyId={PropertyId}", propertyId);
+
+                    // Signature bookkeeping happens in its own save AFTER the RV calculation above has
+                    // already committed successfully, and is best-effort. RVCalculationSignature has a
+                    // unique index on PropertyId with a read-then-write upsert, so two concurrent
+                    // recalculations for the same property can both see no row and both try to insert,
+                    // racing on that index. Doing this here, in isolation, means such a race only costs
+                    // this one signature update (the next request simply sees a stale/missing signature
+                    // and correctly redoes the work) instead of rolling back RV results that were
+                    // already computed correctly and just committed above.
+                    try
+                    {
+                        await _signatureService.UpsertAsync(propertyId, signatureHash, now);
+                        await _unitOfWork.SaveChangesAsync();
+                    }
+                    catch (DbUpdateException ex)
+                    {
+                        _unitOfWork.DiscardChanges();
+                        _logger.LogWarning(ex,
+                            "Failed to persist RV calculation signature for PropertyId={PropertyId} (likely a concurrent " +
+                            "recalculation for the same property); the next request will simply recalculate.",
+                            propertyId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _unitOfWork.DiscardChanges();
+                        _logger.LogWarning(ex,
+                            "Failed to persist RV calculation signature for PropertyId={PropertyId}; the next request will simply recalculate.",
+                            propertyId);
+                    }
 
                     // 13. Build response from in-memory data
                     var detailIds = details.Select(d => d.Id).ToList();
