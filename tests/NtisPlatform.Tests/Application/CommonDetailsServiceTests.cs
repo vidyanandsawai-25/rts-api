@@ -111,7 +111,7 @@ public class CommonDetailsServiceTests : IDisposable
             new UserEntity { Id = 101, UserName = "bob.user" });
 
         _context.ModuleMasters.Add(
-            new ModuleMasterEntity { Id = 1, ModuleCode = "PROP", ModuleName = "Property", DepartmentId = 1, IsActive = true });
+            new ModuleMasterEntity { Id = 1, ModuleCode = "PROP", ModuleName = "Property", ModuleLabel = "Property", DepartmentId = 1, IsActive = true });
 
         _context.SourceTables.AddRange(
             new SourceTableEntity { Id = 1, ModuleId = 1, TableName = "PTIS.PropertyMast", TableAliasName = "Property Master", IsActive = true },
@@ -321,12 +321,13 @@ public class CommonDetailsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetSourceTablesAsync_CombinesModuleNameAndTableAliasName_WhenModuleExists()
+    public async Task GetSourceTablesAsync_ReturnsModuleLabelAndTableAliasName_WhenModuleExists()
     {
         var result = await _service.GetSourceTablesAsync(CancellationToken.None);
 
         var item = result.Single(t => t.Id == 1);
-        Assert.Equal("Property Property Master", item.TableName);
+        Assert.Equal("Property", item.ModuleLabel);
+        Assert.Equal("Property Master", item.TableName);
         Assert.Equal("PTIS.PropertyMast", item.ReferenceTableName);
     }
 
