@@ -294,6 +294,42 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return result;
         }
 
+
+
+        // Check if this application was reverted by the Clerk (first stage) to the Citizen
+        var application = await _historyRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.ApplicationId == applicationId && x.IsActive)
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (application != null && application.ApprovalFlowId != 0)
+        {
+            var currentStages = await _approvalFlowStageRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(stage => stage.Id == application.ApprovalFlowStageId)
+                .Select(stage => new
+                {
+                    stage.ApprovalFlowId,
+                    stage.StageOrder
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (currentStages != null && application.Status==ApplicationStatus.Reverted)
+            {
+                var hasPreviousStage = await _approvalFlowStageRepository
+                    .GetQueryable()
+                    .AnyAsync(stage =>
+                        stage.ApprovalFlowId == currentStages.ApprovalFlowId &&
+                        stage.StageOrder < currentStages.StageOrder,
+                        cancellationToken);
+
+                result.isRevertedToCitizen = !hasPreviousStage;
+            }
+        }
+
+
         result.TotalApprovalStages = result.ApprovalStages.Count;
         result.CompletedStages = result.ApprovalStages.Count(x => IsCompletedStatus(x.Status));
         var currentStage = result.ApprovalStages.OrderBy(x => x.StageOrder).FirstOrDefault(x => !IsCompletedStatus(x.Status));
