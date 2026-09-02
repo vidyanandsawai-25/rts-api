@@ -169,7 +169,7 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
         string thumbprint = metadata.Thumbprint;
         string issuer = metadata.Issuer;
 
-        string sigInfo = $"Digitally Signed by {signerName} ({issuer}) | Officer: {officerName ?? "सक्षम अधिकारी"} | CertNo: {certNo} | Serial: {serialNo} | Thumbprint: {thumbprint} | SignedAt: {istTime:yyyy-MM-dd HH:mm:ss} IST";
+        string sigInfo = $"Digitally Signed by {signerName} ({issuer}) | Officer: {officerName ?? ""} | CertNo: {certNo} | Serial: {serialNo} | Thumbprint: {thumbprint} | SignedAt: {istTime:yyyy-MM-dd HH:mm:ss} IST";
 
         string cardHtml = GenerateSignatureHtml(officerName, officerDesignation, istTime, certNo);
 
@@ -191,8 +191,8 @@ public class RTSDigitalSignatureService : IRTSDigitalSignatureService
         string caName = metadata.Issuer;
         string serial = metadata.SerialNumber;
 
-        string effectiveOfficer = !string.IsNullOrWhiteSpace(officerName) ? officerName : "सक्षम प्राधिकारी";
-        string effectiveDesignation = !string.IsNullOrWhiteSpace(officerDesignation) ? officerDesignation : "Designated Officer";
+        string effectiveOfficer = !string.IsNullOrWhiteSpace(officerName) ? officerName : "";
+        string effectiveDesignation = !string.IsNullOrWhiteSpace(officerDesignation) ? officerDesignation : "";
 
         return $@"
         <div class='digital-signature-card bg-emerald-50/95 border-2 border-emerald-600 p-2.5 rounded-lg text-left inline-block shadow-xs min-w-[240px] max-w-[320px] font-sans text-xs'>

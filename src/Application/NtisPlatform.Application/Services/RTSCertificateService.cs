@@ -334,9 +334,21 @@ public class RTSCertificateService : IRTSCertificateService
         string rawHtml = BuildFullCertificateHtml(template, app);
         string previewOfficerName = !string.IsNullOrWhiteSpace(app.User?.FirstName)
             ? $"{app.User.FirstName} {app.User.LastName}".Trim()
-            : "सक्षम प्राधिकारी";
+            : (app.User?.UserName ?? "");
 
-        response.MergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, response.SampleCertificateNo, previewOfficerName, isLiveSigned: false);
+        var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
+        string previewQrPayload = $"{verificationBaseUrl}/{app.ApplicationNo}";
+
+        response.MergedHtml = MergeTemplatePlaceholders(
+            rawHtml, 
+            autoValues, 
+            request.OfficerInputs, 
+            request.CustomConditions, 
+            response.SampleCertificateNo, 
+            previewOfficerName, 
+            isLiveSigned: false,
+            certGuid: null,
+            qrPayload: previewQrPayload);
 
         return response;
     }
@@ -384,9 +396,13 @@ public class RTSCertificateService : IRTSCertificateService
         int issuedCertId = existingCert?.Id ?? 0;
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
-        string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "सक्षम प्राधिकारी";
+        string officerName = user != null
+            ? (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
+                ? $"{user.FirstName} {user.LastName}".Trim()
+                : user.UserName)
+            : "";
         string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? "";
-        if (string.IsNullOrWhiteSpace(officerDesignation) || officerDesignation == "सक्षम प्राधिकारी")
+        if (string.IsNullOrWhiteSpace(officerDesignation))
         {
             if (user != null)
             {
@@ -400,27 +416,23 @@ public class RTSCertificateService : IRTSCertificateService
                 }
                 else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentNameLocal))
                 {
-                    officerDesignation = $"{app.Department.DepartmentNameLocal} - सक्षम अधिकारी";
+                    officerDesignation = app.Department.DepartmentNameLocal;
                 }
                 else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName))
                 {
-                    officerDesignation = $"{app.Department.DepartmentName} - Competent Authority";
+                    officerDesignation = app.Department.DepartmentName;
                 }
             }
-        }
-        if (string.IsNullOrWhiteSpace(officerDesignation))
-        {
-            officerDesignation = "सक्षम प्राधिकारी";
         }
 
         string rawHtml = BuildFullCertificateHtml(template, app);
 
         var signatureResult = _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml);
 
-        string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid);
-
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
         string qrPayload = $"{verificationBaseUrl}/{certGuid}";
+
+        string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid, qrPayload: qrPayload);
 
         if (existingCert != null)
         {
@@ -672,10 +684,11 @@ public class RTSCertificateService : IRTSCertificateService
 
             if (app != null)
             {
-                var ulbObj = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
-                string ulbTitle = ulbObj?.UlbNameLocal ?? ulbObj?.UlbName ?? "अकोला महानगरपालिका, अकोला";
-                string ulbLogoPath = ulbObj?.UlbLogo ?? "/images/akola-seal.png";
-                string ulbAddr = ulbObj?.UlbAddress ?? "एम. जी. रोड, मुख्य प्रशासकीय इमारत, अकोला, महाराष्ट्र - ४४४००१";
+                var ulbObj = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct)
+                          ?? await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+                string ulbTitle = ulbObj?.UlbNameLocal ?? ulbObj?.UlbName ?? "";
+                string ulbLogoPath = ulbObj?.UlbLogo ?? "";
+                string ulbAddr = ulbObj?.UlbAddress ?? "";
 
                 string deptTitle = "";
                 if (app.Service != null)
@@ -707,10 +720,11 @@ public class RTSCertificateService : IRTSCertificateService
             };
         }
 
-        var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
-        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "अकोला महानगरपालिका, अकोला";
-        string ulbLogo = ulb?.UlbLogo ?? "/images/akola-seal.png";
-        string ulbAddress = ulb?.UlbAddress ?? "एम. जी. रोड, मुख्य प्रशासकीय इमारत, अकोला, महाराष्ट्र - ४४४००१";
+        var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct)
+               ?? await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "";
+        string ulbLogo = ulb?.UlbLogo ?? "";
+        string ulbAddress = ulb?.UlbAddress ?? "";
 
         string deptName = "";
         if (cert.Service != null)
@@ -719,8 +733,12 @@ public class RTSCertificateService : IRTSCertificateService
             deptName = dept?.DepartmentNameLocal ?? dept?.DepartmentName ?? "";
         }
 
-        string officerName = cert.IssuedByUser != null ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim() : "सक्षम प्राधिकारी";
-        string officerDesignation = "सक्षम प्राधिकारी";
+        string officerName = cert.IssuedByUser != null
+            ? (!string.IsNullOrWhiteSpace(cert.IssuedByUser.FirstName) || !string.IsNullOrWhiteSpace(cert.IssuedByUser.LastName)
+                ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim()
+                : cert.IssuedByUser.UserName)
+            : "";
+        string officerDesignation = "";
 
         if (cert.IssuedByUser != null)
         {
@@ -735,7 +753,7 @@ public class RTSCertificateService : IRTSCertificateService
             }
             else if (!string.IsNullOrWhiteSpace(deptName))
             {
-                officerDesignation = $"{deptName} - सक्षम अधिकारी";
+                officerDesignation = deptName;
             }
         }
 
@@ -758,8 +776,8 @@ public class RTSCertificateService : IRTSCertificateService
             OfficerDesignation = officerDesignation,
             IsDigitallySigned = cert.IsDigitallySigned,
             DigitalSignatureInfo = cert.DigitalSignatureInfo,
-            DscSignerName = dscMetadata?.SignerName ?? "Authorized Document Signer",
-            DscIssuer = dscMetadata?.Issuer ?? "Certifying Authority (CCA India Recognized)",
+            DscSignerName = dscMetadata?.SignerName ?? ulbName,
+            DscIssuer = dscMetadata?.Issuer ?? "",
             DscSerialNumber = dscMetadata?.SerialNumber ?? "",
             DscThumbprint = dscMetadata?.Thumbprint ?? "",
             DscValidUntil = dscMetadata?.ValidTo,
@@ -826,18 +844,18 @@ public class RTSCertificateService : IRTSCertificateService
         var currentDate = DateTime.UtcNow.Date;
         string appDate = (app.CreatedDate ?? currentDate).ToString("dd/MM/yyyy");
         string issueDate = currentDate.ToString("dd/MM/yyyy");
-        string srvNameMarathi = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "लोकसेवा";
-        string srvNameEng = app.Service?.ServiceName ?? "RTS Service";
-        string deptNameMarathi = app.Department?.DepartmentNameLocal ?? app.Department?.DepartmentName ?? "महानगरपालिका विभाग";
-        string ulbNameMarathi = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "महानगरपालिका";
-        string ulbNameEng = ulb?.UlbName ?? "Municipal Corporation";
-        string ulbAddress = !string.IsNullOrWhiteSpace(ulb?.UlbAddress) ? ulb.UlbAddress : "महानगरपालिका मुख्य कार्यालय";
-        string ulbMobile = !string.IsNullOrWhiteSpace(ulb?.MobileNo) ? ulb.MobileNo : "-";
-        string ulbEmail = !string.IsNullOrWhiteSpace(ulb?.EmailId) ? ulb.EmailId : "-";
-        string ulbWebsite = !string.IsNullOrWhiteSpace(ulb?.WebsiteUrl) ? ulb.WebsiteUrl : "-";
+        string srvNameMarathi = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "";
+        string srvNameEng = app.Service?.ServiceName ?? "";
+        string deptNameMarathi = app.Department?.DepartmentNameLocal ?? app.Department?.DepartmentName ?? "";
+        string ulbNameMarathi = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "";
+        string ulbNameEng = ulb?.UlbName ?? "";
+        string ulbAddress = ulb?.UlbAddress ?? "";
+        string ulbMobile = ulb?.MobileNo ?? "";
+        string ulbEmail = ulb?.EmailId ?? "";
+        string ulbWebsite = ulb?.WebsiteUrl ?? "";
 
-        string ulbCode = !string.IsNullOrWhiteSpace(ulb?.UlbCode) ? ulb.UlbCode : "RTS";
-        string ulbShortCode = !string.IsNullOrWhiteSpace(ulb?.UlbNameLocal) ? ulb.UlbNameLocal.Split(' ').FirstOrDefault() ?? "मनपा" : "मनपा";
+        string ulbCode = ulb?.UlbCode ?? "";
+        string ulbShortCode = !string.IsNullOrWhiteSpace(ulb?.UlbNameLocal) ? ulb.UlbNameLocal.Split(' ').FirstOrDefault() ?? "" : "";
         string currentYear = DateTime.UtcNow.Year.ToString();
 
         string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
@@ -846,20 +864,23 @@ public class RTSCertificateService : IRTSCertificateService
                 ? app.Service.Department.DepartmentCode.Trim()
                 : (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName) && app.Department.DepartmentName.Length >= 2
                     ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
-                    : "SRV"));
+                    : ""));
 
         string serviceCode = !string.IsNullOrWhiteSpace(app.Service?.ServiceCode)
             ? app.Service.ServiceCode.Trim()
             : $"SRV{app.ServiceId:D3}";
 
-        string standardOutwardNo = $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}";
+        string standardOutwardNo = !string.IsNullOrWhiteSpace(ulbShortCode) && !string.IsNullOrWhiteSpace(deptCode)
+            ? $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}"
+            : $"{app.Id:D6}";
 
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["ApplicationNo"] = app.ApplicationNo ?? $"RTS{app.Id:D8}",
-            ["ApplicantName"] = app.ApplicantName ?? "सन्माननीय नागरिक",
-            ["ApplicantMobile"] = app.ApplicantMobileNo ?? "-",
-            ["ApplicantAddress"] = !string.IsNullOrWhiteSpace(ulb?.District) ? $"{ulb.District}, महाराष्ट्र" : "महाराष्ट्र",
+            ["ApplicantName"] = app.ApplicantName ?? "",
+            ["ApplicantMobile"] = app.ApplicantMobileNo ?? "",
+            ["ApplicantAddress"] = "",
+            ["ULBLogo"] = ulb?.UlbLogo ?? "",
             ["AppliedDate"] = appDate,
             ["ApplicationDate"] = appDate,
             ["ApprovalDate"] = issueDate,
@@ -999,7 +1020,8 @@ public class RTSCertificateService : IRTSCertificateService
         string? sampleCertNo,
         string? officerName,
         bool isLiveSigned,
-        Guid? certGuid = null)
+        Guid? certGuid = null,
+        string? qrPayload = null)
     {
         string html = rawTemplateHtml;
 
@@ -1135,20 +1157,25 @@ public class RTSCertificateService : IRTSCertificateService
         html = Regex.Replace(html, @"\[\[\w+\]\]", "");
 
         // 3. Inject Dynamic Official Seal Stamp, QR Code and Digital Signature Blocks
-        string sealStampHtml = @"
+        string ulbLogoUrl = citizenValues.GetValueOrDefault("ULBLogo") ?? "";
+        string sealStampHtml = !string.IsNullOrWhiteSpace(ulbLogoUrl) ? $@"
         <div class='official-seal-stamp inline-block text-center'>
-            <img src='/images/ulb-seal.png' alt='' class='w-28 h-28 object-contain transform -rotate-6 filter drop-shadow-xs inline-block' onerror=""this.style.display='none'"" />
-        </div>";
+            <img src='{WebUtility.HtmlEncode(ulbLogoUrl)}' alt='' class='w-28 h-28 object-contain transform -rotate-6 filter drop-shadow-xs inline-block' onerror=""this.style.display='none'"" />
+        </div>" : "";
 
-        string qrCodeHtml = $@"
-        <div class='inline-flex flex-col items-center justify-center p-2 bg-white border border-slate-300 rounded shadow-xs text-center'>
-            <div class='w-20 h-20 bg-slate-100 flex items-center justify-center border border-slate-200 text-xs font-mono text-slate-700'>
-                <svg class='w-16 h-16 text-slate-800' viewBox='0 0 24 24' fill='currentColor'>
-                    <path d='M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h2v3h-2v-3zm2 3h3v2h-3v-2zm3 2h3v3h-3v-3zm-5 1h2v2h-2v-2zm2 0h1v2h-1v-2z'/>
-                </svg>
+        string actualQr = !string.IsNullOrWhiteSpace(qrPayload)
+            ? qrPayload
+            : (certGuid.HasValue && certGuid.Value != Guid.Empty
+                ? $"/service/verify-certificate/{certGuid.Value}"
+                : (!string.IsNullOrWhiteSpace(sampleCertNo) ? $"/service/verify-certificate/{Uri.EscapeDataString(sampleCertNo)}" : ""));
+
+        string qrCodeHtml = !string.IsNullOrWhiteSpace(actualQr) ? $@"
+        <div class='inline-flex flex-col items-center justify-center p-1.5 bg-white border border-slate-300 rounded shadow-xs text-center' style='width: 80px;' title='{WebUtility.HtmlEncode(actualQr)}'>
+            <div style='width: 64px; height: 64px;' class='flex items-center justify-center bg-white'>
+                <img src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={Uri.EscapeDataString(actualQr)}' alt='Scan to Verify' class='w-full h-full object-contain' />
             </div>
-            <span class='text-[10px] text-slate-500 mt-1 font-semibold'>Scan to Verify</span>
-        </div>";
+            <span class='text-slate-700 mt-0.5 font-bold' style='font-size: 8px;'>Scan to Verify</span>
+        </div>" : "";
 
         string officerDesignationDynamic = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
         string signatureHtml = _digitalSignatureService.GenerateSignatureHtml(officerName, officerDesignationDynamic, DateTime.UtcNow, sampleCertNo ?? "");
