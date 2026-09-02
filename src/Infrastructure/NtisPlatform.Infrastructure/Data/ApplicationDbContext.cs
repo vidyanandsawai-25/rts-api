@@ -124,6 +124,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = null!;
     public DbSet<RVCalculationResultsEntity> RVCalculationResults { get; set; } = null!;
     public DbSet<RVCalculationTaxDetailsEntity> RVCalculationTaxDetails { get; set; } = null!;
+    public DbSet<RVCalculationSignatureEntity> RVCalculationSignatures { get; set; } = null!;
     public DbSet<NatureFactorCVMasterEntity> NatureFactorCVMasters { get; set; } = null!;
     public DbSet<AgeFactorCVMasterEntity> AgeFactorCVMasters { get; set; } = null!;
     public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
@@ -2996,6 +2997,27 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.TaxId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // RVCalculationSignature configuration -- one row per property, holds the hash of the
+        // property-owned inputs (property/details/renter/exemption/certificate/social-detail data)
+        // that fed the last RV calculation, so RateableValueService can skip recalculation when
+        // nothing relevant has changed since the last run.
+        modelBuilder.Entity<RVCalculationSignatureEntity>(entity =>
+        {
+            entity.ToTable("RVCalculationSignature", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.SignatureHash).IsRequired().HasColumnType("varchar(64)");
+            entity.Property(e => e.CalculatedAt).IsRequired().HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.PropertyId)
+                .IsUnique()
+                .HasDatabaseName("UQ_RVCalculationSignature_PropertyId");
         });
 
         // UseFactorCVMaster configuration

@@ -176,9 +176,6 @@ public class JaptiNoticeDataProvider : IPagedReportDataProvider
             .Select(ym => new { ym.Id, ym.Year, ym.YearCode })
             .FirstOrDefaultAsync(ct);
 
-        // Resolve the final property ids through one common filter pipeline. This makes
-        // ownerId, zone/ward, exact property, partition, assessment status, finance year,
-        // and from/to property range work together just like DocumentNotice.
         var query =
             from p in _propertyRepository.GetQueryable()
             join w in _wardRepository.GetQueryable() on p.WardId equals w.Id into wj

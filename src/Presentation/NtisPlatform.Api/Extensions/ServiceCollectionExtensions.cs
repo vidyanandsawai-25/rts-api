@@ -387,6 +387,8 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVPersistenceService,
                            NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationSignatureService,
+                           NtisPlatform.Application.Services.TaxEngine.RVCalculationSignatureService>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<NtisPlatform.Application.Interfaces.IFinanceYearProvider, NtisPlatform.Application.Services.SystemFinanceYearProvider>();
         services.AddScoped<NtisPlatform.Application.Interfaces.IPolicyCodeLookupService, NtisPlatform.Application.Services.PolicyCodeLookupService>();
@@ -715,6 +717,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, TypeWiseSurveyFormDataProvider>();
+        services.AddScoped<IReportDataProvider, SurveyFormDataProvider>();
         services.AddScoped<IPropertyMappingService, PropertyMappingService>();
         services.AddScoped<IPropertyMergeService, PropertyMergeService>();
         services.AddScoped<IPropertyMergeSingleService, PropertyMergeSingleService>();

@@ -1,5 +1,3 @@
-using System;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
@@ -8,688 +6,852 @@ using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Reporting;
 using NtisPlatform.Core.Interfaces;
 
-namespace NtisPlatform.Application.Services.ReportDataProviders
+namespace NtisPlatform.Application.Services.ReportDataProviders;
+/// <summary>
+/// NoticeNew report data — one pivoted row per property with dynamic Transmast_{TaxCode} /
+/// TaxPending_{TaxCode} columns. Reads from the read-only replica and paginates BY PROPERTY:
+/// each page selects a bounded set of properties, fetches only those properties' tax rows, and
+/// pivots them in memory — so a large ward never materializes the full cartesian result at once.
+/// Section discovery is static (no query runs during authenticate).
+/// </summary>
+public class PrarupYadiDataProvider : IPagedReportDataProvider
 {
-    /// <summary>
-    /// PrarupYadi report data provider.
-    /// 
-    /// Produces three logical sections per call:
-    ///   "main"            — one row per property: all RentedNotice fields
-    ///                       (property + ward + society + typeOfUse + propertyOld +
-    ///                        propertyTypeMaster + ULB + user + pivoted TransMast columns)
-    ///   "propertyDetails" — one row per PTIS.PropertyDetails floor entry
-    ///   "taxDetails"      — one pivoted row of TransMast amounts keyed by TaxCode
-    /// 
-    /// Parameters: propertyId (int or comma-separated list), userId (int)
-    /// Section discovery is static (no query runs during authenticate).
-    /// </summary>
-    public class PrarupYadiDataProvider : IPagedReportDataProvider
+    public const string MainSection = "PrarupYadi";
+    public const string DetailSection = "PrarupYadiTaxInfo";
+    public const string ImageParamsSection = "_reportImageParams";
+    public string ProviderCode => "PrarupYadiDataProvider";
+
+    private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
+    private readonly IReportDataRepository<PropertyImagesMastEntity> _propertyImagesRepository;
+    private readonly IReportDataRepository<ZoneEntity> _zoneRepository;
+    private readonly IReportDataRepository<WardEntity> _wardRepository;
+    private readonly IReportDataRepository<SocietyDetailsEntity> _societyRepository;
+    private readonly IReportDataRepository<TransMastEntity> _transRepository;
+    private readonly IReportDataRepository<TaxMasterEntity> _taxRepository;
+    private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
+    private readonly IReportDataRepository<PropertyDetailsEntity> _propertyDetailsRepository;
+    private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
+    private readonly IReportDataRepository<PropertyTypeMasterEntity> _PropertyTypeMasterRepository;
+    private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
+    private readonly IReportDataRepository<UserEntity> _userRepository;
+    private readonly IReportDataRepository<FloorEntity> _floorRepository;
+    private readonly IReportDataRepository<ConstructionTypeEntity> _constructionTypeRepository;
+    private readonly IReportDataRepository<SocietyDetailsEntity> _societyDetailsRepository;
+    private readonly IReportDataRepository<RVCalculationResultsEntity> _rvCalculationResultsRepository;
+    private readonly IReportDataRepository<TypeOfUseEntity> _typeOfUseRepository;
+    private readonly IReportDataRepository<RenterMastEntity> _renterMastRepository;
+
+    public PrarupYadiDataProvider(
+        IReportDataRepository<PropertyEntity> propertyRepository,
+        IReportDataRepository<PropertyImagesMastEntity> propertyImagesRepository,
+        IReportDataRepository<ZoneEntity> zoneRepository,
+        IReportDataRepository<WardEntity> wardRepository,
+        IReportDataRepository<SocietyDetailsEntity> societyRepository,
+        IReportDataRepository<TransMastEntity> transRepository,
+        IReportDataRepository<TaxMasterEntity> taxRepository,
+        IReportDataRepository<YearMasterEntity> yearRepository,
+        IReportDataRepository<PropertyDetailsEntity> propertyDetailsRepository,
+        IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
+        IReportDataRepository<PropertyTypeMasterEntity> PropertyTypeMasterRepository,
+        IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
+        IReportDataRepository<UserEntity> userRepository,
+        IReportDataRepository<FloorEntity> floorRepository,
+        IReportDataRepository<ConstructionTypeEntity> constructionTypeRepository,
+        IReportDataRepository<SocietyDetailsEntity> societyDetailsRepository,
+        IReportDataRepository<RVCalculationResultsEntity> rvCalculationResultsRepository,
+        IReportDataRepository<TypeOfUseEntity> typeOfUseRepository,
+        IReportDataRepository<RenterMastEntity> renterMastRepository)
     {
-        public const string MainSection = "main";
-        public const string PropertyDetailsSection = "propertyDetails";
-        public const string TaxDetailsSection = "taxDetails";
-        public const string PrarupYadiFormDetailsSection = "PrarupYadiFormDetails";
-        public const string ReportDataSection = "ReportData";
+        _propertyRepository = propertyRepository;
+        _propertyImagesRepository = propertyImagesRepository;
+        _zoneRepository = zoneRepository;
+        _wardRepository = wardRepository;
+        _societyRepository = societyRepository;
+        _transRepository = transRepository;
+        _taxRepository = taxRepository;
+        _yearRepository = yearRepository;
+        _propertyDetailsRepository = propertyDetailsRepository;
+        _ulbMasterRepository = ulbMasterRepository;
+        _PropertyTypeMasterRepository = PropertyTypeMasterRepository;
+        _ReportRequestRepository = reportRequestRepository;
+        _userRepository = userRepository;
+        _floorRepository = floorRepository;
+        _constructionTypeRepository = constructionTypeRepository;
+        _societyDetailsRepository = societyDetailsRepository;
+        _rvCalculationResultsRepository = rvCalculationResultsRepository;
+        _typeOfUseRepository = typeOfUseRepository;
+        _renterMastRepository = renterMastRepository;
+    }
 
-        public string ProviderCode => "PrarupYadiDataProvider";
+    public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
+    {
+        new ReportSectionDescriptor(ImageParamsSection, false),
+        new ReportSectionDescriptor(MainSection, false),
+        new ReportSectionDescriptor(DetailSection, true),
+    };
 
-        private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
-        private readonly IReportDataRepository<WardEntity> _wardRepository;
-        private readonly IReportDataRepository<SocietyDetailsEntity> _societyRepository;
-        private readonly IReportDataRepository<TypeOfUseEntity> _typeOfUseRepository;
-        private readonly IReportDataRepository<PropertyMastOldEntity> _propertyMastOldRepository;
-        private readonly IReportDataRepository<PropertyTypeMasterEntity> _propertyTypeRepository;
-        private readonly IReportDataRepository<PropertyDetailsEntity> _propertyDetailsRepository;
-        private readonly IReportDataRepository<FloorEntity> _floorRepository;
-        private readonly IReportDataRepository<ConstructionTypeEntity> _constructionTypeRepository;
-        private readonly IReportDataRepository<TransMastEntity> _transmastRepository;
-        private readonly IReportDataRepository<TaxMasterEntity> _taxMastRepository;
-        private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
-        private readonly IReportDataRepository<UserEntity> _userRepository;
-        private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
-        private readonly IReportDataRepository<TransMastEntity> _transRepository;
-        private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
-        private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
+    public async Task<object> GetDataAsync(Dictionary<string, string> parameters, CancellationToken ct = default)
+    {
+        var financeYear = ParseFinanceYear(parameters);
+        var mainRows = await MainQuery(financeYear, Guid.Empty, parameters, 0, int.MaxValue, ct);
+        var (detailRows, _) = await DetailQuery(Guid.Empty, parameters, 0, int.MaxValue, ct);
+        return new { main = mainRows, PrarupYadi = detailRows };
+    }
 
-        public PrarupYadiDataProvider(
-            IReportDataRepository<PropertyEntity> propertyRepository,
-            IReportDataRepository<WardEntity> wardRepository,
-            IReportDataRepository<SocietyDetailsEntity> societyRepository,
-            IReportDataRepository<TypeOfUseEntity> typeOfUseRepository,
-            IReportDataRepository<PropertyMastOldEntity> propertyMastOldRepository,
-            IReportDataRepository<PropertyTypeMasterEntity> propertyTypeRepository,
-            IReportDataRepository<PropertyDetailsEntity> propertyDetailsRepository,
-            IReportDataRepository<FloorEntity> floorRepository,
-            IReportDataRepository<ConstructionTypeEntity> constructionTypeRepository,
-            IReportDataRepository<TransMastEntity> transmastRepository,
-            IReportDataRepository<TaxMasterEntity> taxMastRepository,
-            IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
-            IReportDataRepository<UserEntity> userRepository,
-            IReportDataRepository<YearMasterEntity> yearRepository,
-            IReportDataRepository<TransMastEntity> transRepository,
-            IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
-            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
+    public async Task<ReportDataPage> GetDataPageAsync(Guid reportRequestId, Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
+    {
+        var financeYear = ParseFinanceYear(parameters);
+
+        if (section.Equals(ImageParamsSection, StringComparison.OrdinalIgnoreCase))
         {
-            _propertyRepository = propertyRepository;
-            _wardRepository = wardRepository;
-            _societyRepository = societyRepository;
-            _typeOfUseRepository = typeOfUseRepository;
-            _propertyMastOldRepository = propertyMastOldRepository;
-            _propertyTypeRepository = propertyTypeRepository;
-            _propertyDetailsRepository = propertyDetailsRepository;
-            _floorRepository = floorRepository;
-            _constructionTypeRepository = constructionTypeRepository;
-            _transmastRepository = transmastRepository;
-            _taxMastRepository = taxMastRepository;
-            _ulbMasterRepository = ulbMasterRepository;
-            _userRepository = userRepository;
-            _yearRepository = yearRepository;
-            _transRepository = transRepository;
-            _ReportRequestRepository = reportRequestRepository;
-            _propertyMapDetailRepository = propertyMapDetailRepository;
-        }
-
-        // Static — never runs a query (avoids any heavy query executing on the authenticate request).
-        public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
-        {
-            new ReportSectionDescriptor(MainSection,            false),
-            new ReportSectionDescriptor(PropertyDetailsSection, false),
-            new ReportSectionDescriptor(PrarupYadiFormDetailsSection, false),
-            new ReportSectionDescriptor(ReportDataSection,      false),
-        };
-
-        public async Task<object> GetDataAsync(
-            Dictionary<string, string> parameters, CancellationToken ct = default)
-        {
-            var financeYear = ParseFinanceYear(parameters);
-            var (rows, _) = await BuildPageAsync(Guid.Empty, parameters, skip: 0, take: int.MaxValue, ct);
-            return rows;
-        }
-
-        public async Task<ReportDataPage> GetDataPageAsync(
-            Guid reportRequestId,
-            Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
-        {
-            var financeYear = ParseFinanceYear(parameters);
-            if (page < 1) page = 1;
-            if (pageSize <= 0) pageSize = 100;
-
-            // --- Parse parameters ---
-            var propertyIds = await ResolvePropertyIdsAsync(parameters, ct);
-
-            List<object> rows;
-            switch (section)
+            return new ReportDataPage
             {
-                case PropertyDetailsSection:
-                case PrarupYadiFormDetailsSection:
-                case ReportDataSection:
-                    rows = await BuildPropertyDetailsRowsAsync(propertyIds, ct);
-                    break;
+                Section = ImageParamsSection,
+                Page = 1,
+                PageSize = 1,
+                TotalCount = 1,
+                HasMore = false,
+                Rows = new List<object>(),
+            };
+        }
 
-                default: // MainSection (tax details are embedded in main)
-                    rows = await BuildMainRowsAsync(propertyIds, reportRequestId, ct);
-                    break;
-            }
+        if (section.Equals(MainSection, StringComparison.OrdinalIgnoreCase))
+        {
+            if (page < 1)
+                page = 1;
 
-            var skip = (page - 1) * pageSize;
-            var takePlusOne = pageSize + 1;
-            var paged = rows.Skip(skip).Take(takePlusOne).ToList();
-            var hasMore = paged.Count > pageSize;
-            if (hasMore) paged = paged.Take(pageSize).ToList();
+            if (pageSize < 1)
+                pageSize = int.MaxValue;
+
+            var skip = pageSize == int.MaxValue
+                ? 0
+                : (page - 1) * pageSize;
+
+            var rows = await MainQuery(
+                financeYear,
+                reportRequestId,
+                parameters,
+                skip,
+                pageSize,
+                ct);
 
             return new ReportDataPage
             {
-                Section = section,
+                Section = MainSection,
+                Page = page,
+                PageSize = rows.Count,
+                TotalCount = rows.Count,
+                HasMore = false,
+                Rows = rows.Cast<object>().ToList(),
+            };
+        }
+
+        if (section.Equals(DetailSection, StringComparison.OrdinalIgnoreCase))
+        {
+            if (page < 1)
+                page = 1;
+
+            var skip = (page - 1) * pageSize;
+
+            var (rows, hasMore) = await DetailQuery(
+                reportRequestId,
+                parameters,
+                skip,
+                pageSize,
+                ct);
+
+            return new ReportDataPage
+            {
+                Section = DetailSection,
                 Page = page,
                 PageSize = pageSize,
                 TotalCount = -1,
-                HasMore = hasMore,
-                Rows = paged,
+                Rows = rows,
+                HasMore = hasMore
             };
         }
-        private static short ParseFinanceYear(Dictionary<string, string> parameters)
+
+        return new ReportDataPage
         {
-            parameters.TryGetValue("financeYear", out var financeYearStr);
-            short.TryParse(financeYearStr, out var financeYear);
-            return financeYear;
-        }
-        private IQueryable<YearMasterEntity> BaseQuery(short financeYear) => _yearRepository.GetQueryable()
-        .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
+            Section = section,
+            Page = page,
+            PageSize = pageSize,
+            HasMore = false
+        };
+    }
+
+    private static short ParseFinanceYear(Dictionary<string, string> parameters)
+    {
+        parameters.TryGetValue("financeYear", out var financeYearStr);
+        short.TryParse(financeYearStr, out var financeYear);
+        return financeYear;
+    }
+
+    private IQueryable<YearMasterEntity> BaseQuery(short financeYear) => _yearRepository.GetQueryable()
+    .Where(b => financeYear == 0 ? b.IsActive : b.Year == financeYear);
 
 
+    // ------------------- MAIN SECTION REPORT FIELDS -----------------
+    private async Task<List<object>> MainQuery(short financeYear, Guid reportRequestId, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+    {
+        parameters.TryGetValue("ownerId", out var ownerIdText);
 
-        private async Task<List<int>> ResolvePropertyIdsAsync(Dictionary<string, string> parameters, CancellationToken ct)
-        {
-            parameters.TryGetValue("ownerId", out var ownerIdText);
-
-            var ownerIds = string.IsNullOrWhiteSpace(ownerIdText) ? new List<int>() : ownerIdText
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
-                    .Where(id => id > 0)
-                    .Distinct()
-                    .ToList();
-
-            parameters.TryGetValue("zoneId", out var zoneIdText);
-            int.TryParse(zoneIdText, out var zoneId);
-
-            parameters.TryGetValue("wardId", out var wardIdText);
-            int.TryParse(wardIdText, out var wardId);
-
-            parameters.TryGetValue("propertyNo", out var propertyNoText);
-            propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
-
-            parameters.TryGetValue("partitionNo", out var partitionNoText);
-            partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
-
-            parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
-            int.TryParse(assessmentStatusText, out var assessmentStatus);
-
-          
-
-
-            parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
-            fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
-                ? null
-                : fromPropertyNoText.Trim();
-
-            parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
-            toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
-                ? null
-                : toPropertyNoText.Trim();
-
-            parameters.TryGetValue("Type", out var type);
-            type = string.IsNullOrWhiteSpace(type)
-                ? null
-                : type.Trim().ToUpper();
-
-            parameters.TryGetValue("propertyTypeId", out var propertyTypeIdText);
-            int.TryParse(propertyTypeIdText, out var propertyTypeId);
-
-            parameters.TryGetValue("PropertyDescription", out var propertyDescription);
-            propertyDescription = string.IsNullOrWhiteSpace(propertyDescription) ? null : propertyDescription.Trim();
-
-
-            var financeYear = ParseFinanceYear(parameters);
-            int activeYearId = 0;
-            if (financeYear != 0)
-            {
-                activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
-            }
-
-
-            parameters.TryGetValue("propertyId", out var propertyIdStr);
-
-            var propertyIds = (propertyIdStr ?? string.Empty)
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => int.TryParse(s, out var id) ? id : 0)
+        var ownerIds = string.IsNullOrWhiteSpace(ownerIdText)
+            ? new List<int>()
+            : ownerIdText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
                 .Where(id => id > 0)
-                .Distinct()
                 .ToList();
 
-            if (ownerIds.Count > 0)
-            {
-                propertyIds.AddRange(ownerIds);
-                propertyIds = propertyIds.Distinct().ToList();
-            }
 
-            if (propertyIds.Count == 0)
-            {
-                var query = 
-                    from p in _propertyRepository.GetQueryable()
-                    join w in _wardRepository.GetQueryable() on p.WardId equals w.Id into wj
-                    from w in wj.DefaultIfEmpty()
+        parameters.TryGetValue("zoneId", out var zoneIdText);
+        int.TryParse(zoneIdText, out var zoneId);
 
-                    // ---------------- JOIN PropertyTypeMaster ----------------
-                    join pt in _propertyTypeRepository.GetQueryable()
-                        on p.PropertyTypeId equals pt.Id into ptj
-                    from pt in ptj.DefaultIfEmpty()
+        parameters.TryGetValue("wardId", out var wardIdText);
+        int.TryParse(wardIdText, out var wardId);
 
-                    where p.IsActive && !p.MarkedForDeletion
-                          && (zoneId == 0 || w.ZoneId == zoneId)
-                          && (wardId == 0 || p.WardId == wardId)
-                          && (propertyNoText == null || p.PropertyNo == propertyNoText)
-                          && (partitionNoText == null || p.PartitionNo == partitionNoText)
-                          && (assessmentStatus == 0 || p.PropertyAssessmentStatusId == assessmentStatus)
-                          && (string.IsNullOrEmpty(type) || p.Type == type)
-                          && (propertyTypeId == 0 || p.PropertyTypeId == propertyTypeId)
-                          && (string.IsNullOrEmpty(propertyDescription) || pt.PropertyDescription == propertyDescription)
-                          && (fromPropertyNoText == null || string.Compare(p.PropertyNo, fromPropertyNoText) >= 0)
-                          && (toPropertyNoText == null || string.Compare(p.PropertyNo, toPropertyNoText) <= 0)
+        parameters.TryGetValue("propertyNo", out var propertyNoText);
+        propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
 
-                    select p;
+        // ------ FROM Property - TO Property Number Range Filter Parameters ------
+        parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+        fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+            ? null
+            : fromPropertyNoText.Trim();
 
-                // APPLY TransMast constraint SERVER-SIDE only when caller requested financeYear
-                if (financeYear != 0 && activeYearId > 0)
-                {
-                    var transQ = _transRepository.GetQueryable()
-                        .Where(t => t.FinanceYearId == activeYearId)
-                        .Select(t => t.PropertyId);
+        parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+        toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+            ? null
+            : toPropertyNoText.Trim();
 
-                    query = query.Where(p => transQ.Contains(p.Id));
-                }
+        parameters.TryGetValue("partitionNo", out var partitionNoText);
+        partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
 
-                propertyIds = await query.Select(p => p.Id).ToListAsync(ct);
-            }
+        parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+        int.TryParse(assessmentStatusText, out var assessmentStatus);
 
-            return propertyIds;
-        }
+        parameters.TryGetValue("Type", out var type);
+        type = string.IsNullOrWhiteSpace(type)
+            ? null
+            : type.Trim().ToUpper();
 
-        private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
-            Guid reportRequestId,
-            Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
-        {
-            // --- Parse parameters ---
-            var propertyIds = await ResolvePropertyIdsAsync(parameters, ct);
+        parameters.TryGetValue("propertyTypeId", out var propertyTypeIdText);
+        int.TryParse(propertyTypeIdText, out var propertyTypeId);
 
-            var rows = await BuildMainRowsAsync(propertyIds, reportRequestId, ct);
+        parameters.TryGetValue("PropertyDescription", out var propertyDescription);
+        propertyDescription = string.IsNullOrWhiteSpace(propertyDescription) ? null : propertyDescription.Trim();
 
-            var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
-            var paged = rows.Skip(skip).Take(takePlusOne).ToList();
-            var hasMore = take != int.MaxValue && paged.Count > take;
-            if (hasMore) paged = paged.Take(take).ToList();
+        // ------- Amount Parameter ---------
+        parameters.TryGetValue("totalTaxFilterType", out var totalTaxFilterType);   // Top n / Less Than / Greater Than
+        parameters.TryGetValue("totalTaxFilterValue", out var totalTaxFilterValue); // amount 
 
-            return (paged, hasMore);
-        }
+        var activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
 
-        private async Task<List<object>> BuildMainRowsAsync(List<int> propertyIds, Guid reportRequestId, CancellationToken ct)
-        {
-            if (propertyIds == null || propertyIds.Count == 0)
-                return new List<object>();
 
-            // 1a. Properties — batch fetch all properties matching the IDs
-            var properties = await _propertyRepository.GetQueryable()
-                .Where(p => propertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
-                .Select(p => new
-                {
-                    p.Id,
-                    p.PropertyNo,
-                    p.WardId,
-                    p.PartitionNo,
-                    p.UPICId,
-                    p.SubZoneNo,
-                    p.MobileNo,
-                    p.OwnerTitle,
-                    p.OccupierTitle,
-                    p.OwnerName,
-                    p.OccupierName,
-                    p.Address,
-                    p.FlatOrShopNo,
-                    p.FlatOrShopName,
-                    p.PropertyTypeId,
-                })
-                .ToListAsync(ct);
+        // ---------------- GET USER INFO ----------------
+        var requestedByUserId = await _ReportRequestRepository.GetQueryable()
+            .Where(r => r.ReportRequestId == reportRequestId)
+            .Select(r => (int?)r.RequestedByUserId)
+            .FirstOrDefaultAsync(ct);
 
-            if (!properties.Any())
-                return new List<object>();
-
-            // 1b. Ward mapping — collect unique ward IDs and resolve WardNo
-            var uniqueWardIds = properties
-                .Select(p => p.WardId)
-                .Where(wid => wid > 0)
-                .Distinct()
-                .ToList();
-
-            var wardMap = new Dictionary<int, string?>();
-            foreach (var wid in uniqueWardIds)
-            {
-                var wardNo = await _wardRepository.GetQueryable()
-                    .Where(w => w.Id == wid)
-                    .Select(w => w.WardNo)
-                    .FirstOrDefaultAsync(ct);
-                wardMap[wid] = wardNo;
-            }
-
-            // 1c. Society details — batch fetch for all properties
-            var allPropertyIds = properties.Select(p => p.Id).ToList();
-            var societies = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId.HasValue && allPropertyIds.Contains(sd.PropertyId.Value))
-                .Select(sd => new
-                {
-                    PropertyId = sd.PropertyId!.Value,
-                    sd.WingId,
-                    sd.WingName,
-                    sd.SocietyName,
-                    sd.SocietyAddress,
-                })
-                .ToListAsync(ct);
-            var societyMap = societies.ToDictionary(s => s.PropertyId);
-
-            // 1d. Type-of-use — batch fetch for all property types
-            var uniquePropertyTypeIds = properties
-                .Where(p => p.PropertyTypeId.HasValue)
-                .Select(p => p.PropertyTypeId!.Value)
-                .Distinct()
-                .ToList();
-
-            var typeOfUses = await _typeOfUseRepository.GetQueryable()
-                .Where(t => uniquePropertyTypeIds.Contains(t.Id))
-                .Select(t => new { t.Id, t.Description, t.TypeOfUseCode })
-                .ToListAsync(ct);
-            var typeOfUseMap = typeOfUses.ToDictionary(t => t.Id);
-
-            // 1e. Map new property IDs to old property IDs via PropertyMapDetail
-            var propertyMappings = await _propertyMapDetailRepository.GetQueryable()
-                .Where(pmd => pmd.PropertyIdNew.HasValue && propertyIds.Contains(pmd.PropertyIdNew.Value) && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
-                .Select(pmd => new { pmd.PropertyIdNew, pmd.PropertyIdOld })
-                .ToListAsync(ct);
-
-            var newToOldIdMap = propertyMappings
-                .Where(m => m.PropertyIdNew.HasValue && m.PropertyIdOld.HasValue)
-                .GroupBy(m => m.PropertyIdNew!.Value)
-                .ToDictionary(g => g.Key, g => g.First().PropertyIdOld!.Value);
-
-            var uniquePropertyMastOldIds = newToOldIdMap.Values.Distinct().ToList();
-
-            var propertyOlds = await _propertyMastOldRepository.GetQueryable()
-                .Where(o => uniquePropertyMastOldIds.Contains(o.Id))
-                .Select(o => new { o.Id, o.OldWardNo, o.OldPropertyNo, o.OldPartitionNo })
-                .ToListAsync(ct);
-            var propertyOldMap = propertyOlds.ToDictionary(o => o.Id);
-
-            // 1f. PropertyTypeMaster — batch fetch
-            var propertyTypes = await _propertyTypeRepository.GetQueryable()
-                .Where(pt => uniquePropertyTypeIds.Contains(pt.Id))
-                .Select(pt => new { pt.Id, pt.PropertyDescription, pt.Type, pt.PartType })
-                .ToListAsync(ct);
-            var propertyTypeMap = propertyTypes.ToDictionary(pt => pt.Id);
-
-            // 1g. ULB Master (shared across all rows)
-            var ulb = await _ulbMasterRepository.GetQueryable()
+        var user = requestedByUserId == null
+            ? null
+            : await _userRepository.GetQueryable()
+                .Where(u => u.Id == requestedByUserId.Value)
                 .Select(u => new
                 {
-                    u.UlbCode,
-                    u.UlbName,
-                    u.UlbNameLocal,
-                    u.UlbLogo,
-                    u.EmailId,
-                    u.MobileNo,
-                    u.AlternateMobileNo,
-                    u.WebsiteUrl,
-                    u.UlbAddress,
-                    u.State,
-                    u.District,
-                    u.PinCode,
+                    RequestedByUserId = requestedByUserId.Value,
+                    u.Id,
+                    u.UserName
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // 1h. User (shared across all rows)
-            var requestedByUserId = await _ReportRequestRepository.GetQueryable()
-                .Where(r => r.ReportRequestId == reportRequestId)
-                .Select(r => (int?)r.RequestedByUserId)
-                .FirstOrDefaultAsync(ct);
+        // ---------------- PROPERTY QUERY ----------------
+        var properties =
+        (
+            from pm in _propertyRepository.GetQueryable()
 
-            var user = requestedByUserId == null
-                ? null
-                : await _userRepository.GetQueryable()
-                    .Where(u => u.Id == requestedByUserId.Value)
-                    .Select(u => new
-                    {
-                        u.Id,
-                        u.UserName,
-                        u.UserCode,
-                        u.Email,
-                        u.MobileNo,
-                    })
-                    .FirstOrDefaultAsync(ct);
+            join wn in _wardRepository.GetQueryable() on pm.WardId equals wn.Id into wmj
+            from wn in wmj.DefaultIfEmpty()
 
-            // 1i. TransMast pivot — batch fetch for all properties
-            var allTaxRows = await (
-                from tm in _transmastRepository.GetQueryable().Where(t => allPropertyIds.Contains(t.PropertyId))
-                join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
-                orderby tam.DisplayOrder
-                select new
-                {
-                    tm.PropertyId,
-                    tam.TaxCode,
-                    tam.TaxName,
-                    tm.RVorCV,
-                    tm.RVorCVValue,
-                    tm.TaxAmount,
-                }
-            ).ToListAsync(ct);
-            var taxRowsByProperty = allTaxRows.GroupBy(t => t.PropertyId).ToDictionary(g => g.Key, g => g.ToList());
+            join zm in _zoneRepository.GetQueryable() on pm.TaxZoneId equals zm.Id into zmj
+            from zm in zmj.DefaultIfEmpty()
 
-            // 1j. PropertyDetails — batch fetch first floor entry for all properties
-            var allPropertyDetailsRaw = await _propertyDetailsRepository.GetQueryable()
-                .Where(pd => allPropertyIds.Contains(pd.PropertyId))
-                .Select(pd => new
-                {
-                    pd.PropertyId,
-                    pd.FloorId,
-                    pd.SubFloorId,
-                    pd.ConstructionYear,
-                    pd.AssessmentYear,
-                    pd.CarpetAreaSqFeet,
-                    pd.CarpetAreaSqMeter,
-                    pd.BuiltupAreaSqFeet,
-                    pd.BuiltupAreaSqMeter,
-                    pd.NoOfRooms,
-                })
-                .ToListAsync(ct);
+            join sdm in _societyRepository.GetQueryable() on pm.Id equals sdm.PropertyId into sdmj
+            from sdm in sdmj.DefaultIfEmpty()
 
-            // Group in memory to get first entry per property
-            var propertyDetailsMap = allPropertyDetailsRaw
-                .GroupBy(pd => pd.PropertyId)
-                .ToDictionary(g => g.Key, g => g.First());
+            join pt in _PropertyTypeMasterRepository.GetQueryable() on pm.PropertyTypeId equals pt.Id into ptj
+            from pt in ptj.DefaultIfEmpty()
 
-            // Build one row per property
-            var rows = new List<object>();
-            foreach (var property in properties)
+            from ulb in _ulbMasterRepository.GetQueryable()
+                .Where(x => x.IsActive)
+                .Take(1)
+
+            where pm.IsActive
+      && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
+      && (zoneId == 0 || wn.ZoneId == zoneId)
+      && (wardId == 0 || pm.WardId == wardId)
+      && (propertyNoText == null || pm.PropertyNo == propertyNoText)
+      && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+      && (assessmentStatus == 0 || pm.PropertyAssessmentStatusId == assessmentStatus)
+      && (string.IsNullOrEmpty(type) || pt.Type == type)
+      && (propertyTypeId == 0 || pt.Id == propertyTypeId)
+      && (string.IsNullOrEmpty(propertyDescription) ||
+          pt.PropertyDescription == propertyDescription)
+
+            //orderby pm.PropertyNo, pm.PartitionNo
+
+            select new
             {
-                var wardNo = property.WardId > 0 && wardMap.ContainsKey(property.WardId)
-                    ? wardMap[property.WardId]
-                    : null;
+                // ---------------- BASIC ----------------
+                pm.Id,
+                pm.PropertyNo,
+                pm.PartitionNo,
+                pm.FlatOrShopName,
+                pm.FlatOrShopNo,
+                pm.PlotNo,
+                pm.PinCode,
+                pm.EmailId,
+                pm.Address,
+                wn.WardNo,
+                WardDescription = wn.Description,
+                zm.ZoneNo,
+                ZoneDescription = zm.Description,
+                pm.OwnerTitle,
+                pm.OwnerName,
+                pm.OccupierTitle,
+                pm.OccupierName,
 
-                societyMap.TryGetValue(property.Id, out var society);
+                pt.PropertyDescription,
 
-                var typeOfUse = property.PropertyTypeId.HasValue && typeOfUseMap.ContainsKey(property.PropertyTypeId.Value)
-                    ? typeOfUseMap[property.PropertyTypeId.Value]
-                    : null;
+                sdm.SocietyName,
+                sdm.SecretaryName,
+                // ---------------- ULB ----------------
+                CouncilName = ulb.UlbNameLocal,
+                CouncilAddress = ulb.UlbAddress,
+                CouncilEmailId = ulb.EmailId,
+                CouncilMobileNo = ulb.MobileNo,
 
-                dynamic? propertyOld = null;
-                if (newToOldIdMap.TryGetValue(property.Id, out var oldId) && propertyOldMap.ContainsKey(oldId))
+
+            }
+        );
+
+        var props = await properties
+            .Distinct()
+            .OrderBy(x => x.PropertyNo)
+            .ThenBy(x => x.PartitionNo)
+            .ToListAsync(ct);
+
+        // ---------------- FROM PROPERTY NUMBER FILTER ----------------
+        if (int.TryParse(fromPropertyNoText, out var fromPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no >= fromPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(fromPropertyNoText))
+        {
+            props = props
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        fromPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+        }
+
+        // ---------------- TO PROPERTY NUMBER FILTER ----------------
+        if (int.TryParse(toPropertyNoText, out var toPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no <= toPropertyNo)
+                .ToList();
+        }
+        else if (!string.IsNullOrWhiteSpace(toPropertyNoText))
+        {
+            props = props
+                .Where(x =>
+                    string.Compare(
+                        x.PropertyNo,
+                        toPropertyNoText,
+                        StringComparison.OrdinalIgnoreCase) <= 0)
+                .ToList();
+        }
+
+        // TotalTax map for current property set
+        var propIds = props.Select(x => x.Id).Distinct().ToList();
+
+        var totalTaxByProperty = await _transRepository.GetQueryable()
+            .Where(t => t.FinanceYearId == activeYearId && propIds.Contains(t.PropertyId))
+            .GroupBy(t => t.PropertyId)
+            .Select(g => new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) })
+            .ToDictionaryAsync(x => x.PropertyId, x => x.TotalTax, ct);
+
+        // AMOUNT filter CODE -----------------------------
+        if (!string.IsNullOrWhiteSpace(totalTaxFilterType) &&
+            !string.IsNullOrWhiteSpace(totalTaxFilterValue) &&
+            decimal.TryParse(totalTaxFilterValue, out var filterValue))
+        {
+            var mode = totalTaxFilterType.Trim().ToLowerInvariant().Replace(" ", "");
+
+            if (mode == "topn" || mode == "top")
+            {
+                var n = (int)filterValue;
+                if (n > 0)
                 {
-                    propertyOld = propertyOldMap[oldId];
+                    props = props
+                        .OrderByDescending(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m))
+                        .ThenBy(p => p.PropertyNo)
+                        .ThenBy(p => p.FlatOrShopNo)
+                        .Take(n)
+                        .ToList();
+                }
+            }
+            else if (mode == "lessthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) < filterValue)
+                    .ToList();
+            }
+            else if (mode == "greaterthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) > filterValue)
+                    .ToList();
+            }
+        }
+
+        // paging must be last
+        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        props = props.Skip(skip).Take(takePlusOne).ToList();
+
+        var hasMore = take != int.MaxValue && props.Count > take;
+        if (hasMore) props = props.Take(take).ToList();
+
+        // ---------------- FINAL CRYSTAL REPORT ROWS ----------------
+        var rows = new List<object>();
+
+        foreach (var p in props)
+        {
+            var row = new Dictionary<string, object?>
+            {
+                // ---------------- PROPERTY INFO ----------------
+                ["ownerId"] = p.Id,
+                ["propertyNo"] = p.PropertyNo,
+                ["partitionNo"] = p.PartitionNo,
+                ["MarathiFlatOrShopNo"] = p.FlatOrShopNo,
+                ["FlatOrShopName"] = p.FlatOrShopName,
+                ["plotNo"] = p.PlotNo,
+                ["PinCode"] = p.PinCode,
+                ["EmailId"] = p.EmailId,
+                ["OwnerAddress"] = p.Address,
+                ["NodeNo"] = p.ZoneNo,
+                ["NodeDescription"] = p.ZoneDescription,
+                ["WardNo"] = p.WardNo,
+                ["WardDescription"] = p.WardDescription,
+                ["OwnerTitle"] = p.OwnerTitle,
+                ["OwnerName"] = p.OwnerName,
+                ["OccupierTitle"] = p.OccupierTitle,
+                ["OccupierName"] = p.OccupierName,
+                ["PropertyDescription"] = p.PropertyDescription,
+
+                ["MarathiSocietyName"] = p.SocietyName,
+                ["SecretaryName"] = p.SecretaryName,
+                ["PropertyType"] = p.PropertyDescription,
+                ["userName"] = user?.UserName,
+
+                // ---------------- ULB ----------------
+                ["CouncilName"] = p.CouncilName,
+                ["CouncilAddress"] = p.CouncilAddress,
+                ["CouncilEmailId"] = p.CouncilEmailId,
+                ["CouncilMobileNo"] = p.CouncilMobileNo,
+                ["ownerFullName"] = $"{p.OwnerTitle} {p.OwnerName}".Trim(),
+                ["occupierFullName"] = $"{p.OccupierTitle} {p.OccupierName}".Trim(),
+                ["NodeSectorNo"] = $"{p.ZoneDescription} {p.WardNo}".Trim(),
+                ["wardPropertyropertyZoneNo"] = $"{p.WardNo} {p.PropertyNo} {p.ZoneNo}".Trim(),
+            };
+
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    // ------------------- SUB REPORT SECTION FIELDS -----------------
+    private async Task<(List<object> Rows, bool HasMore)> DetailQuery(Guid reportRequestId, Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
+    {
+        parameters.TryGetValue("ownerId", out var ownerIdText);
+
+        var ownerIds = string.IsNullOrWhiteSpace(ownerIdText) ? new List<int>() : ownerIdText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => int.TryParse(x.Trim(), out var id) ? id : 0)
+                .Where(id => id > 0)
+                .ToList();
+
+        parameters.TryGetValue("zoneId", out var zoneIdText);
+        int.TryParse(zoneIdText, out var zoneId);
+
+        parameters.TryGetValue("wardId", out var wardIdText);
+        int.TryParse(wardIdText, out var wardId);
+
+        parameters.TryGetValue("propertyNo", out var propertyNoText);
+        propertyNoText = string.IsNullOrWhiteSpace(propertyNoText) ? null : propertyNoText.Trim();
+
+        // ------ FROM Property - TO Property Number Range Filter Parameters ------
+        parameters.TryGetValue("fromPropertyNo", out var fromPropertyNoText);
+        fromPropertyNoText = string.IsNullOrWhiteSpace(fromPropertyNoText)
+            ? null
+            : fromPropertyNoText.Trim();
+
+        parameters.TryGetValue("toPropertyNo", out var toPropertyNoText);
+        toPropertyNoText = string.IsNullOrWhiteSpace(toPropertyNoText)
+            ? null
+            : toPropertyNoText.Trim();
+
+        parameters.TryGetValue("partitionNo", out var partitionNoText);
+        partitionNoText = string.IsNullOrWhiteSpace(partitionNoText) ? null : partitionNoText.Trim();
+
+        parameters.TryGetValue("assessmentStatus", out var assessmentStatusText);
+        int.TryParse(assessmentStatusText, out var assessmentStatus);
+
+        // -------- Amount filter inputs -------------
+        parameters.TryGetValue("totalTaxFilterType", out var totalTaxFilterType);   // Top n / Less Than / Greater Than
+        parameters.TryGetValue("totalTaxFilterValue", out var totalTaxFilterValue); // amount or count (for Top n)
+
+        var financeYear = ParseFinanceYear(parameters);
+
+        var activeYearId = await BaseQuery(financeYear).Select(x => x.Id).FirstOrDefaultAsync(ct);
+
+
+
+        // ---------------- PROPERTY QUERY WITH EXTENDED JOINS ----------------
+        var propQuery =
+            from pm in _propertyRepository.GetQueryable()
+
+                // Existing joins
+            join wn in _wardRepository.GetQueryable() on pm.WardId equals wn.Id into wmj
+            from wn in wmj.DefaultIfEmpty()
+
+            join zm in _zoneRepository.GetQueryable() on pm.TaxZoneId equals zm.Id into zmj
+            from zm in zmj.DefaultIfEmpty()
+
+                // -------- NEW JOINS --------
+
+            join pd in _propertyDetailsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion)
+                on pm.Id equals pd.PropertyId into pdj
+            from pd in pdj.DefaultIfEmpty()
+
+                // FloorMaster
+            join fm in _floorRepository.GetQueryable() on pd.FloorId equals fm.Id into fmj
+            from fm in fmj.DefaultIfEmpty()
+
+                // ConstructionTypeMaster
+            join ctm in _constructionTypeRepository.GetQueryable() on pd.ConstructionTypeId equals ctm.Id into ctmj
+            from ctm in ctmj.DefaultIfEmpty()
+
+            join rvc in _rvCalculationResultsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion)
+               on pd.Id equals rvc.PropertyDetailsId into rvcj
+            from rvc in rvcj.DefaultIfEmpty()
+
+                // ✅ TypeOfUseMast (TypeOfUseEntity) - JOIN via PropertyDetails.TypeOfUseId
+            join tou in _typeOfUseRepository.GetQueryable() on pd.TypeOfUseId equals tou.Id into touj
+            from tou in touj.DefaultIfEmpty()
+
+            join rm in _renterMastRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion)
+           on pd.Id equals rm.PropertyDetailsId into rmj
+            from rm in rmj.DefaultIfEmpty()
+
+            where pm.IsActive
+                  && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
+                  && (zoneId == 0 || wn.ZoneId == zoneId)
+                  && (wardId == 0 || pm.WardId == wardId)
+                  && (propertyNoText == null || pm.PropertyNo == propertyNoText)
+                  && (partitionNoText == null || pm.PartitionNo == partitionNoText)
+                  && (assessmentStatus == 0 || pm.PropertyAssessmentStatusId == assessmentStatus)
+
+            select new
+            {
+                // Property fields
+                pm.Id,
+                pm.PropertyNo,
+                pm.PartitionNo,
+
+                // PropertyDetails fields
+                PropertyDetailsId = pd != null ? pd.Id : (int?)null,
+                pd.FloorId,
+                pd.ConstructionYear,
+                ctm.ConstructionCode,
+                pd.CarpetAreaSqMeter,
+                pd.CarpetAreaSqFeet,
+                tou.Type,
+
+                // FloorMaster fields
+                FloorCode = fm != null ? fm.FloorCode : null,
+
+                // RVCalculationResults fields
+                RVCalculationResultsId = rvc != null ? rvc.Id : (int?)null,
+                rvc.YearlyRate,
+                rvc.AnnualRentalValue,
+                rvc.Depreciation,
+                rvc.DepreciationPer,
+                rvc.RateableValue,
+                rm.RentMonthly,
+                rm.FinalYearlyRent,
+
+
+            };
+
+        // Execute query and get results from database
+        var propsFromDb = await propQuery.ToListAsync(ct);
+
+        var props = propsFromDb
+            .GroupBy(x => new { x.Id, x.PropertyDetailsId })
+            .Select(g => g.First())
+            .OrderBy(x => x.PropertyNo)
+            .ThenBy(x => x.PartitionNo)
+            .ThenBy(x => x.PropertyDetailsId)
+            .ToList();
+
+        // ------------ Property range filter ------------
+
+        // FROM Property No
+        if (int.TryParse(fromPropertyNoText, out var fromPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no >= fromPropertyNo)
+                .ToList();
+        }
+
+        // TO Property No
+        if (int.TryParse(toPropertyNoText, out var toPropertyNo))
+        {
+            props = props
+                .Where(x =>
+                    int.TryParse(x.PropertyNo, out var no) &&
+                    no <= toPropertyNo)
+                .ToList();
+        }
+
+        /////////////////////////////////////////////////////////////////////////////
+
+        var ids = props.Select(x => x.Id).Distinct().ToList();
+
+        // load active tax masters for the page
+        var taxMasters = await _taxRepository.GetQueryable()
+            .Where(tm => tm.IsActive)
+            .Select(tm => new { tm.Id, tm.TaxCode, tm.TaxName, tm.TaxNameAlias, tm.DisplayOrder })
+            .OrderBy(tm => tm.DisplayOrder)
+            .ToListAsync(ct);
+
+        // Load transaction data WITH CalculationType (RV/CV)
+        var transData = await _transRepository.GetQueryable()
+            .Where(t => t.FinanceYearId == activeYearId && ids.Contains(t.PropertyId))
+            .Select(t => new
+            {
+                t.PropertyId,
+                t.TaxId,
+                t.TaxAmount,
+                RVorCV = t.CalculationType
+            })
+            .ToListAsync(ct);
+
+        // Apply RV/CV logic per property
+        var transSumsByProperty = transData
+            .GroupBy(t => t.PropertyId)
+            .Select(g =>
+            {
+                var taxRows = g.ToList();
+                var hasRv = taxRows.Any(t => string.Equals(t.RVorCV, "RV", StringComparison.OrdinalIgnoreCase));
+                var hasCv = taxRows.Any(t => string.Equals(t.RVorCV, "CV", StringComparison.OrdinalIgnoreCase));
+
+                bool shouldSkip = hasCv && !hasRv;
+
+                var filteredRows = taxRows;
+                if (hasRv && !hasCv)
+                {
+                    filteredRows = taxRows.Where(t => string.Equals(t.RVorCV, "RV", StringComparison.OrdinalIgnoreCase)).ToList();
                 }
 
-                var propertyType = property.PropertyTypeId.HasValue && propertyTypeMap.ContainsKey(property.PropertyTypeId.Value)
-                    ? propertyTypeMap[property.PropertyTypeId.Value]
-                    : null;
-
-                taxRowsByProperty.TryGetValue(property.Id, out var taxRows);
-                propertyDetailsMap.TryGetValue(property.Id, out var propertyDetail);
-
-                var row = new Dictionary<string, object?>
+                return new
                 {
-                    // Property fields
-                    ["propertyId"] = property.Id,
-                    ["propertyNo"] = property.PropertyNo,
-                    ["wardId"] = property.WardId,
-                    ["wardNo"] = wardNo,
-                    ["partitionNo"] = property.PartitionNo,
-                    ["upicId"] = property.UPICId,
-                    ["subZoneNo"] = property.SubZoneNo,
-                    ["mobileNo"] = property.MobileNo,
-                    ["ownerTitle"] = property.OwnerTitle,
-                    ["occupierTitle"] = property.OccupierTitle,
-                    ["ownerName"] = property.OwnerName,
-                    ["occupierName"] = property.OccupierName,
-                    ["address"] = property.Address,
-                    ["flatOrShopNo"] = property.FlatOrShopNo,
-                    ["flatOrShopName"] = property.FlatOrShopName,
-                    // Society details
-                    ["wingId"] = society?.WingId,
-                    ["wingName"] = society?.WingName,
-                    ["societyName"] = society?.SocietyName,
-                    ["societyAddress"] = society?.SocietyAddress,
-                    // Type-of-use
-                    ["typeOfUseDesc"] = typeOfUse?.Description,
-                    ["typeOfUseCode"] = typeOfUse?.TypeOfUseCode,
-                    // Old property data (PTIS.PropertyMastOld)
-                    ["oldWardNo"] = propertyOld?.OldWardNo,
-                    ["oldPropertyNo"] = propertyOld?.OldPropertyNo,
-                    ["oldPartitionNo"] = propertyOld?.OldPartitionNo,
-                    // Property type master (PTIS.PropertyTypeMaster)
-                    ["propertyDescription"] = propertyType?.PropertyDescription,
-                    ["propertyType"] = propertyType?.Type,
-                    ["propertyPartType"] = propertyType?.PartType,
-                    // User Master (CORE.UserMaster)
-                    ["userId"] = user?.Id,
-                    ["userName"] = user?.UserName,
-                    ["userCode"] = user?.UserCode,
-                    ["userEmail"] = user?.Email,
-                    ["userMobileNo"] = user?.MobileNo,
-                    // ULB Master (CORE.UlbMaster)
-                    ["ulbCode"] = ulb?.UlbCode,
-                    ["ulbName"] = ulb?.UlbName,
-                    ["ulbNameLocal"] = ulb?.UlbNameLocal,
-                    ["ulbLogo"] = ulb?.UlbLogo,
-                    ["ulbEmailId"] = ulb?.EmailId,
-                    ["ulbMobileNo"] = ulb?.MobileNo,
-                    ["ulbAlternateMobileNo"] = ulb?.AlternateMobileNo,
-                    ["ulbWebsiteUrl"] = ulb?.WebsiteUrl,
-                    ["ulbAddress"] = ulb?.UlbAddress,
-                    ["ulbState"] = ulb?.State,
-                    ["ulbDistrict"] = ulb?.District,
-                    ["ulbPinCode"] = ulb?.PinCode,
-                    // Property Details (PTIS.PropertyDetails — first floor entry)
-                    ["floorId"] = propertyDetail?.FloorId,
-                    ["subFloorId"] = propertyDetail?.SubFloorId,
-                    ["constructionYear"] = propertyDetail?.ConstructionYear,
-                    ["assessmentYear"] = propertyDetail?.AssessmentYear,
-                    ["carpetAreaSqFeet"] = propertyDetail?.CarpetAreaSqFeet,
-                    ["carpetAreaSqMeter"] = propertyDetail?.CarpetAreaSqMeter,
-                    ["builtupAreaSqFeet"] = propertyDetail?.BuiltupAreaSqFeet,
-                    ["builtupAreaSqMeter"] = propertyDetail?.BuiltupAreaSqMeter,
-                    ["noOfRooms"] = propertyDetail?.NoOfRooms,
-                    ["financeYear"] = "",
+                    PropertyId = g.Key,
+                    ShouldSkip = shouldSkip,
+                    Transactions = filteredRows
                 };
+            })
+            .ToDictionary(x => x.PropertyId);
 
-                // Pivot TransMast rows into dynamic columns on the same main row.
-                if (taxRows != null)
+        // Filter out CV-only properties
+        props = props.Where(p => !transSumsByProperty.ContainsKey(p.Id) || !transSumsByProperty[p.Id].ShouldSkip).ToList();
+        ids = props.Select(x => x.Id).Distinct().ToList();
+
+        // Build transaction sums from filtered data
+        var transSums = transSumsByProperty
+            .Where(kvp => ids.Contains(kvp.Key))
+            .SelectMany(kvp => kvp.Value.Transactions
+                .GroupBy(t => t.TaxId)
+                .Select(g => new
                 {
-                    foreach (var tax in taxRows)
-                    {
-                        var safeCode = (tax.TaxCode?.Trim().Length > 0
-                                            ? tax.TaxCode
-                                            : tax.TaxName ?? "UNKNOWN")
-                                       .Replace(' ', '_');
+                    PropertyId = kvp.Key,
+                    TaxId = g.Key,
+                    Total = g.Sum(x => x.TaxAmount)
+                })
+            )
+            .ToList();
 
-                        row[$"Transmast_{safeCode}"] = tax.TaxAmount;
-                        row[$"RVorCV_{safeCode}"] = tax.RVorCV;
-                        row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
-                    }
+        // CRITICAL FIX: Ensure transSums only has data for filtered properties
+        transSums = transSums.Where(t => ids.Contains(t.PropertyId)).ToList();
+
+        //build map: propertyId->list of taxes(one entry per active tax master; amount = sum or 0)
+        var taxByProperty = ids.ToDictionary(
+            id => id,
+            id => taxMasters.Select(tm =>
+            {
+                var s = transSums.FirstOrDefault(x => x.PropertyId == id && x.TaxId == tm.Id);
+                return new
+                {
+                    TaxId = tm.Id,
+                    TaxCode = tm.TaxCode ?? string.Empty,
+                    TaxName = tm.TaxName ?? string.Empty,
+                    TaxNameAlias = tm.TaxNameAlias ?? string.Empty,
+                    DisplayOrder = tm.DisplayOrder,
+                    TaxAmount = s?.Total ?? 0m
+
+                };
+            })
+            .OrderBy(t => t.DisplayOrder)
+            .ToList()
+        );
+
+        // totals per property
+        var totalTaxByProperty = taxByProperty.ToDictionary(x => x.Key, x => x.Value.Sum(t => t.TaxAmount));
+
+        //  AMOUNT filter Code
+        if (!string.IsNullOrWhiteSpace(totalTaxFilterType) &&
+            !string.IsNullOrWhiteSpace(totalTaxFilterValue) &&
+            decimal.TryParse(totalTaxFilterValue, out var filterValue))
+        {
+            var mode = totalTaxFilterType.Trim().ToLowerInvariant().Replace(" ", "");
+
+            if (mode == "topn" || mode == "top")
+            {
+                var n = (int)filterValue;
+                if (n > 0)
+                {
+                    props = props
+                        .OrderByDescending(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m))
+                        .ThenBy(p => p.PropertyNo)
+                        .ThenBy(p => p.PartitionNo)
+                        .Take(n)
+                        .ToList();
                 }
+            }
+            else if (mode == "lessthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) < filterValue)
+                    .ToList();
+            }
+            else if (mode == "greaterthan")
+            {
+                props = props
+                    .Where(p => totalTaxByProperty.GetValueOrDefault(p.Id, 0m) > filterValue)
+                    .ToList();
+            }
+        }
+        ////////////////////////////////////////////////////////////////////////////////////////
 
-                rows.Add(row);
+        // Paging must be after TotalTax filter
+        var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
+        props = props.Skip(skip).Take(takePlusOne).ToList();
+
+        var hasMore = take != int.MaxValue && props.Count > take;
+        if (hasMore)
+            props = props.Take(take).ToList();
+
+        var rows = new List<object>();
+
+        // -------- PIVOT LOGIC: ONE ROW PER PROPERTY --------
+        foreach (var p in props)
+        {
+            if (!taxByProperty.TryGetValue(p.Id, out var taxes))
+                continue;
+
+            decimal totalTax = taxes.Sum(x => x.TaxAmount);
+
+            // Build base row with property data
+            var row = new Dictionary<string, object?>
+            {
+                ["ownerId"] = p.Id,
+                ["propertyNo"] = p.PropertyNo,
+                ["partitionNo"] = p.PartitionNo,
+
+                //// Total tax
+                //["TotalTax"] = totalTax.ToString("0"),
+                //["TotalTaxAmount"] = totalTax,
+
+                // PropertyDetails
+                ["ConstructionYear"] = p.ConstructionYear,
+                ["ConstructionCode"] = p.ConstructionCode,
+                ["FloorCode"] = p.FloorCode,
+                ["TypeOfUse"] = p.Type,
+
+                ["CarpetAreaSqMeter"] = p.CarpetAreaSqMeter?.ToString("0"),
+                ["CarpetAreaSqFeet"] = p.CarpetAreaSqFeet?.ToString("0"),
+
+                // RVCalculationResults
+                ["YearlyRate"] = p.YearlyRate?.ToString("0"),
+                ["AnnualRentalValue"] = p.AnnualRentalValue?.ToString("0"),
+                ["Depreciation"] = p.Depreciation,
+                ["DepreciationPer"] = p.DepreciationPer,
+                ["RateableValue"] = p.RateableValue?.ToString("0"),
+                ["RentMonthly"] = p.RentMonthly?.ToString("0"),
+                ["FinalYearlyRent"] = p.FinalYearlyRent?.ToString("0"),
+                //["TotalTax"] = totalTax.ToString("0"),
+                // Total tax
+                ["TotalTax"] = totalTax.ToString("0")
+            };
+
+            // -------- TAX CODE TO FIELD NAME MAPPING --------
+            var taxCodeToFieldName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["GEN"] = "GEN_TAX",              // General Tax (DisplayOrder: 1)
+                ["STATE_EDU"] = "STATE_EDU_TAX",  // State Education Tax (DisplayOrder: 2)
+                ["STATE_EMP"] = "STATE_EMP_TAX",  // State Employment Tax (DisplayOrder: 3)
+                ["TREE"] = "TREE_TAX",            // Tree Cess (DisplayOrder: 4)
+                ["SP_WATER"] = "SP_WATER_TAX",    // Special Water Cess (DisplayOrder: 5)
+                ["ROAD"] = "ROAD_TAX",            // Road Cess (DisplayOrder: 6)
+                ["FIRE"] = "FIRE_TAX",            // Fire Cess (DisplayOrder: 7)
+                ["LIGHT"] = "LIGHT_TAX",          // Light Cess (DisplayOrder: 8)
+                ["WATER_BEN"] = "WATER_BEN_TAX",  // Water Benefit Cess (DisplayOrder: 9)
+                ["SEWAGE"] = "SEWAGE_TAX",        // Sewage Disposal Cess (DisplayOrder: 10)
+                ["SP_E DU"] = "SP_EDU_TAX",       // Special Education Tax (DisplayOrder: 11) ← NOTE: Space in TaxCode
+                ["TaxTotal"] = "TaxTotal"
+            };
+
+            // Initialize all tax fields to 0
+            foreach (var fieldName in taxCodeToFieldName.Values)
+            {
+                row[fieldName] = 0m;
             }
 
-            return rows;
-        }
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 2 — Property Details: one row per PTIS.PropertyDetails floor entry
-        //   with joined FloorMaster, ConstructionTypeMaster and TypeOfUseMaster
-        // ─────────────────────────────────────────────────────────────────────────
-        private async Task<List<object>> BuildPropertyDetailsRowsAsync(List<int> propertyIds, CancellationToken ct)
-        {
-            if (propertyIds == null || propertyIds.Count == 0)
-                return new List<object>();
-
-            var details = await (
-                from pd in _propertyDetailsRepository.GetQueryable()
-                                                     .Where(p => propertyIds.Contains(p.PropertyId))
-                join fm in _floorRepository.GetQueryable()
-                         on pd.FloorId equals fm.Id into fmj
-                from fm in fmj.DefaultIfEmpty()
-                join ctm in _constructionTypeRepository.GetQueryable()
-                         on pd.ConstructionTypeId equals ctm.Id into ctmj
-                from ctm in ctmj.DefaultIfEmpty()
-                join tum in _typeOfUseRepository.GetQueryable()
-                         on pd.TypeOfUseId equals tum.Id into tumj
-                from tum in tumj.DefaultIfEmpty()
-                select new
-                {
-                    pd.PropertyId,
-                    pd.FloorId,
-                    pd.SubFloorId,
-                    FloorDescription = fm != null ? fm.Description : null,
-                    pd.ConstructionYear,
-                    ConstructionCode = ctm != null ? ctm.ConstructionCode : null,
-                    ConstructionDescription = ctm != null ? ctm.Description : null,
-                    TypeOfUseCode = tum != null ? tum.TypeOfUseCode : null,
-                    TypeOfUseDescription = tum != null ? tum.Description : null,
-                    TypeOfUseType = tum != null ? tum.Type : null,
-                    pd.AssessmentYear,
-                    pd.CarpetAreaSqFeet,
-                    pd.CarpetAreaSqMeter,
-                    pd.BuiltupAreaSqFeet,
-                    pd.BuiltupAreaSqMeter,
-                    pd.NoOfRooms,
-                }
-            ).ToListAsync(ct);
-
-            return details.Select(pd => (object)new Dictionary<string, object?>
+            // Fill in actual tax values based on TaxCode
+            foreach (var tax in taxes)
             {
-                ["propertyId"] = pd.PropertyId,
-                ["floorId"] = pd.FloorId,
-                ["subFloorId"] = pd.SubFloorId,
-                ["floorDescription"] = pd.FloorDescription,
-                ["constructionYear"] = pd.ConstructionYear,
-                ["constructionCode"] = pd.ConstructionCode,
-                ["constructionDescription"] = pd.ConstructionDescription,
-                ["typeOfUseCode"] = pd.TypeOfUseCode,
-                ["typeOfUseDescription"] = pd.TypeOfUseDescription,
-                ["typeOfUseType"] = pd.TypeOfUseType,
-                ["assessmentYear"] = pd.AssessmentYear,
-                ["carpetAreaSqFeet"] = pd.CarpetAreaSqFeet,
-                ["carpetAreaSqMeter"] = pd.CarpetAreaSqMeter,
-                ["builtupAreaSqFeet"] = pd.BuiltupAreaSqFeet,
-                ["builtupAreaSqMeter"] = pd.BuiltupAreaSqMeter,
-                ["noOfRooms"] = pd.NoOfRooms,
-            }).ToList();
-        }
-
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 3 — Tax Details: one pivoted row of TransMast amounts
-        //   SELECT TaxCode, TaxName, RVorCV, RVorCVValue, TaxAmount
-        //   FROM PTIS.TransMast TM JOIN PTIS.TaxMaster TAM ON TM.TaxId = TAM.Id
-        //   WHERE TM.PropertyId = @propertyId
-        //   ORDER BY TAM.DisplayOrder
-        // ─────────────────────────────────────────────────────────────────────────
-        private async Task<List<object>> BuildTaxDetailsRowsAsync(int propertyId, CancellationToken ct)
-        {
-            var taxRows = await (
-                from tm in _transmastRepository.GetQueryable().Where(t => t.PropertyId == propertyId)
-                join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
-                orderby tam.DisplayOrder
-                select new
+                if (taxCodeToFieldName.TryGetValue(tax.TaxCode, out var fieldName))
                 {
-                    tam.TaxCode,
-                    tam.TaxName,
-                    tam.DisplayOrder,
-                    tm.RVorCV,
-                    tm.RVorCVValue,
-                    tm.TaxAmount,
+                    row[fieldName] = Math.Round(tax.TaxAmount).ToString("0");  // ✅ Rounded whole number
                 }
-            ).ToListAsync(ct);
-
-            if (!taxRows.Any())
-                return new List<object>();
-
-            var row = new Dictionary<string, object?>();
-            foreach (var tax in taxRows)
-            {
-                var safeCode = (tax.TaxCode?.Trim().Length > 0
-                                    ? tax.TaxCode
-                                    : tax.TaxName ?? "UNKNOWN")
-                               .Replace(' ', '_');
-
-                row[$"Transmast_{safeCode}"] = tax.TaxAmount;
-                row[$"RVorCV_{safeCode}"] = tax.RVorCV;
-                row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
             }
-
-            return new List<object> { row };
+            rows.Add(row);
         }
+
+        return (rows, hasMore);
     }
 }

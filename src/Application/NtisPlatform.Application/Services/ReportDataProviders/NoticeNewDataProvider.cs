@@ -39,6 +39,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<UserEntity> _userRepository;
     private readonly IReportDataRepository<PropertyMapMasterEntity> _PropertyMapRepository;
     private readonly IReportDataRepository<PropertyMapDetailEntity> _PropertyMapDetailRepository;
+    private readonly IReportDataRepository<RVCalculationResultsEntity> _rvCalculationResultsRepository;
 
     public NoticeNewDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
@@ -58,7 +59,8 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
         IReportDataRepository<UserEntity> userRepository,
         IReportDataRepository<PropertyMapMasterEntity> PropertyMapRepository,
-        IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository)
+        IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository,
+        IReportDataRepository<RVCalculationResultsEntity> rvCalculationResultsRepository)
     {
         _propertyRepository = propertyRepository;
         _propertyImagesRepository = propertyImagesRepository;
@@ -77,6 +79,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         _userRepository = userRepository;
         _PropertyMapRepository = PropertyMapRepository;
         _PropertyMapDetailRepository = PropertyMapDetailRepository;
+        _rvCalculationResultsRepository = rvCalculationResultsRepository;
     }
 
     public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
@@ -291,6 +294,23 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         (
             from pm in _propertyRepository.GetQueryable()
 
+            //// ✅ ADD THIS JOIN
+            //join rvc in _rvCalculationResultsRepository.GetQueryable() on pm.Id equals rvc.PropertyId into rvcj
+            //from rvc in rvcj.DefaultIfEmpty()
+            join rvcGroup in (
+    from r in _rvCalculationResultsRepository.GetQueryable()
+    where r.IsActive && !r.MarkedForDeletion
+    group r by r.PropertyId into g
+    select new
+    {
+        PropertyId = g.Key,
+        RateableValue = g.Max(x => x.RateableValue)  // ✅ Single value per property
+    }
+) on pm.Id equals rvcGroup.PropertyId into rvcj
+            from rvc in rvcj.DefaultIfEmpty()
+
+            where pm.IsActive
+
             join wn in _wardRepository.GetQueryable() on pm.WardId equals wn.Id into wmj
             from wn in wmj.DefaultIfEmpty()
 
@@ -321,6 +341,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 .Take(1)
 
             where pm.IsActive
+      // && (rvc == null || (rvc.IsActive && !rvc.MarkedForDeletion))
       && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
       && (zoneId == 0 || wn.ZoneId == zoneId)
       && (wardId == 0 || pm.WardId == wardId)
@@ -372,7 +393,9 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
                 //PropertyMastOld Fields
                 pmo.OldPropertyNo,
-                pmo.OldPartitionNo
+                pmo.OldPartitionNo,
+
+                rvc.RateableValue
             }
         );
         // --------------------------------------------------------------------------
@@ -518,6 +541,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["MarathiOwnerAddress"] = p.Address,
 
                 ["PropertyNo"] = p.PropertyNo,
+                ["PartitionNo"] = p.PartitionNo,
                 ["CSN"] = p.CSN,
                 ["MarathiOwnerDukanFlatNo"] = p.FlatOrShopNo,
                 ["PropertyName"] = p.FlatOrShopName,
@@ -532,16 +556,17 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["TotalCapitalValue"] = p.RVorCVValue,
                 ["TotalCapitalValueInWords"] = amountInWords,
 
-                ["wardId"] = wardId,
-                ["PartitionNo"] = "",
-                ["financeYear"] = "",
-
                 // FOR PANVEL NOTICE NEW REPORT
                 ["PropertyType"] = p.PropertyDescription,
                 ["OccupierName"] = p.OccupierName,
                 ["OwnerMobileNo"] = p.MobileNo,
                 ["OldPropertyNo"] = oldProperty?.OldPropertyNo,
                 ["userName"] = user?.UserName,
+
+                ["RateableValue"] = p.RateableValue?.ToString("0"),
+
+                ["NodeWardInfo"] = $"{p.ZoneNo}-{p.WardNo}",
+                ["FlatInfo"] = $"{p.WingNo}-{p.FlatOrShopNo}"
 
                 // PropertyMastOld Fields
                 //["OldPropertyNo"] = p.OldPropertyNo,
@@ -768,6 +793,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                     ["MarathiOwnerName"] = p.OwnerName,
                     ["OwnerName"] = p.OwnerNameEnglish,
                     ["PropertyNo"] = p.PropertyNo,
+                    ["PartitionNo"] = p.PartitionNo,
                     ["NodeNo"] = p.ZoneNo,
                     ["NewWardNo"] = p.WardNo,
 
@@ -783,10 +809,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
                     ["FirstHalfLastPaymentDate"] = "30/11/2026",
                     ["SecondHalfLastPaymentDate"] = "31/12/2026",
-
-                    ["wardId"] = " ",
-                    ["PartitionNo"] = " ",
-                    ["financeYear"] = " ",
 
                     ["TotalTax"] = totalTax.ToString("0"),
                     ["TotalTaxinWords"] = totalTaxInWords,

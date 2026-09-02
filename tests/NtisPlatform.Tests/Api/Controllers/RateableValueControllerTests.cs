@@ -1,12 +1,16 @@
+using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.RateableValue;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Interfaces;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -22,13 +26,20 @@ public class RateableValueControllerTests
     private static RateableValueController Create(
         out Mock<IRateableValueService> rvService,
         out Mock<IOccupationTaxService> occupationTaxService,
-        int? userId = 42)
+        int? userId = 42,
+        bool hasCertificates = true)
     {
         rvService = new Mock<IRateableValueService>();
         occupationTaxService = new Mock<IOccupationTaxService>();
         var logger = new Mock<ILogger<RateableValueController>>();
 
-        var controller = new RateableValueController(rvService.Object, occupationTaxService.Object, logger.Object);
+        var certificateRepo = new Mock<IRepository<PropertyCertificateEntity, int>>();
+        var certificates = hasCertificates
+            ? new List<PropertyCertificateEntity> { PropertyCertificateEntity.Create(propertyId: 549441, certificateTypeId: 1) }
+            : new List<PropertyCertificateEntity>();
+        certificateRepo.Setup(r => r.GetQueryable()).Returns(certificates.BuildMockDbSet().Object);
+
+        var controller = new RateableValueController(rvService.Object, occupationTaxService.Object, certificateRepo.Object, logger.Object);
 
         var httpContext = new DefaultHttpContext();
         if (userId.HasValue)
@@ -77,6 +88,21 @@ public class RateableValueControllerTests
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         Assert.Same(rvResult, ok.Value);
+    }
+
+    [Fact]
+    public async Task Calculate_NoCertificatesForProperty_SkipsOccupationTaxApply()
+    {
+        const int propertyId = 549441;
+
+        var controller = Create(out var rvService, out var occupationTaxService, hasCertificates: false);
+        rvService.Setup(s => s.CalculateAndSaveAsync(propertyId))
+            .ReturnsAsync(new RateableValueResponseDto { PropertyId = propertyId });
+
+        var result = await controller.Calculate(propertyId);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        occupationTaxService.Verify(s => s.ApplyAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
