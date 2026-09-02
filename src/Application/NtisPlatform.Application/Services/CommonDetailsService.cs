@@ -102,9 +102,8 @@ public class CommonDetailsService : ICommonDetailsService
                     select new SourceTableLookupDto
                     {
                         Id = st.Id,
-                        TableName = mm != null && !string.IsNullOrEmpty(mm.ModuleName)
-                            ? mm.ModuleName + " " + st.TableAliasName
-                            : st.TableAliasName,
+                        ModuleLabel = mm != null ? mm.ModuleLabel : null,
+                        TableName = st.TableAliasName,
                         ReferenceTableName = st.TableName
                     };
 
