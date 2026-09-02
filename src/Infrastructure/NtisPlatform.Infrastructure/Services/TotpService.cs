@@ -42,7 +42,7 @@ public class TotpService : ITotpService
         var window = Math.Max(2, _allowedDriftSteps);
 
         return totp.VerifyTotp(
-            timestamp.UtcDateTime,
+            timestamp.DateTime,
             code,
             out _,
             new VerificationWindow(previous: window, future: window));
@@ -51,7 +51,7 @@ public class TotpService : ITotpService
     public string ComputeCode(string secret, DateTimeOffset timestamp)
     {
         var totp = CreateTotp(secret);
-        return totp.ComputeTotp(timestamp.UtcDateTime);
+        return totp.ComputeTotp(timestamp.DateTime);
     }
 
     private static Totp CreateTotp(string secret)
