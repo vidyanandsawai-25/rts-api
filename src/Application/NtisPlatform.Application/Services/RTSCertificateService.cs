@@ -663,6 +663,42 @@ public class RTSCertificateService : IRTSCertificateService
 
         if (cert == null)
         {
+            var app = await _applicationRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(a => a.Service)
+                .FirstOrDefaultAsync(a =>
+                    a.ApplicationNo == trimmed ||
+                    (parsedAppId > 0 && a.Id == parsedAppId), ct);
+
+            if (app != null)
+            {
+                var ulbObj = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+                string ulbTitle = ulbObj?.UlbNameLocal ?? ulbObj?.UlbName ?? "अकोला महानगरपालिका, अकोला";
+                string ulbLogoPath = ulbObj?.UlbLogo ?? "/images/akola-seal.png";
+                string ulbAddr = ulbObj?.UlbAddress ?? "एम. जी. रोड, मुख्य प्रशासकीय इमारत, अकोला, महाराष्ट्र - ४४४००१";
+
+                string deptTitle = "";
+                if (app.Service != null)
+                {
+                    var d = await _departmentRepository.GetByIdAsync(app.Service.DepartmentId, ct);
+                    deptTitle = d?.DepartmentNameLocal ?? d?.DepartmentName ?? "";
+                }
+
+                return new CertificateVerificationResponseDto
+                {
+                    IsValid = false,
+                    CertificateGuid = Guid.Empty,
+                    ApplicationNo = app.ApplicationNo,
+                    ServiceName = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "",
+                    DepartmentName = deptTitle,
+                    ApplicantName = app.ApplicantName ?? "",
+                    UlbName = ulbTitle,
+                    UlbLogo = ulbLogoPath,
+                    UlbAddress = ulbAddr,
+                    Message = $"सदर अर्ज क्र. {app.ApplicationNo} प्रणालीमध्ये अधिकृतरीत्या नोंदणीकृत असून सध्या प्रक्रियेत ({app.ApplicationStatus}) आहे. सक्षम प्राधिकाऱ्यांच्या अंतिम मंजुरीनंतर अधिकृत डिजिटल स्वाक्षरीसह प्रमाणपत्र उपलब्ध होईल."
+                };
+            }
+
             return new CertificateVerificationResponseDto
             {
                 IsValid = false,
