@@ -115,13 +115,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
-
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
-            !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
-
+        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&queryParameters.ApplicationStatus==ApplicationStatus.Approved|| queryParameters.ApplicationStatus == ApplicationStatus.Rejected
+            || queryParameters.ApplicationStatus == ApplicationStatus.Reverted)
+        {
             query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
+        }
+
+        else if(queryParameters.ApplicationStatus==ApplicationStatus.Pending)
+        {
+            query = query.Where(x => x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted);
+        }
 
         else if (queryParameters.ApplicationStatus == "Overdue Applications")
         {
@@ -293,8 +296,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         {
             return result;
         }
-
-
 
         // Check if this application was reverted by the Clerk (first stage) to the Citizen
         var application = await _historyRepository.GetQueryable()

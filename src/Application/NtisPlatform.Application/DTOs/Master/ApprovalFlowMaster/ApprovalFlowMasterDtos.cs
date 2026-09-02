@@ -56,6 +56,13 @@ public class ApprovalFlowStageMasterDto
     public bool CanReturn { get; set; }
     public bool CanPay { get; set; }
     public bool IsFinalStage { get; set; }
+
+    //officer name
+    public string? UserName { get; set; }
+    public string? FirstName { get; set; }
+    public string? MiddleName { get; set; }
+    public string? LastName { get; set; }
+    public string? OfficerName { get; set; }
 }
 
 public class CreateApprovalFlowStageMasterDto

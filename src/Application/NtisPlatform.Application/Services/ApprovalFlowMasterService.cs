@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
@@ -29,7 +30,33 @@ public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMa
         var flow = flows.FirstOrDefault();
         if (flow == null) return null;
 
-        var stages = await _stageRepository.GetAsync(s => s.ApprovalFlowId == flow.Id, ct);
+        //var stages = await _stageRepository.GetAsync(s => s.ApprovalFlowId == flow.Id, ct);
+        var stages = await _stageRepository
+      .GetQueryable()
+      .AsNoTracking()
+      .Where(s => s.ApprovalFlowId == flow.Id)
+      .OrderBy(s => s.StageOrder)
+      .Select(s => new ApprovalFlowStageMasterDto
+      {
+          Id = s.Id,
+          ApprovalFlowId = s.ApprovalFlowId,
+          StageOrder = s.StageOrder,
+          StageName = s.StageName,
+          SlaDays = s.SLADays,
+
+          UserName = s.User.UserName,
+          FirstName = s.User.FirstName,
+          MiddleName = s.User.MiddleName,
+          LastName = s.User.LastName,
+
+          CanVerifyDocument = s.CanVerifyDocument,
+          CanApprove = s.CanApprove,
+          CanReject = s.CanReject,
+          CanReturn = s.CanReturn,
+          CanPay = s.CanPay,
+          IsFinalStage = s.IsFinalStage
+      })
+      .ToListAsync(ct);
         var orderedStages = stages.OrderBy(s => s.StageOrder).ToList();
 
         return new
@@ -37,7 +64,7 @@ public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMa
             flowId = flow.Id,
             serviceId = flow.ServiceId,
             flowName = flow.ApprovalFlowName,
-            stages = _mapper.Map<List<ApprovalFlowStageMasterDto>>(orderedStages)
+            stages = stages
         };
     }
 }
