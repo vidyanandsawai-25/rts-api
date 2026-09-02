@@ -21,6 +21,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpGet("templates")]
+    [HttpGet("service-configurations")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<List<RTSCertificateTemplateDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllTemplates(CancellationToken ct)
@@ -35,6 +36,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpGet("templates/{id}")]
+    [HttpGet("service-configurations/{id:int}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<RTSCertificateTemplateDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -53,6 +55,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpGet("templates/by-service/{serviceId}")]
+    [HttpGet("service-configurations/by-service/{serviceId:int}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<RTSCertificateTemplateDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTemplateByServiceId(int serviceId, CancellationToken ct)
@@ -67,6 +70,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpGet("templates/available-tags/{serviceId}")]
+    [HttpGet("service-configurations/available-tags/{serviceId:int}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<List<CertificateAvailableTagDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAvailableTags(int serviceId, CancellationToken ct)
@@ -81,6 +85,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpPost("templates")]
+    [HttpPost("service-configurations")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<RTSCertificateTemplateDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> CreateTemplate([FromBody] CreateRTSCertificateTemplateDto dto, CancellationToken ct)
@@ -96,6 +101,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpPut("templates/{id}")]
+    [HttpPut("service-configurations/{id:int}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<RTSCertificateTemplateDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> UpdateTemplate(int id, [FromBody] UpdateRTSCertificateTemplateDto dto, CancellationToken ct)
@@ -112,6 +118,7 @@ public class RTSCertificateController : ControllerBase
     }
 
     [HttpDelete("templates/{id}")]
+    [HttpDelete("service-configurations/{id:int}")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> DeleteTemplate(int id, CancellationToken ct)

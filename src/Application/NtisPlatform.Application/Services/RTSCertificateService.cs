@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
@@ -14,7 +15,9 @@ namespace NtisPlatform.Application.Services;
 
 public class RTSCertificateService : IRTSCertificateService
 {
-    private readonly IRepository<RTSCertificateTemplateMasterEntity, int> _templateRepository;
+    private const int MaxDesignJsonLength = 5 * 1024 * 1024;
+
+    private readonly IRepository<RTSServiceCertificateMasterEntity, int> _templateRepository;
     private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertRepository;
     private readonly IRepository<RTSApplicationDetailsEntity, int> _applicationRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
@@ -32,7 +35,7 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly ILogger<RTSCertificateService> _logger;
 
     public RTSCertificateService(
-        IRepository<RTSCertificateTemplateMasterEntity, int> templateRepository,
+        IRepository<RTSServiceCertificateMasterEntity, int> templateRepository,
         IRepository<RTSIssuedCertificateEntity, int> issuedCertRepository,
         IRepository<RTSApplicationDetailsEntity, int> applicationRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
@@ -135,6 +138,11 @@ public class RTSCertificateService : IRTSCertificateService
             new() { TagKey = "{{ApplicantName}}", TagLabelMarathi = "अर्जदाराचे पूर्ण नाव", TagLabelEnglish = "Applicant Full Name", SourceType = "Citizen" },
             new() { TagKey = "{{ApplicantMobile}}", TagLabelMarathi = "अर्जदाराचा मोबाईल", TagLabelEnglish = "Applicant Mobile", SourceType = "Citizen" },
             new() { TagKey = "{{AppliedDate}}", TagLabelMarathi = "अर्जाचा दिनांक", TagLabelEnglish = "Applied Date", SourceType = "Citizen" },
+            new() { TagKey = "{{currentData}}", TagLabelMarathi = "चालू दिनांक", TagLabelEnglish = "Current Date", SourceType = "System" },
+            new() { TagKey = "{{currentDataMinusOne}}", TagLabelMarathi = "चालू दिनांकाच्या एक दिवस आधी", TagLabelEnglish = "Current Date Minus One Day", SourceType = "System" },
+            new() { TagKey = "{{currentDataMinusTwo}}", TagLabelMarathi = "चालू दिनांकाच्या दोन दिवस आधी", TagLabelEnglish = "Current Date Minus Two Days", SourceType = "System" },
+            new() { TagKey = "{{currentDataPlusOne}}", TagLabelMarathi = "चालू दिनांकानंतर एक दिवस", TagLabelEnglish = "Current Date Plus One Day", SourceType = "System" },
+            new() { TagKey = "{{currentDataPlusTwo}}", TagLabelMarathi = "चालू दिनांकानंतर दोन दिवस", TagLabelEnglish = "Current Date Plus Two Days", SourceType = "System" },
             new() { TagKey = "{{ServiceName}}", TagLabelMarathi = "सेवेचे नाव", TagLabelEnglish = "Service Name", SourceType = "System" },
             new() { TagKey = "{{ServiceNameMarathi}}", TagLabelMarathi = "सेवेचे स्थानिक नाव", TagLabelEnglish = "Service Local Name", SourceType = "System" },
             new() { TagKey = "{{DepartmentName}}", TagLabelMarathi = "विभागाचे नाव", TagLabelEnglish = "Department Name", SourceType = "System" },
@@ -144,6 +152,7 @@ public class RTSCertificateService : IRTSCertificateService
             new() { TagKey = "{{CertificateNo}}", TagLabelMarathi = "प्रमाणपत्र / दाखला क्रमांक", TagLabelEnglish = "Certificate Number", SourceType = "System" },
             new() { TagKey = "{{ApprovedByOfficer}}", TagLabelMarathi = "मंजुरी अधिकाऱ्याचे नाव", TagLabelEnglish = "Approving Officer Name", SourceType = "System" },
             new() { TagKey = "{{OfficerDesignation}}", TagLabelMarathi = "अधिकाऱ्याचे पदनाम", TagLabelEnglish = "Officer Designation", SourceType = "System" },
+            new() { TagKey = "{{OfficerRemark}}", TagLabelMarathi = "अधिकाऱ्याचा शेरा", TagLabelEnglish = "Officer Remark", SourceType = "Officer" },
             new() { TagKey = "{{QRCode}}", TagLabelMarathi = "सत्यता पडताळणी QR कोड", TagLabelEnglish = "Verification QR Code", SourceType = "System" },
             new() { TagKey = "{{DigitalSignature}}", TagLabelMarathi = "डिजिटल स्वाक्षरी सील", TagLabelEnglish = "Digital Signature Seal", SourceType = "System" },
             new() { TagKey = "[[OrderNo]]", TagLabelMarathi = "जावक / आदेश क्रमांक (अधिकाऱ्याने भरावयाचा)", TagLabelEnglish = "Outward/Order No (Officer Input)", SourceType = "Officer" },
@@ -181,6 +190,8 @@ public class RTSCertificateService : IRTSCertificateService
 
     public async Task<RTSCertificateTemplateDto> CreateTemplateAsync(CreateRTSCertificateTemplateDto dto, int userId, CancellationToken ct)
     {
+        ValidateDesignJson(dto.DesignJson);
+
         var existing = await _templateRepository.GetQueryable()
             .FirstOrDefaultAsync(t => t.ServiceId == dto.ServiceId && !t.MarkedForDeletion, ct);
 
@@ -189,7 +200,7 @@ public class RTSCertificateService : IRTSCertificateService
             throw new InvalidOperationException($"A certificate template already exists for ServiceId {dto.ServiceId}. Please update the existing template.");
         }
 
-        var entity = new RTSCertificateTemplateMasterEntity
+        var entity = new RTSServiceCertificateMasterEntity
         {
             ServiceId = dto.ServiceId,
             TemplateName = dto.TemplateName.Trim(),
@@ -197,6 +208,7 @@ public class RTSCertificateService : IRTSCertificateService
             HeaderContent = dto.HeaderContent,
             BodyContent = dto.BodyContent,
             FooterContent = dto.FooterContent,
+            DesignJson = dto.DesignJson,
             DefaultConditionsJson = dto.DefaultConditionsJson,
             OfficerFieldsConfigJson = dto.OfficerFieldsConfigJson,
             IsActive = dto.IsActive,
@@ -212,6 +224,11 @@ public class RTSCertificateService : IRTSCertificateService
 
     public async Task<RTSCertificateTemplateDto> UpdateTemplateAsync(UpdateRTSCertificateTemplateDto dto, int userId, CancellationToken ct)
     {
+        if (dto.DesignJsonSpecified)
+        {
+            ValidateDesignJson(dto.DesignJson);
+        }
+
         var entity = await _templateRepository.GetQueryable()
             .FirstOrDefaultAsync(t => t.Id == dto.Id && !t.MarkedForDeletion, ct);
 
@@ -224,6 +241,10 @@ public class RTSCertificateService : IRTSCertificateService
         entity.HeaderContent = dto.HeaderContent;
         entity.BodyContent = dto.BodyContent;
         entity.FooterContent = dto.FooterContent;
+        if (dto.DesignJsonSpecified)
+        {
+            entity.DesignJson = dto.DesignJson;
+        }
         entity.DefaultConditionsJson = dto.DefaultConditionsJson;
         entity.OfficerFieldsConfigJson = dto.OfficerFieldsConfigJson;
         entity.IsActive = dto.IsActive;
@@ -403,7 +424,7 @@ public class RTSCertificateService : IRTSCertificateService
 
         if (existingCert != null)
         {
-            existingCert.TemplateId = template?.Id ?? 0;
+            existingCert.CertificateServiceId = template?.Id ?? 0;
             existingCert.OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null;
             existingCert.MergedHtmlContent = mergedHtml;
             existingCert.QrCodePayload = qrPayload;
@@ -424,7 +445,7 @@ public class RTSCertificateService : IRTSCertificateService
                 CertificateNo = certNo,
                 ApplicationId = app.Id,
                 ServiceId = app.ServiceId,
-                TemplateId = template?.Id ?? 0,
+                CertificateServiceId = template?.Id ?? 0,
                 OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null,
                 MergedHtmlContent = mergedHtml,
                 QrCodePayload = qrPayload,
@@ -522,6 +543,7 @@ public class RTSCertificateService : IRTSCertificateService
                 ApplicationNo = app.ApplicationNo ?? $"RTS{app.Id:D8}",
                 ServiceName = app.Service?.ServiceName ?? "",
                 ApplicantName = app.ApplicantName ?? "",
+                OfficerInputs = request.OfficerInputs ?? new Dictionary<string, string>(),
                 MergedHtmlContent = mergedHtml,
                 QrCodePayload = qrPayload,
                 IssuedByUserId = userId,
@@ -765,8 +787,9 @@ public class RTSCertificateService : IRTSCertificateService
     {
         var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
 
-        string appDate = (app.CreatedDate ?? DateTime.UtcNow).ToString("dd/MM/yyyy");
-        string issueDate = DateTime.UtcNow.ToString("dd/MM/yyyy");
+        var currentDate = DateTime.UtcNow.Date;
+        string appDate = (app.CreatedDate ?? currentDate).ToString("dd/MM/yyyy");
+        string issueDate = currentDate.ToString("dd/MM/yyyy");
         string srvNameMarathi = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "लोकसेवा";
         string srvNameEng = app.Service?.ServiceName ?? "RTS Service";
         string deptNameMarathi = app.Department?.DepartmentNameLocal ?? app.Department?.DepartmentName ?? "महानगरपालिका विभाग";
@@ -805,6 +828,11 @@ public class RTSCertificateService : IRTSCertificateService
             ["ApplicationDate"] = appDate,
             ["ApprovalDate"] = issueDate,
             ["IssueDate"] = issueDate,
+            ["currentData"] = currentDate.ToString("dd/MM/yyyy"),
+            ["currentDataMinusOne"] = currentDate.AddDays(-1).ToString("dd/MM/yyyy"),
+            ["currentDataMinusTwo"] = currentDate.AddDays(-2).ToString("dd/MM/yyyy"),
+            ["currentDataPlusOne"] = currentDate.AddDays(1).ToString("dd/MM/yyyy"),
+            ["currentDataPlusTwo"] = currentDate.AddDays(2).ToString("dd/MM/yyyy"),
             ["ServiceTitle"] = srvNameMarathi,
             ["ServiceName"] = srvNameEng,
             ["ServiceNameMarathi"] = srvNameMarathi,
@@ -955,7 +983,16 @@ public class RTSCertificateService : IRTSCertificateService
         html = html.Replace("{{OfficerDesignation}}", citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "", StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{ApprovalDate}}", DateTime.UtcNow.ToString("dd/MM/yyyy"), StringComparison.OrdinalIgnoreCase);
 
-        // 2. Replace Officer Inputs [[FieldKey]] AND {{FieldKey}}
+        var officerRemark = officerInputs?
+            .FirstOrDefault(input => string.Equals(input.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase))
+            .Value ?? string.Empty;
+        var officerRemarkHtml = WebUtility.HtmlEncode(officerRemark)
+            .Replace("\r\n", "<br />", StringComparison.Ordinal)
+            .Replace("\n", "<br />", StringComparison.Ordinal);
+        html = html.Replace("{{OfficerRemark}}", officerRemarkHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerRemark]]", officerRemarkHtml, StringComparison.OrdinalIgnoreCase);
+
+        // 2. Replace Officer Inputs [[FieldKey]]
         if (officerInputs != null)
         {
             foreach (var (k, v) in officerInputs)
@@ -1019,7 +1056,9 @@ public class RTSCertificateService : IRTSCertificateService
         // Dynamically build and inject {{OfficerFieldsBlock}} if present or if officer inputs exist
         if (officerInputs != null && officerInputs.Count > 0)
         {
-            var filledInputs = officerInputs.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).ToList();
+            var filledInputs = officerInputs
+                .Where(kv => !string.Equals(kv.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(kv.Value))
+                .ToList();
             if (filledInputs.Count > 0)
             {
                 var officerBlockRows = string.Join("", filledInputs.Select(kv => $@"
@@ -1085,11 +1124,19 @@ public class RTSCertificateService : IRTSCertificateService
         return html;
     }
 
-    private string BuildFullCertificateHtml(RTSCertificateTemplateMasterEntity? template, RTSApplicationDetailsEntity app)
+    private string BuildFullCertificateHtml(RTSServiceCertificateMasterEntity? template, RTSApplicationDetailsEntity app)
     {
-        // 100% Dynamic Template Loaded Directly from Database Table (RTS.CertificateTemplateMaster)
+        // Dynamic service certificate loaded directly from RTS.ServiceCertificateMaster.
         if (template != null && !string.IsNullOrWhiteSpace(template.BodyContent))
         {
+            // New canvas documents compile every page as a complete print surface and
+            // repeat shared header/footer layers inside BodyContent. Keep the separate
+            // fields for editing/reuse, but do not prepend/append them at runtime.
+            if (template.BodyContent.Contains("data-certificate-multipage=\"true\"", StringComparison.OrdinalIgnoreCase))
+            {
+                return template.BodyContent;
+            }
+
             if (!string.IsNullOrWhiteSpace(template.HeaderContent) && !string.IsNullOrWhiteSpace(template.FooterContent))
             {
                 return $"{template.HeaderContent}\n{template.BodyContent}\n{template.FooterContent}";
@@ -1100,7 +1147,36 @@ public class RTSCertificateService : IRTSCertificateService
         return string.Empty;
     }
 
-    private static RTSCertificateTemplateDto MapToTemplateDto(RTSCertificateTemplateMasterEntity entity)
+    private static void ValidateDesignJson(string? designJson)
+    {
+        if (designJson is null)
+        {
+            return;
+        }
+
+        if (designJson.Length > MaxDesignJsonLength)
+        {
+            throw new ArgumentException(
+                $"DesignJson cannot exceed {MaxDesignJsonLength} characters.",
+                nameof(designJson));
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(designJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("DesignJson root value must be a JSON object.", nameof(designJson));
+            }
+
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("DesignJson must contain valid JSON.", nameof(designJson), exception);
+        }
+    }
+
+    private static RTSCertificateTemplateDto MapToTemplateDto(RTSServiceCertificateMasterEntity entity)
     {
         var dto = new RTSCertificateTemplateDto
         {
@@ -1113,6 +1189,7 @@ public class RTSCertificateService : IRTSCertificateService
             HeaderContent = entity.HeaderContent,
             BodyContent = entity.BodyContent,
             FooterContent = entity.FooterContent,
+            DesignJson = entity.DesignJson,
             DefaultConditionsJson = entity.DefaultConditionsJson,
             OfficerFieldsConfigJson = entity.OfficerFieldsConfigJson,
             IsActive = entity.IsActive,
@@ -1173,6 +1250,7 @@ public class RTSCertificateService : IRTSCertificateService
             DepartmentName = cert.Application?.Department?.DepartmentNameLocal ?? cert.Application?.Department?.DepartmentName ?? "",
             ApplicantName = cert.Application?.ApplicantName ?? "",
             ApplicantMobile = cert.Application?.ApplicantMobileNo ?? "",
+            OfficerInputs = DeserializeOfficerInputs(cert.OfficerInputsJson),
             MergedHtmlContent = cert.MergedHtmlContent,
             QrCodePayload = cert.QrCodePayload,
             IssuedByUserId = cert.IssuedByUserId,
@@ -1182,5 +1260,23 @@ public class RTSCertificateService : IRTSCertificateService
             IsDigitallySigned = cert.IsDigitallySigned,
             DigitalSignatureInfo = cert.DigitalSignatureInfo
         };
+    }
+
+    private static Dictionary<string, string> DeserializeOfficerInputs(string? officerInputsJson)
+    {
+        if (string.IsNullOrWhiteSpace(officerInputsJson))
+        {
+            return new Dictionary<string, string>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(officerInputsJson)
+                ?? new Dictionary<string, string>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, string>();
+        }
     }
 }
