@@ -617,9 +617,9 @@ public class PropertySignatureRepositoryPendingExportTests
                 MarkedForDeletion = false
             });
         context.PropertyWorkflowDetails.AddRange(
-            new PropertyWorkflowDetailsEntity { Id = 101, PropertyId = 10, WorkflowStageId = 1, CreatedDate = DateTime.UtcNow, IsActive = true },
-            new PropertyWorkflowDetailsEntity { Id = 102, PropertyId = 11, WorkflowStageId = 1, CreatedDate = DateTime.UtcNow, IsActive = true },
-            new PropertyWorkflowDetailsEntity { Id = 103, PropertyId = 12, WorkflowStageId = 1, CreatedDate = DateTime.UtcNow, IsActive = true });
+            new PropertyWorkflowDetailsEntity { Id = 101, PropertyId = 10, WorkflowStageId = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new PropertyWorkflowDetailsEntity { Id = 102, PropertyId = 11, WorkflowStageId = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new PropertyWorkflowDetailsEntity { Id = 103, PropertyId = 12, WorkflowStageId = 1, CreatedDate = DateTime.Now, IsActive = true });
         context.SignAuthorityMaster.Add(new SignAuthorityMasterEntity
         {
             Id = 1,

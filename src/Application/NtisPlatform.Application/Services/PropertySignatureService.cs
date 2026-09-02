@@ -365,18 +365,24 @@ public class PropertySignatureService : IPropertySignatureService
     /// <summary>
     /// Gets ward-wise sign-off grid data for a zone.
     /// </summary>
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(int zoneId,CancellationToken cancellationToken = default)
+    public async Task<SignAuthorityWardGridResponseDto> GetSignAuthorityWardGridDataAsync(
+        PropertySignatureWardGridQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation("Retrieving ward-wise grid data for ZoneId={ZoneId}", zoneId);
-            return await _repository.GetSignAuthorityWardGridDataAsync(zoneId, cancellationToken);
+            _logger.LogInformation("Retrieving ward-wise grid data for ZoneId={ZoneId}", queryParameters.ZoneId);
+            return await _repository.GetSignAuthorityWardGridDataAsync(
+                queryParameters.ZoneId,
+                queryParameters.PageNumber,
+                queryParameters.PageSize,
+                cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Error retrieving ward-wise grid data for ZoneId={ZoneId}",
-                zoneId);
+                queryParameters.ZoneId);
             throw;
         }
     }

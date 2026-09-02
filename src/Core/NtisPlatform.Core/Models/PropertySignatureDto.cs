@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-
 namespace NtisPlatform.Core.Models;
 
 // ─────────────────────────────────────────────────────
@@ -130,7 +129,15 @@ public class SignAuthorityGridResponseDto
 {
     public List<SignAuthorityZoneDataDto> ZoneData { get; set; } = new();
     public SignAuthorityZoneDataDto TotalRow { get; set; } = new();
-    public SignAuthorityZoneDataDto GrandTotalRow { get; set; } = new();
+}
+
+public class SignAuthorityWardGridResponseDto
+{
+    public List<SignAuthorityZoneDataDto> ZoneData { get; set; } = new();
+    public SignAuthorityZoneDataDto TotalRow { get; set; } = new();
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
 }
 
 /// <summary>

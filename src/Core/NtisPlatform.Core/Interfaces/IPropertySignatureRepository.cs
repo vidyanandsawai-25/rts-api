@@ -71,7 +71,7 @@ public interface IPropertySignatureRepository
 
     /// <summary>
     /// Gets division-wise/zone-wise grid statistics for the Sign Authority workflow stages.
-    /// Returns signed property counts (structure & unit) and total demand details.
+    /// Returns signed property counts (structure and unit) and total demand details.
     /// </summary>
     Task<SignAuthorityGridResponseDto> GetSignAuthorityGridDataAsync(
         PropertySearchRequestDto? searchRequest = null,
@@ -80,8 +80,10 @@ public interface IPropertySignatureRepository
     /// <summary>
     /// Gets ward-wise grid statistics for a specific zone for the Sign-off workflow stages.
     /// </summary>
-    Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
+    Task<SignAuthorityWardGridResponseDto> GetSignAuthorityWardGridDataAsync(
         int zoneId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>

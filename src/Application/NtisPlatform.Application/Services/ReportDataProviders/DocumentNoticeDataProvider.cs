@@ -228,6 +228,7 @@ public class DocumentNoticeDataProvider : IPagedReportDataProvider
             {
                 pm.Id,
                 pm.OwnerName,
+                pm.OccupierName,
                 pm.Address,
                 pm.PropertyNo,
                 pm.PartitionNo,
@@ -314,8 +315,9 @@ public class DocumentNoticeDataProvider : IPagedReportDataProvider
         {
             var row = new Dictionary<string, object?>
             {
-                ["OwnerId"] = p.Id,
+                ["ownerId"] = p.Id,
                 ["OwnerName"] = p.OwnerName,
+                ["OccupierName"] = p.OccupierName,
                 ["MarathiOwnerAddress"] = p.Address,
                 ["PropertyNo"] = p.PropertyNo,
                 ["PartitionNo"] = p.PartitionNo,

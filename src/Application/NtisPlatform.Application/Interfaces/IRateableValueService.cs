@@ -9,6 +9,11 @@ namespace NtisPlatform.Application.Interfaces
 {
     public interface IRateableValueService
     {
-        Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId);
+        /// <param name="propertyId">The property to calculate Rateable Value for.</param>
+        /// <param name="forceRecalculate">
+        /// When true, bypasses the input-signature fast path and always recalculates, even if
+        /// nothing detectable has changed since the last run. Defaults to false.
+        /// </param>
+        Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId, bool forceRecalculate = false);
     }
 }

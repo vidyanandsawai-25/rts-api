@@ -21,8 +21,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
     public class SpotSurveyFormDataProvider : IPagedReportDataProvider
     {
         public const string MainSection = "main";
-        //public const string PropertyDetailsSection = "propertyDetails";
-        //public const string TaxDetailsSection      = "taxDetails";
         public const string FloorDetailsSection = "floorDetails";
 
         public string ProviderCode => "SpotSurveyFormDataProvider";
@@ -65,12 +63,9 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             _userRepository = userRepository;
         }
 
-        // Static — never runs a query (avoids any heavy query executing on the authenticate request).
         public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
         {
             new ReportSectionDescriptor(MainSection,            false),
-            //new ReportSectionDescriptor(PropertyDetailsSection, false),
-            //new ReportSectionDescriptor(TaxDetailsSection,      false),
             new ReportSectionDescriptor(FloorDetailsSection,    false),
         };
 
@@ -99,8 +94,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             };
         }
 
-        private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(
-            Dictionary<string, string> parameters, string section, int skip, int take, CancellationToken ct)
+        private async Task<(List<object> Rows, bool HasMore)> BuildPageAsync(Dictionary<string, string> parameters, string section, int skip, int take, CancellationToken ct)
         {
             // --- Parse parameters ---
             parameters.TryGetValue("propertyId", out var propertyIdStr);
@@ -130,21 +124,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             return (paged, hasMore);
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 1 — Main: property master + ward + society + type-of-use + ULB
-        // Equivalent SQL:
-        //   SELECT PM.*, WM.WardNo, SD.WingId/WingName/SocietyName/SocietyAddress,
-        //          TUM.Description, TUM.TypeOfUseCode,
-        //          ULB.UlbCode, ULB.UlbName, ... (CORE.UlbMaster)
-        //          + pivoted: Transmast_{TaxName} = TaxAmount, RVorCV_{TaxName}, RVorCVValue_{TaxName}
-        //   FROM   PTIS.PropertyMast PM
-        //   LEFT JOIN PTIS.WardMaster WM          ON PM.WardId        = WM.Id
-        //   LEFT JOIN PTIS.SocietyDetailsMast SD  ON PM.Id            = SD.PropertyId
-        //   LEFT JOIN PTIS.TypeOfUseMaster TUM    ON PM.PropertyTypeId = TUM.Id
-        //   CROSS JOIN CORE.UlbMaster ULB (first row)
-        //   + TransMast JOIN TaxMaster (pivoted in memory)
-        //   WHERE PM.Id = @propertyId
-        // ─────────────────────────────────────────────────────────────────────────
         private async Task<List<object>> BuildMainRowAsync(int propertyId, int userId, CancellationToken ct)
         {
             // 1a. Property + Ward (LEFT JOIN)
@@ -236,10 +215,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 .FirstOrDefaultAsync(ct);
 
             // 1f. TransMast pivot — fetch all tax lines for this property, then
-            //     write dynamic columns: Transmast_{TaxName} / RVorCV_{TaxName} / RVorCVValue_{TaxName}
-            //     SQL: SELECT TAM.TaxCode, TAM.TaxName, TM.RVorCV, TM.RVorCVValue, TM.TaxAmount
-            //          FROM PTIS.TransMast TM JOIN PTIS.TaxMaster TAM ON TM.TaxId = TAM.Id
-            //          WHERE TM.PropertyId = @propertyId ORDER BY TAM.DisplayOrder
             var taxRows = await (
                 from tm in _transmastRepository.GetQueryable().Where(t => t.PropertyId == propertyId)
                 join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
@@ -304,8 +279,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             };
 
             // Pivot TransMast rows into dynamic columns on the same main row.
-            // Column naming: Transmast_{SafeName} / RVorCV_{SafeName} / RVorCVValue_{SafeName}
-            // Uses TaxCode (spaces → '_') as the safe key; falls back to TaxName.
             foreach (var tax in taxRows)
             {
                 var safeCode = (tax.TaxCode?.Trim().Length > 0
@@ -321,16 +294,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             return new List<object> { row };
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 2 — Property Details: one row per floor entry
-        // Equivalent SQL:
-        //   SELECT PD.PropertyId, PD.FloorId, PD.SubFloorId,
-        //          PD.ConstructionYear, PD.AssessmentYear,
-        //          PD.CarpetAreaSqFeet, PD.CarpetAreaSqMeter,
-        //          PD.BuiltupAreaSqFeet, PD.BuiltupAreaSqMeter, PD.NoOfRooms
-        //   FROM PTIS.PropertyDetails PD
-        //   WHERE PD.PropertyId = @propertyId
-        // ─────────────────────────────────────────────────────────────────────────
         private async Task<List<object>> BuildPropertyDetailsRowsAsync(int propertyId, CancellationToken ct)
         {
             var details = await _propertyDetailsRepository.GetQueryable()
@@ -406,23 +369,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             return new List<object> { row };
         }
 
-        // ─────────────────────────────────────────────────────────────────────────
-        // Section 4 — Floor Details: one row per PropertyDetails entry with joined
-        // FloorMaster, ConstructionTypeMaster and TypeOfUseMaster.
-        //
-        // Equivalent SQL:
-        //   SELECT FM.Description, PD.ConstructionYear,
-        //          CTM.ConstructionCode, CTM.Description,
-        //          TUM.TypeOfUseCode, TUM.Description, TUM.Type,
-        //          PD.CarpetAreaSqMeter, PD.CarpetAreaSqFeet,
-        //          PD.BuiltupAreaSqMeter, PD.BuiltupAreaSqFeet, PD.NoOfRooms
-        //   FROM PTIS.PropertyMast PM
-        //   LEFT JOIN PTIS.PropertyDetails PD   ON PM.Id                 = PD.PropertyId
-        //   LEFT JOIN PTIS.FloorMaster FM        ON PD.FloorId            = FM.Id
-        //   LEFT JOIN PTIS.ConstructionTypeMaster CTM ON CTM.Id           = PD.ConstructionTypeId
-        //   LEFT JOIN PTIS.TypeOfUseMaster TUM   ON PM.PropertyTypeId     = TUM.Id  (per PD.TypeOfUseId)
-        //   WHERE PM.Id = @propertyId
-        // ─────────────────────────────────────────────────────────────────────────
         private async Task<List<object>> BuildFloorDetailsRowsAsync(int propertyId, CancellationToken ct)
         {
             var rows = await (

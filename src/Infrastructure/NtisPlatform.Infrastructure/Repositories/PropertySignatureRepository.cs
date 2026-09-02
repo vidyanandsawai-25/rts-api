@@ -905,35 +905,6 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             // 4. Calculate total row (sum of all filtered zoneData list)
             result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
 
-            // 5. Calculate grand total row (all zones in the municipality)
-            if (searchRequest?.ZoneId.HasValue == true)
-            {
-                var allZones = await _context.ZoneMaster
-                    .AsNoTracking()
-                    .Where(z => z.IsActive)
-                    .OrderBy(z => z.SequenceNo ?? 0)
-                    .ThenBy(z => z.ZoneNo)
-                    .ToListAsync(cancellationToken);
-
-                var allZoneData = new List<SignAuthorityZoneDataDto>();
-                foreach (var zone in allZones)
-                {
-                    var zoneData = await GetZoneSignAuthorityDataAsync(
-                        zone.Id,
-                        zone.Description ?? zone.ZoneNo,
-                        zone.ZoneNo,
-                        authorities,
-                        null,
-                        cancellationToken);
-                    allZoneData.Add(zoneData);
-                }
-                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
-            }
-            else
-            {
-                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", result.ZoneData, authorities);
-            }
-
             return result;
         }
         catch (Exception ex)
@@ -943,15 +914,18 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         }
     }
 
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
+    public async Task<SignAuthorityWardGridResponseDto> GetSignAuthorityWardGridDataAsync(
         int zoneId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
         try
         {
             _logger.LogDebug("Fetching ward-wise grid data for ZoneId={ZoneId}", zoneId);
 
-            var result = new SignAuthorityGridResponseDto();
+            var paging = NormalizePaging(pageNumber, pageSize);
+            var result = new SignAuthorityWardGridResponseDto();
 
             // 1. Get all active signing authorities in SequenceOrder
             var authorities = await _context.SignAuthorityMaster
@@ -967,6 +941,10 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
             if (zone == null)
             {
+                result.PageNumber = paging.PageSize == -1 ? 1 : paging.PageNumber;
+                result.PageSize = paging.PageSize == -1 ? 0 : paging.PageSize;
+                result.TotalCount = 0;
+                result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
                 return result;
             }
 
@@ -974,12 +952,24 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             var zoneNo = zone.ZoneNo;
 
             // 3. Get active wards for this zone
-            var wards = await _context.WardMaster
+            IQueryable<WardEntity> wardsQuery = _context.WardMaster
                 .AsNoTracking()
                 .Where(w => w.IsActive && w.ZoneId == zoneId)
                 .OrderBy(w => w.SequenceNo ?? 0)
-                .ThenBy(w => w.WardNo)
-                .ToListAsync(cancellationToken);
+                .ThenBy(w => w.WardNo);
+
+            result.TotalCount = await wardsQuery.CountAsync(cancellationToken);
+            result.PageNumber = paging.PageSize == -1 ? 1 : paging.PageNumber;
+            result.PageSize = paging.PageSize == -1 ? result.TotalCount : paging.PageSize;
+
+            if (paging.PageSize != -1)
+            {
+                wardsQuery = wardsQuery
+                    .Skip((paging.PageNumber - 1) * paging.PageSize)
+                    .Take(paging.PageSize);
+            }
+
+            var wards = await wardsQuery.ToListAsync(cancellationToken);
 
             // 4. Populate per-ward data (N+1 issue - needs optimization in future)
             foreach (var ward in wards)
@@ -995,30 +985,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 result.ZoneData.Add(wardData);
             }
 
-            // 5. Calculate total row (sum of all wards in this zone)
             result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
-
-            // 6. Calculate grand total row (all zones in the municipality)
-            var allZones = await _context.ZoneMaster
-                .AsNoTracking()
-                .Where(z => z.IsActive)
-                .OrderBy(z => z.SequenceNo ?? 0)
-                .ThenBy(z => z.ZoneNo)
-                .ToListAsync(cancellationToken);
-
-            var allZoneData = new List<SignAuthorityZoneDataDto>();
-            foreach (var z in allZones)
-            {
-                var zData = await GetZoneSignAuthorityDataAsync(
-                    z.Id,
-                    z.Description ?? z.ZoneNo,
-                    z.ZoneNo,
-                    authorities,
-                    null,
-                    cancellationToken);
-                allZoneData.Add(zData);
-            }
-            result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
 
             return result;
         }
