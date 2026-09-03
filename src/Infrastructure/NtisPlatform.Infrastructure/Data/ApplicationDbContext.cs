@@ -6051,6 +6051,33 @@ public class ApplicationDbContext : DbContext
 
         });
 
+        modelBuilder.Entity<RTSServiceOfficerAllocationEntity>(entity =>
+        {
+            entity.ToTable("ServiceOfficerAllocation", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.ZoneName).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.ZoneNameLocal).HasMaxLength(150);
+            entity.Property(e => e.OfficerName).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.OfficerNameLocal).HasMaxLength(150);
+            entity.Property(e => e.Designation).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.DesignationLocal).HasMaxLength(150);
+            entity.Property(e => e.MobileNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.Property(e => e.OfficeAddress).HasMaxLength(250);
+            entity.Property(e => e.OfficeAddressLocal).HasMaxLength(250);
+            entity.Property(e => e.OfficerRole).HasMaxLength(50).HasDefaultValue("DesignatedOfficer");
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(1);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<RTSCitizenSessionEntity>(entity =>
         {
             entity.ToTable("CitizenSession", "RTS");

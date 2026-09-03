@@ -328,13 +328,23 @@ public class RTSCertificateService : IRTSCertificateService
 
         // Build Citizen Auto Values dictionary
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
+
+        // Resolve designated approving officer details dynamically
+        var (previewOfficerName, previewOfficerDesignation) = await ResolveOfficerDetailsAsync(app.Id, app.ServiceId, null, ct);
+        if (!string.IsNullOrWhiteSpace(previewOfficerName))
+        {
+            autoValues["OfficerName"] = previewOfficerName;
+            autoValues["ApprovedByOfficer"] = previewOfficerName;
+        }
+        if (!string.IsNullOrWhiteSpace(previewOfficerDesignation))
+        {
+            autoValues["OfficerDesignation"] = previewOfficerDesignation;
+        }
+
         response.CitizenAutoValues = autoValues;
 
         // Perform merge
         string rawHtml = BuildFullCertificateHtml(template, app);
-        string previewOfficerName = !string.IsNullOrWhiteSpace(app.User?.FirstName)
-            ? $"{app.User.FirstName} {app.User.LastName}".Trim()
-            : (app.User?.UserName ?? "");
 
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
         string previewQrPayload = $"{verificationBaseUrl}/{app.ApplicationNo}";
@@ -348,7 +358,9 @@ public class RTSCertificateService : IRTSCertificateService
             previewOfficerName, 
             isLiveSigned: false,
             certGuid: null,
-            qrPayload: previewQrPayload);
+            qrPayload: previewQrPayload,
+            officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
+            defaultConditionsJson: template?.DefaultConditionsJson);
 
         return response;
     }
@@ -396,33 +408,15 @@ public class RTSCertificateService : IRTSCertificateService
         int issuedCertId = existingCert?.Id ?? 0;
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
-        string officerName = user != null
-            ? (!string.IsNullOrWhiteSpace(user.FirstName) || !string.IsNullOrWhiteSpace(user.LastName)
-                ? $"{user.FirstName} {user.LastName}".Trim()
-                : user.UserName)
-            : "";
-        string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? "";
-        if (string.IsNullOrWhiteSpace(officerDesignation))
+        var (officerName, officerDesignation) = await ResolveOfficerDetailsAsync(app.Id, app.ServiceId, userId, ct);
+        if (!string.IsNullOrWhiteSpace(officerName))
         {
-            if (user != null)
-            {
-                var userRole = await _userRoleAllocationRepository.GetQueryable()
-                    .AsNoTracking()
-                    .Include(r => r.UserRole)
-                    .FirstOrDefaultAsync(r => r.UserId == user.Id && r.IsActive, ct);
-                if (!string.IsNullOrWhiteSpace(userRole?.UserRole?.UserRoleName))
-                {
-                    officerDesignation = userRole.UserRole.UserRoleName;
-                }
-                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentNameLocal))
-                {
-                    officerDesignation = app.Department.DepartmentNameLocal;
-                }
-                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName))
-                {
-                    officerDesignation = app.Department.DepartmentName;
-                }
-            }
+            autoValues["OfficerName"] = officerName;
+            autoValues["ApprovedByOfficer"] = officerName;
+        }
+        if (!string.IsNullOrWhiteSpace(officerDesignation))
+        {
+            autoValues["OfficerDesignation"] = officerDesignation;
         }
 
         string rawHtml = BuildFullCertificateHtml(template, app);
@@ -432,7 +426,18 @@ public class RTSCertificateService : IRTSCertificateService
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
         string qrPayload = $"{verificationBaseUrl}/{certGuid}";
 
-        string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid, qrPayload: qrPayload);
+        string mergedHtml = MergeTemplatePlaceholders(
+            rawHtml, 
+            autoValues, 
+            request.OfficerInputs, 
+            request.CustomConditions, 
+            certNo, 
+            officerName, 
+            isLiveSigned: true, 
+            certGuid: certGuid, 
+            qrPayload: qrPayload,
+            officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
+            defaultConditionsJson: template?.DefaultConditionsJson);
 
         if (existingCert != null)
         {
@@ -1012,6 +1017,120 @@ public class RTSCertificateService : IRTSCertificateService
         return dict;
     }
 
+    private async Task<(string OfficerName, string OfficerDesignation)> ResolveOfficerDetailsAsync(int applicationId, int? serviceId, int? userId, CancellationToken ct)
+    {
+        string officerName = string.Empty;
+        string officerDesignation = string.Empty;
+
+        // 1. If explicit userId provided (e.g. from issuing officer or logged in user)
+        if (userId.HasValue && userId.Value > 0)
+        {
+            var u = await _userRepository.GetByIdAsync(userId.Value, ct);
+            if (u != null)
+            {
+                officerName = !string.IsNullOrWhiteSpace(u.FirstName) || !string.IsNullOrWhiteSpace(u.LastName)
+                    ? $"{u.FirstName} {u.LastName}".Trim()
+                    : (u.UserName ?? string.Empty);
+
+                var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Include(r => r.UserRole)
+                    .FirstOrDefaultAsync(r => r.UserId == u.Id && r.IsActive, ct);
+
+                if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                {
+                    officerDesignation = roleAlloc.UserRole.UserRoleName;
+                }
+            }
+        }
+
+        // 2. If not resolved, check ApprovalFlowStageMaster for this service's final or certificate issuance stage
+        if (string.IsNullOrWhiteSpace(officerName) && serviceId.HasValue && serviceId.Value > 0)
+        {
+            var designatedStage = await _stageRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(s => s.ApprovalFlow)
+                .Where(s => s.ApprovalFlow.ServiceId == serviceId.Value && (s.IsFinalStage || s.CanIssueCertificate) && s.UserId > 0)
+                .OrderByDescending(s => s.IsFinalStage)
+                .ThenByDescending(s => s.CanIssueCertificate)
+                .FirstOrDefaultAsync(ct);
+
+            if (designatedStage != null && designatedStage.UserId > 0)
+            {
+                var designatedUser = await _userRepository.GetByIdAsync(designatedStage.UserId, ct);
+                if (designatedUser != null)
+                {
+                    officerName = !string.IsNullOrWhiteSpace(designatedUser.FirstName) || !string.IsNullOrWhiteSpace(designatedUser.LastName)
+                        ? $"{designatedUser.FirstName} {designatedUser.LastName}".Trim()
+                        : (designatedUser.UserName ?? string.Empty);
+
+                    officerDesignation = !string.IsNullOrWhiteSpace(designatedStage.StageName)
+                        ? designatedStage.StageName
+                        : string.Empty;
+
+                    if (string.IsNullOrWhiteSpace(officerDesignation))
+                    {
+                        var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                            .AsNoTracking()
+                            .Include(r => r.UserRole)
+                            .FirstOrDefaultAsync(r => r.UserId == designatedUser.Id && r.IsActive, ct);
+                        if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                        {
+                            officerDesignation = roleAlloc.UserRole.UserRoleName;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. If still not resolved, check TrackApplicationHistory for this application
+        if (string.IsNullOrWhiteSpace(officerName) && applicationId > 0)
+        {
+            var lastAction = await _historyRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(h => h.ApplicationId == applicationId && h.ActionByUserId > 0)
+                .OrderByDescending(h => h.CreatedDate)
+                .FirstOrDefaultAsync(ct);
+
+            if (lastAction != null && lastAction.ActionByUserId.HasValue && lastAction.ActionByUserId.Value > 0)
+            {
+                var historyUser = await _userRepository.GetByIdAsync(lastAction.ActionByUserId.Value, ct);
+                if (historyUser != null)
+                {
+                    officerName = !string.IsNullOrWhiteSpace(historyUser.FirstName) || !string.IsNullOrWhiteSpace(historyUser.LastName)
+                        ? $"{historyUser.FirstName} {historyUser.LastName}".Trim()
+                        : (historyUser.UserName ?? string.Empty);
+
+                    var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                        .AsNoTracking()
+                        .Include(r => r.UserRole)
+                        .FirstOrDefaultAsync(r => r.UserId == historyUser.Id && r.IsActive, ct);
+                    if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                    {
+                        officerDesignation = roleAlloc.UserRole.UserRoleName;
+                    }
+                }
+            }
+        }
+
+        // 4. Default dynamic fallback
+        if (string.IsNullOrWhiteSpace(officerName))
+        {
+            var adminUser = await _userRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(u => u.IsActive && !u.MarkedForDeletion)
+                .OrderBy(u => u.Id)
+                .FirstOrDefaultAsync(ct);
+            if (adminUser != null)
+            {
+                officerName = $"{adminUser.FirstName} {adminUser.LastName}".Trim();
+                officerDesignation = "विभाग प्रमुख";
+            }
+        }
+
+        return (officerName, officerDesignation);
+    }
+
     private string MergeTemplatePlaceholders(
         string rawTemplateHtml,
         Dictionary<string, string> citizenValues,
@@ -1021,9 +1140,42 @@ public class RTSCertificateService : IRTSCertificateService
         string? officerName,
         bool isLiveSigned,
         Guid? certGuid = null,
-        string? qrPayload = null)
+        string? qrPayload = null,
+        string? officerFieldsConfigJson = null,
+        string? defaultConditionsJson = null)
     {
         string html = rawTemplateHtml;
+
+        // Extract friendly labels for officer fields if available
+        Dictionary<string, string> fieldLabels = new(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(officerFieldsConfigJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(officerFieldsConfigJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var el in doc.RootElement.EnumerateArray())
+                    {
+                        string key = "";
+                        if (el.TryGetProperty("fieldKey", out var fk) || el.TryGetProperty("FieldKey", out fk))
+                            key = fk.GetString() ?? "";
+
+                        string label = "";
+                        if (el.TryGetProperty("fieldLabelMarathi", out var flm) || el.TryGetProperty("FieldLabelMarathi", out flm))
+                            label = flm.GetString() ?? "";
+                        if (string.IsNullOrWhiteSpace(label) && (el.TryGetProperty("fieldLabelEnglish", out var fle) || el.TryGetProperty("FieldLabelEnglish", out fle)))
+                            label = fle.GetString() ?? "";
+
+                        if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(label))
+                        {
+                            fieldLabels[key] = label;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
 
         // 1. Replace Citizen dynamic fields {{TagName}} AND [[TagName]]
         foreach (var (k, v) in citizenValues)
@@ -1037,9 +1189,25 @@ public class RTSCertificateService : IRTSCertificateService
 
         // Common system tags
         html = html.Replace("{{CertificateNo}}", sampleCertNo ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CertificateNo]]", sampleCertNo ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{OfficerName}}", officerName ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerName]]", officerName ?? "", StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{ApprovedByOfficer}}", officerName ?? "", StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{OfficerDesignation}}", citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "", StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{ApprovalDate}}", DateTime.UtcNow.ToString("dd/MM/yyyy"), StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[ApprovedByOfficer]]", officerName ?? "", StringComparison.OrdinalIgnoreCase);
+        string dynamicDesignation = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
+        html = html.Replace("{{OfficerDesignation}}", dynamicDesignation, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerDesignation]]", dynamicDesignation, StringComparison.OrdinalIgnoreCase);
+        string todayFormatted = DateTime.UtcNow.ToString("dd/MM/yyyy");
+        html = html.Replace("{{ApprovalDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[ApprovalDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{IssueDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[IssueDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{CurrentDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CurrentDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{DocumentDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[DocumentDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{Today}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[Today]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
 
         var officerRemark = officerInputs?
             .FirstOrDefault(input => string.Equals(input.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase))
@@ -1070,60 +1238,52 @@ public class RTSCertificateService : IRTSCertificateService
         html = html.Replace("{{OutwardNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{OrderNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
 
-        // Check if [[SpecialConditions]] exists; replace with customConditions if provided
+        // Check if customConditions provided, or fallback to default conditions from template
+        string conditionListHtml = "";
         if (!string.IsNullOrWhiteSpace(customConditions))
         {
-            if (html.Contains("[[SpecialConditions]]", StringComparison.OrdinalIgnoreCase))
-            {
-                html = html.Replace("[[SpecialConditions]]", customConditions, StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                // If template does not have [[SpecialConditions]] tag, append custom conditions seamlessly before terms & conditions or signatures
-                var conditionLines = customConditions.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                var formattedConditions = string.Join("", conditionLines.Select(c => $"<li>{c.Trim()}</li>"));
-
-                if (html.Contains("</ol>", StringComparison.OrdinalIgnoreCase))
-                {
-                    html = html.Replace("</ol>", $"{formattedConditions}</ol>", StringComparison.OrdinalIgnoreCase);
-                }
-                else if (html.Contains("</ul>", StringComparison.OrdinalIgnoreCase))
-                {
-                    html = html.Replace("</ul>", $"{formattedConditions}</ul>", StringComparison.OrdinalIgnoreCase);
-                }
-                else
-                {
-                    string extraConditionBox = $@"
-                    <div class='extra-conditions-box my-2 p-2.5 bg-amber-50/60 border border-amber-300 rounded text-xs text-slate-800'>
-                        <div class='font-bold text-amber-900 mb-1'>विशेष अटी व शर्ती (Special Conditions):</div>
-                        <ul class='list-disc pl-5 space-y-0.5'>{formattedConditions}</ul>
-                    </div>";
-
-                    if (html.Contains("{{DigitalSignature}}", StringComparison.OrdinalIgnoreCase))
-                    {
-                        html = html.Replace("{{DigitalSignature}}", $"{extraConditionBox}\n{{{{DigitalSignature}}}}", StringComparison.OrdinalIgnoreCase);
-                    }
-                    else
-                    {
-                        html += extraConditionBox;
-                    }
-                }
-            }
+            var conditionLines = customConditions.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var formattedConditions = string.Join("", conditionLines.Select(c => $"<li>{c.Trim()}</li>"));
+            conditionListHtml = $"<ol class='list-decimal pl-6 text-xs text-slate-900 space-y-1.5 leading-normal'>{formattedConditions}</ol>";
         }
+        else if (!string.IsNullOrWhiteSpace(defaultConditionsJson))
+        {
+            try
+            {
+                var defConditions = JsonSerializer.Deserialize<List<string>>(defaultConditionsJson);
+                if (defConditions != null && defConditions.Count > 0)
+                {
+                    var formattedConditions = string.Join("", defConditions.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => $"<li>{c.Trim()}</li>"));
+                    conditionListHtml = $"<ol class='list-decimal pl-6 text-xs text-slate-900 space-y-1.5 leading-normal'>{formattedConditions}</ol>";
+                }
+            }
+            catch { }
+        }
+
+        html = html.Replace("{{CustomConditionsList}}", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CustomConditionsList]]", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{DefaultConditionsList}}", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[SpecialConditions]]", customConditions ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{SpecialConditions}}", customConditions ?? "", StringComparison.OrdinalIgnoreCase);
 
         // Dynamically build and inject {{OfficerFieldsBlock}} if present or if officer inputs exist
         if (officerInputs != null && officerInputs.Count > 0)
         {
             var filledInputs = officerInputs
-                .Where(kv => !string.Equals(kv.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(kv.Value))
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
                 .ToList();
             if (filledInputs.Count > 0)
             {
-                var officerBlockRows = string.Join("", filledInputs.Select(kv => $@"
+                var officerBlockRows = string.Join("", filledInputs.Select(kv => {
+                    string label = string.Equals(kv.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase) || string.Equals(kv.Key, "OfficerRemarks", StringComparison.OrdinalIgnoreCase)
+                        ? "अधिकाऱ्याचा शेरा (Officer Remark)"
+                        : (fieldLabels.GetValueOrDefault(kv.Key) ?? kv.Key);
+                    return $@"
                     <tr class='border-b border-slate-200'>
-                        <td class='p-2 font-bold text-slate-700 w-1/3 bg-slate-50 border-r border-slate-200'>{kv.Key}:</td>
+                        <td class='p-2 font-bold text-slate-700 w-1/3 bg-slate-50 border-r border-slate-200'>{label}:</td>
                         <td class='p-2 text-slate-900 font-semibold'>{kv.Value}</td>
-                    </tr>"));
+                    </tr>";
+                }));
 
                 string dynamicOfficerBlock = $@"
                 <div class='officer-inputs-table my-3 border border-slate-300 rounded-lg overflow-hidden text-xs'>
@@ -1140,14 +1300,6 @@ public class RTSCertificateService : IRTSCertificateService
                 else if (html.Contains("[[OfficerFieldsBlock]]", StringComparison.OrdinalIgnoreCase))
                 {
                     html = html.Replace("[[OfficerFieldsBlock]]", dynamicOfficerBlock, StringComparison.OrdinalIgnoreCase);
-                }
-                else if (html.Contains("{{DigitalSignature}}", StringComparison.OrdinalIgnoreCase))
-                {
-                    html = html.Replace("{{DigitalSignature}}", $"{dynamicOfficerBlock}\n{{{{DigitalSignature}}}}", StringComparison.OrdinalIgnoreCase);
-                }
-                else
-                {
-                    html += dynamicOfficerBlock;
                 }
             }
         }
@@ -1180,9 +1332,57 @@ public class RTSCertificateService : IRTSCertificateService
         string officerDesignationDynamic = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
         string signatureHtml = _digitalSignatureService.GenerateSignatureHtml(officerName, officerDesignationDynamic, DateTime.UtcNow, sampleCertNo ?? "");
 
-        html = html.Replace("{{OfficialSealStamp}}", sealStampHtml, StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{QRCode}}", qrCodeHtml, StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{DigitalSignature}}", signatureHtml, StringComparison.OrdinalIgnoreCase);
+        // Seal stamp replacement
+        var sealRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:OfficialSealStamp|SealStamp|ULBSeal|Stamp)\s*(?:\}\}|\s*\}|\]\])");
+        html = sealRegex.Replace(html, sealStampHtml);
+
+        // QR Code replacement
+        var qrRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:QRCode(?:Text)?|QR_Code|VerifyQR)\s*(?:\}\}|\s*\}|\]\])");
+        html = qrRegex.Replace(html, qrCodeHtml);
+
+        // 1. Replace all variations of {{DigitalSignature}} and [[DigitalSignature]]
+        var sigTagRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:DigitalSignature(?:Text)?|Digital_Signature|digitalSignature|OfficerSignature|Signature|DSC)\s*(?:\}\}|\s*\}|\]\])");
+        bool signaturePlaced = false;
+        if (sigTagRegex.IsMatch(html))
+        {
+            html = sigTagRegex.Replace(html, signatureHtml);
+            signaturePlaced = true;
+        }
+
+        // 2. Replace any mockup/old .digital-signature-card inside template HTML ONLY if not placed via tag
+        if (!signaturePlaced)
+        {
+            var mockCardRegex = new Regex(@"(?i)<div[^>]*class=['""][^'""]*digital-signature-card[^'""]*['""][^>]*>[\s\S]*?<\/div>(?:\s*<\/div>)*");
+            if (mockCardRegex.IsMatch(html))
+            {
+                html = mockCardRegex.Replace(html, signatureHtml);
+                signaturePlaced = true;
+            }
+        }
+
+        // 3. If template has .right-digital-sign block, ensure dynamic signature is placed inside
+        if (!signaturePlaced)
+        {
+            var rightSignRegex = new Regex(@"(?i)(<div[^>]*class=['""][^'""]*right-digital-sign[^'""]*['""][^>]*>)([\s\S]*?)(<\/div>)");
+            if (rightSignRegex.IsMatch(html))
+            {
+                html = rightSignRegex.Replace(html, $"$1\n{signatureHtml}\n$3");
+                signaturePlaced = true;
+            }
+        }
+
+        // 4. Fallback: If still not placed anywhere, append cleanly before closing body or at end
+        if (!signaturePlaced)
+        {
+            if (html.Contains("</body>", StringComparison.OrdinalIgnoreCase))
+            {
+                html = html.Replace("</body>", $"<div class='text-right mt-4'>{signatureHtml}</div></body>", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                html += $"<div class='text-right mt-4'>{signatureHtml}</div>";
+            }
+        }
 
         return html;
     }
