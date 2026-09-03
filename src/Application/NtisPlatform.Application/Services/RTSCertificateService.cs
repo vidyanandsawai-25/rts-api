@@ -350,12 +350,12 @@ public class RTSCertificateService : IRTSCertificateService
         string previewQrPayload = $"{verificationBaseUrl}/{app.ApplicationNo}";
 
         response.MergedHtml = MergeTemplatePlaceholders(
-            rawHtml, 
-            autoValues, 
-            request.OfficerInputs, 
-            request.CustomConditions, 
-            response.SampleCertificateNo, 
-            previewOfficerName, 
+            rawHtml,
+            autoValues,
+            request.OfficerInputs,
+            request.CustomConditions,
+            response.SampleCertificateNo,
+            previewOfficerName,
             isLiveSigned: false,
             certGuid: null,
             qrPayload: previewQrPayload,
@@ -427,14 +427,14 @@ public class RTSCertificateService : IRTSCertificateService
         string qrPayload = $"{verificationBaseUrl}/{certGuid}";
 
         string mergedHtml = MergeTemplatePlaceholders(
-            rawHtml, 
-            autoValues, 
-            request.OfficerInputs, 
-            request.CustomConditions, 
-            certNo, 
-            officerName, 
-            isLiveSigned: true, 
-            certGuid: certGuid, 
+            rawHtml,
+            autoValues,
+            request.OfficerInputs,
+            request.CustomConditions,
+            certNo,
+            officerName,
+            isLiveSigned: true,
+            certGuid: certGuid,
             qrPayload: qrPayload,
             officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
             defaultConditionsJson: template?.DefaultConditionsJson);
