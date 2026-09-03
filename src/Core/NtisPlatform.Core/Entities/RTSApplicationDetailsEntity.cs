@@ -19,6 +19,7 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public bool IsReverted { get; set; }
     public string ApplicationStatus { get; set; } = string.Empty;
     public string? Remark { get; set; }
+    public Guid? IssuedCertificateGuid { get; set; }
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
     public virtual RTSDepartmentEntity Department { get; set; } = null!;

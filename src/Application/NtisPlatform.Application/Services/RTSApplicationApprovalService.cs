@@ -4,6 +4,7 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -798,6 +799,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.ApplicationStatus = ApplicationStatus.Approved;
             application.Remark = dto.Remark;
             application.IsReverted = false;
+            application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
 
@@ -848,6 +850,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
+        application.IssuedCertificateGuid = dto.IssuedCertificateGuid;  
         application.UpdatedBy = dto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
 
@@ -1320,6 +1323,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
 
+
+
+
+
     // <summary>
     // Helper Methods
     private static bool IsCompletedStatus(string? status)
@@ -1398,4 +1405,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         return result;
     }
+
+
 }

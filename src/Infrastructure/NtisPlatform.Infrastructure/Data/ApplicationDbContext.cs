@@ -6203,6 +6203,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ApprovalFlowId);  //fk
             entity.Property(e => e.CurrentApprovalFlowStageId);//fk
             entity.Property(e => e.UserId);
+            entity.Property(e => e.IssuedCertificateGuid);
             entity.Property(e => e.SessionId)
                     .HasMaxLength(200)
                     .IsRequired(false);
