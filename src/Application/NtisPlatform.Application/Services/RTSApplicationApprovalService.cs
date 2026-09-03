@@ -497,6 +497,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanPay,
                 stage.CanEdit,
                 stage.CanViewNoteSheet,
+                stage.CanEditCertificate,
+                stage.CanIssueCertificate,
+                stage.IsManualCertificate,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -563,6 +566,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanPay = currentStage.CanPay,
             CanEdit = currentStage.CanEdit,
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
+            CanIssueCertificate = currentStage.CanIssueCertificate,
+            CanEditCertificate = currentStage.CanEditCertificate,
+            IsManualCertificate = currentStage.IsManualCertificate,
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
