@@ -164,9 +164,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         query = query.ApplySearch<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
 
-        query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
-
-
+        // RemainingDays is a computed field (not on entity), so skip entity-level sort when sorting by it
+        var isSortByRemainingDays = string.Equals(queryParameters.SortBy, "RemainingDays", StringComparison.OrdinalIgnoreCase);
+        if (!isSortByRemainingDays)
+        {
+            query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
+        }
+        else
+        {
+            // Apply default Id ordering so EF doesn't warn about unordered Skip/Take
+            query = query.OrderBy(x => x.Id);
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -213,6 +221,18 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             var dueDate = item.CreatedDate.Value.Date.AddDays(slaDays.Value);
             var diff = (dueDate - DateTime.Today).Days;
             item.RemainingDays = diff;
+        }
+
+        // Apply in-memory sort for the computed RemainingDays field (nulls pushed to end)
+        if (isSortByRemainingDays)
+        {
+            items = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? items.OrderByDescending(x => x.RemainingDays.HasValue)
+                       .ThenByDescending(x => x.RemainingDays)
+                       .ToList()
+                : items.OrderByDescending(x => x.RemainingDays.HasValue)
+                       .ThenBy(x => x.RemainingDays)
+                       .ToList();
         }
 
 
