@@ -14,13 +14,16 @@ public class UpdateRTSApplicationProcessDto : UpdateBaseDtos
 {
     public string? Remark { get; set; }
     public string? Status { get; set; }
+    public Guid? IssuedCertificateGuid { get; set; }
+
 }
 
-    public class RTSApplicationApprovalResponseDto
+public class RTSApplicationApprovalResponseDto
 {
     public string? Status { get; set; }
     public string? Remark { get; set; }
     public int ApplicationId { get; set; }
     public string? ApplicationNo { get; set; }
+
 
 }

@@ -30,8 +30,7 @@ public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMa
         var flow = flows.FirstOrDefault();
         if (flow == null) return null;
 
-        //var stages = await _stageRepository.GetAsync(s => s.ApprovalFlowId == flow.Id, ct);
-        var stages = await _stageRepository
+       var stages = await _stageRepository
       .GetQueryable()
       .AsNoTracking()
       .Where(s => s.ApprovalFlowId == flow.Id)

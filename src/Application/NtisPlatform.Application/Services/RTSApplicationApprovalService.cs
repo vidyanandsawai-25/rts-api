@@ -4,6 +4,7 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -53,7 +54,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             {
                 TotalApplications = g.Count(),
                 Pending = g.Count(x => x.ApplicationStatus != ApplicationStatus.Approved &&
-                    x.ApplicationStatus != ApplicationStatus.Rejected) ,
+                    x.ApplicationStatus != ApplicationStatus.Rejected &&x.ApplicationStatus!=ApplicationStatus.Reverted) ,
                 Approved = g.Count(x => x.ApplicationStatus == ApplicationStatus.Approved),
                 Rejected = g.Count(x => x.ApplicationStatus == ApplicationStatus.Rejected),
                 Reverted = g.Count(x => x.IsReverted),
@@ -121,12 +122,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
         }
 
-        else if(queryParameters.ApplicationStatus==ApplicationStatus.Pending)
+        else if (string.Equals( queryParameters.ApplicationStatus,ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x => x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted);
         }
-
-        else if (queryParameters.ApplicationStatus == "Overdue Applications")
+        else if (string.Equals( queryParameters.ApplicationStatus, "Overdue Applications",StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -141,7 +141,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ) < today);
         }
 
-        else if (queryParameters.ApplicationStatus == "DueToday")
+        else if (string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -154,7 +154,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))
                 ).Date == today.Date);
         }
-        else if (queryParameters.ApplicationStatus == "Today's Applications")
+        else if (string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.IsActive &&
@@ -373,6 +373,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     {
                         FieldDefinitionId = fv.FieldDefinitionId,
                         DocumentName = fv.FieldDefinition!.FieldLabel,
+                        DocumentNameLocal=fv.FieldDefinition.FieldLabelLocal,
                         DocumentGuid = fv.DocumentGuid,
                         IsRequired = fv.FieldDefinition.IsRequired,
                         IsUploaded = fv.DocumentGuid.HasValue
@@ -497,6 +498,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanPay,
                 stage.CanEdit,
                 stage.CanViewNoteSheet,
+                stage.CanEditCertificate,
+                stage.CanIssueCertificate,
+                stage.IsManualCertificate,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -563,6 +567,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanPay = currentStage.CanPay,
             CanEdit = currentStage.CanEdit,
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
+            CanIssueCertificate = currentStage.CanIssueCertificate,
+            CanEditCertificate = currentStage.CanEditCertificate,
+            IsManualCertificate = currentStage.IsManualCertificate,
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
@@ -792,6 +799,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.ApplicationStatus = ApplicationStatus.Approved;
             application.Remark = dto.Remark;
             application.IsReverted = false;
+            application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
 
@@ -842,6 +850,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
+        application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
         application.UpdatedBy = dto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
 
@@ -1314,6 +1323,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
 
+
+
+
+
     // <summary>
     // Helper Methods
     private static bool IsCompletedStatus(string? status)
@@ -1392,4 +1405,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         return result;
     }
+
+
 }

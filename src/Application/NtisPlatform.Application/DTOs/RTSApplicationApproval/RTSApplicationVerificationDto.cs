@@ -34,6 +34,9 @@ public class CurrentApprovalOfficerDto
     public bool CanPay { get; set; }
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
+    public bool CanIssueCertificate { get; set; }
+    public bool CanEditCertificate { get; set; }
+    public bool IsManualCertificate { get; set; }
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }
