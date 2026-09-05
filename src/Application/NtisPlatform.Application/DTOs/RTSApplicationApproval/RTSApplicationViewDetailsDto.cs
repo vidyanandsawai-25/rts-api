@@ -22,6 +22,7 @@ public class ApplicationDocumentDto
 {
     public int FieldDefinitionId { get; set; }
     public string DocumentName { get; set; } = string.Empty;
+    public string DocumentNameLocal { get; set; } = string.Empty;
     public Guid? DocumentGuid { get; set; }
     public bool IsRequired { get; set; }
     public bool IsUploaded { get; set; }

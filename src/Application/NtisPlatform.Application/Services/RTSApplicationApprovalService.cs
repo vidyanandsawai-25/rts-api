@@ -373,6 +373,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     {
                         FieldDefinitionId = fv.FieldDefinitionId,
                         DocumentName = fv.FieldDefinition!.FieldLabel,
+                        DocumentNameLocal=fv.FieldDefinition.FieldLabelLocal,
                         DocumentGuid = fv.DocumentGuid,
                         IsRequired = fv.FieldDefinition.IsRequired,
                         IsUploaded = fv.DocumentGuid.HasValue
