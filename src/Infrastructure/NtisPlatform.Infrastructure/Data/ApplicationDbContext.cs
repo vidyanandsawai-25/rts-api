@@ -6353,10 +6353,6 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            entity.Property(e => e.IsManualCertificate)
-                .IsRequired()
-                .HasDefaultValue(false);
-
             entity.Property(e => e.IsFinalStage)
                 .IsRequired()
                 .HasDefaultValue(false);
