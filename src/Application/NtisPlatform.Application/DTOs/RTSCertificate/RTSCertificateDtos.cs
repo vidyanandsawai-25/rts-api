@@ -85,6 +85,7 @@ public class CertificatePreviewResponseDto
     public List<OfficerFieldConfigDto> RequiredOfficerFields { get; set; } = new();
     public List<string> DefaultConditions { get; set; } = new();
     public string? SampleCertificateNo { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.None;
 }
 
 public class IssueCertificateRequestDto
@@ -94,6 +95,8 @@ public class IssueCertificateRequestDto
     public string? CustomConditions { get; set; }
     public string? ActionRemark { get; set; }
     public bool SignAndApprove { get; set; } = true;
+    public NtisPlatform.Core.Enums.RTSCertificateType? CertificateType { get; set; }
+    public Guid? DocumentGuid { get; set; }
 }
 
 public class RTSIssuedCertificateDto
@@ -117,6 +120,10 @@ public class RTSIssuedCertificateDto
     public DateTime IssuedAt { get; set; }
     public bool IsDigitallySigned { get; set; }
     public string? DigitalSignatureInfo { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.Digital;
+    public Guid? DocumentGuid { get; set; }
+    public string? DocumentDownloadUrl { get; set; }
+    public string? DepartmentCollectionNotice { get; set; }
 }
 
 public class CertificateVerificationResponseDto
@@ -129,7 +136,7 @@ public class CertificateVerificationResponseDto
     public string? ServiceName { get; set; }
     public string? DepartmentName { get; set; }
     public string? ApplicantName { get; set; }
-    public string? UlbName { get; set; }
+    public string UlbName { get; set; }
     public string? UlbLogo { get; set; }
     public string? UlbAddress { get; set; }
     public DateTime? IssuedAt { get; set; }
@@ -143,6 +150,10 @@ public class CertificateVerificationResponseDto
     public string? DscThumbprint { get; set; }
     public DateTime? DscValidUntil { get; set; }
     public string? MergedHtmlContent { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.Digital;
+    public Guid? DocumentGuid { get; set; }
+    public string? DocumentDownloadUrl { get; set; }
+    public string? DepartmentCollectionNotice { get; set; }
 }
 
 public class CertificateAvailableTagDto

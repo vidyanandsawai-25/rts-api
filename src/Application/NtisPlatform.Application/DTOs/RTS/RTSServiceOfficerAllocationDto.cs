@@ -5,6 +5,7 @@ public class RTSServiceOfficerAllocationDto
     public int Id { get; set; }
     public int ServiceId { get; set; }
     public string? ServiceName { get; set; }
+    public string? ServiceNameLocal { get; set; }
     public int? ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
     public string? ZoneNameLocal { get; set; }

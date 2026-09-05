@@ -6027,6 +6027,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FeesRequired)
                 .IsRequired()
                 .HasDefaultValue(false);
+            entity.Property(e => e.CertificateType)
+                .IsRequired()
+                .HasDefaultValue(NtisPlatform.Core.Enums.RTSCertificateType.None);
             entity.Property(e => e.IsCertificateRequired)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -6337,10 +6340,6 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            entity.Property(e => e.IsManualCertificate)
-                .IsRequired()
-                .HasDefaultValue(false);
-
             entity.Property(e => e.CanPay)
                 .IsRequired()
                 .HasDefaultValue(false);
@@ -6421,7 +6420,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CertificateNo).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ApplicationId).IsRequired();
             entity.Property(e => e.ServiceId).IsRequired();
-            entity.Property(e => e.CertificateServiceId).IsRequired();
+            entity.Property(e => e.CertificateServiceId).IsRequired(false);
             entity.Property(e => e.OfficerInputsJson).HasColumnType("nvarchar(max)");
             entity.Property(e => e.MergedHtmlContent).IsRequired().HasColumnType("nvarchar(max)");
             entity.Property(e => e.QrCodePayload).HasColumnType("nvarchar(max)");
@@ -6429,6 +6428,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IssuedAt).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.IsDigitallySigned).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.DigitalSignatureInfo).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.CertificateType).IsRequired().HasDefaultValue(NtisPlatform.Core.Enums.RTSCertificateType.Digital);
+            entity.Property(e => e.DocumentGuid);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
@@ -6451,6 +6452,7 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.CertificateService)
                 .WithMany(t => t.IssuedCertificates)
                 .HasForeignKey(e => e.CertificateServiceId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.IssuedByUser)

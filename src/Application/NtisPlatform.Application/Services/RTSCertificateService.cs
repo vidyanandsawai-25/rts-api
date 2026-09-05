@@ -9,6 +9,7 @@ using NtisPlatform.Application.DTOs.RTSCertificate;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
@@ -287,11 +288,8 @@ public class RTSCertificateService : IRTSCertificateService
         if (app == null)
             throw new KeyNotFoundException($"Application with ID {request.ApplicationId} not found.");
 
-        var template = await _templateRepository.GetQueryable()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
-
-        if (app.Service != null && !app.Service.IsCertificateRequired)
+        var certType = await ResolveCertificateTypeAsync(app, ct);
+        if (certType == RTSCertificateType.None)
         {
             return new CertificatePreviewResponseDto
             {
@@ -299,9 +297,17 @@ public class RTSCertificateService : IRTSCertificateService
                 TemplateId = 0,
                 TemplateName = "No Certificate Required",
                 SampleCertificateNo = string.Empty,
-                MergedHtml = "<div class='p-4 text-center text-slate-500 font-semibold'>या सेवेसाठी कोणतेही प्रमाणपत्र जारी करण्याची आवश्यकता नाही (IsCertificateRequired=false).</div>"
+                MergedHtml = "<div class='p-4 text-center text-slate-500 font-semibold'>या सेवेसाठी कोणतेही प्रमाणपत्र जारी करण्याची आवश्यकता नाही (CertificateType=None).</div>",
+                CertificateType = RTSCertificateType.None
             };
         }
+
+        bool isManual = certType == RTSCertificateType.Manual;
+        var template = isManual
+            ? null
+            : await _templateRepository.GetQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
         string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
             ? app.Department.DepartmentCode.Trim()
@@ -313,13 +319,14 @@ public class RTSCertificateService : IRTSCertificateService
 
         var response = new CertificatePreviewResponseDto
         {
-            HasTemplate = template != null,
+            HasTemplate = isManual || template != null,
             TemplateId = template?.Id ?? 0,
-            TemplateName = template?.TemplateName ?? "Default Certificate Template",
-            SampleCertificateNo = $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}"
+            TemplateName = isManual ? "मॅन्युअल प्रमाणपत्र (Manual Upload Certificate)" : (template?.TemplateName ?? "Default Certificate Template"),
+            SampleCertificateNo = $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}",
+            CertificateType = certType
         };
 
-        if (template != null)
+        if (!isManual && template != null)
         {
             var templateDto = MapToTemplateDto(template);
             response.RequiredOfficerFields = templateDto.OfficerFields;
@@ -344,6 +351,12 @@ public class RTSCertificateService : IRTSCertificateService
         response.CitizenAutoValues = autoValues;
 
         // Perform merge
+        if (isManual)
+        {
+            response.MergedHtml = "<div class='p-6 text-center text-slate-700 bg-amber-50/70 border border-amber-300 rounded-xl space-y-3'><div class='inline-flex p-3 bg-amber-100 rounded-full text-amber-700'>📋</div><h3 class='text-sm font-bold text-amber-900'>मॅन्युअल प्रमाणपत्र सेवा (Manual Certificate Service)</h3><p class='text-xs text-slate-600 max-w-md mx-auto'>सदर सेवेसाठी महानगरपालिकेमार्फत मॅन्युअली तयार केलेले प्रमाणपत्र (PDF किंवा स्कॅन प्रत) अपलोड केले जाते. डाव्या बाजूला फाईल निवडून अपलोड करा.</p><div class='p-3 bg-white border border-amber-200 rounded-lg text-[11px] font-semibold text-amber-800 inline-block'>⚠️ सूचना: नागरिकाने मूळ प्रमाणपत्र संबंधित विभागातून प्राप्त करून घेणे आवश्यक आहे.</div></div>";
+            return response;
+        }
+
         string rawHtml = BuildFullCertificateHtml(template, app);
 
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
@@ -377,9 +390,17 @@ public class RTSCertificateService : IRTSCertificateService
         if (app == null)
             throw new KeyNotFoundException($"Application with ID {request.ApplicationId} not found.");
 
-        if (app.Service != null && !app.Service.IsCertificateRequired)
+        var certType = request.CertificateType ?? await ResolveCertificateTypeAsync(app, ct);
+
+        if (certType == RTSCertificateType.None)
         {
-            throw new InvalidOperationException($"Service '{app.Service.ServiceName}' is configured with IsCertificateRequired=false (No certificate issuance required).");
+            throw new InvalidOperationException($"Service '{app.Service?.ServiceName}' is configured with CertificateType=None (No certificate issuance required).");
+        }
+
+        bool isManual = certType == RTSCertificateType.Manual;
+        if (isManual && (!request.DocumentGuid.HasValue || request.DocumentGuid.Value == Guid.Empty))
+        {
+            throw new InvalidOperationException("मॅन्युअल प्रमाणपत्रासाठी फाईल (PDF/Image) अपलोड करणे बंधनकारक आहे.");
         }
 
         var user = await _userRepository.GetQueryable()
@@ -419,36 +440,54 @@ public class RTSCertificateService : IRTSCertificateService
             autoValues["OfficerDesignation"] = officerDesignation;
         }
 
-        string rawHtml = BuildFullCertificateHtml(template, app);
+        string rawHtml = isManual
+            ? $@"<div class=""manual-certificate-view w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-slate-300 shadow-sm"">
+  <div class=""bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg mb-4 text-xs font-semibold"">
+    ⚠️ <strong>महत्त्वाची सूचना:</strong> सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे.
+  </div>
+  <div class=""text-center my-4"">
+    <p class=""text-sm font-bold text-slate-800 mb-2"">महानगरपालिकेकडून मॅन्युअली जारी केलेले अधिकृत प्रमाणपत्र</p>
+    <a href=""/api/rts/documents/{request.DocumentGuid!.Value}/download"" target=""_blank"" class=""inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition"">
+      📄 मॅन्युअल प्रमाणपत्र पहा / डाऊनलोड करा
+    </a>
+  </div>
+</div>"
+            : BuildFullCertificateHtml(template, app);
 
-        var signatureResult = _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml);
+        var signatureResult = !isManual
+            ? _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml)
+            : new CertificateSignatureResultDto { IsSigned = false, SignatureInfo = "मॅन्युअल प्रमाणपत्र (स्वाक्षरी लागू नाही)", SignatureHash = string.Empty };
 
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
         string qrPayload = $"{verificationBaseUrl}/{certGuid}";
 
-        string mergedHtml = MergeTemplatePlaceholders(
-            rawHtml,
-            autoValues,
-            request.OfficerInputs,
-            request.CustomConditions,
-            certNo,
-            officerName,
-            isLiveSigned: true,
-            certGuid: certGuid,
-            qrPayload: qrPayload,
-            officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
-            defaultConditionsJson: template?.DefaultConditionsJson);
+        string mergedHtml = isManual
+            ? rawHtml
+            : MergeTemplatePlaceholders(
+                rawHtml,
+                autoValues,
+                request.OfficerInputs,
+                request.CustomConditions,
+                certNo,
+                officerName,
+                isLiveSigned: true,
+                certGuid: certGuid,
+                qrPayload: qrPayload,
+                officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
+                defaultConditionsJson: template?.DefaultConditionsJson);
 
         if (existingCert != null)
         {
-            existingCert.CertificateServiceId = template?.Id ?? 0;
+            existingCert.CertificateServiceId = template?.Id;
             existingCert.OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null;
             existingCert.MergedHtmlContent = mergedHtml;
             existingCert.QrCodePayload = qrPayload;
             existingCert.IssuedByUserId = userId;
             existingCert.IssuedAt = DateTime.UtcNow;
-            existingCert.IsDigitallySigned = true;
-            existingCert.DigitalSignatureInfo = signatureResult.SignatureInfo;
+            existingCert.IsDigitallySigned = !isManual;
+            existingCert.DigitalSignatureInfo = isManual ? null : signatureResult.SignatureInfo;
+            existingCert.CertificateType = certType;
+            existingCert.DocumentGuid = request.DocumentGuid;
             existingCert.UpdatedBy = userId;
             existingCert.UpdatedDate = DateTime.UtcNow;
 
@@ -462,14 +501,16 @@ public class RTSCertificateService : IRTSCertificateService
                 CertificateNo = certNo,
                 ApplicationId = app.Id,
                 ServiceId = app.ServiceId,
-                CertificateServiceId = template?.Id ?? 0,
+                CertificateServiceId = template?.Id,
                 OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null,
                 MergedHtmlContent = mergedHtml,
                 QrCodePayload = qrPayload,
                 IssuedByUserId = userId,
                 IssuedAt = DateTime.UtcNow,
-                IsDigitallySigned = true,
-                DigitalSignatureInfo = signatureResult.SignatureInfo,
+                IsDigitallySigned = !isManual,
+                DigitalSignatureInfo = isManual ? null : signatureResult.SignatureInfo,
+                CertificateType = certType,
+                DocumentGuid = request.DocumentGuid,
                 IsActive = true,
                 CreatedBy = userId,
                 CreatedDate = DateTime.UtcNow
@@ -487,10 +528,12 @@ public class RTSCertificateService : IRTSCertificateService
             ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
             ActionByUserId = userId,
             Status = ApplicationStatus.Approved,
-            Action = "IssueCertificateAndDigitalSign",
+            Action = isManual ? "IssueManualCertificateAndApprove" : "IssueCertificateAndDigitalSign",
             Remark = !string.IsNullOrWhiteSpace(request.ActionRemark)
                 ? request.ActionRemark
-                : $"प्रमाणपत्र क्र. {certNo} डिजिटल स्वाक्षरीने अधिकृतरीत्या जारी केले. (DSC Hash: {signatureResult.SignatureHash[..Math.Min(16, signatureResult.SignatureHash.Length)]}...)",
+                : (isManual
+                    ? $"मॅन्युअल प्रमाणपत्र क्र. {certNo} अधिकृतरीत्या अपलोड व जारी केले. (टीप: मूळ प्रमाणपत्र संबंधित विभागातून प्राप्त करून घेणे आवश्यक आहे)"
+                    : $"प्रमाणपत्र क्र. {certNo} डिजिटल स्वाक्षरीने अधिकृतरीत्या जारी केले. (DSC Hash: {signatureResult.SignatureHash[..Math.Min(16, signatureResult.SignatureHash.Length)]}...)"),
             IsReverted = false,
             CreatedBy = userId,
             CreatedDate = DateTime.UtcNow
@@ -787,7 +830,17 @@ public class RTSCertificateService : IRTSCertificateService
             DscThumbprint = dscMetadata?.Thumbprint ?? "",
             DscValidUntil = dscMetadata?.ValidTo,
             MergedHtmlContent = cert.MergedHtmlContent,
-            Message = "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
+            CertificateType = cert.CertificateType,
+            DocumentGuid = cert.DocumentGuid,
+            DocumentDownloadUrl = cert.DocumentGuid.HasValue && cert.DocumentGuid.Value != Guid.Empty
+                ? $"/api/rts/documents/{cert.DocumentGuid.Value}/download"
+                : null,
+            DepartmentCollectionNotice = cert.CertificateType == RTSCertificateType.Manual
+                ? "सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे."
+                : null,
+            Message = cert.CertificateType == RTSCertificateType.Manual
+                ? "✅ हे मॅन्युअल प्रमाणपत्र अधिकृतरीत्या पडताळलेले आहे. (सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा करून घ्यावे.)"
+                : "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
         };
     }
 
@@ -1521,7 +1574,15 @@ public class RTSCertificateService : IRTSCertificateService
             IssuedByOfficerDesignation = cert.Application?.Department?.DepartmentNameLocal ?? cert.Application?.Department?.DepartmentName ?? "",
             IssuedAt = cert.IssuedAt,
             IsDigitallySigned = cert.IsDigitallySigned,
-            DigitalSignatureInfo = cert.DigitalSignatureInfo
+            DigitalSignatureInfo = cert.DigitalSignatureInfo,
+            CertificateType = cert.CertificateType,
+            DocumentGuid = cert.DocumentGuid,
+            DocumentDownloadUrl = cert.DocumentGuid.HasValue && cert.DocumentGuid.Value != Guid.Empty
+                ? $"/api/rts/documents/{cert.DocumentGuid.Value}/download"
+                : null,
+            DepartmentCollectionNotice = cert.CertificateType == RTSCertificateType.Manual
+                ? "सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे."
+                : null
         };
     }
 
@@ -1541,5 +1602,11 @@ public class RTSCertificateService : IRTSCertificateService
         {
             return new Dictionary<string, string>();
         }
+    }
+
+    private static Task<RTSCertificateType> ResolveCertificateTypeAsync(RTSApplicationDetailsEntity app, CancellationToken ct)
+    {
+        if (app.Service == null) return Task.FromResult(RTSCertificateType.None);
+        return Task.FromResult(app.Service.CertificateType);
     }
 }

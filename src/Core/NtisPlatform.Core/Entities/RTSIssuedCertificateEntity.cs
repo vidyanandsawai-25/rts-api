@@ -9,7 +9,7 @@ public class RTSIssuedCertificateEntity : BaseEntity, IHardDeletable
     public string CertificateNo { get; set; } = string.Empty;
     public int ApplicationId { get; set; }
     public int ServiceId { get; set; }
-    public int CertificateServiceId { get; set; }
+    public int? CertificateServiceId { get; set; }
     public string? OfficerInputsJson { get; set; }
     public string MergedHtmlContent { get; set; } = string.Empty;
     public string? QrCodePayload { get; set; }
@@ -17,6 +17,8 @@ public class RTSIssuedCertificateEntity : BaseEntity, IHardDeletable
     public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
     public bool IsDigitallySigned { get; set; } = true;
     public string? DigitalSignatureInfo { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.Digital;
+    public Guid? DocumentGuid { get; set; }
 
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }

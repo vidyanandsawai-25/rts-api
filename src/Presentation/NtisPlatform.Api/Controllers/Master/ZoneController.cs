@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
@@ -25,6 +25,7 @@ public class ZoneController : ControllerBase
         _referenceValidationService = referenceValidationService;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] ZoneQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
