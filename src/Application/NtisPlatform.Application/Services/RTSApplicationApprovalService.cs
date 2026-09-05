@@ -54,7 +54,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             {
                 TotalApplications = g.Count(),
                 Pending = g.Count(x => x.ApplicationStatus != ApplicationStatus.Approved &&
-                    x.ApplicationStatus != ApplicationStatus.Rejected) ,
+                    x.ApplicationStatus != ApplicationStatus.Rejected &&x.ApplicationStatus!=ApplicationStatus.Reverted) ,
                 Approved = g.Count(x => x.ApplicationStatus == ApplicationStatus.Approved),
                 Rejected = g.Count(x => x.ApplicationStatus == ApplicationStatus.Rejected),
                 Reverted = g.Count(x => x.IsReverted),
@@ -122,12 +122,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
         }
 
-        else if(queryParameters.ApplicationStatus==ApplicationStatus.Pending)
+        else if (string.Equals( queryParameters.ApplicationStatus,ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x => x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted);
         }
-
-        else if (queryParameters.ApplicationStatus == "Overdue Applications")
+        else if (string.Equals( queryParameters.ApplicationStatus, "Overdue Applications",StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -142,7 +141,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ) < today);
         }
 
-        else if (queryParameters.ApplicationStatus == "DueToday")
+        else if (string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -155,7 +154,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))
                 ).Date == today.Date);
         }
-        else if (queryParameters.ApplicationStatus == "Today's Applications")
+        else if (string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.IsActive &&
