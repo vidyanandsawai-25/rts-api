@@ -113,13 +113,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
+        if (!string.IsNullOrEmpty(queryParameters.ApplicationStatus) &&!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&queryParameters.ApplicationStatus==ApplicationStatus.Approved|| queryParameters.ApplicationStatus == ApplicationStatus.Rejected
-            || queryParameters.ApplicationStatus == ApplicationStatus.Reverted)
+        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
+         !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
+         !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
+         !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
         {
-            query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
+            query = query.Where(x => x.ApplicationStatus == queryParameters.ApplicationStatus);
         }
 
         else if (string.Equals( queryParameters.ApplicationStatus,ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
