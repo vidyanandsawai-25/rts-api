@@ -143,6 +143,24 @@ public class TwoFactorAuthenticationServiceTests
     }
 
     [Fact]
+    public async Task BeginSetupAsync_WhenPendingKeyExists_ReusesExistingSecret()
+    {
+        var user = NewUser(secret: "enc:SECRET");
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _totpServiceMock.Setup(x => x.BuildAuthenticatorUri("NtisPlatform", "jdoe", "SECRET"))
+            .Returns("otpauth://totp/example");
+
+        var result = await _service.BeginSetupAsync(1, isReset: false);
+
+        Assert.True(result.Success);
+        Assert.Equal("otpauth://totp/example", result.Value!.AuthenticatorUri);
+        _totpServiceMock.Verify(x => x.GenerateSecret(), Times.Never);
+        _userRepositoryMock.Verify(
+            x => x.SetPendingTwoFactorSecretAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task BeginSetupAsync_WhenAlreadyEnabledAndNotReset_ReturnsAlreadyEnabled()
     {
         var user = NewUser(enabled: true, secret: "enc:OLD");
