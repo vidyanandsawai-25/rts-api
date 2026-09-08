@@ -298,7 +298,7 @@ public class PasswordResetService : IPasswordResetService
 
         var normalized = TwoFactorCodeNormalizer.NormalizeTotpCode(code);
         var codeIsValid = TwoFactorCodeNormalizer.IsSixDigits(normalized) &&
-            _totpService.ValidateCode(_secretProtector.Unprotect(user.TwoFactorSecretEncrypted), normalized, _timeProvider.GetLocalNow());
+            _totpService.ValidateCode(_secretProtector.Unprotect(user.TwoFactorSecretEncrypted), normalized, _timeProvider.GetUtcNow());
 
         if (!codeIsValid)
         {

@@ -104,9 +104,19 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
             return TwoFactorOperationResult<TwoFactorSetupResponseDto>.Failed(TwoFactorOperationError.EmailNotOnFile);
         }
 
-        var secret = _totpService.GenerateSecret();
-        var encryptedSecret = _secretProtector.Protect(secret);
-        await _userRepository.SetPendingTwoFactorSecretAsync(userId, encryptedSecret, cancellationToken);
+        string secret;
+        if (isReset || string.IsNullOrWhiteSpace(user.TwoFactorSecretEncrypted))
+        {
+            // A reset must always rotate the secret, even if one is already pending/active —
+            // otherwise BuildAuthenticatorUri below would hand back the compromised old secret.
+            secret = _totpService.GenerateSecret();
+            var encryptedSecret = _secretProtector.Protect(secret);
+            await _userRepository.SetPendingTwoFactorSecretAsync(userId, encryptedSecret, cancellationToken);
+        }
+        else
+        {
+            secret = _secretProtector.Unprotect(user.TwoFactorSecretEncrypted);
+        }
 
         var authenticatorUri = _totpService.BuildAuthenticatorUri(_options.Issuer, user.UserName, secret);
 
@@ -344,7 +354,7 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
     private bool ValidateTotp(string encryptedSecret, string normalizedCode)
     {
         var secret = _secretProtector.Unprotect(encryptedSecret);
-        return _totpService.ValidateCode(secret, normalizedCode, _timeProvider.GetLocalNow());
+        return _totpService.ValidateCode(secret, normalizedCode, _timeProvider.GetUtcNow());
     }
 
     private async Task<bool> VerifyTotpOrRecoveryCodeAsync(UserEntity user, string rawCode, CancellationToken cancellationToken)
