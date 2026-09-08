@@ -105,7 +105,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var today = DateTime.Today;
 
         var query = _repository.GetQueryable()
-            .Where(x => !x.MarkedForDeletion && x.IsActive).AsQueryable();
+         .Where(x => !x.MarkedForDeletion && x.IsActive)
+         .OrderBy(x => x.UpdatedDate ?? x.CreatedDate)
+         .ThenBy(x => x.Id)
+         .AsQueryable();
 
         if (queryParameters.DepartmentId > 0)
             query = query.Where(x => x.DepartmentId == queryParameters.DepartmentId);
