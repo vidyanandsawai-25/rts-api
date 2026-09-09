@@ -21,31 +21,37 @@ public class PropertySocietyRepository : PropertyRepositoryBase, IPropertySociet
     /// <inheritdoc/>
     public async Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Project only the two columns needed to decide which society row to load.
-        var prop = await _context.PropertyMast
+        var property = await _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.SocietyDetailId })
+            .Select(p => new { p.WingDetailId })
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (prop == null)
+        if (property == null)
             return null; // property not found
-
-        if (!prop.SocietyDetailId.HasValue)
-            return null; // society not linked yet — service will return an empty DTO
 
         var result = await (
             from s in _context.SocietyDetailsMast.AsNoTracking()
-            where s.Id == prop.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion
-            join w in _context.Set<WingEntity>().AsNoTracking() on s.WingId equals w.Id into wingJoin
+            where s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion
+            // Tied to this property's own WingDetailId/PropertyId, not just "any wing under
+            // the society" -- a society can have multiple wings, so joining by SocietyDetailsMastId/
+            // SocietyDetailId alone (with no per-property ordering) could return an arbitrary one.
+            join wdmGroup in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking() on property.WingDetailId equals (int?)wdmGroup.Id into wdmJoin
+            from wdm in wdmJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
+            join swdGroup in _context.Set<NtisPlatform.Core.Entities.SocietyWingDetailsEntity>().AsNoTracking() on (int?)propertyId equals swdGroup.PropertyId into swdJoin
+            from swd in swdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+            join wingGroup in _context.Set<WingEntity>().AsNoTracking() on
+                (wdm != null ? (int?)wdm.WingMasterId : (swd != null ? swd.WingId : null)) equals (int?)wingGroup.Id into wingJoin
             from w in wingJoin.Where(x => x.IsActive).DefaultIfEmpty()
             select new PropertySocietyDetailsDto
             {
-                PropertyId = prop.Id,
+                PropertyId = propertyId,
                 SocietyDetailId = s.Id,
-                WingId = s.WingId,
+                WingId = wdm != null ? (int?)wdm.WingMasterId : (swd != null ? swd.WingId : (w != null ? (int?)w.Id : null)),
+                // WingNo is WingEntity.WingNo specifically -- no name-field fallback, since
+                // WingDetailsMast.WingName / SocietyWingDetails.NewWingName are names, not codes.
                 WingNo = w != null ? w.WingNo : null,
-                WingName = s.WingName,
+                WingName = wdm != null ? wdm.WingName : (swd != null ? swd.NewWingName : null),
                 SocietyName = s.SocietyName,
                 SocietyAddress = s.SocietyAddress,
                 SecretaryName = s.SecretaryName,
@@ -90,4 +96,13 @@ public class PropertySocietyRepository : PropertyRepositoryBase, IPropertySociet
     /// <inheritdoc/>
     public void AddSociety(SocietyDetailsEntity society)
         => _context.SocietyDetailsMast.Add(society);
+
+    /// <inheritdoc/>
+    public async Task<WingDetailsMastEntity?> GetWingDetailsMastBySocietyIdAsync(int societyId, CancellationToken cancellationToken = default)
+        => await _context.Set<WingDetailsMastEntity>()
+            .FirstOrDefaultAsync(w => w.SocietyDetailsMastId == societyId && w.IsActive && !w.MarkedForDeletion, cancellationToken);
+
+    /// <inheritdoc/>
+    public void AddWingDetailsMast(WingDetailsMastEntity wingDetailsMast)
+        => _context.Set<WingDetailsMastEntity>().Add(wingDetailsMast);
 }

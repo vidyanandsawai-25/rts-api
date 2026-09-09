@@ -77,8 +77,7 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.UPICId, opt => opt.Ignore())
-            .ForMember(dest => dest.SocietyDetailId, opt => opt.Ignore());
+            .ForMember(dest => dest.UPICId, opt => opt.Ignore());
 
         CreateMap<UpdateAllPropertyDetailsDto, SocietyDetailsEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -144,13 +143,7 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyImagesMast, opt => opt.Ignore())
             .ForMember(dest => dest.PropertySocialDetails, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetails, opt => opt.Ignore())
             .ForMember(dest => dest.WaterConnectionMaster, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetailsArchive, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetailsCV, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetailsLookup, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetailsRetro, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxPendingDetailsRV, opt => opt.Ignore())
             .ForMember(dest => dest.TransMast, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastArchive, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastLookup, opt => opt.Ignore())

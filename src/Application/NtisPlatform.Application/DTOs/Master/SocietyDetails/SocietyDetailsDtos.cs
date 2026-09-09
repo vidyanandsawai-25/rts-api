@@ -32,8 +32,7 @@ public class CreateSocietyDetailsDto : CreateBaseDtos
     [Required(ErrorMessage = "SocietyDetails_PropertyId_Required")]
     public int PropertyId { get; set; }
 
-    [Required(ErrorMessage = "SocietyDetails_WingId_Required")]
-    public int WingId { get; set; }
+    public int? WingId { get; set; }
 
     [StringLength(30, ErrorMessage = "SocietyDetails_WingName_MaxLen_30")]
     public string? WingName { get; set; }
@@ -98,8 +97,7 @@ public class UpdateSocietyDetailsDto : UpdateBaseDtos
     [Required(ErrorMessage = "SocietyDetails_PropertyId_Required")]
     public int PropertyId { get; set; }
 
-    [Required(ErrorMessage = "SocietyDetails_WingId_Required")]
-    public int WingId { get; set; }
+    public int? WingId { get; set; }
 
     [StringLength(30, ErrorMessage = "SocietyDetails_WingName_MaxLen_30")]
     public string? WingName { get; set; }

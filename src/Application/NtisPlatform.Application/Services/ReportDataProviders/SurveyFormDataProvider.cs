@@ -7,12 +7,12 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.ReportDataProviders;
 
-public class TypeWiseSurveyFormDataProvider : IPagedReportDataProvider
+public class SurveyFormDataProvider : IPagedReportDataProvider
 {
     public const string MainSection = "main";
     public const string DetailSection = "CollectionReport";
     public const string ImageParamsSection = "_reportImageParams";
-    public string ProviderCode => "TypeWiseSurveyFormDataProvider";
+    public string ProviderCode => "SurveyFormDataProvider";
 
     private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
     private readonly IReportDataRepository<ZoneEntity> _zoneRepository;
@@ -26,8 +26,10 @@ public class TypeWiseSurveyFormDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<DocumentEntity> _documentRepository;
     private readonly IReportDataRepository<DocumentBindingEntity> _documentBindingRepository;
     private readonly IReportDataRepository<PropertyPhotoEntity> _propertyPhotoRepository;
+    private readonly IReportDataRepository<WingDetailsMastEntity> _wingDetailsRepository;
+    private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
 
-    public TypeWiseSurveyFormDataProvider(
+    public SurveyFormDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
         IReportDataRepository<ZoneEntity> zoneRepository,
         IReportDataRepository<WardEntity> wardRepository,
@@ -39,7 +41,9 @@ public class TypeWiseSurveyFormDataProvider : IPagedReportDataProvider
         IReportDataRepository<PropertyMastOldEntity> propertyOldRepository,
         IReportDataRepository<DocumentEntity> documentRepository,
         IReportDataRepository<DocumentBindingEntity> documentBindingRepository,
-        IReportDataRepository<PropertyPhotoEntity> propertyPhotoRepository)
+        IReportDataRepository<PropertyPhotoEntity> propertyPhotoRepository,
+        IReportDataRepository<WingDetailsMastEntity> wingDetailsRepository,
+        IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
     {
         _propertyRepository = propertyRepository;
         _zoneRepository = zoneRepository;
@@ -53,6 +57,8 @@ public class TypeWiseSurveyFormDataProvider : IPagedReportDataProvider
         _documentRepository = documentRepository;
         _documentBindingRepository = documentBindingRepository;
         _propertyPhotoRepository = propertyPhotoRepository;
+        _wingDetailsRepository = wingDetailsRepository;
+        _propertyMapDetailRepository = propertyMapDetailRepository;
     }
 
     public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
@@ -246,13 +252,24 @@ public class TypeWiseSurveyFormDataProvider : IPagedReportDataProvider
                 .Take(1)
                 .DefaultIfEmpty()
 
-            join w in _wingRepository.GetQueryable() on sdm.WingId equals w.Id into wingj
+            join wdm in _wingDetailsRepository.GetQueryable().Where(w => w.IsActive && !w.MarkedForDeletion) on (sdm != null ? (int?)sdm.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmj
+            from wdm in wdmj.DefaultIfEmpty()
+
+            join w in _wingRepository.GetQueryable() on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)w.Id into wingj
             from w in wingj.DefaultIfEmpty()
 
             join pt in _propertyTypeRepository.GetQueryable() on pm.PropertyTypeId equals pt.Id into ptj
             from pt in ptj.DefaultIfEmpty()
 
-            join opm in _propertyOldRepository.GetQueryable() on pm.PropertyMastOldId equals opm.Id into opmj
+            // PropertyEntity.PropertyMastOldId is [NotMapped] -- resolve the old-property link via
+            // PropertyMapDetail (PropertyIdNew/PropertyIdOld) instead, matching the established
+            // pattern in TypeWiseSurveyFormDataProvider. Filtered to the current/active mapping
+            // (IsCurrent + Status) since a property can have multiple IsActive PropertyMapDetail
+            // rows (e.g. superseded history), which would otherwise fan out this join.
+            join pmd in _propertyMapDetailRepository.GetQueryable().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE") on pm.Id equals pmd.PropertyIdNew into pmdj
+            from pmd in pmdj.DefaultIfEmpty()
+
+            join opm in _propertyOldRepository.GetQueryable() on (pmd != null ? pmd.PropertyIdOld : null) equals (int?)opm.Id into opmj
             from opm in opmj.DefaultIfEmpty()
 
 

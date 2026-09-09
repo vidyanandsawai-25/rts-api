@@ -10,6 +10,7 @@ public class PropertyMapDetailQueryParameters : BaseQueryParameters
 {
     // ── Existing: direct ID lookup ────────────────────────────
     public int? PropertyId { get; set; }
+    public int? OldPropertyId { get; set; }
 
     // ── Individual Search Parameters ──────────────────────────
     public string? OldOwnerName { get; set; }

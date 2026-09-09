@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.PropertyMapDetails;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Services
 {
@@ -35,11 +36,15 @@ namespace NtisPlatform.Application.Services
                 /*=========================================================
                   Step 2: Base properties
                 =========================================================*/
-                var baseProperties = await _repository.GetQueryable().AsNoTracking()
-                    .Where(pm => pm.WardId == propertyKey.WardId &&
-                                 pm.PropertyNo == propertyKey.PropertyNo &&
-                                 pm.IsActive && !pm.MarkedForDeletion)
-                    .Select(pm => new { pm.Id, pm.SocietyDetailId })
+                var baseProperties = await (
+                        from pm in _repository.GetQueryable().AsNoTracking()
+                        join sd in _societyRepository.GetQueryable().AsNoTracking() on pm.Id equals sd.PropertyId into sdGroup
+                        from sd in sdGroup.DefaultIfEmpty()
+                        where pm.WardId == propertyKey.WardId &&
+                              pm.PropertyNo == propertyKey.PropertyNo &&
+                              pm.IsActive && !pm.MarkedForDeletion
+                        select new { pm.Id, SocietyDetailId = sd != null ? (int?)sd.Id : null }
+                    )
                     .Distinct()
                     .ToListAsync(cancellationToken);
 
@@ -65,12 +70,36 @@ namespace NtisPlatform.Application.Services
                 string? wingKeyFilter = null;
                 if (wingId != 0)
                 {
-                    wingKeyFilter = await _societyRepository.GetQueryable().AsNoTracking()
-                        .Where(sd => societyDetailIds.Contains(sd.Id) &&
-                                     sd.WingId == wingId &&
-                                     sd.IsActive && !sd.MarkedForDeletion)
-                        .Select(sd => (sd.WingName ?? string.Empty).Trim().ToUpper())
-                        .FirstOrDefaultAsync(cancellationToken);
+                    if (_wingDetailsMastRepository != null)
+                    {
+                        wingKeyFilter = await (
+                            from sd in _societyRepository.GetQueryable().AsNoTracking()
+                            join wdm in _wingDetailsMastRepository.GetQueryable().AsNoTracking() on sd.Id equals wdm.SocietyDetailsMastId
+                            where societyDetailIds.Contains(sd.Id) &&
+                                  wdm.WingMasterId == wingId &&
+                                  sd.IsActive && !sd.MarkedForDeletion &&
+                                  wdm.IsActive && !wdm.MarkedForDeletion
+                            select (wdm.WingName ?? string.Empty).Trim().ToUpper()
+                        ).FirstOrDefaultAsync(cancellationToken);
+                    }
+
+                    if (wingKeyFilter == null)
+                    {
+                        wingKeyFilter = await _wingMasterRepository.GetQueryable().AsNoTracking()
+                            .Where(w => w.Id == wingId && w.IsActive)
+                            .Select(w => (w.WingNo ?? string.Empty).Trim().ToUpper())
+                            .FirstOrDefaultAsync(cancellationToken);
+                    }
+
+                    if (wingKeyFilter == null)
+                    {
+                        wingKeyFilter = await (
+                            from pmap in _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+                            join opm in _propertyOldRepository.GetQueryable().AsNoTracking() on pmap.PropertyIdOld equals opm.Id
+                            where pmap.PropertyIdNew.HasValue && basePropertyIds.Contains(pmap.PropertyIdNew.Value) && pmap.IsActive && opm.IsActive && opm.OldWing != null
+                            select opm.OldWing!.Trim().ToUpper()
+                        ).FirstOrDefaultAsync(cancellationToken);
+                    }
 
                     if (wingKeyFilter == null)
                     {
@@ -81,32 +110,38 @@ namespace NtisPlatform.Application.Services
                 /*=========================================================
                   Step 4: New-property base records
                 =========================================================*/
+                var wingDetailsQuery = _wingDetailsMastRepository != null
+                    ? _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion)
+                    : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+
                 var rawNewProperties = await
                     (
                         from pm in _repository.GetQueryable().AsNoTracking()
                         join sd in _societyRepository.GetQueryable().AsNoTracking()
-                            on pm.SocietyDetailId equals sd.Id
+                            on pm.Id equals sd.PropertyId
                         join ptm in _propertyTypeRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
                             on pm.PropertyTypeId equals ptm.Id into ptmJoin
                         from ptm in ptmJoin.DefaultIfEmpty()
+                        join wdm in wingDetailsQuery
+                            on sd.Id equals wdm.SocietyDetailsMastId into wdmJoin
+                        from wdm in wdmJoin.DefaultIfEmpty()
                         join wm in _wingMasterRepository.GetQueryable().AsNoTracking()
-                            on sd.WingId equals wm.Id into wmJoin
+                            on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wm.Id into wmJoin
                         from wm in wmJoin.DefaultIfEmpty()
-                        where pm.SocietyDetailId.HasValue
-                           && societyDetailIds.Contains(pm.SocietyDetailId.Value)
+                        where societyDetailIds.Contains(sd.Id)
                            && pm.IsActive && !pm.MarkedForDeletion
                            && sd.IsActive && !sd.MarkedForDeletion
                            && !string.IsNullOrWhiteSpace(pm.PartitionNo)
-                           && (wingId == 0 || sd.WingId == wingId)
+                           && (wingId == 0 || wingKeyFilter != null || (wdm != null && wdm.WingMasterId == wingId) || (wm != null && wm.Id == wingId))
                            && (ptm == null || ptm.PartType != "Amenity")
-                           && (wm == null || pm.PartitionNo != wm.WingNo)
+                           && !_wingMasterRepository.GetQueryable().AsNoTracking().Any(w => w.IsActive && w.WingNo == pm.PartitionNo)
                         select new
                         {
                             pm.Id,
                             pm.WardId,
                             pm.PropertyNo,
                             pm.PartitionNo,
-                            pm.SocietyDetailId,
+                            SocietyDetailId = (int?)sd.Id,
                             pm.FlatOrShopNo,
                             pm.FlatOrShopName,
                             pm.MobileNo,
@@ -114,8 +149,8 @@ namespace NtisPlatform.Application.Services
                             pm.OwnerName,
                             pm.OccupierName,
                             pm.Type,
-                            sd.WingName,
-                            sd.WingId
+                            WingName = wdm != null ? wdm.WingName : (wm != null ? wm.WingNo : null),
+                            WingId = (int?)(wdm != null ? wdm.WingMasterId : (wm != null ? wm.Id : null))
                         }
                     ).ToListAsync(cancellationToken);
 
@@ -330,11 +365,6 @@ namespace NtisPlatform.Application.Services
                     .Distinct()
                     .ToList();
 
-                if(oldSocietyNames.Count == 0)
-                {
-                    return new List<PropertyMatchingResponseDto>();
-                }
-
                 /*=========================================================
                   Step 8.1: Merge mappings (Status = ACTIVE) filtered by newPropertyIds
                 =========================================================*/
@@ -350,8 +380,8 @@ namespace NtisPlatform.Application.Services
                         pmap.PropertyMapId,
                         PropertyIdOld = pmap.PropertyIdOld!.Value,
                         PropertyIdNew = pmap.PropertyIdNew!.Value,
-                        pmap.PropertyNo,
-                        pmap.PropertySide,
+                        pmap.PropertyNoOld,
+                        pmap.PropertyNoNew,
                         pmap.Remark,
                         pmap.UpdatedDate,
                         pmap.IsCurrent
@@ -359,6 +389,18 @@ namespace NtisPlatform.Application.Services
                     .ToListAsync(cancellationToken);
 
                 var mergeMappings = mergeMappingRecords
+                    .Select(x => new
+                    {
+                        x.MappingId,
+                        x.PropertyMapId,
+                        x.PropertyIdOld,
+                        x.PropertyIdNew,
+                        PropertyNo = !string.IsNullOrEmpty(x.PropertyNoNew) ? x.PropertyNoNew : x.PropertyNoOld,
+                        PropertySide = !string.IsNullOrEmpty(x.PropertyNoNew) ? "NEW" : "OLD",
+                        x.Remark,
+                        x.UpdatedDate,
+                        x.IsCurrent
+                    })
                     .GroupBy(pmap => new
                     {
                         pmap.PropertyIdOld,
@@ -442,6 +484,7 @@ namespace NtisPlatform.Application.Services
                         .Select(pmap => new LatestMapping
                         {
                             PropertyIdOld = pmap.PropertyIdOld!.Value,
+                            PropertyIdNew = pmap.PropertyIdNew,
                             Id = pmap.Id,
                             UpdatedBy = pmap.UpdatedBy,
                             UpdatedDate = pmap.UpdatedDate
@@ -601,15 +644,102 @@ namespace NtisPlatform.Application.Services
                 // Filter: NEW where not exists in MergeMappings (NEW.Id not in mergeNewPropertyIds)
                 var normalNewProperties = uniqueNewProperties.Where(x => !mergeNewPropertyIds.Contains(x.Id)).ToList();
 
-                var oldPropertyLookup = normalOldProperties.ToDictionary(x => (x.WingKey, x.FlatKey));
-                var newPropertyLookup = normalNewProperties.ToDictionary(x => (x.WingKey, x.FlatKey));
-
-                var allNormalKeys = oldPropertyLookup.Keys.Union(newPropertyLookup.Keys).ToList();
-
-                foreach (var key in allNormalKeys)
+                static string NormalizeWing(string? w)
                 {
-                    oldPropertyLookup.TryGetValue(key, out var oldProperty);
-                    newPropertyLookup.TryGetValue(key, out var newProperty);
+                    if (string.IsNullOrWhiteSpace(w)) return string.Empty;
+                    var s = w.Trim().ToUpper();
+                    if (s.StartsWith("WING ")) s = s[5..].Trim();
+                    else if (s.EndsWith(" WING")) s = s[..^5].Trim();
+                    return s;
+                }
+
+                var matchedOldIds = new HashSet<long>();
+                var matchedNewIds = new HashSet<int>();
+
+                // First pass: Match by draft mapping links
+                foreach (var oldProperty in normalOldProperties)
+                {
+                    if (mappingLookup.TryGetValue(oldProperty.Id, out var draftMap))
+                    {
+                        var targetNew = normalNewProperties.FirstOrDefault(n =>
+                            n.Id == draftMap.PropertyIdNew &&
+                            !matchedNewIds.Contains(n.Id) &&
+                            (string.IsNullOrEmpty(oldProperty.FlatKey) || string.IsNullOrEmpty(n.FlatKey) || oldProperty.FlatKey == n.FlatKey));
+                        if (targetNew != null)
+                        {
+                            matchedOldIds.Add(oldProperty.Id);
+                            matchedNewIds.Add(targetNew.Id);
+
+                            combinedResults.Add((
+                                new PropertyMatchingResponseDto
+                                {
+                                    RowSource = "MATCHED",
+                                    PropertyId = targetNew.Id,
+                                    WardNo = targetNew.WardId.ToString(),
+                                    PropertyNo = targetNew.PropertyNo,
+                                    PartitionNo = targetNew.PartitionNo,
+                                    WingName = targetNew.WingName ?? oldProperty.OldWing,
+                                    FlatShopNo = targetNew.FlatOrShopNo ?? oldProperty.OldFlatOrShopNumber,
+                                    MobileNo = targetNew.MobileNo,
+                                    ShopName = targetNew.FlatOrShopName,
+                                    BHK = targetNew.BHK,
+                                    TypeOfUseId = targetNew.TypeOfUseId,
+                                    TypeOfUse = targetNew.TypeOfUseDescription,
+                                    FloorId = targetNew.FloorId,
+                                    Floor = targetNew.FloorDescription,
+                                    AssessmentYear = targetNew.AssessmentYear,
+                                    ConstructionYear = targetNew.ConstructionYear,
+                                    PropertyTypeId = targetNew.PropertyTypeId,
+                                    PropertyTypeDescription = targetNew.PropertyTypeDescription,
+                                    SubTypeOfUseId = targetNew.SubTypeOfUseId,
+                                    SubTypeOfUse = targetNew.SubTypeOfUse,
+                                    OwnerName = targetNew.OwnerName,
+                                    OccupierName = targetNew.OccupierName,
+                                    Type = targetNew.Type,
+                                    ConstructionTypeId = targetNew.ConstructionTypeId,
+                                    ConstructionType = targetNew.ConstructionType,
+                                    IsPhoto = null,
+                                    OldSocietyName = oldProperty.OldSocietyName,
+                                    OldPropertyId = oldProperty.Id,
+                                    OldWardNo = oldProperty.OldWardNo,
+                                    OldPropertyNo = oldProperty.OldPropertyNo,
+                                    OldPartitionNo = oldProperty.OldPartitionNo,
+                                    OldOwnerName = oldProperty.OldOwnerName,
+                                    OldOccupierName = oldProperty.OldOccupierName,
+                                    OldRv = oldProperty.OldRV?.ToString(),
+                                    OldTotalTax = oldProperty.OldTotalTax.HasValue == true ? Convert.ToDecimal(oldProperty.OldTotalTax.Value) : null,
+                                    OldPropertyTax = oldProperty.OldGeneralTax.HasValue == true ? Convert.ToDecimal(oldProperty.OldGeneralTax.Value) : null,
+                                    OldAddress = oldProperty.OldAddress,
+                                    OldWingName = oldProperty.OldWing,
+                                    OldFlatShopNo = oldProperty.OldFlatOrShopNumber,
+                                    IsMatchProperty = true,
+                                    Identify = oldProperty.Identify,
+                                    IdentifyName = oldProperty.IdentifyName,
+                                    IdentifyDate = oldProperty.IdentifyDate,
+                                    IsMerge = false
+                                },
+                                1, // SortSource = 1 for MATCHED
+                                targetNew.WingName ?? oldProperty.OldWing ?? string.Empty,
+                                targetNew.FlatOrShopNo ?? oldProperty.OldFlatOrShopNumber ?? string.Empty,
+                                oldProperty.Id,
+                                targetNew.Id));
+                        }
+                    }
+                }
+
+                // Second pass: Match remaining by Wing/Flat key
+                var remainingOld = normalOldProperties.Where(x => !matchedOldIds.Contains(x.Id)).ToList();
+                var remainingNew = normalNewProperties.Where(x => !matchedNewIds.Contains(x.Id)).ToList();
+
+                var oldLookup = remainingOld.ToDictionary(x => (NormalizeWing(x.WingKey), (x.FlatKey ?? string.Empty).Trim().ToUpper()));
+                var newLookup = remainingNew.ToDictionary(x => (NormalizeWing(x.WingKey), (x.FlatKey ?? string.Empty).Trim().ToUpper()));
+
+                var allKeys = oldLookup.Keys.Union(newLookup.Keys).ToList();
+
+                foreach (var key in allKeys)
+                {
+                    oldLookup.TryGetValue(key, out var oldProperty);
+                    newLookup.TryGetValue(key, out var newProperty);
 
                     var rowSource = oldProperty != null && newProperty != null
                         ? "MATCHED"

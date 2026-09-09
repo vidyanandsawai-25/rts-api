@@ -49,7 +49,8 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
         IRepository<FloorEntity, int> floorRepository,
         IUnitOfWork unitOfWork,
         ILogger<PropertyMappingService> logger,
-        IMapper mapper) : base(propertyMapDetailRepository, unitOfWork, mapper)
+        IMapper mapper,
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null) : base(propertyMapDetailRepository, unitOfWork, mapper)
     {
         _propertyMapMasterRepository = propertyMapMasterRepository;
         _propertyOldRepository = propertyOldRepository;
@@ -68,7 +69,10 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
         _floorRepository = floorRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
+
+    protected readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
 
     public override async Task<PropertyMapDetailDto> CreateAsync(CreatePropertyMapDetailsDto dto,CancellationToken cancellationToken = default)
     {

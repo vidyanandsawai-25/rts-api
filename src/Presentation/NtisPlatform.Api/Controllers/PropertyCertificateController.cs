@@ -77,6 +77,116 @@ public class PropertyCertificateController : ControllerBase
     }
 
     /// <summary>
+    /// GET - Load all certificate types with their current status for a Society or Wing.
+    /// Filtered by either societyDetailId (EntityType = 'S') or wingDetailId (EntityType = 'W').
+    /// Shows which certificates exist (with data) and which are empty.
+    /// </summary>
+    [HttpGet("society-wing-types-with-status")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertyCertificateWithStatusDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetSocietyWingCertificateTypesWithStatus(
+        [FromQuery] int? societyDetailId,
+        [FromQuery] int? wingDetailId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!societyDetailId.HasValue && !wingDetailId.HasValue)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Either societyDetailId or wingDetailId must be provided" });
+
+            var result = await _service.GetSocietyOrWingCertificateTypesWithStatusAsync(societyDetailId, wingDetailId, cancellationToken);
+
+            return Ok(new ApiResponse<List<PropertyCertificateWithStatusDto>>
+            {
+                Success = true,
+                Message = "Certificate types retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error getting certificate types for SocietyDetailId={SocietyDetailId}, WingDetailId={WingDetailId}. CorrelationId: {CorrelationId}",
+                societyDetailId, wingDetailId, correlationId);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while retrieving certificate types",
+                CorrelationId = correlationId
+            });
+        }
+    }
+
+    [HttpGet("type-master")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCertificateTypeMaster(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _service.GetCertificateTypeMasterAsync(cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Certificate types master retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting certificate type master.");
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    [HttpGet("wings/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetWingsByProperty(int propertyId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _service.GetWingsByPropertyAsync(propertyId, cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Wings retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting wings for PropertyId={PropertyId}", propertyId);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    [HttpGet("units/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUnitsByProperty(
+        int propertyId,
+        [FromQuery] int? wingDetailId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (items, totalCount) = await _service.GetUnitsByPropertyPagedAsync(propertyId, wingDetailId, pageNumber, pageSize, cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Units retrieved successfully",
+                Items = items,
+                TotalCount = totalCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting units for PropertyId={PropertyId}, WingDetailId={WingDetailId}, Page={Page}", propertyId, wingDetailId, pageNumber);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    /// <summary>
     /// 4. POST - Save all certificate changes with a single button.
     /// Called when user clicks the "Save Changes" button at the bottom of the page.
     /// Saves all metadata for all certificates at once:
@@ -403,7 +513,10 @@ public class PropertyCertificateController : ControllerBase
                 request.NewCertificateNo,
                 request.NewIssueDate,
                 GetUserId(),
-                cancellationToken);
+                cancellationToken,
+                entityType: request.EntityType ?? "P",
+                societyDetailId: request.SocietyDetailId,
+                wingDetailId: request.WingDetailId);
 
             return Ok(new ApiResponse<ReplaceCertificateResponseDto>
             {

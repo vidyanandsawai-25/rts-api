@@ -4,6 +4,7 @@ using NtisPlatform.Application.DTOs.CapitalValue;
 using NtisPlatform.Application.DTOs.Property.ApartmentQC;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services.TaxEngine;
@@ -11,30 +12,65 @@ using System.Security.Claims;
 
 namespace NtisPlatform.Api.Controllers;
 
+/// <summary>
+/// Consolidates every ApartmentQC-prefixed endpoint under one controller/Swagger group.
+/// Split across partial-class files by former controller: this file (root actions), plus
+/// .CertificateGrid.cs, .Search.cs, .TopSection.cs, and .TopSectionBelowFlex.cs. The class-level
+/// attributes below apply to the whole type, so they are declared only here.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class ApartmentQCController : ControllerBase
+public partial class ApartmentQCController : ControllerBase
 {
     private readonly IApartmentQCService _service;
+    private readonly IWingWiseDetailsService _wingWiseDetailsService;
     private readonly IRateableValueService _rateableValueService;
     private readonly ICapitalValueService _capitalValueService;
+    private readonly IApartmentQcCertificateGridService _certificateGridService;
+    private readonly IApartmentQcSearchService _searchService;
+    private readonly IApartmentQcTopSectionService _topSectionService;
+    private readonly IApartmentQcTopSectionBelowFlexService _belowFlexService;
+    private readonly IApartmentTaxDetailsService _taxDetailsService;
+    private readonly IPropertyCertificateApplicationService _certificateApplicationService;
+    private readonly ISocialAttributeService _socialAttributeService;
+    private readonly IGetApartmentDetailsWingWiseService _getApartmentDetailsWingWiseService;
+
     private readonly ILogger<ApartmentQCController> _logger;
 
     private static readonly string[] AllowedFilterFields =
         Enum.GetNames<ApartmentQCFilterColumn>();
 
-    public ApartmentQCController(IApartmentQCService service, IRateableValueService rateableValueService, ICapitalValueService capitalValueService, ILogger<ApartmentQCController> logger)
+    public ApartmentQCController(
+        IApartmentQCService service,
+        IWingWiseDetailsService wingWiseDetailsService,
+        IRateableValueService rateableValueService,
+        ICapitalValueService capitalValueService,
+        IApartmentQcCertificateGridService certificateGridService,
+        IApartmentQcSearchService searchService,
+        IApartmentQcTopSectionService topSectionService,
+        IApartmentQcTopSectionBelowFlexService belowFlexService,
+        IApartmentTaxDetailsService taxDetailsService,
+        IPropertyCertificateApplicationService certificateApplicationService,
+        ISocialAttributeService socialAttributeService,
+        ILogger<ApartmentQCController> logger,
+        IGetApartmentDetailsWingWiseService getApartmentDetailsWingWiseService)
     {
         _service = service;
+        _wingWiseDetailsService = wingWiseDetailsService;
         _logger  = logger;
         _rateableValueService = rateableValueService;
         _capitalValueService = capitalValueService;
+        _certificateGridService = certificateGridService;
+        _searchService = searchService;
+        _topSectionService = topSectionService;
+        _belowFlexService = belowFlexService;
+        _taxDetailsService = taxDetailsService;
+        _certificateApplicationService = certificateApplicationService;
+        _socialAttributeService = socialAttributeService;
+        _getApartmentDetailsWingWiseService = getApartmentDetailsWingWiseService;
     }
-
     /// <summary>
-    /// Returns a paginated list of apartment QC records, one aggregated row per property.
     /// </summary>
-    /// <response code="200">Filtered apartment QC records (empty list when no matches).</response>
     /// <response code="400">Validation error.</response>
     /// <response code="500">Internal server error.</response>
     [HttpGet]
@@ -164,6 +200,7 @@ public class ApartmentQCController : ControllerBase
         });
     }
 
+   
     /// <summary>
     /// Looks up a PropertyMastOld record by its OldPropertyNo string and returns
     /// the associated old-data fields for UI auto-fill when the user changes OldPropertyNo.

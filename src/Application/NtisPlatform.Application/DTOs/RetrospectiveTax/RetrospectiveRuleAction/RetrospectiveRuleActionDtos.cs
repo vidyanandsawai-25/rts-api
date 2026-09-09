@@ -17,6 +17,7 @@ public class RetrospectiveRuleActionDto : BaseDtos
     public int? SplitEndEvidenceTypeId { get; set; }
     public decimal? SplitMultiplier { get; set; }
     public decimal? AfterSplitMultiplier { get; set; }
+    public string RateMode { get; set; } = string.Empty;
 }
 
 public class CreateRetrospectiveRuleActionDto : CreateBaseDtos
@@ -65,6 +66,13 @@ public class CreateRetrospectiveRuleActionDto : CreateBaseDtos
     public int? SplitEndEvidenceTypeId { get; set; }
     public decimal? SplitMultiplier { get; set; }
     public decimal? AfterSplitMultiplier { get; set; }
+
+    /// <summary>
+    /// Get valid choices from GET api/RetrospectiveRuleAction/rate-modes.
+    /// </summary>
+    [Required(ErrorMessage = "RetrospectiveRuleAction_RateMode_Required")]
+    [StringLength(20, ErrorMessage = "RetrospectiveRuleAction_RateMode_MaxLen_20")]
+    public string RateMode { get; set; } = "YEAR_WISE";
 }
 
 public class UpdateRetrospectiveRuleActionDto : UpdateBaseDtos
@@ -113,4 +121,11 @@ public class UpdateRetrospectiveRuleActionDto : UpdateBaseDtos
     public int? SplitEndEvidenceTypeId { get; set; }
     public decimal? SplitMultiplier { get; set; }
     public decimal? AfterSplitMultiplier { get; set; }
+
+    /// <summary>
+    /// Get valid choices from GET api/RetrospectiveRuleAction/rate-modes.
+    /// </summary>
+    [Required(ErrorMessage = "RetrospectiveRuleAction_RateMode_Required")]
+    [StringLength(20, ErrorMessage = "RetrospectiveRuleAction_RateMode_MaxLen_20")]
+    public string RateMode { get; set; } = "YEAR_WISE";
 }

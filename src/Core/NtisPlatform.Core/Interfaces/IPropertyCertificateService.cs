@@ -27,29 +27,38 @@ public interface IPropertyCertificateService
     /// need to trigger the RV-refresh-then-Occupation-Tax pipeline exactly once, after every
     /// certificate in the batch has been saved, instead of once per certificate.
     /// </param>
+    /// <param name="entityType">Scope of the certificate: 'S' for Society, 'W' for Wing, or 'P' for Property (default).</param>
+    /// <param name="societyDetailId">Required when <paramref name="entityType"/> is 'S'; the SocietyDetailsMast ID the certificate applies to.</param>
+    /// <param name="wingDetailId">Required when <paramref name="entityType"/> is 'W'; the WingDetailsMast ID the certificate applies to.</param>
     Task<int> CreateAsync(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         string? certificateNo,
         DateTime? issueDate,
         int createdBy,
         CancellationToken cancellationToken = default,
         int? propertyDetailsId = null,
-        bool suppressRecalculation = false);
+        bool suppressRecalculation = false,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null);
 
     /// <summary>
     /// Creates a property certificate with document binding in a single operation.
     /// Optimized to eliminate separate update call, reducing database roundtrips.
     /// </summary>
     Task<int> CreateWithDocumentAsync(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         int documentBindingId,
         string? certificateNo,
         DateTime? issueDate,
         int createdBy,
         CancellationToken cancellationToken = default,
-        int? propertyDetailsId = null);
+        int? propertyDetailsId = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null);
 
     /// <summary>
     /// Updates the document binding ID for an existing property certificate.

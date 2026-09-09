@@ -25,6 +25,8 @@ public class PropertySocialDetailsMappingProfile : Profile
             .ForMember(dest => dest.PropertyMast, opt => opt.Ignore())
             .ForMember(dest => dest.SocialAttribute, opt => opt.Ignore())
             .ForMember(dest => dest.DocumentBinding, opt => opt.Ignore())
+            .ForMember(dest => dest.WingDetailsMast, opt => opt.Ignore())
+            .ForMember(dest => dest.SocietyDetailsMast, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdatePropertySocialDetailsDto, PropertySocialDetailsEntity>()
@@ -35,6 +37,8 @@ public class PropertySocialDetailsMappingProfile : Profile
             .ForMember(dest => dest.PropertyMast, opt => opt.Ignore())
             .ForMember(dest => dest.SocialAttribute, opt => opt.Ignore())
             .ForMember(dest => dest.DocumentBinding, opt => opt.Ignore())
+            .ForMember(dest => dest.WingDetailsMast, opt => opt.Ignore())
+            .ForMember(dest => dest.SocietyDetailsMast, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }
 }

@@ -84,7 +84,7 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
             await UpsertPlotAsync(propertyId, dto, now, cancellationToken);
 
             // Step 6: Upsert society for WingId / WingNo / WingName.
-            await UpsertSocietyAsync(property, propertyId, dto, now, cancellationToken);
+            await UpsertSocietyAsync(propertyId, dto, now, cancellationToken);
 
             // Step 7: Final save — persists all property, assessment and plot changes.
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -249,33 +249,20 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
 
     /// <summary>
     /// Upserts the society row that stores WingId / WingName, resolving WingNo to a wing when supplied.
-    /// Search order: (1) by the FK on the parent, (2) by PropertyId (prevents duplicates in legacy data),
-    /// (3) create new when wing data is present. An intermediate save is performed only when creating a
-    /// new row so that the generated PK is available to link back to the property. Both that save and the
-    /// caller's final save are wrapped in the same transaction by <see cref="UpdateBasicDetailsAsync"/>.
+    /// Looked up by PropertyId (the reverse FK) — PropertyMast no longer carries a forward SocietyDetailId
+    /// FK. Creates a new row when not found and any wing data is present. An intermediate save is performed
+    /// only when creating a new row so that the generated PK is available to link back to the property. Both
+    /// that save and the caller's final save are wrapped in the same transaction by <see cref="UpdateBasicDetailsAsync"/>.
     /// </summary>
     private async Task UpsertSocietyAsync(
-        PropertyEntity property,
         int propertyId,
         UpdatePropertyBasicDetailsDto dto,
         DateTime now,
         CancellationToken cancellationToken)
     {
-        SocietyDetailsEntity? society = null;
+        var society = await _repository.GetSocietyByPropertyIdAsync(propertyId, cancellationToken);
 
-        // Step 1: try by the FK stored on the parent.
-        if (property.SocietyDetailId.HasValue)
-            society = await _repository.GetSocietyByIdAsync(property.SocietyDetailId.Value, cancellationToken);
-
-        // Step 2: FK was null/stale — fall back to lookup by PropertyId to prevent duplicate rows.
-        if (society == null)
-        {
-            society = await _repository.GetSocietyByPropertyIdAsync(propertyId, cancellationToken);
-            if (society != null && property.SocietyDetailId != society.Id)
-                property.SocietyDetailId = society.Id;
-        }
-
-        // Step 3: create new society if still not found and any wing data is being set.
+        // create new society if still not found and any wing data is being set.
         if (society == null && (dto.WingId.HasValue || dto.WingName != null || dto.WingNo != null))
         {
             society = new SocietyDetailsEntity
@@ -289,22 +276,49 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
             // Flush to get the generated PK; caller's transaction ensures this is rolled back
             // together with any later failure — the parent is never left un-linked.
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            property.SocietyDetailId = society.Id;
         }
 
         if (society != null)
         {
-            society.WingId = dto.WingId;
-            society.WingName = dto.WingName;
+            society.UpdatedDate = now;
 
-            if (dto.WingNo != null)
+            int? targetWingId = dto.WingId;
+            if (!targetWingId.HasValue && !string.IsNullOrWhiteSpace(dto.WingNo))
             {
-                var wing = await _repository.GetActiveWingByNoAsync(dto.WingNo, cancellationToken);
-                if (wing != null)
-                    society.WingId = wing.Id;
+                var wingObj = await _repository.GetActiveWingByNoAsync(dto.WingNo.Trim(), cancellationToken);
+                if (wingObj != null)
+                {
+                    targetWingId = wingObj.Id;
+                }
             }
 
-            society.UpdatedDate = now;
+            if (targetWingId.HasValue || !string.IsNullOrWhiteSpace(dto.WingNo) || !string.IsNullOrWhiteSpace(dto.WingName))
+            {
+                var wingMast = await _repository.GetWingDetailsMastBySocietyIdAsync(society.Id, cancellationToken);
+                var wingName = !string.IsNullOrWhiteSpace(dto.WingName) ? dto.WingName : dto.WingNo;
+                if (wingMast != null)
+                {
+                    if (targetWingId.HasValue) wingMast.WingMasterId = targetWingId.Value;
+                    if (!string.IsNullOrWhiteSpace(wingName)) wingMast.WingName = wingName;
+                    wingMast.UpdatedDate = now;
+                }
+                else if (targetWingId.HasValue)
+                {
+                    // WingMasterId is a required FK -- only create a new row when we actually
+                    // have a valid master id. WingNo/WingName-only with no matching WingEntity
+                    // and no existing row has nothing sensible to link to, so it's a no-op
+                    // rather than writing WingMasterId=0.
+                    wingMast = new WingDetailsMastEntity
+                    {
+                        SocietyDetailsMastId = society.Id,
+                        WingMasterId = targetWingId.Value,
+                        WingName = wingName,
+                        IsActive = true,
+                        CreatedDate = now
+                    };
+                    _repository.AddWingDetailsMast(wingMast);
+                }
+            }
         }
     }
 }

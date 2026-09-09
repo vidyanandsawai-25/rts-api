@@ -338,8 +338,8 @@ public class DataEntrySameAsServiceTests
         };
         var society = new List<SocietyDetailsEntity>
         {
-            new() { PropertyId = propertyId, WingId = 5, WingName = "GG" },    // matches WingMaster 5
-            new() { PropertyId = propertyId, WingId = 999, WingName = null }   // no matching WingMaster
+            new() { PropertyId = propertyId },
+            new() { PropertyId = propertyId }
         };
         var wings = new List<WingEntity> { new() { Id = 5, WingNo = "B" } };   // WingNo "B" != partition "A"
         var details = new List<PropertyDetailsEntity>
@@ -357,7 +357,6 @@ public class DataEntrySameAsServiceTests
 
         var row = Assert.Single(result);
         Assert.Equal(propertyId, row.PropertyId);
-        Assert.Equal("GG", row.WingName);
         Assert.Equal(38.72, row.CarpetAreaSqMeter);
     }
 

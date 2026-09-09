@@ -59,6 +59,7 @@ public partial class PropertyService
     private readonly IRepository<OwnerTypeMasterEntity, int> _ownerTypeRepository;
     private readonly IRepository<WingEntity, int> _wingRepository;
     private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
+    private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
 
 
     public PropertyService(
@@ -89,7 +90,8 @@ public partial class PropertyService
         IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
         IRepository<OwnerTypeMasterEntity, int> ownerTypeRepository,
         IRepository<WingEntity, int> wingRepository,
-        IPropertyRuleApplicationLogService? ruleLogService = null)
+        IPropertyRuleApplicationLogService? ruleLogService = null,
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -117,6 +119,7 @@ public partial class PropertyService
         _wingRepository = wingRepository;
         _wingMasterRepository = wingMasterRepository;
         _oldWardMasterRepository = oldWardMasterRepository;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
 
 
@@ -266,13 +269,13 @@ public partial class PropertyService
         PropertyEntity entity,
         CancellationToken cancellationToken)
     {
-        // Get all active properties with the same WardId, PropertyNo, and SocietyDetailId (wing) that have partition numbers
+        // Get all active properties with the same WardId, PropertyNo, and WingDetailId (wing) that have partition numbers
         // Exclude properties already marked for deletion to handle bulk delete scenarios
         var relatedPropertiesRaw = await _repository.GetQueryable()
             .AsNoTracking()
             .Where(p => p.WardId == entity.WardId &&
                        p.PropertyNo == entity.PropertyNo &&
-                       p.SocietyDetailId == entity.SocietyDetailId &&
+                       p.WingDetailId == entity.WingDetailId &&
                        p.IsActive == true &&
                        p.MarkedForDeletion == false &&
                        !string.IsNullOrWhiteSpace(p.PartitionNo))
@@ -322,20 +325,20 @@ public partial class PropertyService
         List<PropertyEntity> entities,
         CancellationToken cancellationToken)
     {
-        // Group properties by WardId, PropertyNo, and SocietyDetailId (wing) to validate each group separately
+        // Group properties by WardId, PropertyNo, and WingDetailId (wing) to validate each group separately
         var groupedByProperty = entities
             .Where(e => !string.IsNullOrWhiteSpace(e.PartitionNo))
-            .GroupBy(e => new { e.WardId, e.PropertyNo, e.SocietyDetailId });
+            .GroupBy(e => new { e.WardId, e.PropertyNo, e.WingDetailId });
 
         foreach (var group in groupedByProperty)
         {
-            // Get all active properties for this WardId/PropertyNo/SocietyDetailId combination
+            // Get all active properties for this WardId/PropertyNo/WingDetailId combination
             // Exclude properties already marked for deletion to handle sequential bulk delete
             var allActivePropertiesRaw = await _repository.GetQueryable()
                 .AsNoTracking()
                 .Where(p => p.WardId == group.Key.WardId &&
                            p.PropertyNo == group.Key.PropertyNo &&
-                           p.SocietyDetailId == group.Key.SocietyDetailId &&
+                           p.WingDetailId == group.Key.WingDetailId &&
                            p.IsActive == true &&
                            p.MarkedForDeletion == false &&
                            !string.IsNullOrWhiteSpace(p.PartitionNo))
@@ -364,14 +367,14 @@ public partial class PropertyService
             {
                 _logger.LogWarning(
                     "Bulk deletion validation failed: Attempted to delete starting from PropertyId={FirstId} (partition '{FirstPartition}'), " +
-                    "but highest partition is '{HighestPartition}' (PropertyId={HighestId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                    "but highest partition is '{HighestPartition}' (PropertyId={HighestId}) for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                     propertiesToDelete.First().Id,
                     propertiesToDelete.First().PartitionNo,
                     highestActiveProperty.PartitionNo,
                     highestActiveProperty.Id,
                     group.Key.WardId,
                     group.Key.PropertyNo,
-                    group.Key.SocietyDetailId);
+                    group.Key.WingDetailId);
 
                 return ValidationResult.Failure(
                     $"Bulk deletion must start from the highest partition. " +
@@ -389,12 +392,12 @@ public partial class PropertyService
                 {
                     _logger.LogWarning(
                         "Bulk deletion validation failed: Property {PropertyId} (partition '{PartitionNo}') is already marked for deletion " +
-                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                         propertiesToDelete[i].Id,
                         propertiesToDelete[i].PartitionNo,
                         group.Key.WardId,
                         group.Key.PropertyNo,
-                        group.Key.SocietyDetailId);
+                        group.Key.WingDetailId);
 
                     return ValidationResult.Failure(
                         $"Partition '{propertiesToDelete[i].PartitionNo}' is already marked for deletion or is not an active property. " +
@@ -407,7 +410,7 @@ public partial class PropertyService
                     _logger.LogWarning(
                         "Bulk deletion validation failed: Gap detected in PartitionNo sequence. " +
                         "Expected partition '{ExpectedPartition}' (PropertyId={ExpectedId}) at position {Position}, " +
-                        "but found partition '{ActualPartition}' (PropertyId={ActualId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                        "but found partition '{ActualPartition}' (PropertyId={ActualId}) for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                         expectedProperty.PartitionNo,
                         expectedProperty.Id,
                         i,
@@ -415,7 +418,7 @@ public partial class PropertyService
                         propertiesToDelete[i].Id,
                         group.Key.WardId,
                         group.Key.PropertyNo,
-                        group.Key.SocietyDetailId);
+                        group.Key.WingDetailId);
 
                     var validSequence = string.Join(" → ", allActiveProperties.Take(propertiesToDelete.Count)
                         .Select(p => p.PartitionNo));

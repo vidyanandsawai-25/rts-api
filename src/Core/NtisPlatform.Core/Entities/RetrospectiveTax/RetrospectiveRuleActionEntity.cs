@@ -27,10 +27,23 @@ public class RetrospectiveRuleActionEntity : BaseEntity
 
     public DateTime? CutoffDate { get; set; }
 
-    /// <summary>SINGLE / SPLIT</summary>
+    /// <summary>
+    /// SINGLE (one flat TaxMultiplier for the whole period) / SPLIT (multiplier changes at
+    /// SplitEndEvidenceTypeId's date, same chargeable years as TaxStartMode would give alone) /
+    /// CC_THEN_OC_MERGE (SplitEndEvidenceTypeId, e.g. OC, can move which finance years are even
+    /// chargeable -- TaxStartMode's own evidence, e.g. CC, governs every year before OC's onset
+    /// year at SplitMultiplier; OC governs its onset year onward at AfterSplitMultiplier; the
+    /// onset year itself splits by day between the two).
+    /// </summary>
     public string TaxCalculationMode { get; set; } = "SINGLE";
 
     public decimal TaxMultiplier { get; set; } = 1.00m;
+
+    /// <summary>
+    /// YEAR_WISE (use each retrospective year's own historical rate/tax%) / CURRENT_YEAR (use the
+    /// current assessment year's rate/tax% for every retrospective year).
+    /// </summary>
+    public string RateMode { get; set; } = "YEAR_WISE";
 
     public int? SplitStartEvidenceTypeId { get; set; }
 

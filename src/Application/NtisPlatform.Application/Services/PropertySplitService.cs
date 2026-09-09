@@ -115,7 +115,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 join wd in _wardRepository.GetQueryable().AsNoTracking()
                     on pm.WardId equals wd.Id
                 join society in _societyRepository.GetQueryable().AsNoTracking()
-                    on pm.SocietyDetailId equals society.Id
+                    on pm.Id equals society.PropertyId
                     into societyGroup
                 from sd in societyGroup.DefaultIfEmpty()
                 where
@@ -453,16 +453,12 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             var mappingByNewPropertyId = validationQuery.Where(x => x.PropertyIdNew.HasValue).ToDictionary(x => x.PropertyIdNew!.Value,x => x);
             var mergeDetailByMapDetailId = mergeDetails.ToDictionary(x => x.PropertyMapDetailId,x => x);
 
-            //  LOAD ALL REQUIRED SOCIETIES
-            var societyIds = currentProperties.Where(x => x.SocietyDetailId.HasValue).Select(x => x.SocietyDetailId!.Value).Distinct().ToList();
-            List<SocietyDetailsEntity> societies = new();
-            if (societyIds.Count > 0)
-            {
-                societies = await _societyRepository.GetQueryable()
-                    .Where(x => societyIds.Contains(x.Id) && x.IsActive)
-                    .ToListAsync(cancellationToken);
-            }
-            var societyLookup = societies.ToDictionary(x => x.Id);
+            //  LOAD ALL REQUIRED SOCIETIES (keyed by PropertyId - PropertyMast no longer carries a forward SocietyDetailId FK)
+            var currentPropertyIds = currentProperties.Select(x => x.Id).ToList();
+            var societies = await _societyRepository.GetQueryable()
+                .Where(x => x.PropertyId.HasValue && currentPropertyIds.Contains(x.PropertyId.Value) && x.IsActive)
+                .ToListAsync(cancellationToken);
+            var societyLookup = societies.ToDictionary(x => x.PropertyId!.Value);
             var updatedDate = DateTime.Now;
             
             //  BUILD ALL PROPERTY/SOCIETY CHANGES IN MEMORY
@@ -506,7 +502,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 currentProperty.UpdatedDate = updatedDate;
 
                 // RESTORE SOCIETY BUILDER
-                if (dto.IsPreviousDataUpdate && currentProperty.SocietyDetailId.HasValue && societyLookup.TryGetValue(currentProperty.SocietyDetailId.Value,out var society))
+                if (dto.IsPreviousDataUpdate && societyLookup.TryGetValue(currentProperty.Id, out var society))
                 {
                     society.BuilderName = restoreData.BuilderName;
                     society.BuilderNameEnglish = restoreData.BuilderNameEnglish;

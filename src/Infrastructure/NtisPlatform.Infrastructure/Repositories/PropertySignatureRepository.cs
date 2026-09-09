@@ -1165,8 +1165,8 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             classification.OldDemand = await (
                 from propertyId in approvedPropertyIds
                 join p in _context.PropertyMast.AsNoTracking() on propertyId equals p.Id
-                where p.PropertyMastOldId != null
-                join tmo in _context.TransMastOld.AsNoTracking() on p.PropertyMastOldId equals tmo.PropertyMastOldId
+                join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE" && x.PropertyIdOld != null) on p.Id equals pmd.PropertyIdNew
+                join tmo in _context.TransMastOld.AsNoTracking() on pmd.PropertyIdOld equals tmo.PropertyMastOldId
                 join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
                 where tmo.IsActive
                       && !tmo.MarkedForDeletion
@@ -1178,14 +1178,15 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
             classification.RetroDemand = await (
                 from propertyId in approvedPropertyIds
-                join tr in _context.TaxPendingDetailsRetro.AsNoTracking() on propertyId equals tr.PropertyId
+                join tr in _context.TransMast.AsNoTracking() on propertyId equals tr.PropertyId
                 join tax in _context.TaxMaster.AsNoTracking() on tr.TaxId equals tax.Id
                 where tr.IsActive
                       && !tr.MarkedForDeletion
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
-                select tr.PendingAmount
+                      && tr.PolicyCodeMaster!.IsRetroDemand
+                select (decimal?)tr.TaxAmount
             ).SumAsync(cancellationToken) ?? 0m;
 
             classification.Unit = signedUnit;
@@ -1455,9 +1456,13 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             from status in statusJoin.DefaultIfEmpty()
             join society in _context.SocietyDetailsMast.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on p.Id equals society.PropertyId into societyJoin
             from society in societyJoin.DefaultIfEmpty()
-            join wing in _context.WingEntity.AsNoTracking().Where(x => x.IsActive) on society.WingId equals wing.Id into wingJoin
+            join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on (society != null ? (int?)society.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmJoin
+            from wdm in wdmJoin.DefaultIfEmpty()
+            join wing in _context.WingEntity.AsNoTracking().Where(x => x.IsActive) on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wing.Id into wingJoin
             from wing in wingJoin.DefaultIfEmpty()
-            join oldProperty in _context.PropertyMastOld.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on p.PropertyMastOldId equals oldProperty.Id into oldJoin
+            join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE") on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.DefaultIfEmpty()
+            join oldProperty in _context.PropertyMastOld.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on pmd.PropertyIdOld equals oldProperty.Id into oldJoin
             from oldProperty in oldJoin.DefaultIfEmpty()
             where p.IsActive
                   && !p.MarkedForDeletion
@@ -1477,7 +1482,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 p.Address,
                 p.FlatOrShopNo,
                 p.FlatOrShopName,
-                p.PropertyMastOldId,
+                PropertyMastOldId = (int?)(oldProperty != null ? oldProperty.Id : null),
                 p.UPICId,
                 Description = pc != null ? pc.PropertyCategoryName : "",
                 PropertyType = status != null ? status.StatusName : "",

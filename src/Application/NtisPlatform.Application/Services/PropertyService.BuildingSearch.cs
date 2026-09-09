@@ -115,13 +115,20 @@ public partial class PropertyService
         var query =
             from oldProperty in oldPropertyQuery
 
+            let latestMapDetail = mapDetailQuery
+                .Where(x =>
+                    x.PropertyIdOld == oldProperty.Id)
+                .OrderByDescending(x => x.CreatedDate)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefault()
+
             join property in propertyQuery
-                on oldProperty.Id equals property.PropertyMastOldId
+                on (latestMapDetail != null ? latestMapDetail.PropertyIdNew : null) equals (int?)property.Id
                 into propertyGroup
             from property in propertyGroup.DefaultIfEmpty()
 
             join society in societyQuery
-                on (property == null ? null : property.SocietyDetailId) equals (int?)society.Id
+                on (property == null ? null : (int?)property.Id) equals society.PropertyId
                 into societyGroup
             from society in societyGroup.DefaultIfEmpty()
 
@@ -130,13 +137,6 @@ public partial class PropertyService
                     property != null &&
                     x.PropertyId == property.Id)
                 .OrderBy(x => x.Id)
-                .FirstOrDefault()
-
-            let latestMapDetail = mapDetailQuery
-                .Where(x =>
-                    x.PropertyIdOld == oldProperty.Id)
-                .OrderByDescending(x => x.CreatedDate)
-                .ThenByDescending(x => x.Id)
                 .FirstOrDefault()
 
             select new PropertyBuildingInformationDto

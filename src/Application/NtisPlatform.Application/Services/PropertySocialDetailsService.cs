@@ -42,13 +42,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         _httpContextAccessor = httpContextAccessor;
     }
 
-    private sealed class PropertySocialDetailBindingInfo
-    {
-        public int PropertySocialDetailId { get; init; }
-        public int BindingId { get; init; }
-        public Guid DocumentGuid { get; init; }
-        public string? BindingPurpose { get; init; }
-    }
+   
 
     // ── Generic CRUD overrides ─────────────────────────────────────────────────────────
     // PropertySocialDetailsDto carries IsPhotoRequired/IsDocumentRequired (from the SocialAttribute)

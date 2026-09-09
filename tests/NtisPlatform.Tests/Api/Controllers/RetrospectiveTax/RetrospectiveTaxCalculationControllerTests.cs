@@ -15,6 +15,7 @@ namespace NtisPlatform.Tests.Api.Controllers.RetrospectiveTax;
 public class RetrospectiveTaxCalculationControllerTests
 {
     private readonly Mock<IRetrospectiveTaxCalculationService> _mockService;
+    private readonly Mock<IRetrospectiveTaxCalculationEngineService> _mockEngineService;
     private readonly Mock<IHardDeleteCleanupService> _mockCleanupService;
     private readonly Mock<IReferenceValidationService> _mockReferenceValidationService;
     private readonly Mock<ILogger<RetrospectiveTaxCalculationController>> _mockLogger;
@@ -23,12 +24,14 @@ public class RetrospectiveTaxCalculationControllerTests
     public RetrospectiveTaxCalculationControllerTests()
     {
         _mockService = new Mock<IRetrospectiveTaxCalculationService>();
+        _mockEngineService = new Mock<IRetrospectiveTaxCalculationEngineService>();
         _mockCleanupService = new Mock<IHardDeleteCleanupService>();
         _mockReferenceValidationService = new Mock<IReferenceValidationService>();
         _mockLogger = new Mock<ILogger<RetrospectiveTaxCalculationController>>();
 
         _controller = new RetrospectiveTaxCalculationController(
             _mockService.Object,
+            _mockEngineService.Object,
             _mockCleanupService.Object,
             _mockReferenceValidationService.Object,
             _mockLogger.Object);

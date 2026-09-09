@@ -118,7 +118,6 @@ public class PropertyServiceBuildingSearchTests
             {
                 Id = 101,
                 PropertyMastOldId = 501,
-                SocietyDetailId = 201,
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -129,6 +128,7 @@ public class PropertyServiceBuildingSearchTests
             new()
             {
                 Id = 201,
+                PropertyId = 101,
                 BuilderName = "Builder One",
                 BuilderNameEnglish = "Builder One",
                 BuilderMobileNo = "8888888888",
@@ -156,6 +156,7 @@ public class PropertyServiceBuildingSearchTests
             {
                 Id = 401,
                 PropertyMapId = 10,
+                PropertyIdNew = 101,
                 PropertyIdOld = 501,
                 Status = "ACTIVE",
                 IsActive = true,

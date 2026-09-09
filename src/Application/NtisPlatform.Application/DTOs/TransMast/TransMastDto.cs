@@ -21,6 +21,7 @@ public class TransMastDto : BaseDtos
     }
     public int TaxId { get; set; }
     public string? TaxName { get; set; }
+    public int PolicyCodeId { get; set; } = 1;
     public decimal TaxAmount { get; set; }
     public bool MarkedForDeletion { get; set; }
     public int? CreatedBy { get; set; }
@@ -44,6 +45,7 @@ public class CreateTransMastDto : CreateBaseDtos
         set => CalculationValue = value;
     }
     public int TaxId { get; set; }
+    public int PolicyCodeId { get; set; } = 1;
     public decimal TaxAmount { get; set; }
     public DateTime? CreatedDate { get; set; }
 }
@@ -62,6 +64,7 @@ public class UpdateTransMastDto : UpdateBaseDtos
         get => CalculationValue;
         set => CalculationValue = value;
     }
+    public int? PolicyCodeId { get; set; }
     public decimal? TaxAmount { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }

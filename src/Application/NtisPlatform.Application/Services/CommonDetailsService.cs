@@ -58,7 +58,8 @@ public class CommonDetailsService : ICommonDetailsService
         IUnitOfWork unitOfWork,
         IDynamicEntityLoader entityLoader,
         IPropertySearchService propertySearchService,
-        ILogger<CommonDetailsService> logger)
+        ILogger<CommonDetailsService> logger,
+        IRepository<WingDetailsMastEntity>? wingDetailsMastRepo = null)
     {
         _masterRepo = masterRepo;
         _fieldConfigRepo = fieldConfigRepo;
@@ -75,7 +76,10 @@ public class CommonDetailsService : ICommonDetailsService
         _entityLoader = entityLoader;
         _propertySearchService = propertySearchService;
         _logger = logger;
+        _wingDetailsMastRepo = wingDetailsMastRepo;
     }
+
+    private readonly IRepository<WingDetailsMastEntity>? _wingDetailsMastRepo;
 
     public async Task<List<BulkUpdateMasterDto>> GetMenuAsync(CancellationToken ct)
     {
@@ -367,9 +371,16 @@ public class CommonDetailsService : ICommonDetailsService
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Wing))
-            query = query.Where(pm => _societyRepo.GetQueryable()
-                .Any(sdm => sdm.PropertyId == pm.Id && sdm.WingName == request.Wing));
+        if (!string.IsNullOrWhiteSpace(request.Wing) && _wingDetailsMastRepo != null)
+        {
+            var wingSearch = request.Wing.Trim();
+            query = query.Where(pm => (
+                from sdm in _societyRepo.GetQueryable()
+                join wdm in _wingDetailsMastRepo.GetQueryable() on sdm.Id equals wdm.SocietyDetailsMastId
+                where sdm.PropertyId == pm.Id && wdm.WingName == wingSearch && sdm.IsActive && !sdm.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
+                select sdm
+            ).Any());
+        }
 
         var totalCount = await query.CountAsync(ct);
 

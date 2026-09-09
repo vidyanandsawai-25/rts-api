@@ -328,16 +328,39 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     cancellationToken);
             if (society != null)
             {
-                society.WingName    = dto.Wing;
                 society.UpdatedBy   = updatedBy;
                 society.UpdatedDate = now;
+
+                var wdm = await _context.WingDetailsMast
+                    .FirstOrDefaultAsync(
+                        w => w.SocietyDetailsMastId == society.Id && w.IsActive && !w.MarkedForDeletion,
+                        cancellationToken);
+
+                if (wdm != null)
+                {
+                    wdm.WingName    = dto.Wing;
+                    wdm.UpdatedBy   = updatedBy;
+                    wdm.UpdatedDate = now;
+                }
+                else
+                {
+                    wdm = new WingDetailsMastEntity
+                    {
+                        SocietyDetailsMastId = society.Id,
+                        WingName             = dto.Wing,
+                        IsActive             = true,
+                        CreatedBy            = updatedBy,
+                        CreatedDate          = now
+                    };
+                    _context.WingDetailsMast.Add(wdm);
+                }
             }
         }
 
         // 3. Re-link PropertyMast to the PropertyMastOld row that owns dto.OldPropertyNo.
         //    We do NOT mutate the OldPropertyNo string on the existing row — that would
-        //    corrupt a shared reference. Instead we find the target row's Id and update
-        //    the FK on PropertyMast (PropertyMastOldId) to point at it.
+        //    corrupt a shared reference. Instead we find the target row's Id and repoint
+        //    the property's active PropertyMapDetail mapping (PropertyIdOld) at it.
         if (dto.OldPropertyNo != null)
         {
             var trimmed  = dto.OldPropertyNo.Trim();
@@ -350,8 +373,39 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             if (!targetId.HasValue)
                 return BasicDetailsPatchOutcome.OldPropertyNoNotFound;
 
-            property.PropertyMastOldId = targetId.Value;
-            // UpdatedBy/UpdatedDate already stamped above; no extra stamp needed.
+            var existingMapDetail = await _context.PropertyMapDetails
+                .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive)
+                .OrderByDescending(pmd => pmd.CreatedDate)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (existingMapDetail != null)
+            {
+                existingMapDetail.PropertyIdOld = targetId.Value;
+                existingMapDetail.UpdatedBy     = updatedBy;
+                existingMapDetail.UpdatedDate   = now;
+            }
+            else
+            {
+                var propertyMapId = await _context.PropertyMapMasters
+                    .Where(pm => pm.MappingCategory == "MAP" && pm.IsActive)
+                    .Select(pm => pm.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (propertyMapId > 0)
+                {
+                    _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+                    {
+                        PropertyMapId = propertyMapId,
+                        PropertyIdNew = propertyId,
+                        PropertyIdOld = targetId.Value,
+                        Status        = "ACTIVE",
+                        IsCurrent     = true,
+                        IsActive      = true,
+                        CreatedBy     = updatedBy,
+                        CreatedDate   = now
+                    });
+                }
+            }
         }
 
         // 4. PropertyMastDetails — BHK on the latest active assessment row
@@ -533,14 +587,15 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 .OrderByDescending(d => d.CreatedDate)
                 .Select(d => d.BHK)
                 .FirstOrDefault()
-            let wing = _context.SocietyDetailsMast.AsNoTracking()
-                .Where(s => s.PropertyId == pm.Id && s.IsActive && !s.MarkedForDeletion)
-                .OrderByDescending(s => s.CreatedDate)
-                .Select(s => s.WingName)
-                .FirstOrDefault()
+            let wing = (from s in _context.SocietyDetailsMast.AsNoTracking()
+                        join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking() on s.Id equals wdm.SocietyDetailsMastId
+                        where s.PropertyId == pm.Id && s.IsActive && !s.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
+                        orderby s.CreatedDate descending
+                        select wdm.WingName).FirstOrDefault()
             select new JoinedProperty
             {
                 Id                    = pm.Id,
+                WingDetailId          = pm.WingDetailId,
                 TaxZoneId             = pm.TaxZoneId,
                 WardId                = pm.WardId,
                 PropertyNo            = pm.PropertyNo,
@@ -617,8 +672,9 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
     {
         var oldDataList = await (
             from pm in _context.PropertyMast.AsNoTracking()
-            join pmo in _context.PropertyMastOld.AsNoTracking()
-                 on pm.PropertyMastOldId equals pmo.Id into a
+            join pmd in _context.PropertyMapDetails.AsNoTracking() on pm.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+            join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into a
             from pmo in a.DefaultIfEmpty()
             join ctm in _context.ConstructionTypeEntity.AsNoTracking()
                 on pmo.OldConstructionTypeOfUseId equals ctm.ConstructionCode into ctj
@@ -742,25 +798,30 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
-        var taxPendingList = await _context.TaxPendingDetails
+        // Migrated ULB arrears due for the current finance year -- TransMast rows tagged
+        // PolicyCode = OLD_ARREARS (see RetrospectiveTaxCalculationEngineService.SyncPolicyTaxAndTransMastAsync).
+        var taxPendingList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "RV"
+                        && x.IsActive && !x.MarkedForDeletion && x.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(x => x.PropertyId)
-            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
+            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
-        var taxPendingCVList = await _context.TaxPendingDetailsCV
+        var taxPendingCVList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "CV"
+                        && x.IsActive && !x.MarkedForDeletion && x.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(x => x.PropertyId)
-            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
+            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
-        var taxPendingRVList = await _context.TaxPendingDetailsRV
+        var taxPendingRVList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "RV"
+                        && x.IsActive && !x.MarkedForDeletion && x.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(x => x.PropertyId)
-            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
+            .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
         Dictionary<int, ApartmentQCRvCalcData> rvCalc;
@@ -897,6 +958,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         PropertyTypeName      = p.PropertyTypeName,
         BHK                   = p.BHK,
         Wing                  = p.Wing,
+        WingDetailId          = p.WingDetailId,
         ApartmentType         = p.ApartmentType
     };
 
@@ -906,6 +968,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
     private sealed class JoinedProperty
     {
         public int     Id                    { get; set; }
+        public int?    WingDetailId          { get; set; }
         public int?    TaxZoneId             { get; set; }
         public int     WardId                { get; set; }
         public string? PropertyNo            { get; set; }

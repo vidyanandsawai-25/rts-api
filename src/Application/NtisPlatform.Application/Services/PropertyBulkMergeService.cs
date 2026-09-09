@@ -164,7 +164,7 @@ public class PropertyBulkMergeService : BaseCommonCrudService<PropertyMapDetailE
                 join ward in _wardRepository.GetQueryable().AsNoTracking()
                     on property.WardId equals ward.Id
                 join society in _societyRepository.GetQueryable().AsNoTracking()
-                    on property.SocietyDetailId equals society.Id
+                    on property.Id equals society.PropertyId
                     into societyGroup
                 from society in societyGroup.DefaultIfEmpty()
                 where newPropertyIds.Contains(property.Id)
@@ -454,7 +454,6 @@ public class PropertyBulkMergeService : BaseCommonCrudService<PropertyMapDetailE
                     property.OwnerNameEnglish,
                     property.OccupierName,
                     property.OccupierNameEnglish,
-                    property.SocietyDetailId,
                     ward.WardNo,
                     property.PropertyNo,
                     property.PartitionNo
@@ -602,10 +601,9 @@ public class PropertyBulkMergeService : BaseCommonCrudService<PropertyMapDetailE
                             cancellationToken);
 
                     // Same Society restore logic as Single UpdateAsync.
-                    if (currentProperty.SocietyDetailId.HasValue)
                     {
                         await _societyRepository.GetQueryable()
-                            .Where(x => x.Id == currentProperty.SocietyDetailId.Value && x.IsActive)
+                            .Where(x => x.PropertyId == currentProperty.Id && x.IsActive)
                             .ExecuteUpdateAsync(
                                 setters => setters
                                     .SetProperty(x => x.BuilderName, restoreData.BuilderName)

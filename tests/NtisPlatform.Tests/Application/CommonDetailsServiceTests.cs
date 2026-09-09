@@ -67,6 +67,7 @@ public class CommonDetailsServiceTests : IDisposable
         var sourceTableRepo = new Repository<SourceTableEntity>(_context);
         var sourceTableDetailsRepo = new Repository<SourceTableDetailsEntity>(_context);
         var moduleRepo = new Repository<ModuleMasterEntity>(_context);
+        var wingDetailsMastRepo = new Repository<WingDetailsMastEntity>(_context);
         var unitOfWork = new UnitOfWork(_context);
         var entityLoader = new DynamicEntityLoader(_context);
         _mockPropertySearchService = new Mock<IPropertySearchService>();
@@ -75,7 +76,7 @@ public class CommonDetailsServiceTests : IDisposable
         _service = new CommonDetailsService(
             masterRepo, fieldConfigRepo, historyRepo, activityRepo, propertyRepo, wardRepo, societyRepo, userRepo,
             sourceTableRepo, sourceTableDetailsRepo, moduleRepo,
-            unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object);
+            unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object, wingDetailsMastRepo);
 
         SeedTestData();
     }
@@ -104,7 +105,10 @@ public class CommonDetailsServiceTests : IDisposable
             new PropertyAssessmentEntity { Id = 2, PropertyId = 2, BHK = "3BHK" });
 
         _context.SocietyDetailsMast.Add(
-            new SocietyDetailsEntity { Id = 1, PropertyId = 2, WingName = "WingA" });
+            new SocietyDetailsEntity { Id = 1, PropertyId = 2 });
+
+        _context.Set<WingDetailsMastEntity>().Add(
+            new WingDetailsMastEntity { Id = 1, SocietyDetailsMastId = 1, WingName = "WingA", IsActive = true });
 
         _context.UserMasters.AddRange(
             new UserEntity { Id = 100, UserName = "alice.user" },

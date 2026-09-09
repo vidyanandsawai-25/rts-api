@@ -107,7 +107,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                 join ward in _wardRepository.GetQueryable().AsNoTracking()
                     on pm.WardId equals ward.Id
                 join society in _societyRepository.GetQueryable().AsNoTracking()
-                    on pm.SocietyDetailId equals society.Id
+                    on pm.Id equals society.PropertyId
                     into societyGroup
                 from society in societyGroup.DefaultIfEmpty()
                 where
@@ -116,7 +116,6 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                 select new
                 {
                     pm.Id,
-                    pm.SocietyDetailId,
                     ward.WardNo,
                     pm.PropertyNo,
                     pm.PartitionNo,
@@ -413,8 +412,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         x.OwnerName,
                         x.OwnerNameEnglish,
                         x.OccupierName,
-                        x.OccupierNameEnglish,
-                        x.SocietyDetailId
+                        x.OccupierNameEnglish
                     })
                     .FirstOrDefaultAsync(cancellationToken);
 
@@ -495,19 +493,16 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                             cancellationToken);
 
                 //  Restore Society Builder details
-                if (currentProperty.SocietyDetailId.HasValue)
-                {
-                    await _societyRepository.GetQueryable()
-                        .Where(s =>
-                            s.Id == currentProperty.SocietyDetailId.Value && s.IsActive)
-                        .ExecuteUpdateAsync(
-                            setters => setters
-                                .SetProperty(s => s.BuilderName, restoreData.BuilderName)
-                                .SetProperty(s => s.BuilderNameEnglish, restoreData.BuilderNameEnglish)
-                                .SetProperty(s => s.UpdatedBy, dto.UpdatedBy)
-                                .SetProperty(s => s.UpdatedDate, updatedDate),
-                            cancellationToken);
-                }
+                await _societyRepository.GetQueryable()
+                    .Where(s =>
+                        s.PropertyId == newPropertyId && s.IsActive)
+                    .ExecuteUpdateAsync(
+                        setters => setters
+                            .SetProperty(s => s.BuilderName, restoreData.BuilderName)
+                            .SetProperty(s => s.BuilderNameEnglish, restoreData.BuilderNameEnglish)
+                            .SetProperty(s => s.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(s => s.UpdatedDate, updatedDate),
+                        cancellationToken);
             }
             else
             {

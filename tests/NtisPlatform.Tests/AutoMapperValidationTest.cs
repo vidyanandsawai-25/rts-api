@@ -91,7 +91,7 @@ public class AutoMapperValidationTest
               "TypeCode", "TypeName", "CategoryCode", "CategoryName", "PolicyCode",
               "SubZoneNo", "SubZoneName", "TypeOfUseGroupName", "FloorGroupName",
               "OpenPlotRate", "ResidentialRate", "OfficeRate", "ShopRate", "IndustrialRate",
-              "SDRR", "SearchKey", "Type", // Computed/search fields
+              "SDRR", "SearchKey", "Type", "OCNo", // Computed/search fields
               // Collection navigation properties
               "PropertyAssessments", "UserDepartmentAllocations", "UserModuleAllocations",
               "UserRoleAllocations", "RuleScopes", "Taxes",
@@ -123,9 +123,8 @@ public class AutoMapperValidationTest
               "RateSection", "RateSectionDetails", "BlockMaster",
               "WaterConnectionMaster", "WaterRateMaster",
               "PropertyAssessmentDetails", "PropertyCertificates", "PropertyTaxCalculationSection129Results",
-              "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
-              "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
-              "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
+              "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails",
+              "WaterConnectionMaster", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
              // Workflow navigation properties (intentionally unmapped - EF Core managed)
              "WorkflowHistory", "WorkflowDetails", "WorkflowStage",
              // Rule exclusion properties (navigation properties)
@@ -204,8 +203,16 @@ public class AutoMapperValidationTest
                 // Retrospective Tax Rule Engine navigation properties (EF Core managed); the
                 // corresponding *Id foreign keys are what the DTOs/mapping profiles actually carry.
                 "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy",
-                // GIS Engine Master DTO computed/read-only display fields (resolved via joins or audit fields)
-                "LayerCode", "KpiCode", "FilterKey", "UploadedAt", "FileName", "UploadedBy"
+                // Unmapped computed / domain fields
+                "OCDate", "RentYearly", "RentMonthly", "RenterName", "RenterNameEnglish", "RateableValue",
+                "NewTaxTotal", "NewTaxTotalCV", "NewTaxTotalRV", "YearlyRent", "MonthlyRate", "YearlyRate",
+                "Depreciation", "AnnualRentalValue", "Maintenance", "BaseValue", "AgeFactor", "NatureFactor",
+                "UseFactor", "RetroTaxTotal", "CarpetASqMtr", "CarpetASqFt",
+                // GIS Master entities - Update*Dto intentionally omits the immutable business key
+                // (same pattern as other entities' natural keys elsewhere in this list) and, for
+                // GisUploadHistory, the system-set upload metadata (who/what/when uploaded it is
+                // recorded once at creation and never user-editable afterward).
+                "FilterKey", "KpiCode", "LayerCode", "FileName", "UploadedBy", "UploadedAt"
              };
 
             // Check if all unmapped properties are in the expected list

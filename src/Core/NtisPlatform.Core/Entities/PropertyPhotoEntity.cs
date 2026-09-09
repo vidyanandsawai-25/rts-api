@@ -1,14 +1,12 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
 /// Property photo business table (PTIS.PropertyPhoto).
-/// Stores photo records for properties with a link to document storage.
-/// Supports versioning via <see cref="IsLatest"/> (1 = current, 0 = superseded) so a photo
-/// can be replaced while retaining prior versions for audit. Multiple current photos may exist
-/// per (PropertyId, PhotoTypeId) (e.g., several gallery images for the same slot/type).
-/// Rich domain model with validation and business logic.
+/// Stores photo records for Property ('P'), Society ('S'), and Wing ('W') with a link to document storage.
+/// Supports versioning via <see cref="IsLatest"/> (1 = current, 0 = superseded).
 /// </summary>
 public class PropertyPhotoEntity : BaseEntity, IHardDeletable
 {
@@ -21,14 +19,18 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
     /// Internal constructor for testing purposes only - provides full control over entity state
     /// </summary>
     internal PropertyPhotoEntity(
-        int propertyId,
+        int? propertyId,
         int photoTypeId,
         int? documentBindingId = null,
         bool isLatest = true,
         int? displayOrder = null,
         string? remarks = null,
         bool markedForDeletion = false,
-        DateTime? markedForDeletionDate = null)
+        DateTime? markedForDeletionDate = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null,
+        string? type = null)
     {
         PropertyId = propertyId;
         PhotoTypeId = photoTypeId;
@@ -38,11 +40,14 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         Remarks = remarks;
         _markedForDeletion = markedForDeletion;
         _markedForDeletionDate = markedForDeletionDate;
+        EntityType = entityType;
+        SocietyDetailId = societyDetailId;
+        WingDetailId = wingDetailId;
+        Type = type;
     }
 
     /// <summary>
-    /// Factory method to create a new property photo without document binding.
-    /// Use this when you need to create the photo row before the DocumentBinding exists.
+    /// Factory method to create a new Property photo ('P') without document binding.
     /// </summary>
     public static PropertyPhotoEntity Create(
         int propertyId,
@@ -58,6 +63,7 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
 
         return new PropertyPhotoEntity
         {
+            EntityType = "P",
             PropertyId = propertyId,
             PhotoTypeId = photoTypeId,
             DocumentBindingId = null,
@@ -69,10 +75,6 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         };
     }
 
-    /// <summary>
-    /// Factory method to create a new property photo with document binding.
-    /// Optimized to eliminate the need for a separate update operation.
-    /// </summary>
     public static PropertyPhotoEntity CreateWithDocument(
         int propertyId,
         int photoTypeId,
@@ -92,6 +94,7 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
 
         return new PropertyPhotoEntity
         {
+            EntityType = "P",
             PropertyId = propertyId,
             PhotoTypeId = photoTypeId,
             DocumentBindingId = documentBindingId,
@@ -104,9 +107,134 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
     }
 
     /// <summary>
-    /// Property ID this photo belongs to (FK to PTIS.PropertyMast)
+    /// Factory method to create a new photo with all details including entityType, societyDetailId, and wingDetailId.
     /// </summary>
-    public int PropertyId { get; private set; }
+    public static PropertyPhotoEntity CreateWithDetails(
+        int? propertyId,
+        int photoTypeId,
+        string entityType,
+        int? societyDetailId,
+        int? wingDetailId,
+        int? documentBindingId = null,
+        int? displayOrder = null,
+        string? remarks = null,
+        string? type = null)
+    {
+        if (photoTypeId <= 0)
+            throw new ArgumentException("Photo type ID must be greater than zero.", nameof(photoTypeId));
+
+        if (propertyId.HasValue && propertyId.Value <= 0)
+            throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
+
+        if (documentBindingId.HasValue && documentBindingId.Value <= 0)
+            throw new ArgumentException("Document binding ID must be greater than zero.", nameof(documentBindingId));
+
+        ValidateRemarks(remarks);
+
+        if (displayOrder.HasValue && displayOrder.Value < 0)
+            throw new ArgumentException("Display order cannot be negative.", nameof(displayOrder));
+
+        return new PropertyPhotoEntity
+        {
+            EntityType = entityType,
+            PropertyId = propertyId,
+            PhotoTypeId = photoTypeId,
+            DocumentBindingId = documentBindingId,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId,
+            Type = type,
+            IsLatest = true,
+            DisplayOrder = displayOrder,
+            Remarks = remarks,
+            IsActive = true,
+            _markedForDeletion = false
+        };
+    }
+
+    /// <summary>
+    /// Factory method to create a new Society photo ('S') without document binding.
+    /// </summary>
+    public static PropertyPhotoEntity CreateForSociety(
+        int societyDetailId,
+        int photoTypeId,
+        int? displayOrder = null,
+        string? remarks = null)
+    {
+        ValidateRequiredIds(societyDetailId, photoTypeId);
+        ValidateRemarks(remarks);
+
+        if (displayOrder.HasValue && displayOrder.Value < 0)
+            throw new ArgumentException("Display order cannot be negative.", nameof(displayOrder));
+
+        return new PropertyPhotoEntity
+        {
+            EntityType = "S",
+            SocietyDetailId = societyDetailId,
+            PhotoTypeId = photoTypeId,
+            DocumentBindingId = null,
+            IsLatest = true,
+            DisplayOrder = displayOrder,
+            Remarks = remarks,
+            IsActive = true,
+            _markedForDeletion = false
+        };
+    }
+
+    /// <summary>
+    /// Factory method to create a new Wing photo ('W') without document binding.
+    /// </summary>
+    public static PropertyPhotoEntity CreateForWing(
+        int wingDetailId,
+        int photoTypeId,
+        int? displayOrder = null,
+        string? remarks = null)
+    {
+        ValidateRequiredIds(wingDetailId, photoTypeId);
+        ValidateRemarks(remarks);
+
+        if (displayOrder.HasValue && displayOrder.Value < 0)
+            throw new ArgumentException("Display order cannot be negative.", nameof(displayOrder));
+
+        return new PropertyPhotoEntity
+        {
+            EntityType = "W",
+            WingDetailId = wingDetailId,
+            PhotoTypeId = photoTypeId,
+            DocumentBindingId = null,
+            IsLatest = true,
+            DisplayOrder = displayOrder,
+            Remarks = remarks,
+            IsActive = true,
+            _markedForDeletion = false
+        };
+    }
+
+    /// <summary>
+    /// Discriminator flag: 'P' = Property, 'S' = Society, 'W' = Wing
+    /// </summary>
+    public string EntityType { get; private set; } = "P";
+
+    /// <summary>
+    /// Society Detail ID when EntityType is 'S' (FK to PTIS.SocietyDetails)
+    /// </summary>
+    public int? SocietyDetailId { get; private set; }
+
+    /// <summary>
+    /// Wing Detail ID when EntityType is 'W' (FK to PTIS.SocietyWingDetails)
+    /// </summary>
+    public int? WingDetailId { get; private set; }
+
+    /// <summary>
+    /// Property ID this photo belongs to when EntityType is 'P' (FK to PTIS.PropertyMast)
+    /// </summary>
+    public int? PropertyId { get; private set; }
+
+    /// <summary>
+    /// Mirrors PTIS.PropertyMast.Type. Set only for the shared PROPERTY_PLAN photo of a
+    /// non-Amenity apartment unit (PropertyId is null in that case) -- lets every unit of the
+    /// same Type within a society resolve the same plan image instead of one row per unit.
+    /// </summary>
+    public string? Type { get; private set; }
 
     /// <summary>
     /// FK to PTIS.PropertyPhotoType - the slot/category this photo fills (e.g. Front Elevation)
@@ -124,7 +252,7 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
     public bool IsLatest { get; private set; } = true;
 
     /// <summary>
-    /// Gallery sort order within (PropertyId, PhotoTypeId)
+    /// Gallery sort order within category
     /// </summary>
     public int? DisplayOrder { get; private set; }
 
@@ -158,11 +286,11 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
 
     public DocumentBindingEntity? DocumentBinding { get; private set; }
 
+    [ForeignKey(nameof(WingDetailId))]
+    public virtual WingDetailsMastEntity? WingDetail { get; private set; }
+
     // ========== Domain Methods ==========
 
-    /// <summary>
-    /// Link document binding to this photo
-    /// </summary>
     public void LinkDocumentBinding(int documentBindingId)
     {
         if (documentBindingId <= 0)
@@ -174,17 +302,23 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         DocumentBindingId = documentBindingId;
     }
 
-    /// <summary>
-    /// Remove document binding link
-    /// </summary>
     public void UnlinkDocumentBinding()
     {
         DocumentBindingId = null;
     }
 
-    /// <summary>
-    /// Set the gallery display order
-    /// </summary>
+    public void UpdateDetails(string entityType, int? societyDetailId, int? wingDetailId, int? propertyId, string? type = null)
+    {
+        if (string.IsNullOrWhiteSpace(entityType))
+            throw new ArgumentException("Entity type cannot be null or empty.", nameof(entityType));
+
+        EntityType = entityType;
+        SocietyDetailId = societyDetailId;
+        WingDetailId = wingDetailId;
+        PropertyId = propertyId;
+        Type = type;
+    }
+
     public void SetDisplayOrder(int? displayOrder)
     {
         if (displayOrder.HasValue && displayOrder.Value < 0)
@@ -193,37 +327,22 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         DisplayOrder = displayOrder;
     }
 
-    /// <summary>
-    /// Set the remarks / caption with validation
-    /// </summary>
     public void SetRemarks(string? remarks)
     {
         ValidateRemarks(remarks);
         Remarks = remarks;
     }
 
-    /// <summary>
-    /// Mark this photo as superseded (no longer the latest version).
-    /// Called when a newer version is uploaded via replace; the row is retained for audit.
-    /// </summary>
     public void MarkAsSuperseded()
     {
         IsLatest = false;
     }
 
-    /// <summary>
-    /// Restore this photo to latest status (undo superseding).
-    /// Called during compensation when a replacement operation fails.
-    /// </summary>
     public void RestoreFromSuperseding()
     {
         IsLatest = true;
     }
 
-    /// <summary>
-    /// Mark photo for soft deletion. Frees the latest-per-type slot so a new photo
-    /// can be uploaded for the same (PropertyId, PhotoTypeId).
-    /// </summary>
     public void MarkForDeletion()
     {
         if (_markedForDeletion)
@@ -235,9 +354,6 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         IsLatest = false;
     }
 
-    /// <summary>
-    /// Restore photo from soft deletion
-    /// </summary>
     public void RestoreFromDeletion()
     {
         if (!_markedForDeletion)
@@ -248,18 +364,15 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         IsActive = true;
     }
 
-    /// <summary>
-    /// Check if photo has an attached document
-    /// </summary>
     public bool HasDocument()
     {
         return DocumentBindingId.HasValue && DocumentBindingId.Value > 0;
     }
 
-    private static void ValidateRequiredIds(int propertyId, int photoTypeId)
+    private static void ValidateRequiredIds(int entityId, int photoTypeId)
     {
-        if (propertyId <= 0)
-            throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
+        if (entityId <= 0)
+            throw new ArgumentException("Entity ID must be greater than zero.", nameof(entityId));
 
         if (photoTypeId <= 0)
             throw new ArgumentException("Photo type ID must be greater than zero.", nameof(photoTypeId));

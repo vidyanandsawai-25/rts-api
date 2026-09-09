@@ -100,6 +100,23 @@ public class RetrospectiveRuleActionController : ControllerBase
             Items = RetrospectiveRuleActionOptions.TaxCalculationModes
         });
 
+    /// <summary>
+    /// Dropdown options for the "Rate basis" field. Send the returned Code back in
+    /// CreateRetrospectiveRuleActionDto.RateMode / Update.../RateMode. "YEAR_WISE" uses each
+    /// retrospective year's own historical rate/tax% (the same year-range-keyed master data the
+    /// Rateable Value engine already uses); "CURRENT_YEAR" uses the current assessment year's
+    /// rate/tax% for every retrospective year. Static list (not a DB-backed lookup table)
+    /// mirroring RetrospectiveRuleActionEntity.RateMode.
+    /// </summary>
+    [HttpGet("rate-modes")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RetrospectiveRuleActionOptionDto>>), StatusCodes.Status200OK)]
+    public IActionResult GetRateModes()
+        => Ok(new ApiResponse<IReadOnlyList<RetrospectiveRuleActionOptionDto>>
+        {
+            Success = true,
+            Items = RetrospectiveRuleActionOptions.RateModes
+        });
+
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);

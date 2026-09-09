@@ -63,6 +63,7 @@ public class PropertyServiceSplitTests
         _mockWardAllocationRepository = new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>();
         _mockPropertyMapMasterRepository = new Mock<IRepository<PropertyMapMasterEntity, int>>();
         _mockPropertyMapDetailRepository = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        _mockPropertyMapDetailRepository.Setup(x => x.GetQueryable()).Returns(new List<PropertyMapDetailEntity>().BuildMock());
         _mockWingRepository = new Mock<IRepository<WingEntity, int>>();
         _mockUserRepository = new Mock<IRepository<UserEntity, int>>();
         _mockRuleLogService = new Mock<IPropertyRuleApplicationLogService>();

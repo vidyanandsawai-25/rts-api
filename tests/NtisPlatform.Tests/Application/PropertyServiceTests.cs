@@ -94,7 +94,6 @@ public class PropertyEntityTests
             LocationEnglish = "Downtown Area",
             MobileNo = "9921759522",
             EmailId = "test@example.com",
-            SocietyDetailId = 5,
             MarkedForDeletion = false,
             MarkedForDeletionDate = now,
             IsActive = true,
@@ -135,7 +134,6 @@ public class PropertyEntityTests
         Assert.Equal("Downtown Area", entity.LocationEnglish);
         Assert.Equal("9921759522", entity.MobileNo);
         Assert.Equal("test@example.com", entity.EmailId);
-        Assert.Equal(5, entity.SocietyDetailId);
         Assert.False(entity.MarkedForDeletion);
         Assert.Equal(now, entity.MarkedForDeletionDate);
         Assert.True(entity.IsActive);

@@ -4,6 +4,7 @@ using Moq;
 using NtisPlatform.Application.DTOs.RateableValue;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -17,8 +18,11 @@ namespace NtisPlatform.Tests.Application;
 /// </summary>
 public class CombinePropertyTaxServiceTests
 {
-    private readonly Mock<IRepository<TaxPendingDetailsEntity>> _mockTaxPendingRepository;
+    private const int OldArrearsPolicyCodeId = 21;
+
+    private readonly Mock<IRepository<TransMastEntity>> _mockTransMastRepository;
     private readonly Mock<IRepository<YearMasterEntity, int>> _mockYearMasterRepository;
+    private readonly Mock<IPolicyCodeLookupService> _mockPolicyCodeLookup;
     private readonly Mock<IRateableValueService> _mockRateableValueService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<ILogger<CombinePropertyTaxService>> _mockLogger;
@@ -26,11 +30,15 @@ public class CombinePropertyTaxServiceTests
 
     public CombinePropertyTaxServiceTests()
     {
-        _mockTaxPendingRepository = new Mock<IRepository<TaxPendingDetailsEntity>>();
+        _mockTransMastRepository = new Mock<IRepository<TransMastEntity>>();
         _mockYearMasterRepository = new Mock<IRepository<YearMasterEntity, int>>();
+        _mockPolicyCodeLookup = new Mock<IPolicyCodeLookupService>();
         _mockRateableValueService = new Mock<IRateableValueService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockLogger = new Mock<ILogger<CombinePropertyTaxService>>();
+
+        _mockPolicyCodeLookup.Setup(p => p.GetIdAsync(PolicyCodes.OldArrears, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(OldArrearsPolicyCodeId);
 
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -42,12 +50,27 @@ public class CombinePropertyTaxServiceTests
             .ReturnsAsync(1);
 
         _service = new CombinePropertyTaxService(
-            _mockTaxPendingRepository.Object,
+            _mockTransMastRepository.Object,
             _mockYearMasterRepository.Object,
+            _mockPolicyCodeLookup.Object,
             _mockRateableValueService.Object,
             _mockUnitOfWork.Object,
             _mockLogger.Object);
     }
+
+    private static TransMastEntity OldArrears(int id, int propertyId, int financeYearId, int taxId, decimal taxAmount, bool isActive = true, bool markedForDeletion = false) => new()
+    {
+        Id = id,
+        PropertyId = propertyId,
+        FinanceYearId = financeYearId,
+        CalculationType = "RV",
+        TaxId = taxId,
+        PolicyCodeId = OldArrearsPolicyCodeId,
+        TaxAmount = taxAmount,
+        CalculationValue = taxAmount,
+        IsActive = isActive,
+        MarkedForDeletion = markedForDeletion
+    };
 
     #region GetCurrentFinanceYear Tests
 
@@ -77,8 +100,8 @@ public class CombinePropertyTaxServiceTests
         var createdBy = 100;
 
         // Setup empty pending taxes
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastEntity>().BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>
@@ -109,16 +132,16 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2, 3 };
         var createdBy = 100;
 
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
+        var pendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 2, PropertyId = 3, PendingYearId = 1, TaxId = 1, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000),
+            OldArrears(2, 3, 1, 1, 500)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(pendingTaxes.BuildMock());
 
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -149,8 +172,8 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastEntity>().BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>().BuildMock());
@@ -175,7 +198,7 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Throws(new InvalidOperationException("Database error"));
 
         // Act & Assert
@@ -195,8 +218,8 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2, 3 };
         var createdBy = 100;
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastEntity>().BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>
@@ -210,8 +233,8 @@ public class CombinePropertyTaxServiceTests
 
         // Assert
         Assert.True(result);
-        _mockTaxPendingRepository.Verify(r => r.AddRangeAsync(
-            It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(),
+        _mockTransMastRepository.Verify(r => r.AddRangeAsync(
+            It.IsAny<IEnumerable<TransMastEntity>>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -223,15 +246,15 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2, 3 };
         var createdBy = 100;
 
-        var combinedPendingTaxes = new List<TaxPendingDetailsEntity>
+        var combinedPendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 2, PropertyId = 2, PendingYearId = 1, TaxId = 2, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 3, PropertyId = 3, PendingYearId = 1, TaxId = 1, PendingAmount = 750, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 4, PropertyId = 3, PendingYearId = 1, TaxId = 2, PendingAmount = 250, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000),
+            OldArrears(2, 2, 1, 2, 500),
+            OldArrears(3, 3, 1, 1, 750),
+            OldArrears(4, 3, 1, 2, 250)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(combinedPendingTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -240,9 +263,9 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 1, Year = DateTime.Today.Year, IsActive = true }
             }.BuildMock());
 
-        var addedRecords = new List<TaxPendingDetailsEntity>();
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<TaxPendingDetailsEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
+        var addedRecords = new List<TransMastEntity>();
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<TransMastEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -258,17 +281,18 @@ public class CombinePropertyTaxServiceTests
         // Verify aggregated amounts
         var taxId1Record = addedRecords.FirstOrDefault(r => r.TaxId == 1);
         Assert.NotNull(taxId1Record);
-        Assert.Equal(1750, taxId1Record.PendingAmount); // 1000 + 750
+        Assert.Equal(1750, taxId1Record.TaxAmount); // 1000 + 750
 
         var taxId2Record = addedRecords.FirstOrDefault(r => r.TaxId == 2);
         Assert.NotNull(taxId2Record);
-        Assert.Equal(750, taxId2Record.PendingAmount); // 500 + 250
+        Assert.Equal(750, taxId2Record.TaxAmount); // 500 + 250
 
         // Verify all new records have correct properties
         Assert.All(addedRecords, r =>
         {
             Assert.Equal(sourcePropertyId, r.PropertyId);
-            Assert.True(r.PendingFixed);
+            Assert.Equal(OldArrearsPolicyCodeId, r.PolicyCodeId);
+            Assert.Equal("RV", r.CalculationType);
             Assert.True(r.IsActive);
             Assert.False(r.MarkedForDeletion);
             Assert.Equal(createdBy, r.CreatedBy);
@@ -284,20 +308,20 @@ public class CombinePropertyTaxServiceTests
         var createdBy = 100;
 
         // Combined property has pending tax
-        var combinedPendingTaxes = new List<TaxPendingDetailsEntity>
+        var combinedPendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 500)
         };
 
         // Source property already has pending tax for same year/tax
-        var sourcePendingTaxes = new List<TaxPendingDetailsEntity>
+        var sourcePendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 10, PropertyId = 1, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(10, 1, 1, 1, 1000)
         };
 
         var allTaxes = combinedPendingTaxes.Concat(sourcePendingTaxes).ToList();
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(allTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -315,8 +339,7 @@ public class CombinePropertyTaxServiceTests
 
         // Verify existing source record was updated (not new record created)
         var sourceRecord = sourcePendingTaxes.First();
-        Assert.Equal(1500, sourceRecord.PendingAmount); // 1000 + 500
-        Assert.True(sourceRecord.PendingFixed);
+        Assert.Equal(1500, sourceRecord.TaxAmount); // 1000 + 500
         Assert.Equal(createdBy, sourceRecord.UpdatedBy);
     }
 
@@ -328,12 +351,12 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        var combinedPendingTaxes = new List<TaxPendingDetailsEntity>
+        var combinedPendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(combinedPendingTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -342,7 +365,7 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 1, Year = DateTime.Today.Year, IsActive = true }
             }.BuildMock());
 
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -354,8 +377,7 @@ public class CombinePropertyTaxServiceTests
 
         // Verify combined property's pending tax was zeroed out
         var combinedRecord = combinedPendingTaxes.First();
-        Assert.Equal(0, combinedRecord.PendingAmount);
-        Assert.True(combinedRecord.PendingFixed);
+        Assert.Equal(0, combinedRecord.TaxAmount);
         Assert.True(combinedRecord.IsActive); // Should remain active
         Assert.Equal(createdBy, combinedRecord.UpdatedBy);
     }
@@ -368,13 +390,13 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
+        var pendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = true }, // Should be skipped
-            new() { Id = 2, PropertyId = 2, PendingYearId = 1, TaxId = 2, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000, markedForDeletion: true), // Should be skipped
+            OldArrears(2, 2, 1, 2, 500)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(pendingTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -383,9 +405,9 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 1, Year = DateTime.Today.Year, IsActive = true }
             }.BuildMock());
 
-        var addedRecords = new List<TaxPendingDetailsEntity>();
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<TaxPendingDetailsEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
+        var addedRecords = new List<TransMastEntity>();
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<TransMastEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -396,25 +418,26 @@ public class CombinePropertyTaxServiceTests
         Assert.True(result);
         Assert.Single(addedRecords); // Only TaxId=2 should be added
         Assert.Equal(2, addedRecords.First().TaxId);
-        Assert.Equal(500, addedRecords.First().PendingAmount);
+        Assert.Equal(500, addedRecords.First().TaxAmount);
     }
 
     [Fact]
-    public async Task AggregatePendingTaxesAsync_SkipsAlreadySkippedRecords()
+    public async Task AggregatePendingTaxesAsync_IgnoresOtherPolicyCodedRows()
     {
-        // Arrange
+        // Arrange -- a TransMast row for the combined property under a DIFFERENT policy (e.g. a
+        // retro-demand row) must not be swept into the OLD_ARREARS aggregation.
         var sourcePropertyId = 1;
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
+        var rows = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = true, MarkedForDeletion = false }, // Should be skipped
-            new() { Id = 2, PropertyId = 2, PendingYearId = 1, TaxId = 2, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000),
+            new() { Id = 2, PropertyId = 2, FinanceYearId = 1, CalculationType = "RV", TaxId = 2, PolicyCodeId = 999, TaxAmount = 5000, IsActive = true, MarkedForDeletion = false }
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(pendingTaxes.BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(rows.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>
@@ -422,9 +445,9 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 1, Year = DateTime.Today.Year, IsActive = true }
             }.BuildMock());
 
-        var addedRecords = new List<TaxPendingDetailsEntity>();
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<TaxPendingDetailsEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
+        var addedRecords = new List<TransMastEntity>();
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<TransMastEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -433,8 +456,12 @@ public class CombinePropertyTaxServiceTests
 
         // Assert
         Assert.True(result);
-        Assert.Single(addedRecords); // Only TaxId=2 should be added
-        Assert.Equal(2, addedRecords.First().TaxId);
+        Assert.Single(addedRecords); // Only the OLD_ARREARS row (TaxId=1) should be aggregated
+        Assert.Equal(1, addedRecords.First().TaxId);
+        Assert.Equal(1000, addedRecords.First().TaxAmount);
+        // The unrelated policy-999 row must be untouched.
+        var untouched = rows.Single(r => r.PolicyCodeId == 999);
+        Assert.Equal(5000, untouched.TaxAmount);
     }
 
     [Fact]
@@ -445,13 +472,13 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int> { 2 };
         var createdBy = 100;
 
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
+        var pendingTaxes = new List<TransMastEntity>
         {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 2, PropertyId = 2, PendingYearId = 2, TaxId = 1, PendingAmount = 2000, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(1, 2, 1, 1, 1000),
+            OldArrears(2, 2, 2, 1, 2000)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(pendingTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -461,9 +488,9 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 2, Year = 2025, IsActive = true }
             }.BuildMock());
 
-        var addedRecords = new List<TaxPendingDetailsEntity>();
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<TaxPendingDetailsEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
+        var addedRecords = new List<TransMastEntity>();
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<TransMastEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -474,11 +501,11 @@ public class CombinePropertyTaxServiceTests
         Assert.True(result);
         Assert.Equal(2, addedRecords.Count); // One record per year
 
-        var year1Record = addedRecords.First(r => r.PendingYearId == 1);
-        Assert.Equal(1000, year1Record.PendingAmount);
+        var year1Record = addedRecords.First(r => r.FinanceYearId == 1);
+        Assert.Equal(1000, year1Record.TaxAmount);
 
-        var year2Record = addedRecords.First(r => r.PendingYearId == 2);
-        Assert.Equal(2000, year2Record.PendingAmount);
+        var year2Record = addedRecords.First(r => r.FinanceYearId == 2);
+        Assert.Equal(2000, year2Record.TaxAmount);
     }
 
     [Fact]
@@ -492,7 +519,7 @@ public class CombinePropertyTaxServiceTests
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>().BuildMock());
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Throws(new InvalidOperationException("Database error"));
 
         // Act & Assert
@@ -590,19 +617,19 @@ public class CombinePropertyTaxServiceTests
         var createdBy = 100;
 
         // Setup pending taxes from multiple properties
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
+        var pendingTaxes = new List<TransMastEntity>
         {
             // Property 2 - Year 1
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 1000, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 2, PropertyId = 2, PendingYearId = 1, TaxId = 2, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
+            OldArrears(1, 2, 1, 1, 1000),
+            OldArrears(2, 2, 1, 2, 500),
             // Property 3 - Year 1
-            new() { Id = 3, PropertyId = 3, PendingYearId = 1, TaxId = 1, PendingAmount = 750, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 4, PropertyId = 3, PendingYearId = 1, TaxId = 2, PendingAmount = 250, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
+            OldArrears(3, 3, 1, 1, 750),
+            OldArrears(4, 3, 1, 2, 250),
             // Property 4 - Year 2
-            new() { Id = 5, PropertyId = 4, PendingYearId = 2, TaxId = 1, PendingAmount = 2000, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
+            OldArrears(5, 4, 2, 1, 2000)
         };
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
             .Returns(pendingTaxes.BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
@@ -612,7 +639,7 @@ public class CombinePropertyTaxServiceTests
                 new() { Id = 2, Year = 2025, IsActive = true }
             }.BuildMock());
 
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
+        _mockTransMastRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TransMastEntity>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
@@ -631,8 +658,7 @@ public class CombinePropertyTaxServiceTests
         // Verify all combined property records were zeroed out
         Assert.All(pendingTaxes, tax =>
         {
-            Assert.Equal(0, tax.PendingAmount);
-            Assert.True(tax.PendingFixed);
+            Assert.Equal(0, tax.TaxAmount);
             Assert.True(tax.IsActive);
         });
 
@@ -648,8 +674,8 @@ public class CombinePropertyTaxServiceTests
         var combinePropertyIds = new List<int>(); // Empty list
         var createdBy = 100;
 
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastEntity>().BuildMock());
 
         _mockYearMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>().BuildMock());
@@ -663,44 +689,6 @@ public class CombinePropertyTaxServiceTests
 
         // Assert
         Assert.True(result);
-    }
-
-    [Fact]
-    public async Task AggregatePendingTaxesAsync_NullPendingAmounts_TreatsAsZero()
-    {
-        // Arrange
-        var sourcePropertyId = 1;
-        var combinePropertyIds = new List<int> { 2 };
-        var createdBy = 100;
-
-        var pendingTaxes = new List<TaxPendingDetailsEntity>
-        {
-            new() { Id = 1, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = null, IsActive = true, PendingFixed = false, MarkedForDeletion = false },
-            new() { Id = 2, PropertyId = 2, PendingYearId = 1, TaxId = 1, PendingAmount = 500, IsActive = true, PendingFixed = false, MarkedForDeletion = false }
-        };
-
-        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
-            .Returns(pendingTaxes.BuildMock());
-
-        _mockYearMasterRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<YearMasterEntity>
-            {
-                new() { Id = 1, Year = DateTime.Today.Year, IsActive = true }
-            }.BuildMock());
-
-        var addedRecords = new List<TaxPendingDetailsEntity>();
-        _mockTaxPendingRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<TaxPendingDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<TaxPendingDetailsEntity>, CancellationToken>((records, _) => addedRecords.AddRange(records))
-            .Returns(Task.CompletedTask);
-
-        // Act
-        var result = await _service.AggregatePendingTaxesAsync(
-            sourcePropertyId, combinePropertyIds, createdBy, default);
-
-        // Assert
-        Assert.True(result);
-        Assert.Single(addedRecords);
-        Assert.Equal(500, addedRecords.First().PendingAmount); // null treated as 0, so 0 + 500 = 500
     }
 
     #endregion

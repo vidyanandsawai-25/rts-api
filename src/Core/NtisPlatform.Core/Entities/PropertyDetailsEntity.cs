@@ -36,6 +36,11 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     public int? SubTypeOfUseId { get; set; }
 
     public bool? IsTaxable { get; set; }
+
+    /// <summary>
+    /// Legacy open plot flag (Column removed from PTIS.PropertyDetails DB table, kept as [NotMapped] property for backward compatibility)
+    /// </summary>
+    [NotMapped]
     public bool? IsOpenPlot { get; set; }
     /// <summary>
     /// Indicates whether the entity is marked for deletion

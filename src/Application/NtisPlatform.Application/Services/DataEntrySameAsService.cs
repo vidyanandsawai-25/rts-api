@@ -58,7 +58,8 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         IRepository<TypeOfUseEntity, int> typeOfUseRepository,
         IRepository<TypeOfUseCategoryEntity, int> typeOfUseCategoryRepository,
         IUnitOfWork unitOfWork,
-        ILogger<DataEntrySameAsService> logger)
+        ILogger<DataEntrySameAsService> logger,
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
     {
         _propertyRepository = propertyRepository;
         _propertyDetailsRepository = propertyDetailsRepository;
@@ -76,7 +77,10 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         _typeOfUseCategoryRepository = typeOfUseCategoryRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
+
+    private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
 
     public async Task<DataEntrySameAsResultDto> ExecuteAsync(
         DataEntrySameAsRequestDto request,
@@ -237,47 +241,67 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         // non-nullable, so an unmatched left join is the only source of a null wing number), restoring
         // the SQL behaviour and keeping the expression null-safe when run in-memory.
         // PropertyDetails is grouped so that CarpetArea columns are summed per property.
-        var rows =
-            from pm in _propertyRepository.GetQueryable()
+        var queryable = _propertyRepository.GetQueryable()
+            .Where(pm => pm.WardId == wardId
+                      && pm.PropertyNo == propertyNo
+                      && (!hasPartition || pm.PartitionNo == partitionNo)
+                      && pm.PartitionNo != "");
+
+        var rawResults = await (
+            from pm in queryable
             join sdm in _societyDetailsRepository.GetQueryable()
                 on (int?)pm.Id equals sdm.PropertyId into sdmGroup
             from sdm in sdmGroup.DefaultIfEmpty()
+            join wdm in (_wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable())
+                on (sdm != null ? (int?)sdm.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmGroup
+            from wdm in wdmGroup.DefaultIfEmpty()
             join wm in _wingRepository.GetQueryable()
-                on sdm.WingId equals (int?)wm.Id into wmGroup
+                on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wm.Id into wmGroup
             from wm in wmGroup.DefaultIfEmpty()
-            join pd in _propertyDetailsRepository.GetQueryable().Where(pd => pd.IsActive && !pd.MarkedForDeletion)
-                on pm.Id equals pd.PropertyId into pdGroup
-            from pd in pdGroup.DefaultIfEmpty()
-            where pm.WardId == wardId
-                  && pm.PropertyNo == propertyNo
-                  && (!hasPartition || pm.PartitionNo == partitionNo)
-                  && pm.PartitionNo != ""
-                  && wm != null
-                  && pm.PartitionNo != wm.WingNo
-            group new { pd.CarpetAreaSqMeter, pd.CarpetAreaSqFeet } by new
+            where wm == null || pm.PartitionNo != wm.WingNo
+            select new
             {
-                pm.Id,
-                pm.WardId,
-                pm.PropertyNo,
-                pm.PartitionNo,
-                pm.Type,
-                sdm.WingName,
-                pm.FlatOrShopNo
-            } into g
-            select new DataEntrySameAsPropertyDto
+                Property = pm,
+                WingName = wdm != null ? wdm.WingName : null
+            }
+        ).ToListAsync(cancellationToken);
+
+        var propertyIds = rawResults.Select(r => r.Property.Id).Distinct().ToList();
+
+        var propertyDetailsMap = await _propertyDetailsRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(pd => propertyIds.Contains(pd.PropertyId) && pd.IsActive && !pd.MarkedForDeletion)
+            .GroupBy(pd => pd.PropertyId)
+            .Select(g => new
             {
-                PropertyId = g.Key.Id,
-                WardId = g.Key.WardId,
-                PropertyNo = g.Key.PropertyNo,
-                PartitionNo = g.Key.PartitionNo,
-                Type = g.Key.Type ?? string.Empty,
-                WingName = g.Key.WingName,
-                FlatOrShopNo = g.Key.FlatOrShopNo,
+                PropertyId = g.Key,
                 CarpetAreaSqMeter = g.Sum(x => x.CarpetAreaSqMeter ?? 0),
                 CarpetAreaSqFeet = g.Sum(x => x.CarpetAreaSqFeet ?? 0)
-            };
+            })
+            .ToDictionaryAsync(x => x.PropertyId, cancellationToken);
 
-        return await rows.ToListAsync(cancellationToken);
+        return rawResults
+            .GroupBy(r => r.Property.Id)
+            .Select(g =>
+            {
+                var item = g.First();
+                propertyDetailsMap.TryGetValue(item.Property.Id, out var details);
+                return new DataEntrySameAsPropertyDto
+                {
+                    PropertyId = item.Property.Id,
+                    WardId = item.Property.WardId,
+                    PropertyNo = item.Property.PropertyNo,
+                    PartitionNo = item.Property.PartitionNo,
+                    Type = item.Property.Type ?? string.Empty,
+                    WingName = item.WingName,
+                    FlatOrShopNo = item.Property.FlatOrShopNo ?? string.Empty,
+                    CarpetAreaSqMeter = details?.CarpetAreaSqMeter ?? 0,
+                    CarpetAreaSqFeet = details?.CarpetAreaSqFeet ?? 0
+                };
+            })
+            .OrderBy(r => r.PartitionNo, NaturalStringComparer.Instance)
+            .ThenBy(r => r.FlatOrShopNo, NaturalStringComparer.Instance)
+            .ToList();
     }
 
     public async Task<List<DataEntrySameAsUnitDto>> GetPropertyUnitsAsync(
@@ -741,10 +765,13 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         var candidateIds = candidates.Select(c => c.Id).ToList();
 
         // Wing numbers per candidate property (SocietyDetailsMast -> WingMaster).
-        var societyRows = await _societyDetailsRepository.GetQueryable()
-            .Where(sd => sd.PropertyId.HasValue && candidateIds.Contains(sd.PropertyId.Value))
-            .Select(sd => new { PropertyId = sd.PropertyId!.Value, sd.WingId })
-            .ToListAsync(cancellationToken);
+        var wingQuery748 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable() : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+        var societyRows = await (
+            from sd in _societyDetailsRepository.GetQueryable()
+            join wdm in wingQuery748 on sd.Id equals wdm.SocietyDetailsMastId
+            where sd.PropertyId.HasValue && candidateIds.Contains(sd.PropertyId.Value) && wdm.IsActive && !wdm.MarkedForDeletion
+            select new { PropertyId = sd.PropertyId!.Value, WingId = (int?)wdm.WingMasterId }
+        ).ToListAsync(cancellationToken);
 
         var wingIds = societyRows.Where(s => s.WingId.HasValue).Select(s => s.WingId!.Value).Distinct().ToList();
         var wingNoById = wingIds.Count == 0
@@ -817,10 +844,13 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         var candidateIds = candidates.Select(c => c.Id).ToList();
 
         // Wing numbers per candidate property (SocietyDetailsMast -> WingMaster).
-        var societyRows = await _societyDetailsRepository.GetQueryable()
-            .Where(sd => sd.PropertyId.HasValue && candidateIds.Contains(sd.PropertyId.Value))
-            .Select(sd => new { PropertyId = sd.PropertyId!.Value, sd.WingId })
-            .ToListAsync(cancellationToken);
+        var wingQuery827 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable() : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+        var societyRows = await (
+            from sd in _societyDetailsRepository.GetQueryable()
+            join wdm in wingQuery827 on sd.Id equals wdm.SocietyDetailsMastId
+            where sd.PropertyId.HasValue && candidateIds.Contains(sd.PropertyId.Value) && wdm.IsActive && !wdm.MarkedForDeletion
+            select new { PropertyId = sd.PropertyId!.Value, WingId = (int?)wdm.WingMasterId }
+        ).ToListAsync(cancellationToken);
 
         var wingIds = societyRows.Where(s => s.WingId.HasValue).Select(s => s.WingId!.Value).Distinct().ToList();
         var wingNoById = wingIds.Count == 0

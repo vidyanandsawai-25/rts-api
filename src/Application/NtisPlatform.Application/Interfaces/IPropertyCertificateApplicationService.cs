@@ -20,6 +20,14 @@ public interface IPropertyCertificateApplicationService
         int? propertyDetailsId = null);
 
     /// <summary>
+    /// Gets all certificate types with their status filtered society-wise or wing-wise.
+    /// </summary>
+    Task<List<PropertyCertificateWithStatusDto>> GetSocietyOrWingCertificateTypesWithStatusAsync(
+        int? societyDetailId,
+        int? wingDetailId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 2. POST - Uploads PropertyCertificate with document
     /// Creates: PTIS.PropertyCertificates + CORE.Document + CORE.DocumentBinding
     /// </summary>
@@ -119,7 +127,10 @@ public interface IPropertyCertificateApplicationService
         string? newCertificateNo,
         DateTime? newIssueDate,
         int userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null);
 
     /// <summary>
     /// GET - Floor-wise certificate display for the Building Permission tab.
@@ -142,6 +153,27 @@ public interface IPropertyCertificateApplicationService
     /// </summary>
     Task<SaveCertificateResponseDto> SaveCertificateAsync(
         SaveCertificateRequestDto request,
+        int userId,
+        CancellationToken cancellationToken = default);
+
+    Task<List<object>> GetCertificateTypeMasterAsync(CancellationToken cancellationToken = default);
+
+    Task<List<object>> GetWingsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    Task<List<object>> GetUnitsByPropertyAsync(int propertyId, int? wingDetailId = null, CancellationToken cancellationToken = default);
+
+    Task<(List<object> Items, int TotalCount)> GetUnitsByPropertyPagedAsync(int propertyId, int? wingDetailId = null, int pageNumber = 1, int pageSize = 10, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// POST - "Add Certificate Record" (Apartment/Wing/Unit Level). Creates one Society-scoped row
+    /// (Apartment), one Wing-scoped row (Wing, or Unit level with every unit selected), or one
+    /// Property-scoped row per selected unit (Unit level, partial selection). See
+    /// <see cref="DTOs.PropertyCertificate.CreateCertificateRecordRequestDto"/> for the exact scope
+    /// rules. Triggers Retrospective Tax recalculation for every affected unit when the certificate
+    /// type is taxable.
+    /// </summary>
+    Task<DTOs.PropertyCertificate.CreateCertificateRecordResponseDto> CreateCertificateRecordAsync(
+        DTOs.PropertyCertificate.CreateCertificateRecordRequestDto request,
         int userId,
         CancellationToken cancellationToken = default);
 }

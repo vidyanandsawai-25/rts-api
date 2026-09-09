@@ -29,9 +29,10 @@ public partial class PropertyOldDetailsService
         await ValidateOldTaxesRequestAsync(dto, cancellationToken);
 
         // Create-only: reject if any requested year-tax combination already has an active record.
-        if (property.PropertyMastOldId.HasValue)
+        var mappedOldPropertyId = await _repository.GetMappedOldPropertyIdAsync(propertyId, cancellationToken);
+        if (mappedOldPropertyId.HasValue)
         {
-            await EnsureNoOldTaxConflictsAsync(property.PropertyMastOldId.Value, dto, cancellationToken);
+            await EnsureNoOldTaxConflictsAsync(mappedOldPropertyId.Value, dto, cancellationToken);
         }
 
         return await _repository.PersistNewOldTaxesAsync(propertyId, dto, cancellationToken);
@@ -218,7 +219,8 @@ public partial class PropertyOldDetailsService
         // Enforce all Property aggregate write invariants before any state change.
         await _invariantPolicy.EnforceAsync(property, cancellationToken);
 
-        if (!property.PropertyMastOldId.HasValue)
+        var mappedOldPropertyId = await _repository.GetMappedOldPropertyIdAsync(propertyId, cancellationToken);
+        if (!mappedOldPropertyId.HasValue)
             throw new PropertyValidationException($"Property {propertyId} does not have an associated PropertyMastOld record");
 
         await ValidateFloorReferencesAsync(dto.OldFloorId, dto.OldSubFloorId, dto.OldConstructionTypeId, dto.OldTypeOfUseId, dto.OldSubTypeOfUseId, cancellationToken);

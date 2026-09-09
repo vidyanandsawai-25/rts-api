@@ -110,6 +110,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
     }
 
     private static readonly string[] CompareOperators = { "BEFORE", "AFTER", "ON_OR_BEFORE", "ON_OR_AFTER", "BETWEEN", "OLDER_THAN_YEARS", "WITHIN_YEARS" };
+    private static readonly string[] CompareGapUnits = { "DAYS", "MONTHS", "YEARS" };
     private static readonly string[] ElseActions = { "NONE", "MANUAL_REVIEW" };
 
     /// <summary>
@@ -132,6 +133,11 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
                 request.DateCondition.CompareOperator,
                 CompareOperators,
                 required: false);
+            ValidateEnum(
+                $"{nameof(request.DateCondition)}.{nameof(request.DateCondition.CompareGapUnit)}",
+                request.DateCondition.CompareGapUnit,
+                CompareGapUnits,
+                required: false);
         }
 
         ValidateEnum(
@@ -148,6 +154,11 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
             $"{nameof(request.Action)}.{nameof(request.Action.TaxCalculationMode)}",
             request.Action.TaxCalculationMode,
             RetrospectiveRuleActionOptions.TaxCalculationModes.Select(o => o.Code),
+            required: true);
+        ValidateEnum(
+            $"{nameof(request.Action)}.{nameof(request.Action.RateMode)}",
+            request.Action.RateMode,
+            RetrospectiveRuleActionOptions.RateModes.Select(o => o.Code),
             required: true);
 
         if (request.PenaltyRule is not null)
@@ -295,6 +306,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
             existing.CompareDate = section.CompareDate;
             existing.CompareDateTo = section.CompareDateTo;
             existing.CompareYears = section.CompareYears;
+            existing.CompareGapUnit = section.CompareGapUnit;
             existing.UpdatedBy = updatedBy;
             existing.UpdatedDate = DateTime.Now;
             await _dateConditionRepository.UpdateAsync(existing, cancellationToken);
@@ -311,6 +323,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
                 CompareDate = section.CompareDate,
                 CompareDateTo = section.CompareDateTo,
                 CompareYears = section.CompareYears,
+                CompareGapUnit = section.CompareGapUnit,
                 IsActive = true,
                 CreatedBy = updatedBy,
                 CreatedDate = DateTime.Now
@@ -337,6 +350,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
             existing.SplitEndEvidenceTypeId = section.SplitEndEvidenceTypeId;
             existing.SplitMultiplier = section.SplitMultiplier;
             existing.AfterSplitMultiplier = section.AfterSplitMultiplier;
+            existing.RateMode = section.RateMode;
             existing.UpdatedBy = updatedBy;
             existing.UpdatedDate = DateTime.Now;
             await _actionRepository.UpdateAsync(existing, cancellationToken);
@@ -358,6 +372,7 @@ public class RetrospectiveRuleMasterService : BaseCommonCrudService<Retrospectiv
                 SplitEndEvidenceTypeId = section.SplitEndEvidenceTypeId,
                 SplitMultiplier = section.SplitMultiplier,
                 AfterSplitMultiplier = section.AfterSplitMultiplier,
+                RateMode = section.RateMode,
                 IsActive = true,
                 CreatedBy = updatedBy,
                 CreatedDate = DateTime.Now

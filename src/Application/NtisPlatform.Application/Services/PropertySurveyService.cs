@@ -47,7 +47,7 @@ public partial class PropertySurveyService : IPropertySurveyService
     private readonly IRepository<PropertyWorkflowDetailsEntity, int> _workflowDetailsRepository;
     private readonly IRepository<PropertyWorkflowStageMasterEntity, int> _workflowStageRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
-    private readonly IRepository<CommonRemarkDetailsEntity, int> _commonRemarkDetailsRepository;
+    private readonly IRepository<CommonRemarkDetailsEntity, int>? _commonRemarkDetailsRepository;
     private readonly IRepository<PropertySurveyVisitEntity, int> _propertySurveyVisitRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<PropertySurveyService> _logger;
@@ -68,10 +68,11 @@ public partial class PropertySurveyService : IPropertySurveyService
         IRepository<PropertyWorkflowDetailsEntity, int> workflowDetailsRepository,
         IRepository<PropertyWorkflowStageMasterEntity, int> workflowStageRepository,
         IRepository<UserEntity, int> userRepository,
-        IRepository<CommonRemarkDetailsEntity, int> commonRemarkDetailsRepository,
         IRepository<PropertySurveyVisitEntity, int> propertySurveyVisitRepository,
         IUnitOfWork unitOfWork,
-        ILogger<PropertySurveyService> logger)
+        ILogger<PropertySurveyService> logger,
+        IRepository<CommonRemarkDetailsEntity, int>? commonRemarkDetailsRepository = null,
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
     {
         _repository = repository;
         _moduleMasterRepository = moduleMasterRepository;
@@ -93,7 +94,10 @@ public partial class PropertySurveyService : IPropertySurveyService
         _propertySurveyVisitRepository = propertySurveyVisitRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
+
+    private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
 
     public async Task<UserPropertyPageDto> SearchNewlyCreatedPropertiesAsync(
         CreatedByUserPropertySearchRequestDto request,
@@ -207,17 +211,17 @@ public partial class PropertySurveyService : IPropertySurveyService
                       .Any(society =>
                           society.PropertyId.HasValue &&
                           society.PropertyId.Value == property.Id &&
-                          society.WingId.HasValue &&
                           society.IsActive &&
                           !society.MarkedForDeletion &&
-
-                          _wingMasterRepository
-                              .GetQueryable()
-                              .Any(wing =>
-                                  wing.Id == society.WingId.Value &&
-                                  wing.IsActive &&
-                                  property.PartitionNo != null &&
-                                  wing.WingNo == property.PartitionNo))
+                          (_wingDetailsMastRepository != null &&
+                           _wingDetailsMastRepository.GetQueryable().Any(wdm =>
+                               wdm.SocietyDetailsMastId == society.Id &&
+                               wdm.IsActive && !wdm.MarkedForDeletion &&
+                               _wingMasterRepository.GetQueryable().Any(wing =>
+                                   wing.Id == wdm.WingMasterId &&
+                                   wing.IsActive &&
+                                   property.PartitionNo != null &&
+                                   wing.WingNo == property.PartitionNo))))
 
             select new
             {
@@ -307,17 +311,17 @@ public partial class PropertySurveyService : IPropertySurveyService
                     .Any(society =>
                         society.PropertyId.HasValue &&
                         society.PropertyId.Value == property.Id &&
-                        society.WingId.HasValue &&
                         society.IsActive &&
                         !society.MarkedForDeletion &&
-
-                        _wingMasterRepository
-                            .GetQueryable()
-                            .Any(wing =>
-                                wing.Id == society.WingId.Value &&
-                                wing.IsActive &&
-                                property.PartitionNo != null &&
-                                wing.WingNo == property.PartitionNo)))
+                        (_wingDetailsMastRepository != null &&
+                         _wingDetailsMastRepository.GetQueryable().Any(wdm =>
+                             wdm.SocietyDetailsMastId == society.Id &&
+                             wdm.IsActive && !wdm.MarkedForDeletion &&
+                             _wingMasterRepository.GetQueryable().Any(wing =>
+                                 wing.Id == wdm.WingMasterId &&
+                                 wing.IsActive &&
+                                 property.PartitionNo != null &&
+                                 wing.WingNo == property.PartitionNo)))))
             .OrderByDescending(property => property.PropertySeqNo)
             .ThenByDescending(property => property.Id)
             .Select(property => (int?)property.Id)
@@ -461,7 +465,7 @@ public partial class PropertySurveyService : IPropertySurveyService
                 .GetQueryable()
                 .AsNoTracking()
 
-            where propertyIds.Contains(photo.PropertyId)
+            where photo.PropertyId.HasValue && propertyIds.Contains(photo.PropertyId.Value)
                   && photo.IsActive
                   && !photo.MarkedForDeletion
                   && photo.DocumentBinding != null
@@ -478,7 +482,7 @@ public partial class PropertySurveyService : IPropertySurveyService
             select new PropertySearchDocumentDto
             {
                 PropertyPhotoId = photo.Id,
-                PropertyId = photo.PropertyId,
+                PropertyId = photo.PropertyId ?? 0,
                 PhotoTypeId = photo.PhotoTypeId,
                 DocumentId = photo.DocumentBinding!.Document!.Id,
                 DocumentGuid = photo.DocumentBinding!.Document!.DocumentGuid,

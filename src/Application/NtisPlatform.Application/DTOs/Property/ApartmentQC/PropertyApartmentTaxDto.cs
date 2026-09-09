@@ -16,6 +16,7 @@ public class PropertyApartmentTaxDto
     public string? WardNo { get; set; }
     public string? MobileNo { get; set; }
     public string? EmailId { get; set; }
+    public string? OCNo { get; set; }
     public DateTime? OCDate { get; set; }
 
     public string? FlatOrShopNo { get; set; }
@@ -65,6 +66,8 @@ public class PropertyApartmentTaxDto
     public decimal NewTaxTotal { get; set; }
     public decimal NewTaxTotalCV { get; set; }
     public decimal NewTaxTotalRV { get; set; }
+    public decimal? RetroTaxTotal { get; set; }
+    public decimal? CurrentDemand { get; set; }
 
     // RVCalculationResults — populated when ResultType is Rateable or Dual
     public decimal? YearlyRent { get; set; }
@@ -93,4 +96,9 @@ public class PropertyApartmentTaxDto
     public decimal? CarpetASqFt { get; set; }
     public decimal? BuiltupASqMtr { get; set; }
     public decimal? BuiltupASqFt { get; set; }
+
+    public Guid? PropertyPhotoDocumentGuid { get; set; }
+    public Guid? PlanPhotoDocumentGuid { get; set; }
+    public List<PropertyPhotoDocumentDto> Photos { get; set; } = new();
+    public int? WingDetailId { get; set; }
 }

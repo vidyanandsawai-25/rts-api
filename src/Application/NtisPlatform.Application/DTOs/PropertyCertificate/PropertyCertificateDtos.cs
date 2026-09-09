@@ -14,6 +14,9 @@ public class PropertyCertificateDto
     public string? CertificateNo { get; set; }
     public DateTime? IssueDate { get; set; }
     public int? PropertyDetailsId { get; set; }
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>
@@ -33,6 +36,9 @@ public class PropertyCertificateUploadResponseDto
     public long FileSizeBytes { get; set; }
     public string StoragePath { get; set; } = string.Empty;
     public int? PropertyDetailsId { get; set; }
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>
@@ -60,5 +66,8 @@ public class PropertyCertificateWithStatusDto
     /// Set = floor-level certificate tied to this PropertyDetails/floor row.
     /// </summary>
     public int? PropertyDetailsId { get; set; }
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 

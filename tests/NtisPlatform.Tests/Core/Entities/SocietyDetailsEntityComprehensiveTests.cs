@@ -17,8 +17,6 @@ public class SocietyDetailsEntityComprehensiveTests
         // Assert
         Assert.Equal(0, entity.Id);
         Assert.Null(entity.PropertyId);
-        Assert.Null(entity.WingId);
-        Assert.Null(entity.WingName);
         Assert.Null(entity.SocietyName);
         Assert.Null(entity.SocietyAddress);
         Assert.Null(entity.SecretaryName);
@@ -55,8 +53,6 @@ public class SocietyDetailsEntityComprehensiveTests
         {
             Id = 1,
             PropertyId = 100,
-            WingId = 5,
-            WingName = "A Wing",
             SocietyName = "Green Valley Society",
             SocietyAddress = "123 Main Street, City",
             SecretaryName = "??? ?????",
@@ -90,8 +86,6 @@ public class SocietyDetailsEntityComprehensiveTests
         // Assert
         Assert.Equal(1, entity.Id);
         Assert.Equal(100, entity.PropertyId);
-        Assert.Equal(5, entity.WingId);
-        Assert.Equal("A Wing", entity.WingName);
         Assert.Equal("Green Valley Society", entity.SocietyName);
         Assert.Equal("123 Main Street, City", entity.SocietyAddress);
         Assert.Equal("??? ?????", entity.SecretaryName);
@@ -135,26 +129,9 @@ public class SocietyDetailsEntityComprehensiveTests
         // Assert
         Assert.Equal(1, entity.PropertyId);
         Assert.Equal("Minimal Society", entity.SocietyName);
-        Assert.Null(entity.WingId);
         Assert.Null(entity.SecretaryName);
     }
 
-    [Fact]
-    public void SocietyDetailsEntity_WithMaxLengthWingName_WorksCorrectly()
-    {
-        // Arrange
-        var maxLengthWingName = new string('A', 30);
-
-        // Act
-        var entity = new SocietyDetailsEntity
-        {
-            WingName = maxLengthWingName
-        };
-
-        // Assert
-        Assert.Equal(maxLengthWingName, entity.WingName);
-        Assert.Equal(30, entity.WingName.Length);
-    }
 
     [Fact]
     public void SocietyDetailsEntity_WithMaxLengthSocietyName_WorksCorrectly()
@@ -322,12 +299,10 @@ public class SocietyDetailsEntityComprehensiveTests
         // Act
         var entity = new SocietyDetailsEntity
         {
-            WingName = string.Empty,
             SocietyName = string.Empty
         };
 
         // Assert
-        Assert.Equal(string.Empty, entity.WingName);
         Assert.Equal(string.Empty, entity.SocietyName);
     }
 
@@ -369,20 +344,6 @@ public class SocietyDetailsEntityComprehensiveTests
         Assert.Equal("Society Without Property", entity.SocietyName);
     }
 
-    [Fact]
-    public void SocietyDetailsEntity_WithNullWingId_WorksCorrectly()
-    {
-        // Act
-        var entity = new SocietyDetailsEntity
-        {
-            WingId = null,
-            PropertyId = 1
-        };
-
-        // Assert
-        Assert.Null(entity.WingId);
-        Assert.Equal(1, entity.PropertyId);
-    }
 
     [Fact]
     public void SocietyDetailsEntity_WithSpecialCharactersInNames_WorksCorrectly()
@@ -492,8 +453,6 @@ public class SocietyDetailsEntityComprehensiveTests
         var entity = new SocietyDetailsEntity
         {
             PropertyId = null,
-            WingId = null,
-            WingName = null,
             BuilderMobileNoRemarkId = null,
             ManagerMobileNoRemarkId = null,
             SecretaryMobileNoRemarkId = null,
@@ -502,8 +461,6 @@ public class SocietyDetailsEntityComprehensiveTests
 
         // Assert
         Assert.Null(entity.PropertyId);
-        Assert.Null(entity.WingId);
-        Assert.Null(entity.WingName);
         Assert.Null(entity.BuilderMobileNoRemarkId);
         Assert.Null(entity.ManagerMobileNoRemarkId);
         Assert.Null(entity.SecretaryMobileNoRemarkId);

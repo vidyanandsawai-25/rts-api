@@ -35,6 +35,59 @@ public class PropertySocialDetailsController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreatePropertySocialDetailsDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    /// <summary>
+    /// Creates multiple PropertySocialDetails records in a single bulk operation.
+    /// Useful when the UI needs to insert social details for multiple property IDs at once.
+    /// </summary>
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreatePropertySocialDetailsDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    /// <summary>
+    /// Creates one PropertySocialDetails record for each property in a comma-separated list of PropertyIds,
+    /// applying the same social attribute values to every property in a single bulk operation.
+    /// </summary>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     POST /api/PropertySocialDetails/Bulk/by-property-ids
+    ///     {
+    ///         "propertyIds": "101,102,103",
+    ///         "socialAttributeId": 5,
+    ///         "bitValue": true,
+    ///         "remark": "Solar installed"
+    ///     }
+    ///
+    /// The comma-separated <c>propertyIds</c> are expanded server-side into one create record per property,
+    /// then inserted through the shared bulk-create pipeline.
+    /// </remarks>
+    [HttpPost("Bulk/by-property-ids")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public Task<IActionResult> BulkCreateByPropertyIds([FromBody] BulkCreatePropertySocialDetailsByPropertyIdsDto request, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+        {
+            return Task.FromResult<IActionResult>(BadRequest(new ApiResponse<PropertySocialDetailsDto>
+            {
+                Success = false,
+                Message = "Invalid request data"
+            }));
+        }
+
+        var items = request.ToCreateDtos();
+        if (items.Count == 0)
+        {
+            return Task.FromResult<IActionResult>(BadRequest(new ApiResponse<PropertySocialDetailsDto>
+            {
+                Success = false,
+                Message = "No valid property IDs were provided."
+            }));
+        }
+
+        return this.ExecuteBulkCreate(_service, items.ToArray(), _logger, ct);
+    }
+
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertySocialDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);

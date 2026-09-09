@@ -45,6 +45,20 @@ public class PropertyMapMasterController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("mapped-new-properties")]
+    public async Task<IActionResult> GetMappedNewProperties([FromQuery] PropertyMapDetailQueryParameters queryParameters, CancellationToken ct)
+    {
+        var result = await _service.GetMappedNewPropertiesAsync(queryParameters, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("mapped-properties-society-wise")]
+    public async Task<IActionResult> GetMappedPropertiesSocietyWise([FromQuery] PropertyMapSocietyQueryParameters queryParameters, CancellationToken ct)
+    {
+        var result = await _service.GetMappedPropertiesSocietyWiseAsync(queryParameters, ct);
+        return Ok(result);
+    }
+
     /// <summary>
     /// Searches across up to 10 fields (6 old-property + 4 new-property).
     /// Returns:

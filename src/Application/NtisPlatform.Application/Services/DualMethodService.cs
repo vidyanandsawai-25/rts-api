@@ -25,6 +25,7 @@ namespace NtisPlatform.Application.Services
         private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxDetailsRVRepository;
         private readonly IRepository<TransMastOldEntity, int> _oldTaxRepository;
         private readonly IRepository<PropertyEntity, int> _propertyRepository;
+        private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<DualMethodService> _logger;
 
@@ -33,6 +34,7 @@ namespace NtisPlatform.Application.Services
             IRepository<PolicyTaxDetailsEntity, int> policyTaxDetailsRVRepository,
             IRepository<TransMastOldEntity, int> oldTaxRepository,
             IRepository<PropertyEntity, int> propertyRepository,
+            IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
             IMapper mapper,
             ILogger<DualMethodService> logger)
         {
@@ -40,6 +42,7 @@ namespace NtisPlatform.Application.Services
             _policyTaxDetailsRVRepository = policyTaxDetailsRVRepository ?? throw new ArgumentNullException(nameof(policyTaxDetailsRVRepository));
             _oldTaxRepository = oldTaxRepository ?? throw new ArgumentNullException(nameof(oldTaxRepository));
             _propertyRepository = propertyRepository ?? throw new ArgumentNullException(nameof(propertyRepository));
+            _propertyMapDetailRepository = propertyMapDetailRepository ?? throw new ArgumentNullException(nameof(propertyMapDetailRepository));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -166,14 +169,21 @@ namespace NtisPlatform.Application.Services
         {
             try
             {
-                var property = await _propertyRepository.GetQueryable()
-                    .Where(p => p.Id == propertyId && p.IsActive &&
-                        !p.MarkedForDeletion)
+                var propertyExists = await _propertyRepository.GetQueryable()
                     .AsNoTracking()
-                    .Select(p => new { p.PropertyMastOldId })
+                    .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+                if (!propertyExists)
+                    return null;
+
+                var propertyMastOldId = await _propertyMapDetailRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE" && pmd.PropertyIdOld != null)
+                    .OrderByDescending(pmd => pmd.CreatedDate).ThenByDescending(pmd => pmd.Id)
+                    .Select(pmd => pmd.PropertyIdOld!.Value)
                     .FirstOrDefaultAsync(cancellationToken);
 
-                return property?.PropertyMastOldId;
+                return propertyMastOldId > 0 ? propertyMastOldId : (int?)null;
             }
             catch (Exception ex)
             {

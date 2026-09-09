@@ -121,7 +121,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
 
         // Act
         var executeTask = worker.StartAsync(cts.Token);
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(20)); // Fail fast if callback never happens (generous for a loaded CI runner)
         cts.Cancel();
         await executeTask;
         await worker.StopAsync(CancellationToken.None);

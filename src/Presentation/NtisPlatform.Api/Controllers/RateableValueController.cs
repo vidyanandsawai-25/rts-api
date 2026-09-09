@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.RateableValue;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Application.Interfaces.RetrospectiveTax;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using System.Security.Claims;
@@ -16,18 +16,18 @@ namespace NtisPlatform.Api.Controllers
     public class RateableValueController : ControllerBase
     {
         private readonly IRateableValueService _rateableValueService;
-        private readonly IOccupationTaxService _occupationTaxService;
+        private readonly IRetrospectiveTaxCalculationEngineService _retrospectiveTaxEngine;
         private readonly IRepository<PropertyCertificateEntity, int> _certificateRepo;
         private readonly ILogger<RateableValueController> _logger;
 
         public RateableValueController(
             IRateableValueService rateableValueService,
-            IOccupationTaxService occupationTaxService,
+            IRetrospectiveTaxCalculationEngineService retrospectiveTaxEngine,
             IRepository<PropertyCertificateEntity, int> certificateRepo,
             ILogger<RateableValueController> logger)
         {
             _rateableValueService = rateableValueService;
-            _occupationTaxService = occupationTaxService;
+            _retrospectiveTaxEngine = retrospectiveTaxEngine;
             _certificateRepo = certificateRepo;
             _logger = logger;
         }
@@ -43,18 +43,18 @@ namespace NtisPlatform.Api.Controllers
                 var result = await _rateableValueService.CalculateAndSaveAsync(propertyId, forceRecalculate);
 
                 // This standalone RV recalculation endpoint is the only real-recalculation path that
-                // never otherwise reaches OccupationTaxApplicationService -- unlike the
+                // never otherwise reaches the Retrospective Rule Engine -- unlike the
                 // certificate-change pipeline (PropertyCertificateChangedEventHandler), which already
-                // calls RV-refresh-then-Occupation-Tax-apply in strict order on its own, so adding
+                // calls RV-refresh-then-retrospective-engine in strict order on its own, so adding
                 // this call there too would double-run it. Without this, CC/OC/Electric-Bill amounts
                 // (which read NETTAX rate snapshots RV just wrote) go stale until the next
                 // certificate-change event happens to fire. A failure here must not fail the RV
                 // response that already succeeded -- log and continue.
                 //
-                // Occupation Tax has nothing to compute without at least one certificate row for the
-                // property (CC/OC/Electric-Bill dates all come from PropertyCertificates), so skip the
-                // call entirely when none exist -- avoids the wasted computation/DB round-trips for
-                // properties that have no certificates at all.
+                // The retrospective engine has nothing to compute without at least one certificate
+                // row for the property (CC/OC/Electric-Bill dates all come from PropertyCertificates),
+                // so skip the call entirely when none exist -- avoids the wasted computation/DB
+                // round-trips for properties that have no certificates at all.
                 var hasCertificates = await _certificateRepo.GetQueryable()
                     .AnyAsync(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion);
 
@@ -62,17 +62,17 @@ namespace NtisPlatform.Api.Controllers
                 {
                     try
                     {
-                        await _occupationTaxService.ApplyAsync(propertyId, GetUserId());
+                        await _retrospectiveTaxEngine.CalculateAndSaveAsync(propertyId, GetUserId());
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to apply Occupation Tax after standalone RV recalculation for PropertyId={PropertyId}", propertyId);
+                        _logger.LogWarning(ex, "Failed to run the Retrospective Rule Engine after standalone RV recalculation for PropertyId={PropertyId}", propertyId);
                     }
                 }
                 else
                 {
                     _logger.LogDebug(
-                        "Skipped Occupation Tax apply for PropertyId={PropertyId}: no PropertyCertificates rows found.",
+                        "Skipped Retrospective Rule Engine for PropertyId={PropertyId}: no PropertyCertificates rows found.",
                         propertyId);
                 }
 

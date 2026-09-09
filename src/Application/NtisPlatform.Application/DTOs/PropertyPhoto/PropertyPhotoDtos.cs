@@ -40,6 +40,9 @@ public class PropertyPhotoDto
     public Guid? DocumentGuid { get; set; }
     public string? FileName { get; set; }
     public string? MimeType { get; set; }
+
+    public int? WingDetailId { get; set; }
+    public string? WingName { get; set; }
 }
 
 /// <summary>

@@ -90,13 +90,14 @@ public class PropertyMergeSingleServiceTests
 
         var properties = new List<PropertyEntity>
         {
-            new PropertyEntity { Id = 10, WardId = 1, PropertyNo = "101", PartitionNo = "A", IsActive = true, MarkedForDeletion = false, SocietyDetailId = 1 },
-            new PropertyEntity { Id = 11, WardId = 1, PropertyNo = "101", PartitionNo = "B", IsActive = true, MarkedForDeletion = false, SocietyDetailId = 1 }
+            new PropertyEntity { Id = 10, WardId = 1, PropertyNo = "101", PartitionNo = "A", IsActive = true, MarkedForDeletion = false },
+            new PropertyEntity { Id = 11, WardId = 1, PropertyNo = "101", PartitionNo = "B", IsActive = true, MarkedForDeletion = false }
         };
 
         var societies = new List<SocietyDetailsEntity>
         {
-            new SocietyDetailsEntity { Id = 1, SocietyName = "Sunrise", IsActive = true }
+            new SocietyDetailsEntity { Id = 1, PropertyId = 10, SocietyName = "Sunrise", IsActive = true },
+            new SocietyDetailsEntity { Id = 2, PropertyId = 11, SocietyName = "Sunrise", IsActive = true }
         };
 
         var wards = new List<WardEntity>

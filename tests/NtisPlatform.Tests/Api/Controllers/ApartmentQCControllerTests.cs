@@ -17,6 +17,7 @@ public class ApartmentQCControllerTests
     private readonly Mock<IApartmentQCService> _mockService;
     private readonly Mock<ICapitalValueService> _mockCapitalValueService;
     private readonly Mock<IRateableValueService> _mockRateableValueService;
+    private readonly Mock<IWingWiseDetailsService> _mockWingWiseDetailsService;
     private readonly Mock<ILogger<ApartmentQCController>> _mockLogger;
     private readonly ApartmentQCController _controller;
 
@@ -25,8 +26,22 @@ public class ApartmentQCControllerTests
         _mockService = new Mock<IApartmentQCService>();
         _mockCapitalValueService = new Mock<ICapitalValueService>();
         _mockRateableValueService = new Mock<IRateableValueService>();
+        _mockWingWiseDetailsService = new Mock<IWingWiseDetailsService>();
         _mockLogger  = new Mock<ILogger<ApartmentQCController>>();
-        _controller  = new ApartmentQCController(_mockService.Object, _mockRateableValueService.Object, _mockCapitalValueService.Object, _mockLogger.Object);
+        _controller  = new ApartmentQCController(
+            _mockService.Object,
+            _mockWingWiseDetailsService.Object,
+            _mockRateableValueService.Object,
+            _mockCapitalValueService.Object,
+            new Mock<IApartmentQcCertificateGridService>().Object,
+            new Mock<IApartmentQcSearchService>().Object,
+            new Mock<IApartmentQcTopSectionService>().Object,
+            new Mock<IApartmentQcTopSectionBelowFlexService>().Object,
+            new Mock<IApartmentTaxDetailsService>().Object,
+            new Mock<IPropertyCertificateApplicationService>().Object,
+            new Mock<NtisPlatform.Application.Interfaces.Master.ISocialAttributeService>().Object,
+            _mockLogger.Object,
+            new Mock<IGetApartmentDetailsWingWiseService>().Object);
     }
 
     private void SetAuthenticatedUser(int userId = 42)
@@ -312,6 +327,63 @@ public class ApartmentQCControllerTests
         Assert.IsType<OkObjectResult>(result);
         _mockService.Verify(
             s => s.GetFilterOptionsAsync(It.IsAny<ApartmentQCQueryParameters>(), "Wing", default),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region GetWingWiseDetails
+
+    [Fact]
+    public async Task GetWingWiseDetails_MissingWardId_ReturnsBadRequest()
+    {
+        var query = new WingWiseDetailsQueryParameters { PropertyNo = "P001" };
+
+        var result = await _controller.GetWingWiseDetails(query, default);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(bad.Value);
+        Assert.False(response.Success);
+        Assert.Contains("WardId", response.Message);
+        _mockWingWiseDetailsService.Verify(
+            s => s.GetWingWiseDetailsAsync(It.IsAny<WingWiseDetailsQueryParameters>(), default),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetWingWiseDetails_ValidParams_CallsWingWiseService()
+    {
+        var query = new WingWiseDetailsQueryParameters { WardId = 1, PropertyNo = "P001" };
+        _mockWingWiseDetailsService
+            .Setup(s => s.GetWingWiseDetailsAsync(It.IsAny<WingWiseDetailsQueryParameters>(), default))
+            .ReturnsAsync(new WingWiseDetailsResponseDto
+            {
+                PropertyId = 10,
+                PropertyNo = "P001",
+                WardNo = "W001",
+                Wings =
+                [
+                    new WingWiseDetailDto
+                    {
+                        WingNo = "A",
+                        PropertyCount = 3,
+                        TotalArea = 1200m
+                    }
+                ]
+            });
+
+        var result = await _controller.GetWingWiseDetails(query, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<WingWiseDetailsResponseDto>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Record found successfully", response.Message);
+        Assert.NotNull(response.Items);
+        Assert.Single(response.Items.Wings);
+        _mockWingWiseDetailsService.Verify(
+            s => s.GetWingWiseDetailsAsync(
+                It.Is<WingWiseDetailsQueryParameters>(q => q.WardId == 1 && q.PropertyNo == "P001"),
+                default),
             Times.Once);
     }
 

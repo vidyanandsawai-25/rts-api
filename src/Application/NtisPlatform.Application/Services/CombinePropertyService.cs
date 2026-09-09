@@ -17,7 +17,6 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
 {
     private readonly IRepository<WardEntity, int> _wardRepository;
     private readonly IRepository<TransMastEntity> _transMastRepository;
-    private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<CombinePropertyHistoryEntity> _combineHistoryRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeMasterRepository;
@@ -34,7 +33,6 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
          IRepository<PropertyEntity, int> repository,
         IRepository<WardEntity, int> wardRepository,
           IRepository<TransMastEntity> transMastRepository,
-        IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<CombinePropertyHistoryEntity> combineHistoryRepository,
          IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
          IRepository<PropertyTypeMasterEntity, int> propertyTypeMasterRepository,
@@ -51,7 +49,6 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     {
         _wardRepository = wardRepository;
         _transMastRepository = transMastRepository;
-        _taxPendingRepository = taxPendingRepository;
         _combineHistoryRepository = combineHistoryRepository;
         _propertyMastOldRepository = propertyMastOldRepository;
         _propertyTypeMasterRepository = propertyTypeMasterRepository;
@@ -115,8 +112,11 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         var hasPartitionFilter = partitionNumbers.Count > 0 || includeEmptyPartitions;
 
         var query = from pm in _repository.GetQueryable()
+                    join pmd in _propertyMapDetailRepository.GetQueryable().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE")
+                        on pm.Id equals pmd.PropertyIdNew into pmdJoin
+                    from pmd in pmdJoin.DefaultIfEmpty()
                     join pmo in _propertyMastOldRepository.GetQueryable()
-                        on pm.PropertyMastOldId equals pmo.Id into pmoJoin
+                        on (pmd != null ? pmd.PropertyIdOld : null) equals (int?)pmo.Id into pmoJoin
                     from pmo in pmoJoin.DefaultIfEmpty()
                     join ptm in _propertyTypeMasterRepository.GetQueryable()
                         on pm.PropertyTypeId equals (int?)ptm.Id into ptmJoin
@@ -201,10 +201,12 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .Select(g => new { PropertyId = g.Key, TaxAmount = g.Sum(tm => tm.TaxAmount) })
             .ToListAsync(cancellationToken);
 
-        var pendingAmounts = await _taxPendingRepository.GetQueryable()
-            .Where(tpd => propertyIds.Contains(tpd.PropertyId) && tpd.IsActive == true && !tpd.MarkedForDeletion)
+        // Migrated ULB arrears -- TransMast rows tagged PolicyCode = OLD_ARREARS.
+        var pendingAmounts = await _transMastRepository.GetQueryable()
+            .Where(tpd => propertyIds.Contains(tpd.PropertyId) && tpd.IsActive == true && !tpd.MarkedForDeletion
+                        && tpd.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(tpd => tpd.PropertyId)
-            .Select(g => new { PropertyId = g.Key, PendingAmount = g.Sum(tpd => tpd.PendingAmount ?? 0) })
+            .Select(g => new { PropertyId = g.Key, PendingAmount = g.Sum(tpd => tpd.TaxAmount) })
             .ToListAsync(cancellationToken);
 
         var taxLookup = taxAmounts.ToDictionary(x => x.PropertyId, x => x.TaxAmount);
@@ -325,7 +327,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 g.Key.PropertyNo,
                 g.Key.PartitionNo,
                 CategoryId = g.FirstOrDefault()!.CategoryId,
-                SocietyDetailId = g.FirstOrDefault()!.SocietyDetailId
+                // WingDetailId now carries the wing/building grouping that SocietyDetailId used to (PropertyMast.SocietyDetailId was removed).
+                SocietyDetailId = g.FirstOrDefault()!.WingDetailId
             });
 
         var desc = string.Equals(queryParams.SortOrder, "DESC", StringComparison.OrdinalIgnoreCase);
@@ -797,8 +800,11 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
 
         // Step 3: Get property details for the selected properties
         var propertiesQuery = from pm in _repository.GetQueryable()
+                              join pmd in _propertyMapDetailRepository.GetQueryable().Where(x => x.IsActive)
+                                  on pm.Id equals pmd.PropertyIdNew into pmdJoin
+                              from pmd in pmdJoin.DefaultIfEmpty()
                               join pmo in _propertyMastOldRepository.GetQueryable()
-                                  on pm.PropertyMastOldId equals pmo.Id into pmoJoin
+                                  on (pmd != null ? pmd.PropertyIdOld : null) equals (int?)pmo.Id into pmoJoin
                               from pmo in pmoJoin.DefaultIfEmpty()
                               join ptm in _propertyTypeMasterRepository.GetQueryable()
                                   on pm.PropertyTypeId equals (int?)ptm.Id into ptmJoin
@@ -931,9 +937,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                                     x.IsActive == true &&
                                     !x.MarkedForDeletion &&
                                     !string.IsNullOrWhiteSpace(x.PartitionNo) &&
-                                    x.SocietyDetailId.HasValue) // Must have SocietyDetailId to be considered a wing
-                        .GroupBy(x => new { x.PropertyNo, x.SocietyDetailId })
-                        .AnyAsync(g => g.Count() > 1, cancellationToken); // Multiple properties with same PropertyNo+SocietyDetailId
+                                    x.WingDetailId.HasValue) // Must have WingDetailId to be considered a wing
+                        .GroupBy(x => new { x.PropertyNo, x.WingDetailId })
+                        .AnyAsync(g => g.Count() > 1, cancellationToken); // Multiple properties with same PropertyNo+WingDetailId
                 }
 
                 if (hasWingsForProperty)
@@ -945,9 +951,10 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                     // Exclude main property (no partition) - only show wing properties
                     query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
 
-                    // Filter by SocietyDetailId (wing) for apartments to show only combinable properties
+                    // Filter by WingDetailId (wing) for apartments to show only combinable properties.
+                    // queryParams.SocietyDetailId is kept as the public field name to avoid an API contract change.
                     if (queryParams.SocietyDetailId.HasValue && !isSelectedPropertyAmenity)
-                        query = query.Where(x => x.SocietyDetailId == queryParams.SocietyDetailId);
+                        query = query.Where(x => x.WingDetailId == queryParams.SocietyDetailId);
 
                     // Mark as multi-unit apartment - skip PartitionNo filter to return all properties from the wing
                     isMultiUnitApartment = true;

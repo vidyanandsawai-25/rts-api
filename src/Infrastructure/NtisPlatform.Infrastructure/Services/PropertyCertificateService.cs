@@ -1,7 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Events;
-using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Exceptions;
@@ -17,12 +16,12 @@ namespace NtisPlatform.Infrastructure.Services;
 /// <remarks>
 /// Publishes <see cref="PropertyCertificateChangedEvent"/> after every mutation that changes a
 /// tax-relevant field (CertificateNo/IssueDate/PropertyId/PropertyDetailsId/enabled-state/deletion)
-/// so the RV-refresh-then-Occupation-Tax pipeline runs — but only when the certificate's TYPE has
-/// IsTaxable=1 (CC/OC/Electric Bill and any other type flagged taxable), regardless of which
-/// higher-level orchestration (bulk-save, the single-certificate save endpoint, or any future
+/// so the RV-refresh-then-Retrospective-Tax-Engine pipeline runs — but only when the certificate's
+/// TYPE has IsTaxable=1 (CC/OC/Electric Bill and any other type flagged taxable), regardless of
+/// which higher-level orchestration (bulk-save, the single-certificate save endpoint, or any future
 /// caller) invoked the change. IsTaxable is a separate flag from IsProtected (which only governs
 /// whether the certificate TYPE master row can be deactivated/deleted, not tax triggering) — a
-/// non-taxable type like "Possession Certificate" or "Index 2" must never re-run Occupation Tax.
+/// non-taxable type like "Possession Certificate" or "Index 2" must never re-run the tax engine.
 /// This is the one place every mutation path converges, so it's the most reliable place to
 /// guarantee the trigger actually fires for every taxable type.
 /// </remarks>
@@ -31,25 +30,23 @@ public class PropertyCertificateService : IPropertyCertificateService
     private readonly ApplicationDbContext _context;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPublisher _publisher;
-    private readonly ICertificateTaxGuidelineReaderService _guidelineReader;
 
     public PropertyCertificateService(
         ApplicationDbContext context,
         IUnitOfWork unitOfWork,
-        IPublisher publisher,
-        ICertificateTaxGuidelineReaderService guidelineReader)
+        IPublisher publisher)
     {
         _context = context;
         _unitOfWork = unitOfWork;
         _publisher = publisher;
-        _guidelineReader = guidelineReader;
     }
 
     /// <summary>
     /// True when the given certificate type is flagged IsTaxable — the only condition under
-    /// which a certificate mutation should trigger the RV-refresh-then-Occupation-Tax pipeline.
+    /// which a certificate mutation should trigger the RV-refresh-then-Retrospective-Tax-Engine
+    /// pipeline. Always recalculates for a taxable type; there is no separate on/off toggle.
     /// </summary>
-    private async Task<bool> IsTaxableCertificateTypeAsync(int certificateTypeId, CancellationToken cancellationToken)
+    private async Task<bool> ShouldRecalculateAsync(int certificateTypeId, bool isDelete, CancellationToken cancellationToken)
     {
         return await _context.PropertyCertificateTypeMasters
             .AsNoTracking()
@@ -58,38 +55,30 @@ public class PropertyCertificateService : IPropertyCertificateService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    /// <summary>
-    /// True when both the certificate type is taxable AND PTIS.CertificateTaxGuideline's
-    /// RECALCULATE_ON_CERTIFICATE_SAVE/_DELETE toggle allows recalculation for this kind of change.
-    /// </summary>
-    private async Task<bool> ShouldRecalculateAsync(int certificateTypeId, bool isDelete, CancellationToken cancellationToken)
-    {
-        if (!await IsTaxableCertificateTypeAsync(certificateTypeId, cancellationToken))
-        {
-            return false;
-        }
-
-        var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-        return isDelete ? guideline.RecalculateOnDelete : guideline.RecalculateOnSave;
-    }
-
     public async Task<int> CreateAsync(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         string? certificateNo,
         DateTime? issueDate,
         int createdBy,
         CancellationToken cancellationToken = default,
         int? propertyDetailsId = null,
-        bool suppressRecalculation = false)
+        bool suppressRecalculation = false,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
-        // Validate PropertyId exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(x => x.Id == propertyId && x.IsActive, cancellationToken);
-
-        if (!propertyExists)
+        // Validate PropertyId exists -- only meaningful when EntityType is 'P' ('S'/'W' scoped
+        // certificates have no single PropertyId to validate).
+        if (propertyId.HasValue)
         {
-            throw new PropertyNotFoundException(propertyId);
+            var propertyExists = await _context.PropertyMast
+                .AnyAsync(x => x.Id == propertyId.Value && x.IsActive, cancellationToken);
+
+            if (!propertyExists)
+            {
+                throw new PropertyNotFoundException(propertyId.Value);
+            }
         }
 
         // Validate CertificateTypeId exists
@@ -121,7 +110,10 @@ public class PropertyCertificateService : IPropertyCertificateService
             certificateTypeId,
             certificateNo,
             issueDate,
-            propertyDetailsId);
+            propertyDetailsId,
+            entityType,
+            societyDetailId,
+            wingDetailId);
 
         entity.CreatedBy = createdBy;
         entity.CreatedDate = DateTime.Now;
@@ -129,31 +121,40 @@ public class PropertyCertificateService : IPropertyCertificateService
         _context.PropertyCertificates.Add(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (!suppressRecalculation && await ShouldRecalculateAsync(certificateTypeId, isDelete: false, cancellationToken))
+        // No single PropertyId to recalculate for on a Society/Wing-scoped row -- callers that
+        // create those (EntityType 'S'/'W') resolve every member property themselves and publish
+        // one event per property (see PropertyCertificateApplicationService.SaveCertificateAsync).
+        if (propertyId.HasValue && !suppressRecalculation && await ShouldRecalculateAsync(certificateTypeId, isDelete: false, cancellationToken))
         {
-            await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId, createdBy), cancellationToken);
+            await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId.Value, createdBy), cancellationToken);
         }
 
         return entity.Id;
     }
 
     public async Task<int> CreateWithDocumentAsync(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         int documentBindingId,
         string? certificateNo,
         DateTime? issueDate,
         int createdBy,
         CancellationToken cancellationToken = default,
-        int? propertyDetailsId = null)
+        int? propertyDetailsId = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
-        // Validate PropertyId exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(x => x.Id == propertyId && x.IsActive, cancellationToken);
-
-        if (!propertyExists)
+        // Validate PropertyId exists -- only meaningful when EntityType is 'P'.
+        if (propertyId.HasValue)
         {
-            throw new PropertyNotFoundException(propertyId);
+            var propertyExists = await _context.PropertyMast
+                .AnyAsync(x => x.Id == propertyId.Value && x.IsActive, cancellationToken);
+
+            if (!propertyExists)
+            {
+                throw new PropertyNotFoundException(propertyId.Value);
+            }
         }
 
         // Validate CertificateTypeId exists
@@ -186,7 +187,10 @@ public class PropertyCertificateService : IPropertyCertificateService
             documentBindingId,
             certificateNo,
             issueDate,
-            propertyDetailsId);
+            propertyDetailsId,
+            entityType,
+            societyDetailId,
+            wingDetailId);
 
         entity.CreatedBy = createdBy;
         entity.CreatedDate = DateTime.Now;
@@ -194,9 +198,9 @@ public class PropertyCertificateService : IPropertyCertificateService
         _context.PropertyCertificates.Add(entity);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (await ShouldRecalculateAsync(certificateTypeId, isDelete: false, cancellationToken))
+        if (propertyId.HasValue && await ShouldRecalculateAsync(certificateTypeId, isDelete: false, cancellationToken))
         {
-            await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId, createdBy), cancellationToken);
+            await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId.Value, createdBy), cancellationToken);
         }
 
         return entity.Id;
@@ -356,9 +360,11 @@ public class PropertyCertificateService : IPropertyCertificateService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (!suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: false, cancellationToken))
+        // See CreateAsync's note: a Society/Wing-scoped row has no single PropertyId to
+        // recalculate for, so it's skipped here -- the caller resolves member properties itself.
+        if (entity.PropertyId.HasValue && !suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: false, cancellationToken))
         {
-            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId, updatedBy), cancellationToken);
+            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId.Value, updatedBy), cancellationToken);
         }
     }
 
@@ -392,10 +398,11 @@ public class PropertyCertificateService : IPropertyCertificateService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Enabling behaves like a save (RECALCULATE_ON_CERTIFICATE_SAVE); disabling removes the
-        // certificate from tax consideration, so it's gated the same as a delete.
-        if (!suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: !isEnabled, cancellationToken))
+        // certificate from tax consideration, so it's gated the same as a delete. See CreateAsync's
+        // note on why a null PropertyId (Society/Wing scope) skips auto-publish here.
+        if (entity.PropertyId.HasValue && !suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: !isEnabled, cancellationToken))
         {
-            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId, updatedBy), cancellationToken);
+            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId.Value, updatedBy), cancellationToken);
         }
     }
 
@@ -419,9 +426,10 @@ public class PropertyCertificateService : IPropertyCertificateService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (!suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: true, cancellationToken))
+        // See CreateAsync's note on why a null PropertyId (Society/Wing scope) skips auto-publish.
+        if (entity.PropertyId.HasValue && !suppressRecalculation && await ShouldRecalculateAsync(entity.CertificateTypeId, isDelete: true, cancellationToken))
         {
-            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId, deletedBy), cancellationToken);
+            await _publisher.Publish(new PropertyCertificateChangedEvent(entity.PropertyId.Value, deletedBy), cancellationToken);
         }
     }
 

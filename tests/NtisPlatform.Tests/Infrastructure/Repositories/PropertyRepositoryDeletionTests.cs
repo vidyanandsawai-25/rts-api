@@ -346,29 +346,10 @@ public class PropertyRepositoryDeletionTests
         Assert.Equal(2, result.Count);
     }
 
-    [Fact]
-    public async Task GetRelatedEntitiesForDeletionAsync_IncludesTaxPendingEntities()
-    {
-        // Arrange
-        using var context = CreateInMemoryContext();
-        var propertyId = 1;
-
-        // Add tax pending entities
-        context.TaxPendingDetails.Add(new TaxPendingDetailsEntity { Id = 1, PropertyId = propertyId, IsActive = true, MarkedForDeletion = false });
-        context.TaxPendingDetailsRV.Add(new TaxPendingDetailsRVEntity { Id = 1, PropertyId = propertyId, IsActive = true, MarkedForDeletion = false });
-        context.TaxPendingDetailsCV.Add(new TaxPendingDetailsCVEntity { Id = 1, PropertyId = propertyId, IsActive = true, MarkedForDeletion = false });
-
-        await context.SaveChangesAsync();
-
-        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
-
-        // Act
-        var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(3, result.Count);
-    }
+    // GetRelatedEntitiesForDeletionAsync_IncludesTaxPendingEntities was removed: TaxPendingDetails/
+    // TaxPendingDetailsRV/TaxPendingDetailsCV no longer exist -- migrated demand now lives in
+    // TransMast (PolicyCode = OLD_ARREARS), which the cascade already covers via its own TransMast
+    // query, so there is nothing left to test here.
 
     [Fact]
     public async Task GetRelatedEntitiesForDeletionAsync_IncludesPropertyAssessmentEntities()

@@ -103,6 +103,60 @@ public class PropertyCertificateControllerTests
 
     #endregion
 
+    #region GetSocietyWingCertificateTypesWithStatus
+
+    [Fact]
+    public async Task GetSocietyWingCertificateTypesWithStatus_ReturnsBadRequest_WhenBothParametersNull()
+    {
+        var controller = Create(out _);
+
+        var result = await controller.GetSocietyWingCertificateTypesWithStatus(null, null, CancellationToken.None);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.NotNull(badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task GetSocietyWingCertificateTypesWithStatus_ReturnsOk_WhenSocietyDetailIdProvided()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.GetSocietyOrWingCertificateTypesWithStatusAsync(101, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateWithStatusDto>());
+
+        var result = await controller.GetSocietyWingCertificateTypesWithStatus(101, null, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        service.Verify(s => s.GetSocietyOrWingCertificateTypesWithStatusAsync(101, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSocietyWingCertificateTypesWithStatus_ReturnsOk_WhenWingDetailIdProvided()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.GetSocietyOrWingCertificateTypesWithStatusAsync(null, 202, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateWithStatusDto>());
+
+        var result = await controller.GetSocietyWingCertificateTypesWithStatus(null, 202, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        service.Verify(s => s.GetSocietyOrWingCertificateTypesWithStatusAsync(null, 202, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetSocietyWingCertificateTypesWithStatus_Returns500_OnException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.GetSocietyOrWingCertificateTypesWithStatusAsync(It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("error"));
+
+        var result = await controller.GetSocietyWingCertificateTypesWithStatus(101, null, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    #endregion
+
     #region BulkSaveAll
 
     [Fact]
