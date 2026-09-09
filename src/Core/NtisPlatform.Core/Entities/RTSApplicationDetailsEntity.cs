@@ -24,6 +24,7 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public DateTime? MarkedForDeletionDate { get; set; }
     public virtual RTSDepartmentEntity Department { get; set; } = null!;
     public virtual RTSServiceEntity Service { get; set; } = null!;
+    public virtual RTSCitizenSessionEntity CitizenSession { get; set; } = null!;
     public virtual UserEntity User { get; set; } = null!;
     public virtual List<RTSFieldValueEntity> FieldValueData { get; set; } = new List<RTSFieldValueEntity>();
     public virtual List<TrackApplicationHistoryEntity> TrackApplicationHistory { get; set; } = new List<TrackApplicationHistoryEntity>();
