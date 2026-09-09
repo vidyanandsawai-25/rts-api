@@ -14,6 +14,8 @@ public class RTSApplicationViewDetailsDto
     public string? DepartmentName { get; set; }
     public string? ApplicationStatus { get; set; }
     public string? Remark { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
+    public byte CertificateType { get; set; } = 1;
     public List<ApplicationDocumentDto> Documents { get; set; } = new();
     public List<ApplicationFieldValueDto> ApplicationDetails { get; set; } = new();
 }
