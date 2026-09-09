@@ -387,8 +387,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 DepartmentName = x.Department != null ? x.Department.DepartmentName : null,
                 ApplicationStatus = x.ApplicationStatus,
                 Remark = x.Remark,
-                IsCertificateRequired = x.Service == null || x.Service.IsCertificateRequired,
-                CertificateType = x.Service != null ? (byte)x.Service.CertificateType : (byte)1,
+                IsCertificateRequired = x.Service != null && x.Service.IsCertificateRequired,
+                CertificateType = x.Service != null ? (byte)x.Service.CertificateType : (byte)0,
                 Documents = x.FieldValueData
                     .Where(fv =>
                         !fv.MarkedForDeletion &&
