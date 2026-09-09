@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -31,6 +31,5 @@ public class RTSApplicationQueryParameters:BaseQueryParameters
     public string? ApplicantName { get; set; }
     [Sortable]
     public DateTime? UpdatedDate { get; set; }
-    
 
 }
