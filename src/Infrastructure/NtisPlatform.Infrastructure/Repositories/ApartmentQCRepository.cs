@@ -190,6 +190,102 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         ).FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<string>> GetDistinctPlanTypesAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var property = await _context.PropertyMast
+            .AsNoTracking()
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.WingDetailId, p.Type })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property is null)
+            return Array.Empty<string>();
+
+        var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(property.Type))
+            types.Add(property.Type!.Trim());
+
+        // Not every property is linked to a wing/society (e.g. standalone plots) — in that
+        // case the property's own Type above is all we have; there is no society to scan.
+        if (property.WingDetailId is int wingDetailId)
+        {
+            var societyId = await _context.WingDetailsMast
+                .AsNoTracking()
+                .Where(w => w.Id == wingDetailId && w.IsActive && !w.MarkedForDeletion)
+                .Select(w => (int?)w.SocietyDetailsMastId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (societyId is not null)
+            {
+                var wingIdsInSociety = _context.WingDetailsMast
+                    .AsNoTracking()
+                    .Where(w => w.SocietyDetailsMastId == societyId.Value && w.IsActive && !w.MarkedForDeletion)
+                    .Select(w => w.Id);
+
+                var societyTypes = await _context.PropertyMast
+                    .AsNoTracking()
+                    .Where(p => p.IsActive && !p.MarkedForDeletion
+                             && p.WingDetailId != null
+                             && wingIdsInSociety.Contains(p.WingDetailId.Value)
+                             && p.Type != null && p.Type.Trim() != "")
+                    .Select(p => p.Type!.Trim())
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                foreach (var societyType in societyTypes)
+                    types.Add(societyType);
+            }
+        }
+
+        return SortPlanTypesNaturally(types);
+    }
+
+    // Values are short type codes, mostly numeric ("1".."9"). Compares numerically when both
+    // sides parse as int, otherwise falls back to ordinal string comparison.
+    private static List<string> SortPlanTypesNaturally(IEnumerable<string> types) =>
+        types
+            .OrderBy(t => t, Comparer<string>.Create((a, b) =>
+                int.TryParse(a, out var ai) && int.TryParse(b, out var bi)
+                    ? ai.CompareTo(bi)
+                    : string.CompareOrdinal(a, b)))
+            .ToList();
+
+    public async Task<int> GetNextPlanTypeAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var types = await GetDistinctPlanTypesAsync(propertyId, cancellationToken);
+
+        var maxType = types
+            .Select(t => int.TryParse(t, out var value) ? (int?)value : null)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return maxType + 1;
+    }
+
+    public async Task<bool> PreparePlanTypeSaveAsync(
+        int propertyId,
+        string type,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var property = await _context.PropertyMast
+            .FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+
+        if (property == null)
+            return false;
+
+        property.Type       = type;
+        property.UpdatedBy  = updatedBy;
+        property.UpdatedDate = DateTime.Now;
+        return true;
+    }
+
     // ──────────────────────── FK EXISTENCE CHECKS ──────────────────────────
 
     public Task<bool> PropertyExistsAsync(int propertyId, CancellationToken cancellationToken = default)

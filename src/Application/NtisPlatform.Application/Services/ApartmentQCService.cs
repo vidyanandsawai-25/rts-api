@@ -89,6 +89,61 @@ public class ApartmentQCService : IApartmentQCService
         CancellationToken cancellationToken = default)
         => _repository.GetOldPropertyDataByNoAsync(oldPropertyNo, cancellationToken);
 
+    public Task<IReadOnlyList<string>> GetPlanTypesAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+        => _repository.GetDistinctPlanTypesAsync(propertyId, cancellationToken);
+
+    public Task<int> GetNextPlanTypeAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+        => _repository.GetNextPlanTypeAsync(propertyId, cancellationToken);
+
+    public async Task<SavePlanTypeOutcome> SavePlanTypeAsync(
+        int propertyId,
+        string type,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(type))
+            return SavePlanTypeOutcome.InvalidType;
+
+        var trimmedType = type.Trim();
+
+        // Compute nextType from the same existingTypes snapshot instead of calling
+        // GetNextPlanTypeAsync (which would re-run GetDistinctPlanTypesAsync internally).
+        var existingTypes = await _repository.GetDistinctPlanTypesAsync(propertyId, cancellationToken);
+        var nextType       = ComputeNextPlanType(existingTypes);
+
+        var isExistingType = existingTypes.Contains(trimmedType, StringComparer.OrdinalIgnoreCase);
+        var isNextType      = trimmedType == nextType.ToString();
+
+        if (!isExistingType && !isNextType)
+            return SavePlanTypeOutcome.InvalidType;
+
+        var saved = await _repository.PreparePlanTypeSaveAsync(propertyId, trimmedType, updatedBy, cancellationToken);
+        if (!saved)
+            return SavePlanTypeOutcome.PropertyNotFound;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return SavePlanTypeOutcome.Success;
+    }
+
+    // Mirrors ApartmentQCRepository.GetNextPlanTypeAsync's rule (max numeric type + 1) so
+    // SavePlanTypeAsync can validate against an already-loaded types snapshot without a
+    // second repository round-trip.
+    private static int ComputeNextPlanType(IReadOnlyList<string> existingTypes)
+    {
+        var maxType = existingTypes
+            .Select(t => int.TryParse(t, out var value) ? (int?)value : null)
+            .Where(value => value.HasValue)
+            .Select(value => value!.Value)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return maxType + 1;
+    }
+
     public async Task<byte[]> ExportToExcelAsync(
         ApartmentQCQueryParameters query,
         ApartmentQCResultType resultType = ApartmentQCResultType.Dual,
