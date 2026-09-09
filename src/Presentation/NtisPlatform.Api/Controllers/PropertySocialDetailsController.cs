@@ -35,32 +35,6 @@ public class PropertySocialDetailsController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreatePropertySocialDetailsDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
-    /// <summary>
-    /// Creates multiple PropertySocialDetails records in a single bulk operation.
-    /// Useful when the UI needs to insert social details for multiple property IDs at once.
-    /// </summary>
-    [HttpPost("Bulk")]
-    public Task<IActionResult> BulkCreate([FromBody] CreatePropertySocialDetailsDto[] items, CancellationToken ct)
-        => this.ExecuteBulkCreate(_service, items, _logger, ct);
-
-    /// <summary>
-    /// Creates one PropertySocialDetails record for each property in a comma-separated list of PropertyIds,
-    /// applying the same social attribute values to every property in a single bulk operation.
-    /// </summary>
-    /// <remarks>
-    /// Sample request:
-    ///
-    ///     POST /api/PropertySocialDetails/Bulk/by-property-ids
-    ///     {
-    ///         "propertyIds": "101,102,103",
-    ///         "socialAttributeId": 5,
-    ///         "bitValue": true,
-    ///         "remark": "Solar installed"
-    ///     }
-    ///
-    /// The comma-separated <c>propertyIds</c> are expanded server-side into one create record per property,
-    /// then inserted through the shared bulk-create pipeline.
-    /// </remarks>
     [HttpPost("Bulk/by-property-ids")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -92,6 +66,65 @@ public class PropertySocialDetailsController : ControllerBase
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertySocialDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
+    /// <summary>
+    /// Retrieves PropertySocialDetails records filtered by SocialAttributeId, SocietyDetailId or WingDetailId.
+    /// The response is enriched with the DocumentGuid resolved by joining CORE.DocumentBinding and CORE.Document.
+    /// At least one of the filter parameters must be provided.
+    /// </summary>
+    /// <param name="socialAttributeId">Optional social attribute id filter.</param>
+    /// <param name="societyDetailId">Optional society detail id filter.</param>
+    /// <param name="wingDetailId">Optional wing detail id filter.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The matching social-detail records with their DocumentGuid.</returns>
+    [HttpGet("by-filters")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertySocialDetailsDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetByFilters(
+        [FromQuery] int? socialAttributeId,
+        [FromQuery] int? societyDetailId,
+        [FromQuery] int? wingDetailId,
+        CancellationToken ct)
+    {
+        if (socialAttributeId is null && societyDetailId is null && wingDetailId is null)
+        {
+            return BadRequest(new ApiResponse<List<PropertySocialDetailsDto>>
+            {
+                Success = false,
+                Message = "At least one of socialAttributeId, societyDetailId or wingDetailId must be provided."
+            });
+        }
+
+        try
+        {
+            var result = await _service.GetByFiltersAsync(socialAttributeId, societyDetailId, wingDetailId, ct);
+
+            return Ok(new ApiResponse<List<PropertySocialDetailsDto>>
+            {
+                Success = true,
+                Message = "Property social details retrieved successfully",
+                Items = result
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (NtisPlatform.Application.Exceptions.ValidationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving property social details for socialAttributeId: {SocialAttributeId}, societyDetailId: {SocietyDetailId}, wingDetailId: {WingDetailId}", socialAttributeId, societyDetailId, wingDetailId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<List<PropertySocialDetailsDto>>
+            {
+                Success = false,
+                Message = "An error occurred while retrieving property social details"
+            });
+        }
+    }
+
 
     [HttpDelete]
     public async Task<IActionResult> DeleteByPropertyAndAttribute([FromQuery] int propertyId, [FromQuery] int socialAttributeId, CancellationToken ct)
@@ -121,50 +154,7 @@ public class PropertySocialDetailsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Gets comprehensive social information for a property including ALL social attributes 
-    /// in parent-child hierarchy with existing values and empty attributes.
-    /// </summary>
-    /// <param name="propertyId">The property ID to get social information for</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>Complete social attribute hierarchy with current values</returns>
-    /// <response code="200">Returns all social attributes with values</response>
-    /// <response code="500">If an error occurs</response>
-    /// <remarks>
-    /// This endpoint returns:
-    /// - ALL active social attributes from SocialAttributeMaster
-    /// - Parent-child hierarchy (e.g., HAS_SOLAR ? NO_OF_SOLAR)
-    /// - Current values from PropertySocialDetails if they exist
-    /// - Empty/null values for attributes not yet saved
-    /// 
-    /// Sample response structure:
-    /// 
-    ///     {
-    ///       "propertyId": 123,
-    ///       "socialAttributes": [
-    ///         {
-    ///           "id": 5,
-    ///           "socialAttributeCode": "HAS_SOLAR",
-    ///           "socialAttributeName": "Solar Installed",
-    ///           "dataType": "BIT",
-    ///           "bitValue": true,
-    ///           "propertySocialDetailId": 100,
-    ///           "children": [
-    ///             {
-    ///               "id": 6,
-    ///               "socialAttributeCode": "NO_OF_SOLAR",
-    ///               "socialAttributeName": "Number Of Solar Units",
-    ///               "dataType": "INT",
-    ///               "intValue": 10,
-    ///               "propertySocialDetailId": 101,
-    ///               "isRequiredWhenParentTrue": true,
-    ///               "children": []
-    ///             }
-    ///           ]
-    ///         }
-    ///       ]
-    ///     }
-    /// </remarks>
+    
     [HttpGet("property/{propertyId}/social-info")]
     [ProducesResponseType(typeof(ApiResponse<PropertySocialInfoResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

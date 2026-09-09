@@ -38,4 +38,4 @@ namespace NtisPlatform.Api.Controllers
         }
  
     }
-}
+} 
