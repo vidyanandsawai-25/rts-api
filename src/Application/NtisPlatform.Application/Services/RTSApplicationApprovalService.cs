@@ -116,7 +116,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
-        if (!string.IsNullOrEmpty(queryParameters.ApplicationStatus) &&!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
+        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
@@ -193,8 +193,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceId = x.ServiceId,
                 ApplicationNo = x.ApplicationNo,
                 ApplicationStatus = x.ApplicationStatus,
-                CreatedDate = x.CreatedDate,
-                UpdatedDate = x.UpdatedDate,
+                ApplicantName = x.ApplicantName,
+                PropertyNo=x.CitizenSession.PropertyNo,
+                UpicId=x.CitizenSession.Upic,
                 SessionId = x.SessionId,
                 OwnerId = x.OwnerId,
                 DepartmentName = x.Department.DepartmentName,
@@ -203,10 +204,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceNameLocal = x.Service.ServiceNameLocal,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
-                ApplicantName = x.ApplicantName,
                 ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
+                CreatedDate = x.CreatedDate,
+                UpdatedDate = x.UpdatedDate
 
             }).ToListAsync(cancellationToken);
 

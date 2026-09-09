@@ -6115,7 +6115,7 @@ public class ApplicationDbContext : DbContext
                 .HasDefaultValueSql("GETDATE()");
 
             entity.Property(e => e.LastActivityTime)
-                .HasColumnType("datetime");
+                .HasColumnType("datetime"); 
 
             entity.Property(e => e.LogoutTime)
                 .HasColumnType("datetime");
@@ -6243,7 +6243,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne<RTSCitizenSessionEntity>()
+            entity.HasOne(e => e.CitizenSession)
                 .WithMany()
                 .HasForeignKey(e => e.SessionId)
                 .HasPrincipalKey(e => e.SessionId)
