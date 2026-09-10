@@ -6115,7 +6115,7 @@ public class ApplicationDbContext : DbContext
                 .HasDefaultValueSql("GETDATE()");
 
             entity.Property(e => e.LastActivityTime)
-                .HasColumnType("datetime"); 
+                .HasColumnType("datetime");
 
             entity.Property(e => e.LogoutTime)
                 .HasColumnType("datetime");
