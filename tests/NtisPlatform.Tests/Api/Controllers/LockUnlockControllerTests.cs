@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.LockUnlock;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using System.IO;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Hosting;
 
@@ -14,6 +17,8 @@ namespace NtisPlatform.Tests.Api.Controllers;
 public class LockUnlockControllerTests
 {
     private readonly Mock<ILockUnlockService> _mockService;
+    private readonly Mock<IPropertyLockExcelService> _mockExcelService;
+    private readonly FileValidationHelper _fileValidationHelper;
     private readonly Mock<ILogger<LockUnlockController>> _mockLogger;
     private readonly Mock<IWebHostEnvironment> _mockEnvironment;
     private readonly LockUnlockController _controller;
@@ -21,12 +26,16 @@ public class LockUnlockControllerTests
     public LockUnlockControllerTests()
     {
         _mockService = new Mock<ILockUnlockService>();
+        _mockExcelService = new Mock<IPropertyLockExcelService>();
+        _fileValidationHelper = new FileValidationHelper(new ConfigurationBuilder().Build());
         _mockLogger = new Mock<ILogger<LockUnlockController>>();
         _mockEnvironment = new Mock<IWebHostEnvironment>();
         _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Development");
 
         _controller = new LockUnlockController(
             _mockService.Object,
+            _mockExcelService.Object,
+            _fileValidationHelper,
             _mockLogger.Object,
             _mockEnvironment.Object);
 
@@ -163,6 +172,8 @@ public class LockUnlockControllerTests
         _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Production");
         var controller = new LockUnlockController(
             _mockService.Object,
+            _mockExcelService.Object,
+            _fileValidationHelper,
             _mockLogger.Object,
             _mockEnvironment.Object);
         controller.ControllerContext = _controller.ControllerContext;
@@ -656,4 +667,109 @@ public class LockUnlockControllerTests
     }
 
     #endregion
+
+    #region SearchByExcel Tests
+
+    [Fact]
+    public async Task GetPropertiesByExcel_ReturnsBadRequest_WhenRequestIsNull()
+    {
+        // Act
+        var result = await _controller.GetPropertiesByExcel(null!, CancellationToken.None);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("File is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task GetPropertiesByExcel_ReturnsBadRequest_WhenFileIsEmpty()
+    {
+        // Arrange
+        var mockFile = new Mock<IFormFile>();
+        mockFile.Setup(f => f.Length).Returns(0);
+        mockFile.Setup(f => f.FileName).Returns("empty.xlsx");
+
+        var request = new SearchByExcelFileRequestDto { File = mockFile.Object };
+
+        // Act
+        var result = await _controller.GetPropertiesByExcel(request, CancellationToken.None);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("File is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task GetPropertiesByExcel_ReturnsOkResult_WhenValidExcelProvided()
+    {
+        // Arrange
+        var mockFile = new Mock<IFormFile>();
+        mockFile.Setup(f => f.Length).Returns(2048);
+        mockFile.Setup(f => f.FileName).Returns("properties.xlsx");
+        mockFile.Setup(f => f.ContentType).Returns("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        mockFile.Setup(f => f.OpenReadStream()).Returns(new MemoryStream());
+
+        var request = new SearchByExcelFileRequestDto
+        {
+            File = mockFile.Object,
+            PageNumber = 1,
+            PageSize = 10,
+            SearchTerm = "NK1-2"
+        };
+
+        var properties = new List<PropertyLockRowDto>
+        {
+            new() { PropertyId = 1, WardNo = "NK1", PropertyNo = "2", PartitionNo = "", Property = "NK1-2", IsLocked = true }
+        };
+        var pagedResult = new PropertyLockExcelPagedResultDto(properties, 1, 1, 10, 0);
+
+        _mockExcelService.Setup(s => s.GetPropertyLocksByExcelFileAsync(
+                It.IsAny<Stream>(), 1, 10, "NK1-2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.GetPropertiesByExcel(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<PropertyLockExcelPagedResultDto>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.NotNull(apiResponse.Items);
+        Assert.Equal(1, apiResponse.Items.TotalCount);
+        Assert.Single(apiResponse.Items.Items);
+        Assert.Equal("NK1-2", apiResponse.Items.Items.First().Property);
+    }
+
+    [Fact]
+    public async Task GetPropertiesByExcel_ReturnsBadRequest_WhenServiceThrowsArgumentException()
+    {
+        // Arrange
+        var mockFile = new Mock<IFormFile>();
+        mockFile.Setup(f => f.Length).Returns(2048);
+        mockFile.Setup(f => f.FileName).Returns("properties.xlsx");
+        mockFile.Setup(f => f.ContentType).Returns("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        mockFile.Setup(f => f.OpenReadStream()).Returns(new MemoryStream());
+
+        var request = new SearchByExcelFileRequestDto { File = mockFile.Object };
+
+        _mockExcelService.Setup(s => s.GetPropertyLocksByExcelFileAsync(
+                It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("Missing required column(s): ZoneNo."));
+
+        // Act
+        var result = await _controller.GetPropertiesByExcel(request, CancellationToken.None);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("Missing required column(s): ZoneNo.", apiResponse.Message);
+    }
+
+    #endregion
 }
+

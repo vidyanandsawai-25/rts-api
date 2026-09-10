@@ -339,6 +339,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
+        services.AddScoped<IPropertyLockExcelService, PropertyLockExcelService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
         services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
         services.AddScoped<IInventoryDocumentApplicationService, InventoryDocumentApplicationService>();
