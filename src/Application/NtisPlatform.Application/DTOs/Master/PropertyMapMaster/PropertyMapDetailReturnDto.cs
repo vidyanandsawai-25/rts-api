@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NtisPlatform.Application.DTOs.Property.ApartmentQC;
 using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.DTOs.Master.PropertyMapMaster;
@@ -70,6 +71,9 @@ public class PropertyMapDetailReturnDto
     public string? OldFlatOrShopNumber { get; set; }
     public string? OldWing { get; set; }
     public string? OldMobileNo { get; set; }
+    public Guid? PropertyPhotoDocumentGuid { get; set; }
+    public Guid? PlanPhotoDocumentGuid { get; set; }
+    public List<PropertyPhotoDocumentDto> Photos { get; set; } = new();
     public List<PropertyDetailsOldDto> PropertyDetailsOld { get; set; } = new();
 
     // ── New Property Info (PropertyEntity / PropertyMast) ────────────────────

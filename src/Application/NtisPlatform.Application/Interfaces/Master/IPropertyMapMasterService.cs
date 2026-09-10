@@ -11,7 +11,10 @@ public interface IPropertyMapMasterService : ICommonCrudService<PropertyMapMaste
     Task<PagedResult<PropertyMapDetailReturnDto>> GetMappedPropertiesAsync(PropertyMapDetailQueryParameters queryParams, CancellationToken cancellationToken = default);
 
     /// <summary>Returns a paged list of mapped new properties (New Survey details) based on Old PropertyId.</summary>
-    Task<PagedResult<NewSurveyPropertyDto>> GetMappedNewPropertiesAsync(PropertyMapDetailQueryParameters queryParams, CancellationToken cancellationToken = default);
+    Task<PagedResult<NewSurveyPropertyDto>> GetMappedNewPropertiesAsync(MappedNewPropertyQueryParameters queryParams, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns a paged list of mapped old properties (Old Survey details) merged to a New PropertyId.</summary>
+    Task<PagedResult<OldSurveyPropertyDto>> GetMappedOldPropertiesAsync(MappedOldPropertyQueryParameters queryParams, CancellationToken cancellationToken = default);
 
     /// <summary>Returns a paged list of mapped old→new property pairs filtered society-wise or wing-wise.</summary>
     Task<PagedResult<PropertyMapSocietyReturnDto>> GetMappedPropertiesSocietyWiseAsync(PropertyMapSocietyQueryParameters queryParams, CancellationToken cancellationToken = default);

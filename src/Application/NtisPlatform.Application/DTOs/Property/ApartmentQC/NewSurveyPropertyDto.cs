@@ -10,6 +10,7 @@ public class NewSurveyPropertyDto
     public int? TaxZoneId { get; set; }
     public string? ZoneNo { get; set; }
     public string PropertyNo { get; set; } = string.Empty;
+    public string? PartitionNo { get; set; }
     public int? WardId { get; set; }
     public string? WardNo { get; set; }
     public string? MobileNo { get; set; }

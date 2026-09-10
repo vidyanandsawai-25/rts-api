@@ -46,9 +46,16 @@ public class PropertyMapMasterController : ControllerBase
     }
 
     [HttpGet("mapped-new-properties")]
-    public async Task<IActionResult> GetMappedNewProperties([FromQuery] PropertyMapDetailQueryParameters queryParameters, CancellationToken ct)
+    public async Task<IActionResult> GetMappedNewProperties([FromQuery] MappedNewPropertyQueryParameters queryParameters, CancellationToken ct)
     {
         var result = await _service.GetMappedNewPropertiesAsync(queryParameters, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("mapped-old-properties")]
+    public async Task<IActionResult> GetMappedOldProperties([FromQuery] MappedOldPropertyQueryParameters queryParameters, CancellationToken ct)
+    {
+        var result = await _service.GetMappedOldPropertiesAsync(queryParameters, ct);
         return Ok(result);
     }
 

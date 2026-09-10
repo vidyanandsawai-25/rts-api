@@ -103,7 +103,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                 : new Dictionary<int, PropertyEntity>();
 
             var pmoMap = pmoIds.Any()
-                ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+                ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive && !x.MarkedForDeletion).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
                 : new Dictionary<int, PropertyMastOldEntity>();
 
             rawItems = pagedPmds.Select(pmd =>
@@ -254,38 +254,57 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
     /// Excludes old property details and old trans mast records.
     /// </summary>
     public async Task<PagedResult<NewSurveyPropertyDto>> GetMappedNewPropertiesAsync(
-        PropertyMapDetailQueryParameters queryParams,
+        MappedNewPropertyQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
         var oldPropertyId = queryParams.OldPropertyId ?? queryParams.PropertyId;
 
-        var pmdQuery = _propertyMapDetailRepository.GetQueryable().AsNoTracking()
-            .Where(x => x.IsActive && x.PropertyIdNew.HasValue && x.PropertyIdOld.HasValue);
+        var pmQuery = _propertyRepository.GetQueryable().AsNoTracking()
+            .Where(pm => pm.IsActive && !pm.MarkedForDeletion);
+
+        var pmdQuery = from pmd in _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+                       where pmd.IsActive && pmd.PropertyIdNew.HasValue && pmd.PropertyIdOld.HasValue
+                       join pm in pmQuery on pmd.PropertyIdNew!.Value equals pm.Id
+                       select pmd;
 
         if (oldPropertyId.HasValue)
         {
             pmdQuery = pmdQuery.Where(x => x.PropertyIdOld == oldPropertyId.Value);
         }
 
-        int totalCount = await pmdQuery.CountAsync(cancellationToken);
+        var distinctNewPropQuery = pmdQuery
+            .GroupBy(x => x.PropertyIdNew!.Value)
+            .Select(g => new
+            {
+                PropertyId = g.Key,
+                FirstDetailId = g.Min(x => x.Id)
+            });
+
+        int totalCount = await distinctNewPropQuery.CountAsync(cancellationToken);
         if (totalCount == 0)
         {
             return new PagedResult<NewSurveyPropertyDto>(new List<NewSurveyPropertyDto>(), 0, queryParams.PageNumber, queryParams.PageSize);
         }
 
-        IQueryable<PropertyMapDetailEntity> pagedPmdQuery = pmdQuery.OrderBy(x => x.Id);
+        IQueryable<int> mappedPropertyIdsQuery = distinctNewPropQuery
+            .OrderBy(x => x.FirstDetailId)
+            .Select(x => x.PropertyId);
+
         if (queryParams.PageSize != -1)
         {
-            pagedPmdQuery = pagedPmdQuery.Skip((queryParams.PageNumber - 1) * queryParams.PageSize).Take(queryParams.PageSize);
+            mappedPropertyIdsQuery = mappedPropertyIdsQuery
+                .Skip((queryParams.PageNumber - 1) * queryParams.PageSize)
+                .Take(queryParams.PageSize);
         }
 
-        var mappedPropertyIds = await pagedPmdQuery.Select(x => x.PropertyIdNew!.Value).ToListAsync(cancellationToken);
+        var mappedPropertyIds = await mappedPropertyIdsQuery.ToListAsync(cancellationToken);
         if (mappedPropertyIds.Count == 0)
         {
             return new PagedResult<NewSurveyPropertyDto>(new List<NewSurveyPropertyDto>(), totalCount, queryParams.PageNumber, queryParams.PageSize);
         }
 
-        var sp = _serviceProvider;
+        using var scope = _serviceProvider?.CreateScope();
+        var sp = scope?.ServiceProvider ?? _serviceProvider;
         var ptmRepo = sp?.GetService<IRepository<PropertyTypeMasterEntity, int>>();
         var ptmList = ptmRepo != null ? await ptmRepo.GetQueryable().AsNoTracking().ToListAsync(cancellationToken) : new List<PropertyTypeMasterEntity>();
         var ptmDict = ptmList.ToDictionary(x => x.Id);
@@ -639,6 +658,153 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
     }
 
     /// <summary>
+    /// Returns a paged list of mapped old properties (Old Survey details) merged to a New PropertyId.
+    /// </summary>
+    public async Task<PagedResult<OldSurveyPropertyDto>> GetMappedOldPropertiesAsync(
+        MappedOldPropertyQueryParameters queryParams,
+        CancellationToken cancellationToken = default)
+    {
+        var newPropertyId = queryParams.PropertyId ?? queryParams.NewPropertyId;
+
+        var pmoQuery = _propertyMastOldRepository.GetQueryable().AsNoTracking()
+            .Where(pmo => pmo.IsActive && !pmo.MarkedForDeletion);
+
+        var pmdQuery = from pmd in _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+                       where pmd.IsActive && pmd.PropertyIdNew.HasValue && pmd.PropertyIdOld.HasValue
+                       join pmo in pmoQuery on pmd.PropertyIdOld!.Value equals pmo.Id
+                       select pmd;
+
+        if (newPropertyId.HasValue)
+        {
+            pmdQuery = pmdQuery.Where(x => x.PropertyIdNew == newPropertyId.Value);
+        }
+
+        var distinctOldPropQuery = pmdQuery
+            .GroupBy(x => x.PropertyIdOld!.Value)
+            .Select(g => new
+            {
+                PropertyId = g.Key,
+                FirstDetailId = g.Min(x => x.Id)
+            });
+
+        int totalCount = await distinctOldPropQuery.CountAsync(cancellationToken);
+        if (totalCount == 0)
+        {
+            return new PagedResult<OldSurveyPropertyDto>(new List<OldSurveyPropertyDto>(), 0, queryParams.PageNumber, queryParams.PageSize);
+        }
+
+        IQueryable<int> mappedOldPropertyIdsQuery = distinctOldPropQuery
+            .OrderBy(x => x.FirstDetailId)
+            .Select(x => x.PropertyId);
+
+        if (queryParams.PageSize != -1)
+        {
+            mappedOldPropertyIdsQuery = mappedOldPropertyIdsQuery
+                .Skip((queryParams.PageNumber - 1) * queryParams.PageSize)
+                .Take(queryParams.PageSize);
+        }
+
+        var mappedOldPropertyIds = await mappedOldPropertyIdsQuery.ToListAsync(cancellationToken);
+        if (mappedOldPropertyIds.Count == 0)
+        {
+            return new PagedResult<OldSurveyPropertyDto>(new List<OldSurveyPropertyDto>(), totalCount, queryParams.PageNumber, queryParams.PageSize);
+        }
+
+        var oldPropList = await _propertyMastOldRepository.GetQueryable().AsNoTracking()
+            .Where(pmo => mappedOldPropertyIds.Contains(pmo.Id) && pmo.IsActive && !pmo.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+
+        var oldPropDict = oldPropList.ToDictionary(x => x.Id);
+
+        using var scope = _serviceProvider?.CreateScope();
+        var sp = scope?.ServiceProvider ?? _serviceProvider;
+
+        // Photos for old properties
+        var oldPhotoLookup = await BatchFetchOldPropertyPhotosAsync(sp, mappedOldPropertyIds, cancellationToken);
+
+        // Old Tax details (TransMastOld)
+        var oldTaxLookup = new Dictionary<int, List<OldTaxDetailDto>>();
+        if (sp != null)
+        {
+            var tmoRepo = sp.GetService<IRepository<TransMastOldEntity, int>>();
+            var txRepo = sp.GetService<IRepository<TaxMasterEntity, int>>();
+            if (tmoRepo != null)
+            {
+                var tmoQuery = tmoRepo.GetQueryable().AsNoTracking()
+                    .Where(x => mappedOldPropertyIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion);
+
+                if (txRepo != null)
+                {
+                    var tmoRows = await (
+                        from tmo in tmoQuery
+                        join tx in txRepo.GetQueryable().AsNoTracking() on tmo.TaxId equals tx.Id into txJ
+                        from tx in txJ.DefaultIfEmpty()
+                        select new OldTaxDetailDto
+                        {
+                            Id = tmo.Id,
+                            PropertyMastOldId = tmo.PropertyMastOldId,
+                            FinanceYearId = tmo.FinanceYearId,
+                            CalculationType = tmo.CalculationType,
+                            CalculationValue = tmo.CalculationValue,
+                            CalculationAnnualValue = tmo.CalculationAnnualValue,
+                            TaxId = tmo.TaxId,
+                            TaxName = tx != null ? (tx.TaxNameAlias ?? tx.TaxName) : null,
+                            TaxAmount = tmo.TaxAmount
+                        }
+                    ).ToListAsync(cancellationToken);
+
+                    oldTaxLookup = tmoRows
+                        .GroupBy(x => x.PropertyMastOldId)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+                }
+                else
+                {
+                    var tmoRows = await tmoQuery.Select(tmo => new OldTaxDetailDto
+                    {
+                        Id = tmo.Id,
+                        PropertyMastOldId = tmo.PropertyMastOldId,
+                        FinanceYearId = tmo.FinanceYearId,
+                        CalculationType = tmo.CalculationType,
+                        CalculationValue = tmo.CalculationValue,
+                        CalculationAnnualValue = tmo.CalculationAnnualValue,
+                        TaxId = tmo.TaxId,
+                        TaxAmount = tmo.TaxAmount
+                    }).ToListAsync(cancellationToken);
+
+                    oldTaxLookup = tmoRows
+                        .GroupBy(x => x.PropertyMastOldId)
+                        .ToDictionary(g => g.Key, g => g.ToList());
+                }
+            }
+        }
+
+        // Map to OldSurveyPropertyDto maintaining order
+        var resultList = new List<OldSurveyPropertyDto>(mappedOldPropertyIds.Count);
+        foreach (var id in mappedOldPropertyIds)
+        {
+            if (!oldPropDict.TryGetValue(id, out var pmo)) continue;
+
+            var dto = _mapper.Map<OldSurveyPropertyDto>(pmo);
+
+            if (oldPhotoLookup.TryGetValue(id, out var photos) && photos != null && photos.Count > 0)
+            {
+                dto.Photos = photos;
+                dto.PropertyPhotoDocumentGuid = photos.FirstOrDefault(x => string.Equals(x.PhotoTypeCode, "PROPERTY_PHOTO", StringComparison.OrdinalIgnoreCase))?.DocumentGuid;
+                dto.PlanPhotoDocumentGuid = photos.FirstOrDefault(x => string.Equals(x.PhotoTypeCode, "PLAN_PHOTO", StringComparison.OrdinalIgnoreCase))?.DocumentGuid;
+            }
+
+            if (oldTaxLookup.TryGetValue(id, out var taxes) && taxes != null)
+            {
+                dto.OldTaxDetails = taxes;
+            }
+
+            resultList.Add(dto);
+        }
+
+        return new PagedResult<OldSurveyPropertyDto>(resultList, totalCount, queryParams.PageNumber, queryParams.PageSize);
+    }
+
+    /// <summary>
     /// Returns mapped/unmapped properties filtered society-wise or wing-wise.
     /// </summary>
     public async Task<PagedResult<PropertyMapSocietyReturnDto>> GetMappedPropertiesSocietyWiseAsync(
@@ -716,7 +882,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
             : new Dictionary<int, PropertyMapMasterEntity>();
 
         var pmoMap = pmoIds.Any()
-            ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+            ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive && !x.MarkedForDeletion).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
             : new Dictionary<int, PropertyMastOldEntity>();
 
         var pmdByNewId = pmds.GroupBy(x => x.PropertyIdNew!.Value).ToDictionary(g => g.Key, g => g.ToList());
@@ -901,9 +1067,10 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                 .ToDictionary(g => g.Key, g => g.Select(x => x.Detail).ToList());
         }
 
-        // ── Batch-fetch TransMast & TransMastOld ──────────────────
+        // ── Batch-fetch TransMast, TransMastOld & Photos ──────────────────
         var transMastLookup = new Dictionary<int, List<TransMastDto>>();
         var transMastOldLookup = new Dictionary<int, List<TransMastOldDto>>();
+        var oldPhotoLookup = new Dictionary<int, List<PropertyPhotoDocumentDto>>();
 
         if (sp != null)
         {
@@ -932,7 +1099,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
             {
                 var tmoRepo = sp.GetRequiredService<IRepository<TransMastOldEntity, int>>();
                 var tmoList = await tmoRepo.GetQueryable().AsNoTracking()
-                    .Where(x => oldIds.Contains(x.PropertyMastOldId) && x.IsActive)
+                    .Where(x => oldIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion)
                     .ToListAsync(cancellationToken);
 
                 transMastOldLookup = tmoList
@@ -948,6 +1115,9 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                         TaxAmount = x.TaxAmount
                     }).ToList());
             }
+
+            // ── Batch-fetch Old Property Photos (PROPERTY_PHOTO and PLAN_PHOTO) ──
+            oldPhotoLookup = await BatchFetchOldPropertyPhotosAsync(sp, oldIds, cancellationToken);
         }
 
         return rawItems.Select(x =>
@@ -957,6 +1127,14 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
             dto.NewPropertyDetails = (dto.PropertyId > 0 && newDetailsLookup.TryGetValue(dto.PropertyId, out var newDets)) ? newDets : new List<NewPropertyDetailDto>();
             dto.TransMastRecords = (dto.PropertyId > 0 && transMastLookup.TryGetValue(dto.PropertyId, out var tm)) ? tm : new List<TransMastDto>();
             dto.TransMastOldRecords = (x.PropertyMastOldId.HasValue && transMastOldLookup.TryGetValue(x.PropertyMastOldId.Value, out var tmo)) ? tmo : new List<TransMastOldDto>();
+
+            if (x.PropertyMastOldId.HasValue && oldPhotoLookup.TryGetValue(x.PropertyMastOldId.Value, out var oPhotos) && oPhotos != null && oPhotos.Count > 0)
+            {
+                dto.Photos = oPhotos;
+                dto.PropertyPhotoDocumentGuid = oPhotos.FirstOrDefault(p => string.Equals(p.PhotoTypeCode, "PROPERTY_PHOTO", StringComparison.OrdinalIgnoreCase))?.DocumentGuid;
+                dto.PlanPhotoDocumentGuid = oPhotos.FirstOrDefault(p => string.Equals(p.PhotoTypeCode, "PLAN_PHOTO", StringComparison.OrdinalIgnoreCase))?.DocumentGuid;
+            }
+
             return dto;
         }).ToList();
     }
@@ -1182,7 +1360,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                 using var txScope = _serviceProvider.CreateScope();
                 var tmoRepo = txScope.ServiceProvider.GetRequiredService<IRepository<TransMastOldEntity, int>>();
                 var tmoList = await tmoRepo.GetQueryable().AsNoTracking()
-                    .Where(x => oldIds.Contains(x.PropertyMastOldId) && x.IsActive)
+                    .Where(x => oldIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion)
                     .ToListAsync(cancellationToken);
 
                 transMastOldLookup = tmoList
@@ -1209,7 +1387,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                             join pm in pmQuery on pmd.PropertyIdNew equals (int?)pm.Id
                             join pmm in pmmQuery on pmd.PropertyMapId equals pmm.Id
                             join pmo in pmoQuery on pmd.PropertyIdOld equals (int?)pmo.Id
-                            where pmd.IsActive && pm.IsActive && pmm.IsActive && pmo.IsActive
+                            where pmd.IsActive && pm.IsActive && !pm.MarkedForDeletion && pmm.IsActive && pmo.IsActive && !pmo.MarkedForDeletion
                             where pmd.PropertyIdOld.HasValue && oldIds.Contains(pmd.PropertyIdOld.Value)
                             select new
                             {
@@ -1477,7 +1655,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
 
         var lambda = Expression.Lambda<Func<PropertyMastOldEntity, bool>>(combinedOr, param);
 
-        var query = oldQuery.Where(x => x.IsActive).Where(lambda);
+        var query = oldQuery.Where(x => x.IsActive && !x.MarkedForDeletion).Where(lambda);
 
         int totalCount = await query.CountAsync(ct);
 
@@ -1599,5 +1777,59 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
         var containsCall = Expression.Call(propAccess, containsMethod, Expression.Constant(value));
         return Expression.AndAlso(notNull, containsCall);
+    }
+
+    private static async Task<Dictionary<int, List<PropertyPhotoDocumentDto>>> BatchFetchOldPropertyPhotosAsync(
+        IServiceProvider? sp,
+        IEnumerable<int> oldIds,
+        CancellationToken cancellationToken)
+    {
+        var oldPhotoLookup = new Dictionary<int, List<PropertyPhotoDocumentDto>>();
+        var distinctOldIds = oldIds.Distinct().ToList();
+        if (sp == null || !distinctOldIds.Any())
+        {
+            return oldPhotoLookup;
+        }
+
+        var photoOldRepo = sp.GetService<IRepository<PropertyPhotoOldEntity, int>>();
+        var photoTypeRepo = sp.GetService<IRepository<PropertyPhotoTypeEntity, int>>();
+        var docBindingRepo = sp.GetService<IRepository<DocumentBindingEntity, int>>();
+        var docRepo = sp.GetService<IRepository<DocumentEntity, int>>();
+
+        if (photoOldRepo != null && photoTypeRepo != null && docBindingRepo != null && docRepo != null)
+        {
+            var oldPhotoDocs = await (
+                from pp in photoOldRepo.GetQueryable().AsNoTracking()
+                where distinctOldIds.Contains(pp.PropertyMastOldId) && pp.IsActive && !pp.MarkedForDeletion
+                join ppt in photoTypeRepo.GetQueryable().AsNoTracking() on pp.PhotoTypeId equals ppt.Id
+                where ppt.IsActive && (ppt.PhotoTypeCode == "PLAN_PHOTO" || ppt.PhotoTypeCode == "PROPERTY_PHOTO")
+                join db in docBindingRepo.GetQueryable().AsNoTracking() on pp.DocumentBindingId equals db.Id
+                where db.IsActive && !db.MarkedForDeletion
+                join d in docRepo.GetQueryable().AsNoTracking() on db.DocumentId equals d.Id
+                where d.IsActive && !d.MarkedForDeletion
+                select new
+                {
+                    pp.PropertyMastOldId,
+                    d.DocumentGuid,
+                    ppt.PhotoTypeCode,
+                    CreatedDate = pp.CreatedDate
+                }
+            ).ToListAsync(cancellationToken);
+
+            oldPhotoLookup = oldPhotoDocs
+                .GroupBy(x => x.PropertyMastOldId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.GroupBy(x => x.PhotoTypeCode, StringComparer.OrdinalIgnoreCase)
+                          .Select(group => group.OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue).First())
+                          .Select(x => new PropertyPhotoDocumentDto
+                          {
+                              DocumentGuid = x.DocumentGuid,
+                              PhotoTypeCode = x.PhotoTypeCode
+                          }).ToList()
+                );
+        }
+
+        return oldPhotoLookup;
     }
 }

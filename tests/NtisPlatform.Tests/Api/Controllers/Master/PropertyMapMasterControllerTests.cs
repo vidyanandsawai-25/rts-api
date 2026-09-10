@@ -57,11 +57,23 @@ public class PropertyMapMasterControllerTests
     public async Task GetMappedNewProperties_ReturnsOk()
     {
         var controller = Create(out var service);
-        var query = new PropertyMapDetailQueryParameters { OldPropertyId = 1 };
+        var query = new MappedNewPropertyQueryParameters { OldPropertyId = 1 };
         service.Setup(s => s.GetMappedNewPropertiesAsync(query, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PagedResult<NtisPlatform.Application.DTOs.Property.ApartmentQC.NewSurveyPropertyDto>(new List<NtisPlatform.Application.DTOs.Property.ApartmentQC.NewSurveyPropertyDto>(), 0, 1, 10));
 
         var result = await controller.GetMappedNewProperties(query, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetMappedOldProperties_ReturnsOk()
+    {
+        var controller = Create(out var service);
+        var query = new MappedOldPropertyQueryParameters { PropertyId = 101 };
+        service.Setup(s => s.GetMappedOldPropertiesAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<NtisPlatform.Application.DTOs.Property.ApartmentQC.OldSurveyPropertyDto>(new List<NtisPlatform.Application.DTOs.Property.ApartmentQC.OldSurveyPropertyDto>(), 0, 1, 10));
+
+        var result = await controller.GetMappedOldProperties(query, CancellationToken.None);
         Assert.IsType<OkObjectResult>(result);
     }
 }

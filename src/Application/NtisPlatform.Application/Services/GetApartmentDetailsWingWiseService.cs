@@ -482,7 +482,7 @@ public class GetApartmentDetailsWingWiseService : IGetApartmentDetailsWingWiseSe
             .ToDictionary(
                 g => g.Key,
                 g => g.GroupBy(x => x.PhotoTypeCode, StringComparer.OrdinalIgnoreCase)
-                      .Select(group => group.OrderByDescending(x => x.CreatedDate).First())
+                      .Select(group => group.OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue).First())
                       .Select(x => new PropertyPhotoDocumentDto
                       {
                           DocumentGuid = x.DocumentGuid,
@@ -518,7 +518,7 @@ public class GetApartmentDetailsWingWiseService : IGetApartmentDetailsWingWiseSe
             .ToDictionary(
                 g => g.Key,
                 g => g.GroupBy(x => x.PhotoTypeCode, StringComparer.OrdinalIgnoreCase)
-                      .Select(group => group.OrderByDescending(x => x.CreatedDate).First())
+                      .Select(group => group.OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue).First())
                       .Select(x => new PropertyPhotoDocumentDto
                       {
                           DocumentGuid = x.DocumentGuid,
@@ -624,6 +624,7 @@ public class GetApartmentDetailsWingWiseService : IGetApartmentDetailsWingWiseSe
                 var firstOld = mappedOldEntities.First();
                 oldSurvey = _mapper.Map<OldSurveyPropertyDto>(firstOld);
                 oldSurvey.OldPropertyNo = string.Join(", ", mappedOldEntities.Select(o => o.OldPropertyNo).Where(s => !string.IsNullOrEmpty(s)).Distinct());
+                oldSurvey.OldPartitionNo = string.Join(", ", mappedOldEntities.Select(o => o.OldPartitionNo).Where(s => !string.IsNullOrEmpty(s)).Distinct());
                 oldSurvey.PropertyNo = oldSurvey.OldPropertyNo;
 
                 decimal totalRV = 0m;

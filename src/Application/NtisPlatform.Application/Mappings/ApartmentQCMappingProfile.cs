@@ -106,6 +106,7 @@ public class ApartmentQCMappingProfile : Profile
             .ForMember(dest => dest.TaxZoneId, opt => opt.MapFrom(src => src.Property.TaxZoneId))
             .ForMember(dest => dest.ZoneNo, opt => opt.MapFrom(src => src.ZoneNo))
             .ForMember(dest => dest.PropertyNo, opt => opt.MapFrom(src => src.Property.PropertyNo))
+            .ForMember(dest => dest.PartitionNo, opt => opt.MapFrom(src => src.Property.PartitionNo))
             .ForMember(dest => dest.WardId, opt => opt.MapFrom(src => src.Property.WardId))
             .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.WardNo))
             .ForMember(dest => dest.MobileNo, opt => opt.MapFrom(src => src.Property.MobileNo))
