@@ -151,15 +151,15 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
         // Arrange
         int propertyId = 1;
         var dto = new UpdateAllPropertyDetailsDto { CategoryId = 2 };
-        var property = new PropertyEntity { Id = propertyId, UPICId = "UPIC123", SocietyDetailId = 99 };
-        
+        var property = new PropertyEntity { Id = propertyId, UPICId = "UPIC123" };
+
         SetupBasicMocks(property, dto);
 
         var categories = new List<PropertyCategoryEntity> { new PropertyCategoryEntity { Id = 2, PropertyCategoryName = "Apartment/Flat" } }.BuildMock();
         _mockCategoryRepo.Setup(r => r.GetQueryable()).Returns(categories);
 
-        var existingSociety = new SocietyDetailsEntity { Id = 99 };
-        _mockSocietyRepo.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync(existingSociety);
+        var existingSociety = new SocietyDetailsEntity { Id = 99, PropertyId = propertyId };
+        _mockSocietyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity> { existingSociety }.BuildMock());
         _mockMapper.Setup(m => m.Map(dto, existingSociety)).Returns(existingSociety);
 
         _mockAssessmentRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyAssessmentEntity>().BuildMock());
@@ -185,13 +185,14 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
         // Arrange
         int propertyId = 1;
         var dto = new UpdateAllPropertyDetailsDto { CategoryId = 2 };
-        var property = new PropertyEntity { Id = propertyId, UPICId = "UPIC123", SocietyDetailId = null };
-        
+        var property = new PropertyEntity { Id = propertyId, UPICId = "UPIC123" };
+
         SetupBasicMocks(property, dto);
 
         var categories = new List<PropertyCategoryEntity> { new PropertyCategoryEntity { Id = 2, PropertyCategoryName = "Apartment/Flat" } }.BuildMock();
         _mockCategoryRepo.Setup(r => r.GetQueryable()).Returns(categories);
 
+        _mockSocietyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
         var newSociety = new SocietyDetailsEntity { Id = 100 };
         _mockMapper.Setup(m => m.Map<SocietyDetailsEntity>(dto)).Returns(newSociety);
 
@@ -209,9 +210,9 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
         // Assert
         result.Success.Should().BeTrue();
         _mockSocietyRepo.Verify(r => r.AddAsync(newSociety, It.IsAny<CancellationToken>()), Times.Once);
-        // Verify property is updated to link new society ID
-        property.SocietyDetailId.Should().Be(100);
-        _mockPropertyRepo.Verify(r => r.UpdateAsync(property, It.IsAny<CancellationToken>()), Times.Exactly(2)); // First time mapping, second time linking
+        // The new society links back to the property via SocietyDetailsEntity.PropertyId (reverse FK)
+        newSociety.PropertyId.Should().Be(property.Id);
+        _mockPropertyRepo.Verify(r => r.UpdateAsync(property, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

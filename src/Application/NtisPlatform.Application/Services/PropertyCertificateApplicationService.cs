@@ -1,11 +1,13 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Common;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.Events;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.RetrospectiveTax;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
@@ -28,9 +30,18 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
     private readonly IModuleLookupService _moduleLookupService;
     private readonly IRepository<PropertyCertificateTypeMasterEntity, int> _certificateTypeRepository;
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
+    private readonly IRepository<PropertyEntity, int> _propertyRepository;
+    private readonly IRepository<SocietyDetailsEntity, int> _societyRepository;
+    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
+    private readonly IRepository<WingEntity, int> _wingRepository;
     private readonly IPublisher _publisher;
-    private readonly ICertificateTaxGuidelineReaderService _guidelineReader;
     private readonly ILogger<PropertyCertificateApplicationService> _logger;
+    private readonly IRateableValueApiClient _rateableValueApiClient;
+    private readonly IRetrospectiveTaxCalculationEngineService _retrospectiveTaxEngine;
+    private readonly IRepository<PropertyCertificateEntity>? _propertyCertificateRepository;
+    private readonly IRepository<DocumentBindingEntity>? _documentBindingRepository;
+    private readonly IRepository<DocumentEntity>? _documentRepository;
+    private readonly IServiceProvider? _serviceProvider;
 
     public PropertyCertificateApplicationService(
         IPropertyCertificateService propertyCertificateService,
@@ -39,9 +50,18 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         IModuleLookupService moduleLookupService,
         IRepository<PropertyCertificateTypeMasterEntity, int> certificateTypeRepository,
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
+        IRepository<PropertyEntity, int> propertyRepository,
+        IRepository<SocietyDetailsEntity, int> societyRepository,
+        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository,
+        IRepository<WingEntity, int> wingRepository,
         IPublisher publisher,
-        ICertificateTaxGuidelineReaderService guidelineReader,
-        ILogger<PropertyCertificateApplicationService> logger)
+        ILogger<PropertyCertificateApplicationService> logger,
+        IRateableValueApiClient rateableValueApiClient,
+        IRetrospectiveTaxCalculationEngineService retrospectiveTaxEngine,
+        IRepository<PropertyCertificateEntity>? propertyCertificateRepository = null,
+        IRepository<DocumentBindingEntity>? documentBindingRepository = null,
+        IRepository<DocumentEntity>? documentRepository = null,
+        IServiceProvider? serviceProvider = null)
     {
         _propertyCertificateService = propertyCertificateService;
         _documentApplicationService = documentApplicationService;
@@ -49,9 +69,18 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         _moduleLookupService = moduleLookupService;
         _certificateTypeRepository = certificateTypeRepository;
         _propertyDetailsRepository = propertyDetailsRepository;
+        _propertyRepository = propertyRepository;
+        _societyRepository = societyRepository;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
+        _wingRepository = wingRepository;
         _publisher = publisher;
-        _guidelineReader = guidelineReader;
         _logger = logger;
+        _rateableValueApiClient = rateableValueApiClient;
+        _retrospectiveTaxEngine = retrospectiveTaxEngine;
+        _propertyCertificateRepository = propertyCertificateRepository;
+        _documentBindingRepository = documentBindingRepository;
+        _documentRepository = documentRepository;
+        _serviceProvider = serviceProvider;
     }
 
     public async Task<PropertyCertificateUploadResponseDto> UploadWithDocumentAsync(
@@ -204,8 +233,14 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         // property-wise (propertyDetailsId null -> PropertyDetailsId IS NULL rows only).
         // A property can have multiple rows for the SAME certificate type (one per floor plus
         // one property-wise), so the lookup key must include PropertyDetailsId, not just the type.
+        // EntityType is always "P" for both -- per CK_PropertyCertificates_EntityScope, 'F' is not
+        // a valid EntityType; PropertyDetailsId NULL vs NOT NULL is what distinguishes them.
+        // This also excludes Society/Wing-scoped rows (EntityType "S"/"W"): those are stored under a
+        // representative unit's PropertyId with PropertyDetailsId == null too, so without this
+        // check a unit that happens to be that representative would have its building's
+        // Society/Wing certificate misreported as its own property-wise certificate.
         var scopedCertificates = existingCertificates
-            .Where(c => c.PropertyDetailsId == propertyDetailsId)
+            .Where(c => c.PropertyDetailsId == propertyDetailsId && c.EntityType == "P")
             .ToList();
 
         var certificateLookup = scopedCertificates
@@ -238,11 +273,105 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 // requested scope directly also correctly reports which floor/property scope this
                 // row represents when hasCertificate is false (no certificate to read a value from
                 // yet), which the frontend needs to know where to attach a new certificate.
-                PropertyDetailsId = propertyDetailsId
+                PropertyDetailsId = propertyDetailsId,
+                EntityType = hasCertificate && certificate != null ? certificate.EntityType : null,
+                SocietyDetailId = hasCertificate && certificate != null ? certificate.SocietyDetailId : null,
+                WingDetailId = hasCertificate && certificate != null ? certificate.WingDetailId : null
             };
         }).ToList();
 
         return result;
+    }
+
+    public async Task<List<PropertyCertificateWithStatusDto>> GetSocietyOrWingCertificateTypesWithStatusAsync(
+        int? societyDetailId,
+        int? wingDetailId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!societyDetailId.HasValue && !wingDetailId.HasValue)
+            throw new ArgumentException("Either societyDetailId or wingDetailId must be provided.");
+
+        var isWing = wingDetailId.HasValue;
+        var targetEntityType = isWing ? "W" : "S";
+
+        // 1. Fetch all active master certificate types
+        var allTypes = (await _certificateTypeRepository.GetAsync(
+            t => t.IsActive,
+            cancellationToken))
+            .OrderBy(t => t.DisplayOrder)
+            .ToList();
+
+        // 2. Resolve repositories
+        using var scope = _serviceProvider?.CreateScope();
+        var sp = scope?.ServiceProvider;
+
+        var certRepo = _propertyCertificateRepository ?? sp?.GetService<IRepository<PropertyCertificateEntity>>();
+        var docBindingRepo = _documentBindingRepository ?? sp?.GetService<IRepository<DocumentBindingEntity>>();
+        var docRepo = _documentRepository ?? sp?.GetService<IRepository<DocumentEntity>>();
+
+        Dictionary<int, PropertyCertificateEntity> certLookup = new();
+        Dictionary<int, DocumentBindingEntity> docBindings = new();
+        Dictionary<int, DocumentEntity> docs = new();
+
+        if (certRepo != null)
+        {
+            var certs = isWing
+                ? await certRepo.GetAsync(c => c.EntityType == targetEntityType && c.WingDetailId == wingDetailId.Value && !c.MarkedForDeletion, cancellationToken)
+                : await certRepo.GetAsync(c => c.EntityType == targetEntityType && c.SocietyDetailId == societyDetailId.Value && !c.MarkedForDeletion, cancellationToken);
+
+            certLookup = certs
+                .GroupBy(c => c.CertificateTypeId)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var bindingIds = certs.Where(c => c.DocumentBindingId.HasValue).Select(c => c.DocumentBindingId!.Value).Distinct().ToList();
+
+            if (bindingIds.Any() && docBindingRepo != null)
+            {
+                var bindings = await docBindingRepo.GetAsync(b => bindingIds.Contains(b.Id), cancellationToken);
+                docBindings = bindings.ToDictionary(b => b.Id);
+
+                var docIds = bindings.Select(b => b.DocumentId).Distinct().ToList();
+                if (docIds.Any() && docRepo != null)
+                {
+                    var docList = await docRepo.GetAsync(d => docIds.Contains(d.Id), cancellationToken);
+                    docs = docList.ToDictionary(d => d.Id);
+                }
+            }
+        }
+
+        // 3. Build response combining all types with their status
+        return allTypes.Select(type =>
+        {
+            var hasCert = certLookup.TryGetValue(type.Id, out var cert);
+            DocumentBindingEntity? binding = null;
+            DocumentEntity? doc = null;
+
+            if (hasCert && cert?.DocumentBindingId.HasValue == true && docBindings.TryGetValue(cert.DocumentBindingId.Value, out binding))
+            {
+                docs.TryGetValue(binding.DocumentId, out doc);
+            }
+
+            return new PropertyCertificateWithStatusDto
+            {
+                CertificateTypeId = type.Id,
+                CertificateTypeName = type.CertificateTypeName,
+                CertificateTypeCode = type.CertificateTypeCode,
+                IsProtected = type.IsProtected,
+                IsRequired = type.IsRequired,
+                DisplayOrder = type.DisplayOrder,
+                HasCertificate = hasCert,
+                PropertyCertificateId = hasCert && cert != null ? cert.Id : null,
+                IsActive = hasCert && cert != null && cert.IsActive,
+                CertificateNo = hasCert && cert != null ? cert.CertificateNo : null,
+                IssueDate = hasCert && cert != null ? cert.IssueDate : null,
+                DocumentGuid = doc?.DocumentGuid,
+                FileName = doc?.FileName,
+                PropertyDetailsId = null,
+                EntityType = targetEntityType,
+                SocietyDetailId = societyDetailId,
+                WingDetailId = wingDetailId
+            };
+        }).ToList();
     }
 
     public async Task<PropertyCertificateUploadResponseDto> ReplaceDocumentAsync(
@@ -294,7 +423,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 BindingPurpose = DocumentBindingPurpose.MainDocument.ToPurposeString(),
                 IsPrimaryDocument = true,
                 AuthDepartmentId = departmentId,
-                AuthReferenceId = certificate.PropertyId,
+                AuthReferenceId = certificate.PropertyId ?? 0,
                 DocumentType = DocumentType.Certificate.ToTypeString()
             };
 
@@ -332,7 +461,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 DocumentGuid = docResponse.DocumentGuid,
                 DocumentId = docResponse.DocumentId,
                 DocumentBindingId = docResponse.DocumentBindingId ?? 0,
-                PropertyId = certificate.PropertyId,
+                PropertyId = certificate.PropertyId ?? 0,
                 CertificateTypeId = certificate.CertificateTypeId,
                 CertificateNo = certificate.CertificateNo,
                 IssueDate = certificate.IssueDate,
@@ -390,9 +519,9 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         var typeCodeByTypeId = certTypes.ToDictionary(t => t.Id, t => t.CertificateTypeCode);
 
         // Reject the whole batch up front if it would leave an active OC dated earlier than an
-        // active CC -- cheaper and safer than letting OccupationTaxApplicationService silently
-        // apply INVALID_CC_OC_DATE_ORDER_ACTION after the fact for data that should never have
-        // been savable in the first place.
+        // active CC -- cheaper and safer than letting the tax engine silently resolve an invalid
+        // CC/OC date order after the fact for data that should never have been savable in the
+        // first place.
         ValidateCcOcDateOrder(bulkDto, typeCodeByTypeId, existingCertificates);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -401,17 +530,16 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         {
             // GO-LIVE BLOCKER fix: selecting multiple floors in one bulk save previously let EACH
             // certificate row publish its own PropertyCertificateChangedEvent inline (via
-            // CreateAsync/UpdateAsync/ToggleEnabledAsync), so OccupationTaxApplicationService.
-            // ApplyAsync/SaveTaxesAsync ran once per floor within the SAME request -- e.g. 3 floors
-            // meant 3 separate recalculation passes, each re-querying and re-upserting the same
-            // property-aggregated PolicyTaxDetails/TransMast rows for the SAME (PropertyId,
-            // PolicyCodeId/FinanceYearId, TaxId) slots, sometimes colliding on
-            // PTIS.PolicyTaxDetails' and PTIS.TransMast's unique keys. Final persistence is always
-            // property-wise (see the class remarks on OccupationTaxApplicationService), so there is
-            // no reason to recompute it mid-batch: every CreateAsync/UpdateAsync/ToggleEnabledAsync
-            // call below suppresses its own publish, and exactly ONE
-            // PropertyCertificateChangedEvent is published after every certificate in this batch
-            // has been saved, reflecting the FINAL state of all selected floors at once.
+            // CreateAsync/UpdateAsync/ToggleEnabledAsync), so the tax engine ran once per floor
+            // within the SAME request -- e.g. 3 floors meant 3 separate recalculation passes, each
+            // re-querying and re-upserting the same property-aggregated PolicyTaxDetails/TransMast
+            // rows for the SAME (PropertyId, PolicyCodeId/FinanceYearId, TaxId) slots, sometimes
+            // colliding on PTIS.PolicyTaxDetails' and PTIS.TransMast's unique keys. Final
+            // persistence is always property-wise, so there is no reason to recompute it mid-batch:
+            // every CreateAsync/UpdateAsync/ToggleEnabledAsync call below suppresses its own
+            // publish, and exactly ONE PropertyCertificateChangedEvent is published after every
+            // certificate in this batch has been saved, reflecting the FINAL state of all selected
+            // floors at once.
             var saveRecalculationNeeded = false;
             var deleteRecalculationNeeded = false;
 
@@ -442,7 +570,10 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                                 userId,
                                 cancellationToken,
                                 certDto.PropertyDetailsId,
-                                suppressRecalculation: true);
+                                suppressRecalculation: true,
+                                entityType: certDto.EntityType ?? "P",
+                                societyDetailId: certDto.SocietyDetailId,
+                                wingDetailId: certDto.WingDetailId);
 
                             response.EnabledCount++;
                             if (isTaxableType)
@@ -517,21 +648,14 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 }
             }
 
-            // Exactly one recalculation for the whole batch, gated by the same
-            // RECALCULATE_ON_CERTIFICATE_SAVE/_DELETE guideline toggles ShouldRecalculateAsync
-            // checks per-row elsewhere -- a save-shaped change (enable/create/update) triggers it
-            // under RecalculateOnSave; a delete-shaped change (disable) under RecalculateOnDelete;
-            // either is enough to run the pipeline once, since it recomputes from the FINAL DB
-            // state of every certificate regardless of which specific row changed.
+            // Exactly one recalculation for the whole batch -- a save-shaped change
+            // (enable/create/update) or a delete-shaped change (disable) either one is enough to
+            // run the pipeline once, since it recomputes from the FINAL DB state of every
+            // certificate regardless of which specific row changed.
             if (saveRecalculationNeeded || deleteRecalculationNeeded)
             {
-                var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-                if ((saveRecalculationNeeded && guideline.RecalculateOnSave) ||
-                    (deleteRecalculationNeeded && guideline.RecalculateOnDelete))
-                {
-                    await _publisher.Publish(
-                        new PropertyCertificateChangedEvent(bulkDto.PropertyId, userId), cancellationToken);
-                }
+                await _publisher.Publish(
+                    new PropertyCertificateChangedEvent(bulkDto.PropertyId, userId), cancellationToken);
             }
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -593,17 +717,24 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 propertyCertificateId, documentGuid);
 
             // Removing the document invalidates this certificate for tax purposes, so re-run the
-            // certificate-change pipeline (RV refresh then Occupation Tax apply) -- but only when
-            // the certificate type is IsTaxable (same gating as every other mutation path) AND
-            // PTIS.CertificateTaxGuideline's RECALCULATE_ON_CERTIFICATE_DELETE allows it (this is
-            // a delete-shaped change: it removes the certificate's tax relevance).
+            // certificate-change pipeline (RV refresh then Retrospective Tax Engine) -- but only
+            // when the certificate type is IsTaxable (same gating as every other mutation path).
             if (certificate.CertificateType?.IsTaxable == true)
             {
-                var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-                if (guideline.RecalculateOnDelete)
+                if (certificate.PropertyId.HasValue)
                 {
                     await _publisher.Publish(
-                        new PropertyCertificateChangedEvent(certificate.PropertyId, deletedBy), cancellationToken);
+                        new PropertyCertificateChangedEvent(certificate.PropertyId.Value, deletedBy), cancellationToken);
+                }
+                else
+                {
+                    var memberPropertyIds = await ResolveMemberPropertyIdsAsync(
+                        certificate.EntityType, certificate.SocietyDetailId, certificate.WingDetailId, cancellationToken);
+                    foreach (var memberPropertyId in memberPropertyIds)
+                    {
+                        await _publisher.Publish(
+                            new PropertyCertificateChangedEvent(memberPropertyId, deletedBy), cancellationToken);
+                    }
                 }
             }
         }
@@ -636,9 +767,13 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
             cancellationToken);
 
+        // EntityType is always "P" for property/floor scope (see GetCertificateTypesWithStatusAsync);
+        // this also excludes Society/Wing-scoped rows (EntityType "S"/"W") sharing this PropertyId
+        // with PropertyDetailsId == null.
         var match = existingCertificates.FirstOrDefault(c =>
             c.CertificateTypeId == certificateTypeId &&
             c.PropertyDetailsId == propertyDetailsId &&
+            c.EntityType == "P" &&
             !c.MarkedForDeletion);
 
         if (match == null)
@@ -687,7 +822,10 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         string? newCertificateNo,
         DateTime? newIssueDate,
         int userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
         Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
         Guard.AgainstNegativeOrZero(certificateTypeId, nameof(certificateTypeId));
@@ -703,9 +841,13 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
             cancellationToken);
 
+        // EntityType is always "P" for property/floor scope (see GetCertificateTypesWithStatusAsync);
+        // this also excludes Society/Wing-scoped rows (EntityType "S"/"W") sharing this PropertyId
+        // with PropertyDetailsId == null.
         var match = existingCertificates.FirstOrDefault(c =>
             c.CertificateTypeId == certificateTypeId &&
             c.PropertyDetailsId == oldPropertyDetailsId &&
+            c.EntityType == "P" &&
             !c.MarkedForDeletion);
 
         if (match == null)
@@ -746,15 +888,14 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 userId,
                 cancellationToken,
                 newPropertyDetailsId,
-                suppressRecalculation: true);
+                suppressRecalculation: true,
+                entityType: entityType,
+                societyDetailId: societyDetailId,
+                wingDetailId: wingDetailId);
 
             if (isTaxableType)
             {
-                var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-                if (guideline.RecalculateOnSave || guideline.RecalculateOnDelete)
-                {
-                    await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId, userId), cancellationToken);
-                }
+                await _publisher.Publish(new PropertyCertificateChangedEvent(propertyId, userId), cancellationToken);
             }
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -824,17 +965,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         response.PropertyWiseCertificates = await GetCertificateTypesWithStatusAsync(
             propertyId, cancellationToken, propertyDetailsId: null);
 
-        // ELECTRIC_BILL_CERTIFICATE_CODES is read here too (not just in the tax engine) so this
-        // display endpoint and OccupationTaxApplicationService never disagree about which
-        // certificate is the Electric Bill one -- real seed data has been observed using both
-        // "ELECTRIC_BILL" and "EleBillDt" as CertificateTypeCode for the same certificate type.
-        var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-        var electricBillCodes = guideline.ElectricBillCertificateCodes
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (electricBillCodes.Length == 0)
-        {
-            electricBillCodes = new[] { CertificateTypeCodes.ElectricBill };
-        }
+        var electricBillCodes = new[] { CertificateTypeCodes.ElectricBill };
 
         var allFloorDtos = floors.Select(floor =>
         {
@@ -884,13 +1015,12 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
     }
 
     /// <summary>
-    /// Matches a certificate type against ANY of several codes (CC/OC have exactly one;
-    /// Electric Bill's set is guideline-driven via ELECTRIC_BILL_CERTIFICATE_CODES since real seed
-    /// data has been observed using both "ELECTRIC_BILL" and "EleBillDt" for the same certificate
-    /// type), preferring CertificateTypeCode when populated and falling back to the display-name
-    /// heuristic when it isn't (older/seed data may not have codes backfilled yet) — mirrors
-    /// <see cref="TaxEngine.OccupationTaxApplicationService"/>'s matching so this endpoint and the
-    /// tax engine never disagree about which certificate is CC/OC/Electric Bill.
+    /// Matches a certificate type against ANY of several codes (CC/OC/Electric Bill each have
+    /// exactly one, from <see cref="CertificateTypeCodes"/>), preferring CertificateTypeCode when
+    /// populated and falling back to the display-name heuristic when it isn't (older/seed data may
+    /// not have codes backfilled yet) — mirrors the Retrospective Tax Engine's own evidence
+    /// resolution so this endpoint and the tax engine never disagree about which certificate is
+    /// CC/OC/Electric Bill.
     /// </summary>
     private static bool MatchesCertificateType(PropertyCertificateTypeMasterEntity type, IReadOnlyCollection<string> codes, params string[] nameContains)
     {
@@ -935,18 +1065,45 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         int userId,
         CancellationToken cancellationToken = default)
     {
-        Guard.AgainstNegativeOrZero(request.PropertyId, nameof(request.PropertyId));
         Guard.AgainstNegativeOrZero(request.CertificateTypeId, nameof(request.CertificateTypeId));
         Guard.AgainstNegativeOrZero(userId, nameof(userId));
 
-        if (request.CertificateScope == CertificateScope.Floor && !request.PropertyDetailsId.HasValue)
-        {
-            throw new ArgumentException("PropertyDetailsId is required when CertificateScope is Floor.", nameof(request.PropertyDetailsId));
-        }
+        // Floor scope resolves to "P" here too (see the else branch below) -- 'F' is not a
+        // valid EntityType per CK_PropertyCertificates_EntityScope.
+        string entityType = !string.IsNullOrWhiteSpace(request.EntityType)
+            ? request.EntityType.Trim().ToUpperInvariant()
+            : (request.CertificateScope == CertificateScope.Society ? "S" :
+               request.CertificateScope == CertificateScope.Wing ? "W" : "P");
 
-        if (request.CertificateScope == CertificateScope.Property && request.PropertyDetailsId.HasValue)
+        if (entityType == "S" || request.CertificateScope == CertificateScope.Society)
         {
-            throw new ArgumentException("PropertyDetailsId must be null when CertificateScope is Property.", nameof(request.PropertyDetailsId));
+            entityType = "S";
+            request.CertificateScope = CertificateScope.Society;
+            request.WingDetailId = null;
+            request.PropertyDetailsId = null;
+            request.PropertyId = null;
+            Guard.AgainstNegativeOrZero(request.SocietyDetailId ?? 0, nameof(request.SocietyDetailId));
+        }
+        else if (entityType == "W" || request.CertificateScope == CertificateScope.Wing)
+        {
+            entityType = "W";
+            request.CertificateScope = CertificateScope.Wing;
+            request.PropertyDetailsId = null;
+            request.PropertyId = null;
+            Guard.AgainstNegativeOrZero(request.SocietyDetailId ?? 0, nameof(request.SocietyDetailId));
+            Guard.AgainstNegativeOrZero(request.WingDetailId ?? 0, nameof(request.WingDetailId));
+        }
+        else
+        {
+            // EntityType is always "P" here, for both Property and Floor scope -- per
+            // CK_PropertyCertificates_EntityScope, 'F' is not a valid EntityType at all;
+            // PropertyDetailsId NULL vs NOT NULL on a 'P' row is what distinguishes property-wise
+            // from floor-wise (see PropertyCertificateEntity.ValidateEntityScope).
+            entityType = "P";
+            request.CertificateScope = request.PropertyDetailsId.HasValue
+                ? CertificateScope.Floor
+                : CertificateScope.Property;
+            Guard.AgainstNegativeOrZero(request.PropertyId ?? 0, nameof(request.PropertyId));
         }
 
         var certificateType = await _certificateTypeRepository.GetByIdAsync(request.CertificateTypeId, cancellationToken);
@@ -955,14 +1112,21 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             throw new InvalidOperationException($"Certificate type {request.CertificateTypeId} was not found or is inactive.");
         }
 
-        // Find the existing row for this exact (PropertyId, PropertyDetailsId, CertificateTypeId) scope.
-        var existingCertificates = await _propertyCertificateService.GetByPropertyIdIncludingInactiveAsync(
-            request.PropertyId,
-            PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
-            cancellationToken);
+        // Find the existing row for this exact (PropertyId, EntityType, SocietyDetailId, WingDetailId, PropertyDetailsId, CertificateTypeId) scope.
+        // A Society/Wing-scoped row has no PropertyId to look up by, so it's resolved directly by
+        // EntityType + SocietyDetailId/WingDetailId instead (same lookup GetSocietyOrWingCertificateTypesWithStatusAsync uses).
+        var existingCertificates = entityType == "S" || entityType == "W"
+            ? await GetSocietyOrWingCertificatesRawAsync(entityType, request.SocietyDetailId, request.WingDetailId, cancellationToken)
+            : await _propertyCertificateService.GetByPropertyIdIncludingInactiveAsync(
+                request.PropertyId!.Value,
+                PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                cancellationToken);
 
         var existing = existingCertificates.FirstOrDefault(c =>
             c.CertificateTypeId == request.CertificateTypeId &&
+            (c.EntityType ?? "P") == entityType &&
+            c.SocietyDetailId == request.SocietyDetailId &&
+            c.WingDetailId == request.WingDetailId &&
             c.PropertyDetailsId == request.PropertyDetailsId);
 
         // Validate CC/OC date order upfront against the final proposed state
@@ -970,7 +1134,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         var typeCodeByTypeId = certTypes.ToDictionary(t => t.Id, t => t.CertificateTypeCode);
         var singleBulkDto = new PropertyCertificateBulkSaveDto
         {
-            PropertyId = request.PropertyId,
+            PropertyId = request.PropertyId ?? 0,
             Certificates = new List<PropertyCertificateItemDto>
             {
                 new PropertyCertificateItemDto
@@ -1005,7 +1169,10 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                     userId,
                     cancellationToken,
                     request.PropertyDetailsId,
-                    suppressRecalculation: true);
+                    suppressRecalculation: true,
+                    entityType: entityType,
+                    societyDetailId: request.SocietyDetailId,
+                    wingDetailId: request.WingDetailId);
             }
             else
             {
@@ -1037,21 +1204,55 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             throw;
         }
 
-        // Publish PropertyCertificateChangedEvent ONCE after transaction is committed
+        // Property/Floor-scoped row recalculates its one PropertyId -- unchanged, fire-and-forget,
+        // so the save response returns immediately. A Society/Wing-scoped row has no PropertyId of
+        // its own, so every property currently under that society/wing needs recalculating instead;
+        // business requires this save to report back how many succeeded and how many failed (in
+        // plain language, not a raw error), so that path runs synchronously here instead of
+        // publishing fire-and-forget events for the background queue to pick up later.
+        PropertyTaxRecalculationSummaryDto? recalculationSummary = null;
         if (certificateType.IsTaxable)
         {
-            var guideline = await _guidelineReader.GetActiveSettingsAsync(cancellationToken);
-            if (guideline.RecalculateOnSave)
+            if (request.PropertyId.HasValue)
             {
                 await _publisher.Publish(
-                    new PropertyCertificateChangedEvent(request.PropertyId, userId), cancellationToken);
+                    new PropertyCertificateChangedEvent(request.PropertyId.Value, userId), cancellationToken);
+            }
+            else
+            {
+                var memberPropertyIds = await ResolveMemberPropertyIdsAsync(entityType, request.SocietyDetailId, request.WingDetailId, cancellationToken);
+                var summary = new PropertyTaxRecalculationSummaryDto { TotalProperties = memberPropertyIds.Count };
+
+                foreach (var memberPropertyId in memberPropertyIds)
+                {
+                    try
+                    {
+                        await _rateableValueApiClient.RecalculateAsync(memberPropertyId, cancellationToken);
+                        await _retrospectiveTaxEngine.CalculateAndSaveAsync(memberPropertyId, userId, cancellationToken);
+                        summary.SucceededCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Tax recalculation failed for PropertyId={PropertyId} after {EntityType}-scoped certificate save (SocietyDetailId={SocietyDetailId}, WingDetailId={WingDetailId}).",
+                            memberPropertyId, entityType, request.SocietyDetailId, request.WingDetailId);
+                        summary.FailedCount++;
+                        summary.Failures.Add(new PropertyTaxRecalculationFailureDto
+                        {
+                            PropertyId = memberPropertyId,
+                            Reason = "Tax could not be recalculated for this property. Please try again, or contact support if this keeps happening."
+                        });
+                    }
+                }
+
+                recalculationSummary = summary;
             }
         }
 
         return new SaveCertificateResponseDto
         {
             PropertyCertificateId = propertyCertificateId,
-            PropertyId = request.PropertyId,
+            PropertyId = request.PropertyId ?? 0,
             PropertyDetailsId = request.PropertyDetailsId,
             CertificateScope = request.CertificateScope,
             CertificateTypeId = request.CertificateTypeId,
@@ -1059,7 +1260,227 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             CertificateIssueDate = request.CertificateIssueDate,
             DocumentGuid = existing?.DocumentBinding?.Document?.DocumentGuid,
             DocumentBindingId = existing?.DocumentBindingId,
-            TaxRecalculationTriggered = certificateType.IsTaxable
+            TaxRecalculationTriggered = certificateType.IsTaxable,
+            RecalculationSummary = recalculationSummary,
+            EntityType = request.EntityType ?? existing?.EntityType,
+            SocietyDetailId = request.SocietyDetailId ?? existing?.SocietyDetailId,
+            WingDetailId = request.WingDetailId ?? existing?.WingDetailId
+        };
+    }
+
+    /// <summary>
+    /// Raw (untransformed) Society/Wing-scoped certificate rows for a given scope -- used to find
+    /// an existing row to update/re-enable, since these rows have no PropertyId to look up by.
+    /// Mirrors the repository resolution <see cref="GetSocietyOrWingCertificateTypesWithStatusAsync"/>
+    /// already uses.
+    /// </summary>
+    private async Task<List<PropertyCertificateEntity>> GetSocietyOrWingCertificatesRawAsync(
+        string entityType, int? societyDetailId, int? wingDetailId, CancellationToken cancellationToken)
+    {
+        using var scope = _serviceProvider?.CreateScope();
+        var certRepo = _propertyCertificateRepository ?? scope?.ServiceProvider.GetService<IRepository<PropertyCertificateEntity>>();
+        if (certRepo == null)
+        {
+            return new List<PropertyCertificateEntity>();
+        }
+
+        var certificates = entityType == "W"
+            ? await certRepo.GetAsync(c => c.EntityType == "W" && c.WingDetailId == wingDetailId!.Value && !c.MarkedForDeletion, cancellationToken)
+            : await certRepo.GetAsync(c => c.EntityType == "S" && c.SocietyDetailId == societyDetailId!.Value && !c.MarkedForDeletion, cancellationToken);
+
+        return certificates.ToList();
+    }
+
+    /// <summary>
+    /// Every active PropertyId currently under the given Society or Wing scope -- used to
+    /// recalculate Retrospective Tax for every affected unit when a Society/Wing-scoped
+    /// certificate (which has no PropertyId of its own) is saved. For a Society, this is the
+    /// society's own representative property (SocietyDetailsMast.PropertyId, e.g. the "apartment
+    /// society property" with no partition) plus every unit under each of its wings; for a Wing,
+    /// it's every unit directly under that wing.
+    /// </summary>
+    private async Task<List<int>> ResolveMemberPropertyIdsAsync(
+        string entityType, int? societyDetailId, int? wingDetailId, CancellationToken cancellationToken)
+    {
+        var memberIds = new HashSet<int>();
+
+        if (entityType == "W")
+        {
+            if (!wingDetailId.HasValue) return memberIds.ToList();
+
+            var wingUnitIds = await _propertyRepository.GetQueryable()
+                .Where(p => p.WingDetailId == wingDetailId.Value && p.IsActive && !p.MarkedForDeletion)
+                .Select(p => p.Id)
+                .ToListAsync(cancellationToken);
+            foreach (var id in wingUnitIds) memberIds.Add(id);
+            return memberIds.ToList();
+        }
+
+        if (entityType == "S")
+        {
+            if (!societyDetailId.HasValue) return memberIds.ToList();
+
+            var representativePropertyId = await _societyRepository.GetQueryable()
+                .Where(s => s.Id == societyDetailId.Value)
+                .Select(s => s.PropertyId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (representativePropertyId.HasValue) memberIds.Add(representativePropertyId.Value);
+
+            var wingIds = await _wingDetailsMastRepository.GetQueryable()
+                .Where(w => w.SocietyDetailsMastId == societyDetailId.Value && w.IsActive && !w.MarkedForDeletion)
+                .Select(w => w.Id)
+                .ToListAsync(cancellationToken);
+
+            if (wingIds.Count > 0)
+            {
+                var unitIds = await _propertyRepository.GetQueryable()
+                    .Where(p => p.WingDetailId.HasValue && wingIds.Contains(p.WingDetailId.Value) && p.IsActive && !p.MarkedForDeletion)
+                    .Select(p => p.Id)
+                    .ToListAsync(cancellationToken);
+                foreach (var id in unitIds) memberIds.Add(id);
+            }
+        }
+
+        return memberIds.ToList();
+    }
+
+    public async Task<CreateCertificateRecordResponseDto> CreateCertificateRecordAsync(
+        CreateCertificateRecordRequestDto request,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.AgainstNegativeOrZero(request.SocietyDetailId, nameof(request.SocietyDetailId));
+        Guard.AgainstNegativeOrZero(request.CertificateTypeId, nameof(request.CertificateTypeId));
+        Guard.AgainstNegativeOrZero(userId, nameof(userId));
+
+        var certificateType = await _certificateTypeRepository.GetByIdAsync(request.CertificateTypeId, cancellationToken);
+        if (certificateType == null || !certificateType.IsActive)
+        {
+            throw new InvalidOperationException($"Certificate type {request.CertificateTypeId} was not found or is inactive.");
+        }
+
+        if (request.Level == CertificateRecordLevel.Apartment)
+        {
+            var saveResult = await SaveCertificateAsync(new SaveCertificateRequestDto
+            {
+                EntityType = "S",
+                SocietyDetailId = request.SocietyDetailId,
+                CertificateTypeId = request.CertificateTypeId,
+                CertificateNo = request.CertificateNo,
+                CertificateIssueDate = request.CertificateIssueDate
+            }, userId, cancellationToken);
+
+            var societyMemberIds = await ResolveMemberPropertyIdsAsync("S", request.SocietyDetailId, null, cancellationToken);
+
+            return new CreateCertificateRecordResponseDto
+            {
+                EffectiveScope = "Society",
+                PropertyCertificateIds = new List<int> { saveResult.PropertyCertificateId },
+                UnitCount = societyMemberIds.Count,
+                TaxRecalculationTriggered = saveResult.TaxRecalculationTriggered,
+                RecalculationSummary = saveResult.RecalculationSummary
+            };
+        }
+
+        // Wing and Unit levels both need the wing's full member list -- Wing level to report
+        // UnitCount, Unit level to additionally decide whether the selection covers every unit
+        // (collapses to a single Wing-scoped row) or only some (one Property-scoped row per unit).
+        if (!request.WingDetailId.HasValue || request.WingDetailId.Value <= 0)
+        {
+            throw new ArgumentException("WingDetailId is required for Wing and Unit level certificate records.", nameof(request.WingDetailId));
+        }
+
+        var wingMemberIds = await ResolveMemberPropertyIdsAsync("W", request.SocietyDetailId, request.WingDetailId, cancellationToken);
+
+        if (request.Level == CertificateRecordLevel.Wing)
+        {
+            var saveResult = await SaveCertificateAsync(new SaveCertificateRequestDto
+            {
+                EntityType = "W",
+                SocietyDetailId = request.SocietyDetailId,
+                WingDetailId = request.WingDetailId,
+                CertificateTypeId = request.CertificateTypeId,
+                CertificateNo = request.CertificateNo,
+                CertificateIssueDate = request.CertificateIssueDate
+            }, userId, cancellationToken);
+
+            return new CreateCertificateRecordResponseDto
+            {
+                EffectiveScope = "Wing",
+                PropertyCertificateIds = new List<int> { saveResult.PropertyCertificateId },
+                UnitCount = wingMemberIds.Count,
+                TaxRecalculationTriggered = saveResult.TaxRecalculationTriggered,
+                RecalculationSummary = saveResult.RecalculationSummary
+            };
+        }
+
+        // Unit level.
+        if (request.UnitPropertyIds == null || request.UnitPropertyIds.Count == 0)
+        {
+            throw new ArgumentException("UnitPropertyIds is required and must contain at least one PropertyId for Unit level certificate records.", nameof(request.UnitPropertyIds));
+        }
+
+        var selectedUnitIds = request.UnitPropertyIds.Distinct().ToList();
+        var wingMemberIdSet = new HashSet<int>(wingMemberIds);
+        var unknownUnitIds = selectedUnitIds.Where(id => !wingMemberIdSet.Contains(id)).ToList();
+        if (unknownUnitIds.Count > 0)
+        {
+            throw new ArgumentException(
+                $"The following PropertyIds are not units under WingDetailId {request.WingDetailId}: {string.Join(", ", unknownUnitIds)}.",
+                nameof(request.UnitPropertyIds));
+        }
+
+        // Every unit under the wing selected -- functionally identical to picking Wing level
+        // directly, so it's stored the same single-row way rather than one row per unit.
+        if (selectedUnitIds.Count == wingMemberIdSet.Count)
+        {
+            var saveResult = await SaveCertificateAsync(new SaveCertificateRequestDto
+            {
+                EntityType = "W",
+                SocietyDetailId = request.SocietyDetailId,
+                WingDetailId = request.WingDetailId,
+                CertificateTypeId = request.CertificateTypeId,
+                CertificateNo = request.CertificateNo,
+                CertificateIssueDate = request.CertificateIssueDate
+            }, userId, cancellationToken);
+
+            return new CreateCertificateRecordResponseDto
+            {
+                EffectiveScope = "Wing",
+                PropertyCertificateIds = new List<int> { saveResult.PropertyCertificateId },
+                UnitCount = wingMemberIds.Count,
+                TaxRecalculationTriggered = saveResult.TaxRecalculationTriggered,
+                RecalculationSummary = saveResult.RecalculationSummary
+            };
+        }
+
+        // Partial selection -- one Property-scoped row per selected unit, each carrying
+        // SocietyDetailId/WingDetailId alongside its own PropertyId.
+        var createdIds = new List<int>();
+        var taxRecalculationTriggered = false;
+        foreach (var unitPropertyId in selectedUnitIds)
+        {
+            var saveResult = await SaveCertificateAsync(new SaveCertificateRequestDto
+            {
+                EntityType = "P",
+                PropertyId = unitPropertyId,
+                SocietyDetailId = request.SocietyDetailId,
+                WingDetailId = request.WingDetailId,
+                CertificateTypeId = request.CertificateTypeId,
+                CertificateNo = request.CertificateNo,
+                CertificateIssueDate = request.CertificateIssueDate
+            }, userId, cancellationToken);
+
+            createdIds.Add(saveResult.PropertyCertificateId);
+            taxRecalculationTriggered = taxRecalculationTriggered || saveResult.TaxRecalculationTriggered;
+        }
+
+        return new CreateCertificateRecordResponseDto
+        {
+            EffectiveScope = "Unit",
+            PropertyCertificateIds = createdIds,
+            UnitCount = selectedUnitIds.Count,
+            TaxRecalculationTriggered = taxRecalculationTriggered
         };
     }
 
@@ -1124,5 +1545,341 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             throw new InvalidOperationException(
                 $"Occupancy Certificate (OC) date ({ocDate.Value:dd-MM-yyyy}) cannot be earlier than Completion Certificate (CC) date ({ccDate.Value:dd-MM-yyyy}).");
         }
+    }
+
+    public async Task<List<object>> GetCertificateTypeMasterAsync(CancellationToken cancellationToken = default)
+    {
+        var types = await _certificateTypeRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.DisplayOrder)
+            .Select(t => new
+            {
+                certificateTypeId = t.Id,
+                certificateTypeCode = t.CertificateTypeCode,
+                certificateTypeName = t.CertificateTypeName,
+                description = t.Description,
+                displayOrder = t.DisplayOrder,
+                badgeCode = t.CertificateTypeCode != null && t.CertificateTypeCode.Length >= 2 ? t.CertificateTypeCode.Substring(0, 2).ToUpper() : "DOC"
+            })
+            .ToListAsync(cancellationToken);
+
+        return types.Cast<object>().ToList();
+    }
+
+    public async Task<List<object>> GetWingsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var wingMap = new Dictionary<string, (int wingDetailId, string wingName)>();
+
+        var wingDetailsQuery = _wingDetailsMastRepository.GetQueryable().AsNoTracking()
+            .Where(wd => wd.IsActive && !wd.MarkedForDeletion);
+
+        var wingQuery = _wingRepository.GetQueryable().AsNoTracking()
+            .Where(wm => wm.IsActive);
+
+        var societyQuery = _societyRepository.GetQueryable().AsNoTracking()
+            .Where(s => s.IsActive && !s.MarkedForDeletion);
+
+        var propertyQuery = _propertyRepository.GetQueryable().AsNoTracking()
+            .Where(pm => pm.IsActive && !pm.MarkedForDeletion);
+
+        // Path 0 (PRIMARY & DIRECT): SocietyDetailsMast linked directly to target PropertyId
+        var directSocietyWings = await (
+            from s in societyQuery
+            where s.PropertyId == propertyId
+            join wd in wingDetailsQuery on s.Id equals wd.SocietyDetailsMastId
+            join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+            from wm in wmJoin.DefaultIfEmpty()
+            select new
+            {
+                WingDetailId = wd.Id,
+                WingName = wd.WingName ?? (wm != null ? wm.WingNo : null),
+                WingNo = wm != null ? wm.WingNo : null
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var w in directSocietyWings)
+        {
+            var name = w.WingName ?? w.WingNo;
+            if (!string.IsNullOrWhiteSpace(name) && !wingMap.ContainsKey(name))
+            {
+                wingMap[name] = (w.WingDetailId, name);
+            }
+        }
+
+        // If exact society wings exist for this property, return them directly to avoid mixing with unrelated properties
+        if (wingMap.Count > 0)
+        {
+            return wingMap.Values
+                .Select(w => (object)new
+                {
+                    wingDetailId = w.wingDetailId,
+                    wingName = w.wingName
+                })
+                .ToList();
+        }
+
+        var targetProperty = await _propertyRepository.GetQueryable()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (targetProperty != null)
+        {
+            var targetWardId = targetProperty.WardId;
+            var targetPropertyNo = targetProperty.PropertyNo ?? string.Empty;
+            var cleanPropertyNo = targetPropertyNo.Contains('/') ? targetPropertyNo.Split('/')[0].Trim() : targetPropertyNo.Trim();
+
+            // Path 1: Target property's own WingDetailId -> find parent society -> find all society wings
+            if (targetProperty.WingDetailId.HasValue)
+            {
+                var targetWing = await wingDetailsQuery
+                    .FirstOrDefaultAsync(wd => wd.Id == targetProperty.WingDetailId.Value, cancellationToken);
+
+                if (targetWing != null && targetWing.SocietyDetailsMastId > 0)
+                {
+                    var societyWings = await (
+                        from wd in wingDetailsQuery
+                        where wd.SocietyDetailsMastId == targetWing.SocietyDetailsMastId
+                        join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+                        from wm in wmJoin.DefaultIfEmpty()
+                        select new
+                        {
+                            WingDetailId = wd.Id,
+                            WingName = wd.WingName ?? (wm != null ? wm.WingNo : null),
+                            WingNo = wm != null ? wm.WingNo : null
+                        })
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var w in societyWings)
+                    {
+                        var name = w.WingName ?? w.WingNo;
+                        if (!string.IsNullOrWhiteSpace(name) && !wingMap.ContainsKey(name))
+                        {
+                            wingMap[name] = (w.WingDetailId, name);
+                        }
+                    }
+
+                    if (wingMap.Count > 0)
+                    {
+                        return wingMap.Values
+                            .Select(w => (object)new
+                            {
+                                wingDetailId = w.wingDetailId,
+                                wingName = w.wingName
+                            })
+                            .ToList();
+                    }
+                }
+            }
+
+            // Path 2: Sibling properties sharing WardId + PropertyNo (exact or prefix) with WingDetailId
+            var wingsFromProperties = await (
+                from pm in propertyQuery
+                where pm.WardId == targetWardId &&
+                      (pm.PropertyNo == targetPropertyNo || pm.PropertyNo == cleanPropertyNo || (pm.PropertyNo != null && pm.PropertyNo.StartsWith(cleanPropertyNo))) &&
+                      pm.WingDetailId.HasValue
+                join wd in wingDetailsQuery on pm.WingDetailId!.Value equals wd.Id
+                join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+                from wm in wmJoin.DefaultIfEmpty()
+                select new
+                {
+                    WingDetailId = wd.Id,
+                    WingName = wd.WingName ?? (wm != null ? wm.WingNo : null),
+                    WingNo = wm != null ? wm.WingNo : null
+                })
+                .ToListAsync(cancellationToken);
+
+            foreach (var w in wingsFromProperties)
+            {
+                var name = w.WingName ?? w.WingNo;
+                if (!string.IsNullOrWhiteSpace(name) && !wingMap.ContainsKey(name))
+                {
+                    wingMap[name] = (w.WingDetailId, name);
+                }
+            }
+
+            // Path 3: SocietyDetailsMast linked to target property or sibling properties
+            var wingsFromSociety = await (
+                from s in societyQuery
+                join sp in propertyQuery on s.PropertyId equals sp.Id
+                where sp.WardId == targetWardId && (sp.PropertyNo == targetPropertyNo || sp.PropertyNo == cleanPropertyNo || (sp.PropertyNo != null && sp.PropertyNo.StartsWith(cleanPropertyNo)))
+                join wd in wingDetailsQuery on s.Id equals wd.SocietyDetailsMastId
+                join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+                from wm in wmJoin.DefaultIfEmpty()
+                select new
+                {
+                    WingDetailId = wd.Id,
+                    WingName = wd.WingName ?? (wm != null ? wm.WingNo : null),
+                    WingNo = wm != null ? wm.WingNo : null
+                })
+                .ToListAsync(cancellationToken);
+
+            foreach (var w in wingsFromSociety)
+            {
+                var name = w.WingName ?? w.WingNo;
+                if (!string.IsNullOrWhiteSpace(name) && !wingMap.ContainsKey(name))
+                {
+                    wingMap[name] = (w.WingDetailId, name);
+                }
+            }
+        }
+
+        return wingMap.Values
+            .Select(w => (object)new
+            {
+                wingDetailId = w.wingDetailId,
+                wingName = w.wingName
+            })
+            .ToList();
+    }
+
+    public async Task<List<object>> GetUnitsByPropertyAsync(int propertyId, int? wingDetailId = null, CancellationToken cancellationToken = default)
+    {
+        var propertyDetailsQuery = _propertyDetailsRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(pd => pd.IsActive && !pd.MarkedForDeletion);
+
+        var propertyQuery = _propertyRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion);
+
+        var wingDetailsQuery = _wingDetailsMastRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(wd => wd.IsActive && !wd.MarkedForDeletion);
+
+        var wingQuery = _wingRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(wm => wm.IsActive);
+
+        // 1. If wingDetailId is specified, fetch all units linked to that wingDetailId via PropertyMast
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            var wingUnits = await (
+                from pm in propertyQuery
+                where pm.WingDetailId == wingDetailId.Value
+                join wd in wingDetailsQuery on pm.WingDetailId.Value equals wd.Id into wdJoin
+                from wd in wdJoin.DefaultIfEmpty()
+                join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+                from wm in wmJoin.DefaultIfEmpty()
+                join pd in propertyDetailsQuery on pm.Id equals pd.PropertyId into pdJoin
+                from pd in pdJoin.DefaultIfEmpty()
+                select new
+                {
+                    PropertyId = pm.Id,
+                    PropertyDetailsId = pd != null ? pd.Id : pm.Id,
+                    PartitionNo = pm.PartitionNo ?? pm.PropertyNo ?? $"Unit {pm.Id}",
+                    WingDetailId = pm.WingDetailId ?? 0,
+                    WingName = wd != null ? (wd.WingName ?? (wm != null ? wm.WingNo : "Wing")) : "Wing",
+                    FloorId = pd != null ? pd.FloorId : 1,
+                    UseId = pd != null ? pd.TypeOfUseId : 1
+                }
+            ).ToListAsync(cancellationToken);
+
+            if (wingUnits.Count > 0)
+            {
+                return wingUnits.Select(u => (object)new
+                {
+                    propertyId = u.PropertyId,
+                    propertyDetailsId = u.PropertyDetailsId,
+                    unitNo = !string.IsNullOrWhiteSpace(u.PartitionNo) ? u.PartitionNo : $"Unit {u.PropertyId}",
+                    wingDetailId = u.WingDetailId,
+                    wingName = u.WingName,
+                    floorId = u.FloorId,
+                    floorName = "1st Floor",
+                    useId = u.UseId,
+                    useName = "Residential",
+                    isSelected = false
+                }).ToList();
+            }
+        }
+
+        // 2. Fallback: query target property and its siblings sharing WardId + PropertyNo
+        var targetProperty = await propertyQuery.FirstOrDefaultAsync(p => p.Id == propertyId, cancellationToken);
+        if (targetProperty != null)
+        {
+            var targetWardId = targetProperty.WardId;
+            var targetPropertyNo = targetProperty.PropertyNo ?? string.Empty;
+            var cleanPropertyNo = targetPropertyNo.Contains('/') ? targetPropertyNo.Split('/')[0].Trim() : targetPropertyNo.Trim();
+
+            var siblingUnits = await (
+                from pm in propertyQuery
+                where pm.WardId == targetWardId &&
+                      (pm.PropertyNo == targetPropertyNo || pm.PropertyNo == cleanPropertyNo || (pm.PropertyNo != null && pm.PropertyNo.StartsWith(cleanPropertyNo)))
+                join wd in wingDetailsQuery on pm.WingDetailId equals wd.Id into wdJoin
+                from wd in wdJoin.DefaultIfEmpty()
+                join wm in wingQuery on wd.WingMasterId equals wm.Id into wmJoin
+                from wm in wmJoin.DefaultIfEmpty()
+                join pd in propertyDetailsQuery on pm.Id equals pd.PropertyId into pdJoin
+                from pd in pdJoin.DefaultIfEmpty()
+                select new
+                {
+                    PropertyId = pm.Id,
+                    PropertyDetailsId = pd != null ? pd.Id : pm.Id,
+                    PartitionNo = pm.PartitionNo ?? pm.PropertyNo ?? $"Unit {pm.Id}",
+                    WingDetailId = pm.WingDetailId ?? 0,
+                    WingName = wd != null ? (wd.WingName ?? (wm != null ? wm.WingNo : "Wing")) : "Wing",
+                    FloorId = pd != null ? pd.FloorId : 1,
+                    UseId = pd != null ? pd.TypeOfUseId : 1
+                }
+            ).ToListAsync(cancellationToken);
+
+            if (siblingUnits.Count > 0)
+            {
+                return siblingUnits.Select(u => (object)new
+                {
+                    propertyId = u.PropertyId,
+                    propertyDetailsId = u.PropertyDetailsId,
+                    unitNo = !string.IsNullOrWhiteSpace(u.PartitionNo) ? u.PartitionNo : $"Unit {u.PropertyId}",
+                    wingDetailId = u.WingDetailId,
+                    wingName = u.WingName,
+                    floorId = u.FloorId,
+                    floorName = "1st Floor",
+                    useId = u.UseId,
+                    useName = "Residential",
+                    isSelected = false
+                }).ToList();
+            }
+        }
+
+        // 3. Final Fallback: Direct PropertyDetails for target propertyId
+        var floors = await propertyDetailsQuery
+            .Where(pd => pd.PropertyId == propertyId)
+            .Include(pd => pd.Floor)
+            .Include(pd => pd.TypeOfUse)
+            .ToListAsync(cancellationToken);
+
+        return floors.Select(pd => (object)new
+        {
+            propertyId,
+            propertyDetailsId = pd.Id,
+            unitNo = $"Unit {pd.Id}",
+            wingDetailId = 0,
+            wingName = "Wing A",
+            floorId = pd.FloorId,
+            floorName = pd.Floor != null ? (pd.Floor.Description ?? "1st Floor") : "1st Floor",
+            useId = pd.TypeOfUseId,
+            useName = pd.TypeOfUse != null ? (pd.TypeOfUse.Description ?? "Residential") : "Residential",
+            isSelected = false
+        }).ToList();
+    }
+
+    public async Task<(List<object> Items, int TotalCount)> GetUnitsByPropertyPagedAsync(
+        int propertyId,
+        int? wingDetailId = null,
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var allUnits = await GetUnitsByPropertyAsync(propertyId, wingDetailId, cancellationToken);
+        var totalCount = allUnits.Count;
+        var safePage = Math.Max(1, pageNumber);
+        var safeSize = Math.Max(1, pageSize);
+
+        var pagedItems = allUnits
+            .Skip((safePage - 1) * safeSize)
+            .Take(safeSize)
+            .ToList();
+
+        return (pagedItems, totalCount);
     }
 }

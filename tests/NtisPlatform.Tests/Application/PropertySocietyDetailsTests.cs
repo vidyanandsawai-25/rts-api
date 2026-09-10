@@ -353,8 +353,6 @@ public class PropertySocietyDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingId = 5,
-                WingName = "West Wing",
                 SocietyName = "ABC Society",
                 SocietyAddress = "123 Main Street",
                 SecretaryName = "John Secretary",
@@ -383,8 +381,6 @@ public class PropertySocietyDetailsTests
 
             Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
-            Assert.Equal(5, entity.WingId);
-            Assert.Equal("West Wing", entity.WingName);
             Assert.Equal("ABC Society", entity.SocietyName);
             Assert.Equal("123 Main Street", entity.SocietyAddress);
             Assert.Equal("John Secretary", entity.SecretaryName);
@@ -420,8 +416,6 @@ public class PropertySocietyDetailsTests
             };
 
             Assert.Null(entity.PropertyId);
-            Assert.Null(entity.WingId);
-            Assert.Null(entity.WingName);
             Assert.Null(entity.SocietyName);
             Assert.Null(entity.SocietyAddress);
             Assert.Null(entity.SecretaryName);
@@ -510,7 +504,6 @@ public class PropertySocietyDetailsTests
                 Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
-                SocietyDetailId = null,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -541,25 +534,26 @@ public class PropertySocietyDetailsTests
             {
                 Id = 100,
                 PropertyId = 549357,
-                WingId = 5,
-                WingName = "West Wing",
                 SocietyName = "ABC Society",
                 IsActive = true,
                 MarkedForDeletion = false
             };
+
+            var wingMast = new WingDetailsMastEntity { Id = 7, SocietyDetailsMastId = 100, WingMasterId = 5, WingName = "West Wing", IsActive = true };
 
             var property = new PropertyEntity
             {
                 Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
-                SocietyDetailId = 100,
+                WingDetailId = wingMast.Id,
                 IsActive = true,
                 MarkedForDeletion = false
             };
 
             context.WingEntity.Add(wing);
             context.SocietyDetailsMast.Add(society);
+            context.Set<WingDetailsMastEntity>().Add(wingMast);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
@@ -645,7 +639,6 @@ public class PropertySocietyDetailsTests
                 Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
-                SocietyDetailId = null,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -694,7 +687,6 @@ public class PropertySocietyDetailsTests
                 Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
-                SocietyDetailId = 100,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -714,7 +706,10 @@ public class PropertySocietyDetailsTests
 
             Assert.NotNull(result);
             Assert.Equal("Updated Society", result.SocietyName);
-            Assert.Equal("New Wing", result.WingName);
+            // WingName with no WingId and no existing WingDetailsMast row has nothing valid to
+            // link to (WingMasterId is a required FK) -- correctly a no-op rather than creating
+            // a row with WingMasterId=0.
+            Assert.Null(result.WingName);
 
             var societyCount = await context.SocietyDetailsMast.CountAsync();
             Assert.Equal(1, societyCount);
@@ -768,7 +763,10 @@ public class PropertySocietyDetailsTests
             var result = await service.UpdateSocietyDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
-            Assert.Equal("Wing A", result.WingName);
+            // WingName with no WingId and no existing WingDetailsMast row has nothing valid to
+            // link to (WingMasterId is a required FK) -- correctly a no-op rather than creating
+            // a row with WingMasterId=0.
+            Assert.Null(result.WingName);
             Assert.Equal("Society Name", result.SocietyName);
             Assert.Equal("Society Address", result.SocietyAddress);
             Assert.Equal("Secretary", result.SecretaryName);
@@ -849,8 +847,8 @@ public class PropertySocietyDetailsTests
         {
             var service = CreateService(out var repo, out _, out var unitOfWork);
             repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new PropertyEntity { Id = 549357, SocietyDetailId = 100, IsActive = true });
-            repo.Setup(r => r.GetSocietyByIdAsync(100, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, IsActive = true });
+            repo.Setup(r => r.GetSocietyByPropertyIdAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new SocietyDetailsEntity { Id = 100, PropertyId = 549357, IsActive = true });
             var expected = new PropertySocietyDetailsDto { PropertyId = 549357, SocietyName = "Updated Society" };
             repo.Setup(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);

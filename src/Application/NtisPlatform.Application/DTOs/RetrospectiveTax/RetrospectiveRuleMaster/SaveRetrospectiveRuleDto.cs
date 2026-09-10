@@ -88,6 +88,10 @@ public class SaveRetrospectiveRuleDateConditionDto
     public DateTime? CompareDate { get; set; }
     public DateTime? CompareDateTo { get; set; }
     public int? CompareYears { get; set; }
+
+    /// <summary>DAYS / MONTHS / YEARS — only used when ComparatorCode = EVIDENCE_GAP_WITHIN_PERIOD.</summary>
+    [StringLength(10, ErrorMessage = "RetrospectiveRuleDateCondition_CompareGapUnit_MaxLen_10")]
+    public string? CompareGapUnit { get; set; }
 }
 
 public class SaveRetrospectiveRuleActionDto
@@ -132,6 +136,14 @@ public class SaveRetrospectiveRuleActionDto
     public int? SplitEndEvidenceTypeId { get; set; }
     public decimal? SplitMultiplier { get; set; }
     public decimal? AfterSplitMultiplier { get; set; }
+
+    /// <summary>
+    /// Which rate/tax % the retrospective calculation uses for each retrospective year. Get valid
+    /// choices from GET api/RetrospectiveRuleAction/rate-modes.
+    /// </summary>
+    [Required(ErrorMessage = "RetrospectiveRuleAction_RateMode_Required")]
+    [StringLength(20, ErrorMessage = "RetrospectiveRuleAction_RateMode_MaxLen_20")]
+    public string RateMode { get; set; } = "YEAR_WISE";
 }
 
 public class SaveRetrospectivePenaltyRuleDto

@@ -447,7 +447,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                   OR (@PropertyTypeCategoryId = 3 AND UPPER(ISNULL(ptm.Type, '')) IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I'))
                   OR (@PropertyTypeCategoryId = 4
                       AND UPPER(ISNULL(ptm.Type, '')) NOT IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I')
-                      AND (p.OpenPlot = 1 OR EXISTS
+                      AND (EXISTS
                       (
                           SELECT 1
                           FROM PTIS.PropertyDetails pd
@@ -455,11 +455,11 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                           WHERE pd.PropertyId = p.Id
                             AND pd.IsActive = 1
                             AND pd.MarkedForDeletion = 0
-                            AND (pd.IsOpenPlot = 1 OR UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
+                            AND (UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
                       )))
                   OR (@PropertyTypeCategoryId = 6
                       AND UPPER(ISNULL(ptm.Type, '')) NOT IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I')
-                      AND NOT (p.OpenPlot = 1 OR EXISTS
+                      AND NOT (EXISTS
                       (
                           SELECT 1
                           FROM PTIS.PropertyDetails pd
@@ -467,7 +467,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                           WHERE pd.PropertyId = p.Id
                             AND pd.IsActive = 1
                             AND pd.MarkedForDeletion = 0
-                            AND (pd.IsOpenPlot = 1 OR UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
+                            AND (UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
                       ))
                       AND EXISTS
                       (
@@ -481,7 +481,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                       ))
                   OR (@PropertyTypeCategoryId = 5
                       AND UPPER(ISNULL(ptm.Type, '')) NOT IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I')
-                      AND NOT (p.OpenPlot = 1 OR EXISTS
+                      AND NOT (EXISTS
                       (
                           SELECT 1
                           FROM PTIS.PropertyDetails pd
@@ -489,7 +489,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                           WHERE pd.PropertyId = p.Id
                             AND pd.IsActive = 1
                             AND pd.MarkedForDeletion = 0
-                            AND (pd.IsOpenPlot = 1 OR UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
+                            AND (UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
                       ))
                       AND NOT EXISTS
                       (
@@ -516,7 +516,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                       ))
                   OR (@PropertyTypeCategoryId = 1
                       AND UPPER(ISNULL(ptm.Type, '')) NOT IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I')
-                      AND NOT (p.OpenPlot = 1 OR EXISTS
+                      AND NOT (EXISTS
                       (
                           SELECT 1
                           FROM PTIS.PropertyDetails pd
@@ -524,7 +524,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                           WHERE pd.PropertyId = p.Id
                             AND pd.IsActive = 1
                             AND pd.MarkedForDeletion = 0
-                            AND (pd.IsOpenPlot = 1 OR UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
+                            AND (UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
                       ))
                       AND NOT EXISTS
                       (
@@ -560,7 +560,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                       )))
                   OR (@PropertyTypeCategoryId = 2
                       AND UPPER(ISNULL(ptm.Type, '')) NOT IN ('R-C', 'C-R', 'C-I', 'I-C', 'I-R', 'R-I')
-                      AND NOT (p.OpenPlot = 1 OR EXISTS
+                      AND NOT (EXISTS
                       (
                           SELECT 1
                           FROM PTIS.PropertyDetails pd
@@ -568,7 +568,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                           WHERE pd.PropertyId = p.Id
                             AND pd.IsActive = 1
                             AND pd.MarkedForDeletion = 0
-                            AND (pd.IsOpenPlot = 1 OR UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
+                            AND (UPPER(ISNULL(tou.Description, '')) LIKE '%OPEN%')
                       ))
                       AND NOT EXISTS
                       (
@@ -1033,7 +1033,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                       && !pp.MarkedForDeletion
                 select new DataEntryCompletedPhotoProjection
                 {
-                    PropertyId = pp.PropertyId,
+                    PropertyId = p.Id,
                     PhotoTypeId = pp.PhotoTypeId
                 })
                 .Distinct()

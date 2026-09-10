@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
@@ -381,14 +382,12 @@ public abstract class WorkflowStageBaseRepository
                     .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
                     .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
                     .Any(type => MixedPropertyTypes.Contains(type))
-                && (p.OpenPlot == true
-                    || _context.PropertyDetails.AsNoTracking()
+                && (_context.PropertyDetails.AsNoTracking()
                         .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
-                        .Any(pd => pd.IsOpenPlot == true
-                            || _context.TypeOfUse.AsNoTracking()
-                                .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
-                                .Select(tou => tou.Description ?? "")
-                                .Any(desc => desc.ToUpper().Contains("OPEN")))));
+                        .Any(pd => _context.TypeOfUse.AsNoTracking()
+                                .Any(tou => tou.IsActive && tou.Id == pd.TypeOfUseId
+                                    && _context.TypeOfUseCategory.AsNoTracking()
+                                        .Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op)))));
         }
 
         if (propertyTypeCategoryId == underConstruction)

@@ -17,6 +17,7 @@ public class PolicyTaxDetailsEntityTests
             CalculationValue = 10000m,
             TaxId = 3,
             TaxAmount = 250m,
+            IsCurrent = true,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null
         };
@@ -28,6 +29,7 @@ public class PolicyTaxDetailsEntityTests
         Assert.Equal(10000m, entity.CalculationValue);
         Assert.Equal(3, entity.TaxId);
         Assert.Equal(250m, entity.TaxAmount);
+        Assert.True(entity.IsCurrent);
         Assert.False(entity.MarkedForDeletion);
         Assert.Null(entity.MarkedForDeletionDate);
     }

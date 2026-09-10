@@ -574,19 +574,6 @@ public class PropertyEntityTests
     #region Society and Status Information Tests
 
     [Fact]
-    public void SocietyDetailId_CanBeSetAndGet()
-    {
-        // Arrange
-        var entity = new PropertyEntity();
-
-        // Act
-        entity.SocietyDetailId = 15;
-
-        // Assert
-        Assert.Equal(15, entity.SocietyDetailId);
-    }
-
-    [Fact]
     public void PropertyAssessmentStatusId_CanBeSetAndGet()
     {
         // Arrange
@@ -742,7 +729,6 @@ public class PropertyEntityTests
         entity.AlternateMobileNo = null;
         entity.OccupierMobileNo = null;
         entity.OccupierMobileNoRemarkId = null;
-        entity.SocietyDetailId = null;
         entity.PropertyAssessmentStatusId = null;
         entity.PropertyMastOldId = null;
         entity.MarkedForDeletionDate = null;
@@ -783,7 +769,6 @@ public class PropertyEntityTests
         Assert.Null(entity.AlternateMobileNo);
         Assert.Null(entity.OccupierMobileNo);
         Assert.Null(entity.OccupierMobileNoRemarkId);
-        Assert.Null(entity.SocietyDetailId);
         Assert.Null(entity.PropertyAssessmentStatusId);
         Assert.Null(entity.PropertyMastOldId);
         Assert.Null(entity.MarkedForDeletionDate);
@@ -832,7 +817,6 @@ public class PropertyEntityTests
             AlternateMobileNo = "0987654321",
             OccupierMobileNo = "1112223333",
             OccupierMobileNoRemarkId = 8,
-            SocietyDetailId = 9,
             PropertyAssessmentStatusId = 10,
             PropertyMastOldId = 11,
             MarkedForDeletion = true,
@@ -877,7 +861,6 @@ public class PropertyEntityTests
         Assert.Equal("0987654321", entity.AlternateMobileNo);
         Assert.Equal("1112223333", entity.OccupierMobileNo);
         Assert.Equal(8, entity.OccupierMobileNoRemarkId);
-        Assert.Equal(9, entity.SocietyDetailId);
         Assert.Equal(10, entity.PropertyAssessmentStatusId);
         Assert.Equal(11, entity.PropertyMastOldId);
         Assert.True(entity.MarkedForDeletion);

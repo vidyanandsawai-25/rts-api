@@ -11,7 +11,7 @@ namespace NtisPlatform.Application.Services
         public SocialAttributeService(IRepository<SocialAttributeEntity, int> repository,IUnitOfWork unitOfWork, IMapper mapper)
         : base(repository, unitOfWork, mapper)
         {
-            
+
         }
-    }
+     }
 }

@@ -27,6 +27,8 @@ public class PolicyTaxDetailsEntity : BaseEntity, IHardDeletable
 
     public decimal? TaxAmount { get; set; }
 
+    public bool IsCurrent { get; set; } = true;
+
     public bool MarkedForDeletion { get; set; } = false;
 
     public DateTime? MarkedForDeletionDate { get; set; }

@@ -10,13 +10,24 @@ namespace NtisPlatform.Infrastructure.Repositories.Property;
 /// <summary>Old taxes and old (historical) floor data access for the Property "Old Details" tab.</summary>
 public partial class PropertyOldDetailsRepository
 {
+    public async Task<int?> GetMappedOldPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var propertyMastOldId = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.PropertyIdOld != null)
+            .Select(pmd => pmd.PropertyIdOld!.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return propertyMastOldId > 0 ? propertyMastOldId : null;
+    }
+
     public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get the new property details (including PropertyMastOldId).
+        // Step 1: Verify the new property exists.
         var property = await _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.PropertyMastOldId })
+            .Select(p => new { p.Id })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (property == null)
@@ -38,8 +49,7 @@ public partial class PropertyOldDetailsRepository
             };
         }
 
-        // Step 3: Resolve old property IDs via PropertyMapDetail (PropertyIdOld where PropertyIdNew = propertyId)
-        //         with fallback to property.PropertyMastOldId.
+        // Step 3: Resolve old property IDs via PropertyMapDetail (PropertyIdOld where PropertyIdNew = propertyId).
         var mappedOldPropertyIds = await _context.PropertyMapDetails
             .AsNoTracking()
             .Where(pmd => pmd.PropertyIdNew == propertyId)
@@ -52,11 +62,6 @@ public partial class PropertyOldDetailsRepository
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .ToList();
-
-        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(property.PropertyMastOldId.Value);
-        }
 
         // Step 4: Execute the query that mirrors the SQL:
         //
@@ -242,13 +247,11 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyOldTaxesDetailsDto?> PersistNewOldTaxesAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        var property = await _context.PropertyMast
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
         // Use execution strategy for resilience; the transaction makes the create atomic.
@@ -262,7 +265,7 @@ public partial class PropertyOldDetailsRepository
 
             try
             {
-                var propertyMastOldId = await EnsurePropertyMastOldForPersistAsync(property.PropertyMastOldId, propertyId, cancellationToken);
+                var propertyMastOldId = await EnsureMappedOldPropertyIdAsync(propertyId, cancellationToken);
 
                 foreach (var yearDto in dto.TaxYears)
                 {
@@ -307,16 +310,14 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyOldTaxesDetailsDto?> PersistUpsertedOldTaxesAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        var property = await _context.PropertyMast
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        var propertyMastOldId = await EnsurePropertyMastOldForPersistAsync(property.PropertyMastOldId, propertyId, cancellationToken);
+        var propertyMastOldId = await EnsureMappedOldPropertyIdAsync(propertyId, cancellationToken);
 
         // Prefetch all existing transactions (including soft-deleted) so the upsert can reactivate rows
         // instead of inserting duplicates that would violate the filtered unique index.
@@ -385,11 +386,15 @@ public partial class PropertyOldDetailsRepository
         return await GetOldTaxesDetailsAsync(propertyId, cancellationToken);
     }
 
-    /// <summary>Returns the property's PropertyMastOld id, creating and linking a new row (with its own save) when none exists.</summary>
-    private async Task<int> EnsurePropertyMastOldForPersistAsync(int? existingPropertyMastOldId, int propertyId, CancellationToken cancellationToken)
+    public async Task<int> EnsureMappedOldPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        if (existingPropertyMastOldId.HasValue)
-            return existingPropertyMastOldId.Value;
+        var existingPropertyMastOldId = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.PropertyIdOld != null)
+            .Select(pmd => pmd.PropertyIdOld!.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (existingPropertyMastOldId > 0)
+            return existingPropertyMastOldId;
 
         var newPropertyMastOld = new PropertyMastOldEntity
         {
@@ -400,11 +405,23 @@ public partial class PropertyOldDetailsRepository
         await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
-        if (propertyEntity != null)
+        var propertyMapId = await _context.PropertyMapMasters
+            .Where(pm => pm.MappingCategory == "MAP" && pm.IsActive)
+            .Select(pm => pm.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (propertyMapId > 0)
         {
-            propertyEntity.PropertyMastOldId = newPropertyMastOld.Id;
-            propertyEntity.UpdatedDate = DateTime.Now;
+            await _context.PropertyMapDetails.AddAsync(new PropertyMapDetailEntity
+            {
+                PropertyMapId = propertyMapId,
+                PropertyIdNew = propertyId,
+                PropertyIdOld = newPropertyMastOld.Id,
+                Status = "ACTIVE",
+                IsCurrent = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            }, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
@@ -461,34 +478,21 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast
-        var property = await _context.PropertyMast
+        // Step 1: Verify the property exists
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
-        var mappedOldPropertyIds = await _context.PropertyMapDetails
+        // Resolve all mapped old property IDs via PropertyMapDetail
+        var oldPropertyIds = await _context.PropertyMapDetails
             .AsNoTracking()
-            .Where(pmd => pmd.PropertyIdNew == propertyId)
-            .Select(pmd => pmd.PropertyIdOld)
-            .Where(id => id != null)
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.PropertyIdOld != null)
+            .Select(pmd => pmd.PropertyIdOld!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
-
-        var oldPropertyIds = mappedOldPropertyIds
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-
-        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(property.PropertyMastOldId.Value);
-        }
 
         if (!oldPropertyIds.Any())
             return new PropertyDetailsOldListDto { PropertyId = propertyId, FloorDetails = new List<PropertyDetailsOldDto>() };
@@ -584,34 +588,21 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<FloorDetailsOldPagedResult?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQuery query, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast
-        var property = await _context.PropertyMast
+        // Step 1: Verify the property exists
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
-        var mappedOldPropertyIds = await _context.PropertyMapDetails
+        // Resolve all mapped old property IDs via PropertyMapDetail
+        var oldPropertyIds = await _context.PropertyMapDetails
             .AsNoTracking()
-            .Where(pmd => pmd.PropertyIdNew == propertyId)
-            .Select(pmd => pmd.PropertyIdOld)
-            .Where(id => id != null)
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.PropertyIdOld != null)
+            .Select(pmd => pmd.PropertyIdOld!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
-
-        var oldPropertyIds = mappedOldPropertyIds
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-
-        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(property.PropertyMastOldId.Value);
-        }
 
         if (!oldPropertyIds.Any())
         {
@@ -788,34 +779,21 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast
-        var property = await _context.PropertyMast
+        // Step 1: Verify the property exists
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
-        var mappedOldPropertyIds = await _context.PropertyMapDetails
+        // Resolve all mapped old property IDs via PropertyMapDetail
+        var oldPropertyIds = await _context.PropertyMapDetails
             .AsNoTracking()
-            .Where(pmd => pmd.PropertyIdNew == propertyId)
-            .Select(pmd => pmd.PropertyIdOld)
-            .Where(id => id != null)
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.PropertyIdOld != null)
+            .Select(pmd => pmd.PropertyIdOld!.Value)
             .Distinct()
             .ToListAsync(cancellationToken);
-
-        var oldPropertyIds = mappedOldPropertyIds
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-
-        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(property.PropertyMastOldId.Value);
-        }
 
         if (!oldPropertyIds.Any())
             return null;
@@ -905,46 +883,16 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get or create PropertyMastOld for this property
-        var property = await _context.PropertyMast
+        // Step 1: Verify the property exists
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        int propertyMastOldId;
-
-        // Step 2: Check if PropertyMastOld exists or create it
-        if (property.PropertyMastOldId.HasValue)
-        {
-            propertyMastOldId = property.PropertyMastOldId.Value;
-        }
-        else
-        {
-            // Auto-create PropertyMastOld record (consistent with UpdateOldDetailsAsync behavior)
-            var newPropertyMastOld = new PropertyMastOldEntity
-            {
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.Now
-            };
-            await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            propertyMastOldId = newPropertyMastOld.Id;
-
-            // Update PropertyMast with the new PropertyMastOldId
-            var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
-            if (propertyEntity != null)
-            {
-                propertyEntity.PropertyMastOldId = propertyMastOldId;
-                propertyEntity.UpdatedDate = DateTime.Now;
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-        }
+        // Step 2: Get or create PropertyMastOld for this property (linked via PropertyMapDetail)
+        var propertyMastOldId = await EnsureMappedOldPropertyIdAsync(propertyId, cancellationToken);
 
         // Step 3: Create new entity (foreign-key references are validated by the service)
         var newEntity = new PropertyDetailsOldEntity
@@ -1054,21 +1002,24 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast
-        var property = await _context.PropertyMast
+        // Step 1: Get PropertyMastOldId via PropertyMapDetails
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (!propertyExists)
+            return null;
+
+        var propertyMastOldIdOpt = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive)
+            .Select(pmd => pmd.PropertyIdOld)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (property == null)
+        if (!propertyMastOldIdOpt.HasValue)
             return null;
 
-        // The service guarantees a linked PropertyMastOld before calling; treat its absence as "no record to update".
-        if (!property.PropertyMastOldId.HasValue)
-            return null;
-
-        var propertyMastOldId = property.PropertyMastOldId.Value;
+        var propertyMastOldId = propertyMastOldIdOpt.Value;
 
         // Step 2: Get the existing floor record
         var existingRecord = await _context.PropertyDetailsOld
@@ -1178,20 +1129,24 @@ public partial class PropertyOldDetailsRepository
 
     public async Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast
-        var property = await _context.PropertyMast
+        // Step 1: Get PropertyMastOldId via PropertyMapDetails
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (!propertyExists)
+            return false;
+
+        var propertyMastOldIdOpt = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive)
+            .Select(pmd => pmd.PropertyIdOld)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (property == null)
+        if (!propertyMastOldIdOpt.HasValue)
             return false;
 
-        if (!property.PropertyMastOldId.HasValue)
-            return false;
-
-        var propertyMastOldId = property.PropertyMastOldId.Value;
+        var propertyMastOldId = propertyMastOldIdOpt.Value;
 
         // Step 2: Get the existing floor record
         var existingRecord = await _context.PropertyDetailsOld

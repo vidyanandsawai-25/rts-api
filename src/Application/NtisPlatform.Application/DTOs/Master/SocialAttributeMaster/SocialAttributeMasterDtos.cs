@@ -16,6 +16,12 @@ public class SocialAttributeDto : BaseDtos
     public bool IsDocumentRequired { get; set; }
 }
 
+public class SocialAttributeLoadDto
+{
+    public IReadOnlyList<SocialAttributeDto> DiscountInformation { get; set; } = Array.Empty<SocialAttributeDto>();
+    public IReadOnlyList<SocialAttributeDto> OtherSocialInformation { get; set; } = Array.Empty<SocialAttributeDto>();
+}
+
 public class CreateSocialAttributeDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "SocialAttribute_Code_Required")]

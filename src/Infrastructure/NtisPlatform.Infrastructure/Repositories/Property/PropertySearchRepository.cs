@@ -138,10 +138,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
                     from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                    from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                    join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                     from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                     from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                     select new
@@ -781,9 +783,12 @@ public class PropertySearchRepository : IPropertySearchRepository
 .FirstOrDefaultAsync(o => o.OldPropertyNo != null && o.OldPropertyNo == searchRequest.OldPropertyNo!.Trim() && o.IsActive && !o.MarkedForDeletion, cancellationToken);
                 if (oldProp != null)
                 {
-                    parentProperty = await _context.PropertyMast
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.PropertyMastOldId == oldProp.Id && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+                    parentProperty = await (
+                        from p in _context.PropertyMast.AsNoTracking()
+                        join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
+                        where pmd.PropertyIdOld == oldProp.Id && pmd.IsActive && p.IsActive && !p.MarkedForDeletion
+                        select p
+                    ).FirstOrDefaultAsync(cancellationToken);
                 }
             }
         }
@@ -817,10 +822,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
                     from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                    from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                    join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                     from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                     from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                     select new
@@ -1727,22 +1734,16 @@ public class PropertySearchRepository : IPropertySearchRepository
 
     /// <summary>
     /// Sum of TaxTotal demand from PTIS.TransMastOld + PTIS.TaxMaster (or fallback PropertyMastOld.OldTotalTax)
-    /// for properties that are mapped via PropertyMapDetail or PropertyMastOldId.
+    /// for properties that are mapped via PropertyMapDetail.
     /// </summary>
     private async Task<decimal> GetOldTaxTotalDemandAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var oldPropertyIdsFromPmd = from p in query
-                                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
-                                    where pmd.IsActive && pmd.PropertyIdOld != null
-                                    select pmd.PropertyIdOld!.Value;
-
-        var oldPropertyIdsFromMast = query
-            .Where(p => p.PropertyMastOldId != null)
-            .Select(p => p.PropertyMastOldId!.Value);
-
-        var oldPropertyIdsQuery = oldPropertyIdsFromPmd.Union(oldPropertyIdsFromMast);
+        var oldPropertyIdsQuery = from p in query
+                                 join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
+                                 where pmd.IsActive && pmd.PropertyIdOld != null
+                                 select pmd.PropertyIdOld!.Value;
 
         var transSum = await (
             from tmo in _context.TransMastOld.AsNoTracking()
@@ -1770,14 +1771,13 @@ public class PropertySearchRepository : IPropertySearchRepository
     // ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail or PropertyMastOldId.
+    /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail.
     /// </summary>
     private async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> CalculatePreviouslyRegisteredAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
         var prevQuery = query.Where(p =>
-            p.PropertyMastOldId != null ||
             _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
         );
 
@@ -1826,7 +1826,6 @@ public class PropertySearchRepository : IPropertySearchRepository
         CancellationToken cancellationToken)
     {
         var revenueQuery = query.Where(p =>
-            p.PropertyMastOldId != null ||
             _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
         );
 
@@ -1904,10 +1903,12 @@ public class PropertySearchRepository : IPropertySearchRepository
         var searchBase = from p in _context.PropertyMast.AsNoTracking()
                          where p.IsActive && !p.MarkedForDeletion
 
-                         join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                         join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                         from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                         join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                          from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                         join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                         join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                          from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                          select new
@@ -1994,10 +1995,12 @@ public class PropertySearchRepository : IPropertySearchRepository
             join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
             from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+            join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+            join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
             from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-            join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+            join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
             from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
             select new

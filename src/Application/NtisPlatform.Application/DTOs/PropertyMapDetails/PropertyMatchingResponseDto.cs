@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.DTOs.PropertyMapDetails;
+namespace NtisPlatform.Application.DTOs.PropertyMapDetails;
 
 public class PropertyMatchingResponseDto
 {
@@ -75,6 +75,7 @@ public sealed class OldPropertyBase
 public sealed class LatestMapping
 {
     public int PropertyIdOld { get; set; }
+    public int? PropertyIdNew { get; set; }
     public int Id { get; set; }
     public int? UpdatedBy { get; set; }
     public DateTime? UpdatedDate { get; set; }

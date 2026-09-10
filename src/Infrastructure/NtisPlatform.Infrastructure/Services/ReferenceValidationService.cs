@@ -61,7 +61,6 @@ public class ReferenceValidationService : IReferenceValidationService
             );
         config.ForEntity<AssessmentYearRangeEntity>()
             .CheckReferences(
-                ("Depreciation Master", (ctx, id) => ctx.DepreciationMaster.Where(d => d.YearRangeRVId == id).Cast<object>()),
                 ("Rate Master", (ctx, id) => ctx.RateEntity.Where(r => r.YearRangeRVId == id).Cast<object>()),
                 ("Tax Percentage Master RV", (ctx, id) => ctx.TaxPercentageMasterRVs.Where(t => t.YearRangeRVId == id).Cast<object>())
             );
@@ -110,7 +109,9 @@ public class ReferenceValidationService : IReferenceValidationService
 
         config.ForEntity<SocietyDetailsEntity>()
         .CheckReferences(
-           ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.SocietyDetailId == id).Cast<object>())
+           // PropertyMast no longer carries a forward SocietyDetailId FK (SocietyDetailsMast.PropertyId
+           // is the reverse link instead); the remaining child that would be orphaned is WingDetailsMast.
+           ("Wing Details Master", (ctx, id) => ctx.WingDetailsMast.Where(w => w.SocietyDetailsMastId == id && w.IsActive && !w.MarkedForDeletion).Cast<object>())
         );
 
         config.ForEntity<AssetCategoryEntity>()

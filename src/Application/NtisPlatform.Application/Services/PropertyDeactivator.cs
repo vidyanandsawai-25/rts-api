@@ -13,10 +13,10 @@ public class PropertyDeactivator : IPropertyDeactivator
 {
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
+    private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepository;
     private readonly IRepository<TransMastEntity> _transMastRepository;
-    private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseSubmissionRepository;
     private readonly IRepository<RoomWiseMinusDataEntity, int> _roomWiseMinusDataRepository;
     private readonly ILogger<PropertyDeactivator> _logger;
@@ -24,20 +24,20 @@ public class PropertyDeactivator : IPropertyDeactivator
     public PropertyDeactivator(
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
+        IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
         IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepository,
         IRepository<TransMastEntity> transMastRepository,
-        IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseSubmissionRepository,
         IRepository<RoomWiseMinusDataEntity, int> roomWiseMinusDataRepository,
         ILogger<PropertyDeactivator> logger)
     {
         _propertyRepository = propertyRepository;
         _propertyMastOldRepository = propertyMastOldRepository;
+        _propertyMapDetailRepository = propertyMapDetailRepository;
         _propertyDetailsRepository = propertyDetailsRepository;
         _propertyAssessmentRepository = propertyAssessmentRepository;
         _transMastRepository = transMastRepository;
-        _taxPendingRepository = taxPendingRepository;
         _roomWiseSubmissionRepository = roomWiseSubmissionRepository;
         _roomWiseMinusDataRepository = roomWiseMinusDataRepository;
         _logger = logger;
@@ -69,16 +69,12 @@ public class PropertyDeactivator : IPropertyDeactivator
         _logger.LogInformation("Deactivated {Count} PropertyAssessment records", propertyAssessmentCount);
 
         // 3. PropertyMastOld - Soft delete for combined properties
-        var combinedPropertiesWithOldIds = await _propertyRepository.GetQueryable()
-            .Where(pm => propertyIds.Contains(pm.Id) && pm.PropertyMastOldId != null)
-            .Select(pm => new { pm.Id, pm.PropertyMastOldId })
-            .ToListAsync(cancellationToken);
-
-        var propertyMastOldIds = combinedPropertiesWithOldIds
-            .Where(x => x.PropertyMastOldId.HasValue)
-            .Select(x => x.PropertyMastOldId!.Value)
+        var propertyMastOldIds = await _propertyMapDetailRepository.GetQueryable()
+            .Where(pmd => pmd.PropertyIdNew.HasValue && propertyIds.Contains(pmd.PropertyIdNew.Value)
+                          && pmd.PropertyIdOld.HasValue && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+            .Select(pmd => pmd.PropertyIdOld!.Value)
             .Distinct()
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         if (propertyMastOldIds.Count > 0)
         {
@@ -132,20 +128,21 @@ public class PropertyDeactivator : IPropertyDeactivator
         }
 
         // 7. TransMast - Set IsActive=0
-        var transMastCount = await _transMastRepository.GetQueryable()
-            .Where(tm => propertyIds.Contains(tm.PropertyId))
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsActive, false), cancellationToken);
-        _logger.LogInformation("Deactivated {Count} TransMast records", transMastCount);
-
-        // 8. TaxPendingDetails - Do NOT set IsActive=0
-        // TaxPendingDetails records are handled by CombinePropertyTaxService.AggregatePendingTaxesAsync()
-        // which zeroes out the PendingAmount and sets PendingFixed=true, but keeps IsActive=1
+        // Note: this runs BEFORE CombinePropertyService calls
+        // CombinePropertyTaxService.AggregatePendingTaxesAsync() (see CombinePropertyService's
+        // orchestration order), which re-activates (IsActive=true) and zeroes out specifically the
+        // OLD_ARREARS-policy rows it aggregates onto the source property -- so those rows end up
+        // IsActive=true as intended by execution order, while every other TransMast row for the
+        // combined-away properties stays deactivated here.
         //
         // FUTURE WORK NOTE:
         // - Currently, only Rateable Value (RV) taxes are calculated and updated during property combination
         //   using RateableValueService.CalculateAndSaveAsync()
         // - Capital Value (CV) tax calculation and update will be implemented in a future PR
-        _logger.LogInformation("TaxPendingDetails records will be handled by CombinePropertyTaxService (IsActive kept as 1)");
+        var transMastCount = await _transMastRepository.GetQueryable()
+            .Where(tm => propertyIds.Contains(tm.PropertyId))
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsActive, false), cancellationToken);
+        _logger.LogInformation("Deactivated {Count} TransMast records (OLD_ARREARS rows re-activated afterward by CombinePropertyTaxService)", transMastCount);
 
         _logger.LogInformation("Completed deactivation for {Count} properties", propertyIds.Count);
     }

@@ -28,6 +28,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public string? UPICId { get; set; }
 
+    /// <summary>
+    /// Legacy flag for open plot (Column removed from PTIS.PropertyMast DB table, kept as [NotMapped] property for backward compatibility)
+    /// </summary>
+    [NotMapped]
     public bool? OpenPlot { get; set; }
 
     public string? CSN { get; set; }
@@ -89,8 +93,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public string? OccupierMobileNo { get; set; }
     public int? OccupierMobileNoRemarkId { get; set; }
 
-    // Society Information
-    public int? SocietyDetailId { get; set; }
+   public int? WingDetailId { get; set; }
 
     /// <summary>
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
@@ -98,8 +101,9 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public int? PropertyAssessmentStatusId { get; set; }
 
     /// <summary>
-    /// Foreign Key to PropertyMastOld.Id
+    /// Foreign Key to PropertyMastOld.Id (Removed from PTIS.PropertyMast DB table, kept as [NotMapped] for backward compatibility)
     /// </summary>
+    [NotMapped]
     public int? PropertyMastOldId { get; set; }
     public int? PropertyFloorId { get; set; }
 
@@ -168,20 +172,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public virtual ICollection<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = new List<RoomWiseSubmissionDetailsEntity>();
     public virtual ICollection<PropertyImagesMastEntity> PropertyImagesMast { get; set; } = new List<PropertyImagesMastEntity>();
 
-    // PropertySocialDetails: Does NOT implement IHardDeletable - only IsActive is updated during deletion
     public virtual ICollection<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = new List<PropertySocialDetailsEntity>();
-
-    // Tax Pending/Demand
-    public virtual ICollection<TaxPendingDetailsEntity> TaxPendingDetails { get; set; } = new List<TaxPendingDetailsEntity>();
 
     // WaterConnectionMaster: Does NOT implement IHardDeletable - only IsActive is updated during deletion
     public virtual ICollection<WaterConnectionMasterEntity> WaterConnectionMaster { get; set; } = new List<WaterConnectionMasterEntity>();
-
-    public virtual ICollection<TaxPendingDetailsArchiveEntity> TaxPendingDetailsArchive { get; set; } = new List<TaxPendingDetailsArchiveEntity>();
-    public virtual ICollection<TaxPendingDetailsCVEntity> TaxPendingDetailsCV { get; set; } = new List<TaxPendingDetailsCVEntity>();
-    public virtual ICollection<TaxPendingDetailsLookupEntity> TaxPendingDetailsLookup { get; set; } = new List<TaxPendingDetailsLookupEntity>();
-    public virtual ICollection<TaxPendingDetailsRetroEntity> TaxPendingDetailsRetro { get; set; } = new List<TaxPendingDetailsRetroEntity>();
-    public virtual ICollection<TaxPendingDetailsRVEntity> TaxPendingDetailsRV { get; set; } = new List<TaxPendingDetailsRVEntity>();
 
     // Tax Transactions
     public virtual ICollection<TransMastEntity> TransMast { get; set; } = new List<TransMastEntity>();

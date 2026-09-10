@@ -61,10 +61,10 @@ public class PropertySurveyServiceTests
             _mockWorkflowDetailsRepo.Object,
             _mockWorkflowStageRepo.Object,
             _mockUserRepo.Object,
-            _mockCommonRemarkDetailsRepo.Object,
             _mockPropertySurveyVisitRepo.Object,
             _mockUnitOfWork.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockCommonRemarkDetailsRepo.Object);
     }
 
     private void SetupEmptyRepositories()

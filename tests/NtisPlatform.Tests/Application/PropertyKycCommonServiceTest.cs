@@ -96,6 +96,9 @@ public class PropertyKycCommonServiceTest
     private readonly Mock<IRepository<WingEntity, int>>
         _wingRepositoryMock;
 
+    private readonly Mock<IRepository<WingDetailsMastEntity, int>>
+        _wingDetailsMastRepositoryMock;
+
 
     private readonly Mock<IRepository<WingEntity, int>>
     _wingMasterRepositoryMock;
@@ -182,6 +185,9 @@ public class PropertyKycCommonServiceTest
         _wingRepositoryMock =
             new Mock<IRepository<WingEntity, int>>();
 
+        _wingDetailsMastRepositoryMock =
+            new Mock<IRepository<WingDetailsMastEntity, int>>();
+
 
         _wingMasterRepositoryMock =
             new Mock<IRepository<WingEntity, int>>();
@@ -211,7 +217,8 @@ public class PropertyKycCommonServiceTest
             _communicationRepositoryMock.Object,
             _propertyMapDetailRepositoryMock.Object,
             _oldPropertyRepositoryMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _wingDetailsMastRepositoryMock.Object);
     }
 
     private void SetupEmptyRepositories()
@@ -235,6 +242,10 @@ public class PropertyKycCommonServiceTest
         _wingRepositoryMock
             .Setup(x => x.GetQueryable())
             .Returns(new List<WingEntity>().BuildMock());
+
+        _wingDetailsMastRepositoryMock
+            .Setup(x => x.GetQueryable())
+            .Returns(new List<WingDetailsMastEntity>().BuildMock());
 
         _roomWiseRepositoryMock
             .Setup(x => x.GetQueryable())
@@ -480,7 +491,6 @@ public class PropertyKycCommonServiceTest
             PropertyNo = "10",
             PartitionNo = null,
             OwnerName = "Main Owner",
-            SocietyDetailId = 50,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -507,10 +517,9 @@ public class PropertyKycCommonServiceTest
         var society = new SocietyDetailsEntity
         {
             Id = 50,
+            PropertyId = propertyId,
             SocietyName = "Green Society",
             SocietyAddress = "Pune",
-            WingId = 7,
-            WingName = "Wing A",
             ManagerName = "Manager One",
             SecretaryName = "Secretary One",
             BuilderName = "Builder One",
@@ -603,9 +612,11 @@ public class PropertyKycCommonServiceTest
         Assert.Equal("Green Society", result.SocietyName);
         Assert.Equal("Pune", result.SocietyAddress);
 
-        Assert.Equal(7, result.WingId);
-        Assert.Equal("A", result.WingNo);
-        Assert.Equal("Wing A", result.WingName);
+        // No WingDetailsMast row links this society to a wing, so wing fields correctly stay
+        // null -- they must never fall back to an arbitrary "first active wing" in the master.
+        Assert.Null(result.WingId);
+        Assert.Null(result.WingNo);
+        Assert.Null(result.WingName);
 
         Assert.Equal("Manager One", result.ManagerName);
         Assert.Equal("Secretary One", result.SecretaryName);

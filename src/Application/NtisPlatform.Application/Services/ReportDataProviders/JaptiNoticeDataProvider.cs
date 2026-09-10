@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Reporting;
@@ -26,7 +27,6 @@ public class JaptiNoticeDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
     private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
     private readonly IReportDataRepository<TransMastEntity> _transRepository;
-    private readonly IReportDataRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
 
 
@@ -38,7 +38,6 @@ public class JaptiNoticeDataProvider : IPagedReportDataProvider
         IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
         IReportDataRepository<YearMasterEntity> yearRepository,
         IReportDataRepository<TransMastEntity> transRepository,
-        IReportDataRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository)
     {
         _propertyRepository = propertyRepository;
@@ -48,7 +47,6 @@ public class JaptiNoticeDataProvider : IPagedReportDataProvider
         _ulbMasterRepository = ulbMasterRepository;
         _yearRepository = yearRepository;
         _transRepository = transRepository;
-        _taxPendingRepository = taxPendingRepository;
         _ReportRequestRepository = reportRequestRepository;
     }
 
@@ -320,11 +318,13 @@ public class JaptiNoticeDataProvider : IPagedReportDataProvider
             .ToListAsync(ct);
         var currentTaxMap = currentTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 
-        // TaxPendingDetails — SUM(PendingAmount) per PropertyId (IsActive = true)
-        var pendingTaxSums = await _taxPendingRepository.GetQueryable()
-            .Where(tp => propertyIdsToQuery.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion && !tp.PendingFixed)
+        // Migrated ULB arrears -- TransMast rows tagged PolicyCode = OLD_ARREARS, spanning all
+        // finance years (outstanding arrears are not scoped to the current year).
+        var pendingTaxSums = await _transRepository.GetQueryable()
+            .Where(tp => propertyIdsToQuery.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion
+                        && tp.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(tp => tp.PropertyId)
-            .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.PendingAmount) ?? 0m })
+            .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.TaxAmount) })
             .ToListAsync(ct);
         var pendingTaxMap = pendingTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 

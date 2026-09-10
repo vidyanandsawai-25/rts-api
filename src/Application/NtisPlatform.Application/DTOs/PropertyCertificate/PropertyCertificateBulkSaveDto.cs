@@ -72,6 +72,10 @@ public class PropertyCertificateItemDto
     /// Flag to indicate if user wants to upload new document
     /// </summary>
     public bool HasNewDocument { get; set; }
+
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>

@@ -39,7 +39,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<UserEntity> _userRepository;
     private readonly IReportDataRepository<PropertyMapMasterEntity> _PropertyMapRepository;
     private readonly IReportDataRepository<PropertyMapDetailEntity> _PropertyMapDetailRepository;
-    private readonly IReportDataRepository<RVCalculationResultsEntity> _rvCalculationResultsRepository;
+    private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
     public NoticeNewDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
@@ -60,13 +60,14 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         IReportDataRepository<UserEntity> userRepository,
         IReportDataRepository<PropertyMapMasterEntity> PropertyMapRepository,
         IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository,
-        IReportDataRepository<RVCalculationResultsEntity> rvCalculationResultsRepository)
+        IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null)
     {
         _propertyRepository = propertyRepository;
         _propertyImagesRepository = propertyImagesRepository;
         _zoneRepository = zoneRepository;
         _wardRepository = wardRepository;
         _societyRepository = societyRepository;
+        _wingDetailsRepository = wingDetailsRepository;
         _wingRepository = wingRepository;
         _propertyOldRepository = propertyOldRepository;
         _transRepository = transRepository;
@@ -79,7 +80,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         _userRepository = userRepository;
         _PropertyMapRepository = PropertyMapRepository;
         _PropertyMapDetailRepository = PropertyMapDetailRepository;
-        _rvCalculationResultsRepository = rvCalculationResultsRepository;
     }
 
     public IReadOnlyList<ReportSectionDescriptor> GetSections() => new[]
@@ -294,23 +294,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         (
             from pm in _propertyRepository.GetQueryable()
 
-            //// ✅ ADD THIS JOIN
-            //join rvc in _rvCalculationResultsRepository.GetQueryable() on pm.Id equals rvc.PropertyId into rvcj
-            //from rvc in rvcj.DefaultIfEmpty()
-            join rvcGroup in (
-    from r in _rvCalculationResultsRepository.GetQueryable()
-    where r.IsActive && !r.MarkedForDeletion
-    group r by r.PropertyId into g
-    select new
-    {
-        PropertyId = g.Key,
-        RateableValue = g.Max(x => x.RateableValue)  // ✅ Single value per property
-    }
-) on pm.Id equals rvcGroup.PropertyId into rvcj
-            from rvc in rvcj.DefaultIfEmpty()
-
-            where pm.IsActive
-
             join wn in _wardRepository.GetQueryable() on pm.WardId equals wn.Id into wmj
             from wn in wmj.DefaultIfEmpty()
 
@@ -320,7 +303,10 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
             join sdm in _societyRepository.GetQueryable() on pm.Id equals sdm.PropertyId into sdmj
             from sdm in sdmj.DefaultIfEmpty()
 
-            join w in _wingRepository.GetQueryable() on sdm.WingId equals w.Id into wingj
+            join wdm in (_wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable()) on (sdm != null ? (int?)sdm.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmj
+            from wdm in wdmj.DefaultIfEmpty()
+
+            join w in _wingRepository.GetQueryable() on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)w.Id into wingj
             from w in wingj.DefaultIfEmpty()
 
             join pt in _PropertyTypeMasterRepository.GetQueryable() on pm.PropertyTypeId equals pt.Id into ptj
@@ -341,7 +327,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 .Take(1)
 
             where pm.IsActive
-      // && (rvc == null || (rvc.IsActive && !rvc.MarkedForDeletion))
       && (ownerIds.Count == 0 || ownerIds.Contains(pm.Id))
       && (zoneId == 0 || wn.ZoneId == zoneId)
       && (wardId == 0 || pm.WardId == wardId)
@@ -393,9 +378,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
                 //PropertyMastOld Fields
                 pmo.OldPropertyNo,
-                pmo.OldPartitionNo,
-
-                rvc.RateableValue
+                pmo.OldPartitionNo
             }
         );
         // --------------------------------------------------------------------------
@@ -541,7 +524,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["MarathiOwnerAddress"] = p.Address,
 
                 ["PropertyNo"] = p.PropertyNo,
-                ["PartitionNo"] = p.PartitionNo,
                 ["CSN"] = p.CSN,
                 ["MarathiOwnerDukanFlatNo"] = p.FlatOrShopNo,
                 ["PropertyName"] = p.FlatOrShopName,
@@ -556,17 +538,16 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["TotalCapitalValue"] = p.RVorCVValue,
                 ["TotalCapitalValueInWords"] = amountInWords,
 
+                ["wardId"] = wardId,
+                ["PartitionNo"] = "",
+                ["financeYear"] = "",
+
                 // FOR PANVEL NOTICE NEW REPORT
                 ["PropertyType"] = p.PropertyDescription,
                 ["OccupierName"] = p.OccupierName,
                 ["OwnerMobileNo"] = p.MobileNo,
                 ["OldPropertyNo"] = oldProperty?.OldPropertyNo,
                 ["userName"] = user?.UserName,
-
-                ["RateableValue"] = p.RateableValue?.ToString("0"),
-
-                ["NodeWardInfo"] = $"{p.ZoneNo}-{p.WardNo}",
-                ["FlatInfo"] = $"{p.WingNo}-{p.FlatOrShopNo}"
 
                 // PropertyMastOld Fields
                 //["OldPropertyNo"] = p.OldPropertyNo,
@@ -793,7 +774,6 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                     ["MarathiOwnerName"] = p.OwnerName,
                     ["OwnerName"] = p.OwnerNameEnglish,
                     ["PropertyNo"] = p.PropertyNo,
-                    ["PartitionNo"] = p.PartitionNo,
                     ["NodeNo"] = p.ZoneNo,
                     ["NewWardNo"] = p.WardNo,
 
@@ -809,6 +789,10 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
                     ["FirstHalfLastPaymentDate"] = "30/11/2026",
                     ["SecondHalfLastPaymentDate"] = "31/12/2026",
+
+                    ["wardId"] = " ",
+                    ["PartitionNo"] = " ",
+                    ["financeYear"] = " ",
 
                     ["TotalTax"] = totalTax.ToString("0"),
                     ["TotalTaxinWords"] = totalTaxInWords,

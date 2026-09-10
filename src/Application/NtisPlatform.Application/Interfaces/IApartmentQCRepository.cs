@@ -62,6 +62,41 @@ public interface IApartmentQCRepository
         string oldPropertyNo,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns the distinct, non-empty <c>PropertyMast.Type</c> ("plan type") codes for
+    /// <paramref name="propertyId"/>: its own Type plus every distinct Type across every
+    /// property in every wing belonging to the same society (when linked to one).
+    /// Resolution chain: PropertyMast.WingDetailId -&gt; WingDetailsMast.SocietyDetailsMastId -&gt;
+    /// every WingDetailsMast row in that society -&gt; every PropertyMast row in those wings.
+    /// If the property is not linked to a wing/society (e.g. a standalone plot), only its own
+    /// Type is returned. Returns an empty list when the property does not exist or has no Type.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetDistinctPlanTypesAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the next available plan type: the highest numeric value among the distinct
+    /// <c>PropertyMast.Type</c> codes for <paramref name="propertyId"/>'s society (see
+    /// <see cref="GetDistinctPlanTypesAsync"/>), plus 1. Non-numeric Type codes are ignored.
+    /// Returns 1 when the society has no numeric plan type yet.
+    /// </summary>
+    Task<int> GetNextPlanTypeAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Loads the tracked <c>PropertyMast</c> entity for <paramref name="propertyId"/> and sets
+    /// its <c>Type</c> to <paramref name="type"/>, stamping <paramref name="updatedBy"/> /
+    /// <c>DateTime.Now</c>. Does NOT call SaveChanges.
+    /// Returns <c>false</c> when no active, non-deleted property exists for <paramref name="propertyId"/>.
+    /// </summary>
+    Task<bool> PreparePlanTypeSaveAsync(
+        int propertyId,
+        string type,
+        int updatedBy,
+        CancellationToken cancellationToken = default);
+
     // ──────────────────────── FK EXISTENCE CHECKS ──────────────────────────
     // Pure read operations (AsNoTracking). Used by the service layer for
     // business validation before applying writes. Returns the set of IDs

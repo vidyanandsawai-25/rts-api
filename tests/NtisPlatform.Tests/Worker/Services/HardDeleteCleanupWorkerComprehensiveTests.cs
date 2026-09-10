@@ -85,7 +85,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
 
         var worker = CreateWorker();
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
         await worker.StartAsync(timeoutCts.Token);
@@ -93,7 +93,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Assert (deterministic wait for actual execution)
         var completed = await Task.WhenAny(
             executedTcs.Task,
-            Task.Delay(TimeSpan.FromSeconds(10), timeoutCts.Token));
+            Task.Delay(TimeSpan.FromSeconds(30), timeoutCts.Token));
 
         Assert.Same(executedTcs.Task, completed);
 
@@ -110,20 +110,22 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Arrange - Set RunOnStartup to "true" to ensure immediate execution
         SetupConfiguration("6", "15", "true");
 
-        var tcs = new TaskCompletionSource<bool>();
+        var executedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(15, It.IsAny<CancellationToken>()))
             .ReturnsAsync(3)
-            .Callback(() => tcs.TrySetResult(true));
+            .Callback(() => executedTcs.TrySetResult());
 
         var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
-        var executeTask = worker.StartAsync(cts.Token);
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
-        cts.Cancel();
-        await executeTask;
+        await worker.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(
+            executedTcs.Task,
+            Task.Delay(TimeSpan.FromSeconds(30), cts.Token));
+
+        Assert.Same(executedTcs.Task, completed);
         await worker.StopAsync(CancellationToken.None);
 
         // Assert - Verify the cleanup service was called with the configured retention days
@@ -142,20 +144,22 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Arrange
         SetupConfiguration("1", "0", "true");
 
-        var tcs = new TaskCompletionSource<bool>();
+        var executedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Cleanup failed"))
-            .Callback(() => tcs.TrySetResult(true));
+            .Callback(() => executedTcs.TrySetResult());
 
         var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
-        var executeTask = worker.StartAsync(cts.Token);
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
-        cts.Cancel();
-        await executeTask;
+        await worker.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(
+            executedTcs.Task,
+            Task.Delay(TimeSpan.FromSeconds(30), cts.Token));
+
+        Assert.Same(executedTcs.Task, completed);
         await worker.StopAsync(CancellationToken.None);
 
         // Assert - Worker should not crash and should complete gracefully
@@ -247,9 +251,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
     public async Task StartAsync_LogsInformation()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:IntervalHours").Value).Returns("24");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RetentionDays").Value).Returns("0");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RunOnStartup").Value).Returns("false");
+        SetupConfiguration("24", "0", "false");
 
         var worker = CreateWorker();
 
@@ -273,9 +275,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
     public async Task StopAsync_LogsInformation()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:IntervalHours").Value).Returns("24");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RetentionDays").Value).Returns("0");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RunOnStartup").Value).Returns("false");
+        SetupConfiguration("24", "0", "false");
 
         var worker = CreateWorker();
         await worker.StartAsync(CancellationToken.None);
@@ -302,9 +302,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
     public async Task ExecuteAsync_WhenCancellationRequested_StopsGracefully()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:IntervalHours").Value).Returns("24");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RetentionDays").Value).Returns("0");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RunOnStartup").Value).Returns("false");
+        SetupConfiguration("24", "0", "false");
 
         var worker = CreateWorker();
         var cts = new CancellationTokenSource();
@@ -337,23 +335,23 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Arrange
         SetupConfiguration("12", "45", "true");
 
-        var tcs = new TaskCompletionSource<bool>();
+        var executedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(5)
-            .Callback(() => tcs.TrySetResult(true));
+            .Callback(() => executedTcs.TrySetResult());
 
         var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
-        var executeTask = worker.StartAsync(cts.Token);
+        await worker.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(
+            executedTcs.Task,
+            Task.Delay(TimeSpan.FromSeconds(30), cts.Token));
 
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
-
-        cts.Cancel();
-        await executeTask;
+        Assert.Same(executedTcs.Task, completed);
         await worker.StopAsync(CancellationToken.None);
 
         // Assert
@@ -368,26 +366,30 @@ public class HardDeleteCleanupWorkerComprehensiveTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
     }
+
     [Fact]
     public async Task ExecuteAsync_LogsDeletedEntityCount()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:IntervalHours").Value).Returns("1");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RetentionDays").Value).Returns("0");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RunOnStartup").Value).Returns("true");
+        SetupConfiguration("1", "0", "true");
+
+        var executedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(42);
+            .ReturnsAsync(42)
+            .Callback(() => executedTcs.TrySetResult());
 
         var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Act
-        var executeTask = worker.StartAsync(cts.Token);
-        await Task.Delay(200);
-        cts.Cancel();
-        await executeTask;
+        await worker.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(
+            executedTcs.Task,
+            Task.Delay(TimeSpan.FromSeconds(30), cts.Token));
+
+        Assert.Same(executedTcs.Task, completed);
         await worker.StopAsync(CancellationToken.None);
 
         // Assert

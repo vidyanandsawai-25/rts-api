@@ -61,4 +61,20 @@ public interface ITaxApplicabilityService : ICommonCrudService<ApplyTaxesMasterE
     Task<HashSet<int>> GetExemptedTaxIdsAsync(
         int propertyId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Calculates tax details and average tax percentage for a given property
+    /// </summary>
+    /// <param name="propertyId">Property ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <summary>
+    /// Gets tax applicability calculation summary with header card metrics and calculation breakdown
+    /// </summary>
+    /// <param name="propertyId">Property ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Tax applicability calculation response containing summary cards metrics and tax calculations list</returns>
+    Task<TaxApplicabilityCalculationResponseDto> GetTaxApplicabilityCalculationAsync(
+        int propertyId,
+        int? assessmentYearRangeId = null,
+        CancellationToken cancellationToken = default);
 }

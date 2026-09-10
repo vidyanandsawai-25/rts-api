@@ -94,6 +94,20 @@ public partial class PropertyService
         {
             var search = request.SearchText;
 
+            var matchingWingSocietyIds = _wingDetailsMastRepository != null
+                ? (await _wingDetailsMastRepository
+                    .GetQueryable()
+                    .AsNoTracking()
+                    .Where(wdm =>
+                        wdm.IsActive &&
+                        !wdm.MarkedForDeletion &&
+                        wdm.WingName != null &&
+                        wdm.WingName.Contains(search))
+                    .Select(wdm => wdm.SocietyDetailsMastId)
+                    .ToListAsync(cancellationToken))
+                    .ToHashSet()
+                : new HashSet<int>();
+
             query = query.Where(property =>
                 (property.UPICId != null &&
                  property.UPICId.Contains(search)) ||
@@ -155,7 +169,7 @@ public partial class PropertyService
                     )) ||
 
                 societies.Any(society =>
-                    society.Id == property.SocietyDetailId &&
+                    society.PropertyId == property.Id &&
                     society.IsActive &&
                     !society.MarkedForDeletion &&
                     (
@@ -165,8 +179,7 @@ public partial class PropertyService
                         (society.SocietyNameEnglish != null &&
                          society.SocietyNameEnglish.Contains(search)) ||
 
-                        (society.WingName != null &&
-                         society.WingName.Contains(search))
+                        matchingWingSocietyIds.Contains(society.Id)
                     )));
         }
 
@@ -241,14 +254,18 @@ var results = await ApplyPagination(
             .Distinct()
             .ToList();
 
-        var oldPropertyIdsByNewPropertyId = await properties
-            .Where(property =>
-                propertyIds.Contains(property.Id) &&
-                property.PropertyMastOldId.HasValue)
-            .Select(property => new
+        var oldPropertyIdsByNewPropertyId = await _propertyMapDetailRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(pmd =>
+                pmd.PropertyIdNew.HasValue &&
+                propertyIds.Contains(pmd.PropertyIdNew.Value) &&
+                pmd.PropertyIdOld.HasValue &&
+                pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+            .Select(pmd => new
             {
-                property.Id,
-                OldPropertyId = property.PropertyMastOldId!.Value
+                Id = pmd.PropertyIdNew!.Value,
+                OldPropertyId = pmd.PropertyIdOld!.Value
             })
             .ToDictionaryAsync(
                 x => x.Id,

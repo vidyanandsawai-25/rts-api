@@ -56,7 +56,8 @@ public class PropertyKycService : IPropertyKycService
         IRepository<CommunicationDetailsEntity, int> communicationRepository,
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<PropertyMastOldEntity, int> propertyOldRepository,
-        ILogger<PropertyKycService> logger)
+        ILogger<PropertyKycService> logger,
+        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
@@ -71,7 +72,10 @@ public class PropertyKycService : IPropertyKycService
         _propertyMapDetailRepository = propertyMapDetailRepository;
         _propertyOldRepository = propertyOldRepository;
         _logger = logger;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
+
+    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
 
     public async Task<PropertyKycDetailsCommonDto?> GetKycDetailsCommon(
         PropertyKycDetailsQueryParameters queryParameters,
@@ -134,9 +138,7 @@ public class PropertyKycService : IPropertyKycService
                 x.OccupierMobileNo,
                 x.OccupierMobileNoRemarkId,
                 x.EmailId,
-                x.PinCode,
-
-                x.SocietyDetailId
+                x.PinCode
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -187,24 +189,23 @@ public class PropertyKycService : IPropertyKycService
         }
 
         // Step 4: Society and wing
-        var society = property.SocietyDetailId.HasValue
-            ? await _societyRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(x =>
-                    x.Id == property.SocietyDetailId.Value &&
-                    x.IsActive &&
-                    !x.MarkedForDeletion)
-                .Select(x => new
+        var wingQuery = _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(w => w.IsActive && !w.MarkedForDeletion);
+        var society = await (
+                from x in _societyRepository.GetQueryable().AsNoTracking()
+                where x.PropertyId == property.Id && x.IsActive && !x.MarkedForDeletion
+                join wdm in wingQuery on x.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
+                    x.Id,
                     x.SocietyName,
                     x.SocietyAddress,
                     x.SocietyNameEnglish,
                     x.SocietyAddressEnglish,
                     x.SocietyEmailId,
 
-                    x.WingId,
-                    x.WingName,
+                    WingId = wdm != null ? (int?)wdm.WingMasterId : null,
+                    WingName = wdm != null ? wdm.WingName : null,
 
                     x.ManagerName,
                     x.ManagerNameEnglish,
@@ -225,9 +226,8 @@ public class PropertyKycService : IPropertyKycService
                     x.BuilderNameEnglish,
                     x.BuilderMobileNo,
                     x.BuilderMobileNoRemarkId
-                })
-                .FirstOrDefaultAsync(cancellationToken)
-            : null;
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
         string? wingNo = null;
 
@@ -346,7 +346,7 @@ public class PropertyKycService : IPropertyKycService
             EmailId = property.EmailId,
             PinCode = property.PinCode,
 
-            SocietyDetailId = property.SocietyDetailId,
+            SocietyDetailId = society?.Id,
             SocietyName = society?.SocietyName,
             SocietyAddress = society?.SocietyAddress,
             SocietyNameEnglish = society?.SocietyNameEnglish,

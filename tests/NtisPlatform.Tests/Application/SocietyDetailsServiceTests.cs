@@ -64,8 +64,6 @@ public class SocietyDetailsServiceTests
         {
             Id = 1,
             PropertyId = 549357,
-            WingId = 1,
-            WingName = "A Wing",
             SocietyName = "Test Society",
             SocietyAddress = "123 Main Street",
             SecretaryName = "John Doe",
@@ -498,7 +496,6 @@ public class SocietyDetailsServiceTests
             .Returns((CreateSocietyDetailsDto dto) => new SocietyDetailsEntity
             {
                 PropertyId = dto.PropertyId,
-                WingId = dto.WingId,
                 SocietyName = dto.SocietyName,
                 IsActive = dto.IsActive
             });
@@ -513,7 +510,6 @@ public class SocietyDetailsServiceTests
             {
                 Id = e.Id,
                 PropertyId = e.PropertyId,
-                WingId = e.WingId,
                 SocietyName = e.SocietyName,
                 IsActive = e.IsActive
             }).ToList());
@@ -811,8 +807,6 @@ public class SocietyDetailsEntityTests
         {
             Id = 1,
             PropertyId = 549357,
-            WingId = 5,
-            WingName = "West Wing",
             SocietyName = "ABC Society",
             SocietyAddress = "123 Main Street",
             SecretaryName = "John Secretary",
@@ -842,8 +836,6 @@ public class SocietyDetailsEntityTests
         // Assert
         Assert.Equal(1, entity.Id);
         Assert.Equal(549357, entity.PropertyId);
-        Assert.Equal(5, entity.WingId);
-        Assert.Equal("West Wing", entity.WingName);
         Assert.Equal("ABC Society", entity.SocietyName);
         Assert.Equal("123 Main Street", entity.SocietyAddress);
         Assert.Equal("John Secretary", entity.SecretaryName);

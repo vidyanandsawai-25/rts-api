@@ -66,6 +66,42 @@ public interface IApartmentQCService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Returns the distinct plan/property type codes (<c>PropertyMast.Type</c>) across every
+    /// property in every wing belonging to the same society as <paramref name="propertyId"/>.
+    /// Returns an empty list when the property is not found or is not linked to a wing/society.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetPlanTypesAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the next available plan type: the highest numeric plan type code across the
+    /// property's society (see <see cref="GetPlanTypesAsync"/>), plus 1. E.g. society has
+    /// types 1..6 -&gt; returns 7. Returns 1 when the society has no numeric plan type yet.
+    /// </summary>
+    Task<int> GetNextPlanTypeAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves a plan type onto <c>PropertyMast.Type</c> for <paramref name="propertyId"/>.
+    /// <paramref name="type"/> must equal either one of the existing distinct plan types for
+    /// the property's society (<see cref="GetPlanTypesAsync"/>) or the next available plan
+    /// type (<see cref="GetNextPlanTypeAsync"/>) — any other value is rejected.
+    /// </summary>
+    /// <param name="updatedBy">Actor Id extracted from the caller's JWT claims.</param>
+    /// <returns>
+    /// <see cref="SavePlanTypeOutcome.PropertyNotFound"/> → HTTP 404;<br/>
+    /// <see cref="SavePlanTypeOutcome.InvalidType"/> → HTTP 400;<br/>
+    /// <see cref="SavePlanTypeOutcome.Success"/> → HTTP 200.
+    /// </returns>
+    Task<SavePlanTypeOutcome> SavePlanTypeAsync(
+        int propertyId,
+        string type,
+        int updatedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Partially updates basic property details across PropertyMast and related tables.
     /// </summary>
     /// <param name="updatedBy">Actor Id extracted from the caller's JWT claims.</param>

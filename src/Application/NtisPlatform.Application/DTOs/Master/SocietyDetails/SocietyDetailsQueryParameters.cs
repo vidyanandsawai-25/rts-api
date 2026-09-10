@@ -10,13 +10,8 @@ public class SocietyDetailsQueryParameters : BaseQueryParameters
     [Sortable]
     public int? PropertyId { get; set; }
 
-    [Filterable]
-    [Sortable]
     public int? WingId { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
-    [Searchable]
-    [Sortable]
     public string? WingName { get; set; }
 
     [Filterable(FilterOperator.Contains)]

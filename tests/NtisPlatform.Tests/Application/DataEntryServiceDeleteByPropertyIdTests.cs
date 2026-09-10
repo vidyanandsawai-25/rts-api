@@ -6,7 +6,9 @@ using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
 
@@ -26,6 +28,7 @@ public class DataEntryServiceDeleteByPropertyIdTests
     private readonly Mock<IRoomWiseSubmissionDetailsService> _roomWiseServiceMock;
     private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepositoryMock;
     private readonly Mock<IRepository<PropertyCertificateEntity, int>> _propertyCertificateRepositoryMock;
+    private readonly Mock<IRepository<TypeOfUseEntity, int>> _typeOfUseRepositoryMock;
     private readonly Mock<IPropertyRuleApplicationLogService> _ruleLogServiceMock;
     private readonly DataEntryService _service;
 
@@ -39,7 +42,11 @@ public class DataEntryServiceDeleteByPropertyIdTests
         _roomWiseServiceMock = new Mock<IRoomWiseSubmissionDetailsService>();
         _propertyRepositoryMock = new Mock<IRepository<PropertyEntity, int>>();
         _propertyCertificateRepositoryMock = new Mock<IRepository<PropertyCertificateEntity, int>>();
+        _typeOfUseRepositoryMock = new Mock<IRepository<TypeOfUseEntity, int>>();
         _ruleLogServiceMock = new Mock<IPropertyRuleApplicationLogService>();
+
+        _typeOfUseRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<TypeOfUseEntity>().BuildMock());
 
         _service = new DataEntryService(
             _repositoryMock.Object,
@@ -50,6 +57,7 @@ public class DataEntryServiceDeleteByPropertyIdTests
             _roomWiseServiceMock.Object,
             _propertyRepositoryMock.Object,
             _propertyCertificateRepositoryMock.Object,
+            _typeOfUseRepositoryMock.Object,
             _ruleLogServiceMock.Object);
 
         // Default UnitOfWork setups
@@ -288,6 +296,7 @@ public class DataEntryServiceDeleteByPropertyIdTests
             _roomWiseServiceMock.Object,
             _propertyRepositoryMock.Object,
             _propertyCertificateRepositoryMock.Object,
+            _typeOfUseRepositoryMock.Object,
             ruleLogService: null);
 
         var entities = new List<PropertyDetailsEntity>
@@ -323,17 +332,25 @@ public class DataEntryServiceDeleteByPropertyIdTests
     [Fact]
     public async Task DeleteByPropertyIdAsync_WithIsOpenPlotTrue_DoesNotDeletePlotRecordOrRoomWiseService()
     {
-        // Arrange — one plot record (IsOpenPlot = true), one normal record (IsOpenPlot = false)
+        // Arrange — one plot record (TypeOfUseId of an "Open Plot" type of use), one normal record
         var entities = new List<PropertyDetailsEntity>
         {
-            new() { Id = 10, PropertyId = 5, IsActive = true, IsOpenPlot = true },
-            new() { Id = 11, PropertyId = 5, IsActive = true, IsOpenPlot = false }
+            new() { Id = 10, PropertyId = 5, IsActive = true, TypeOfUseId = 1 },
+            new() { Id = 11, PropertyId = 5, IsActive = true, TypeOfUseId = 2 }
+        };
+        var openPlotCategory = new TypeOfUseCategoryEntity { Id = 1, TypeOfUseCategoryCode = TypeOfUseConstants.Op };
+        var typeOfUses = new List<TypeOfUseEntity>
+        {
+            new() { Id = 1, Description = "Open Plot", TypeOfUseCategoryId = 1, TypeOfUseCategory = openPlotCategory },
+            new() { Id = 2, Description = "Residential" }
         };
 
         _repositoryMock.Setup(r => r.GetQueryable())
             .Returns(entities.BuildMock());
         _repositoryMock.Setup(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _typeOfUseRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(typeOfUses.BuildMock());
 
         _renterDetailServiceMock.Setup(s => s.DeleteByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -367,14 +384,21 @@ public class DataEntryServiceDeleteByPropertyIdTests
     [Fact]
     public async Task DeleteByPropertyIdAsync_AllRecordsAreOpenPlot_ReturnsFalseAndDeletesNothing()
     {
-        // Arrange — all records have IsOpenPlot = true
+        // Arrange — all records are of an "Open Plot" type of use
         var entities = new List<PropertyDetailsEntity>
         {
-            new() { Id = 10, PropertyId = 5, IsActive = true, IsOpenPlot = true }
+            new() { Id = 10, PropertyId = 5, IsActive = true, TypeOfUseId = 1 }
+        };
+        var openPlotCategory = new TypeOfUseCategoryEntity { Id = 1, TypeOfUseCategoryCode = TypeOfUseConstants.Op };
+        var typeOfUses = new List<TypeOfUseEntity>
+        {
+            new() { Id = 1, Description = "Open Plot", TypeOfUseCategoryId = 1, TypeOfUseCategory = openPlotCategory }
         };
 
         _repositoryMock.Setup(r => r.GetQueryable())
             .Returns(entities.BuildMock());
+        _typeOfUseRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(typeOfUses.BuildMock());
 
         // Act
         var result = await _service.DeleteByPropertyIdAsync(5);

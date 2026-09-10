@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Reporting;
@@ -24,7 +25,6 @@ public class WarrentNoticeDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<ZoneEntity> _zoneRepository;
     private readonly IReportDataRepository<PropertyTypeMasterEntity> _propertyTypeMasterRepository;
     private readonly IReportDataRepository<TransMastEntity> _transRepository;
-    private readonly IReportDataRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IReportDataRepository<UserEntity> _userRepository;
     private readonly IReportDataRepository<YearMasterEntity> _yearMastRepository;
     private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
@@ -37,7 +37,6 @@ public class WarrentNoticeDataProvider : IPagedReportDataProvider
         IReportDataRepository<ZoneEntity> zoneRepository,
         IReportDataRepository<PropertyTypeMasterEntity> propertyTypeMasterRepository,
         IReportDataRepository<TransMastEntity> transRepository,
-        IReportDataRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IReportDataRepository<UserEntity> userRepository,
         IReportDataRepository<YearMasterEntity> yearMastRepository,
         IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
@@ -49,7 +48,6 @@ public class WarrentNoticeDataProvider : IPagedReportDataProvider
         _zoneRepository = zoneRepository;
         _propertyTypeMasterRepository = propertyTypeMasterRepository;
         _transRepository = transRepository;
-        _taxPendingRepository = taxPendingRepository;
         _userRepository = userRepository;
         _yearMastRepository = yearMastRepository;
         _ulbMasterRepository = ulbMasterRepository;
@@ -288,11 +286,13 @@ public class WarrentNoticeDataProvider : IPagedReportDataProvider
             .ToListAsync(ct);
         var currentTaxMap = currentTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 
-        // TaxPendingDetails — SUM(PendingAmount) per PropertyId (IsActive = true)
-        var pendingTaxSums = await _taxPendingRepository.GetQueryable()
-            .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion && !tp.PendingFixed)
+        // Migrated ULB arrears -- TransMast rows tagged PolicyCode = OLD_ARREARS, spanning all
+        // finance years (outstanding arrears are not scoped to the current year).
+        var pendingTaxSums = await _transRepository.GetQueryable()
+            .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion
+                        && tp.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
             .GroupBy(tp => tp.PropertyId)
-            .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.PendingAmount) ?? 0m })
+            .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.TaxAmount) })
             .ToListAsync(ct);
         var pendingTaxMap = pendingTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 

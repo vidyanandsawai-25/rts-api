@@ -54,6 +54,8 @@ public class PropertyBasicDetailsDto
     // From SocietyDetailsMast
     public int? WingId { get; set; }
     public string? WingName { get; set; }
+    public int? WingDetailId { get; set; }
+    public int? SocietyDetailId { get; set; }
 
     // From RateSectionMaster
     public string? RateSectionDescription { get; set; }

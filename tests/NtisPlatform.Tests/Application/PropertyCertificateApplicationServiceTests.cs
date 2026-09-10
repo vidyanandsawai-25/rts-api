@@ -3,8 +3,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
+using NtisPlatform.Application.DTOs.RetrospectiveTax;
 using NtisPlatform.Application.Events;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.RetrospectiveTax;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
@@ -33,7 +35,15 @@ public class PropertyCertificateApplicationServiceTests
         Mock<IUnitOfWork>? unitOfWork = null,
         Mock<IModuleLookupService>? moduleLookupService = null,
         Mock<IPublisher>? publisher = null,
-        Mock<ICertificateTaxGuidelineReaderService>? guidelineReader = null)
+        Mock<IRepository<PropertyEntity, int>>? propertyRepo = null,
+        Mock<IRepository<SocietyDetailsEntity, int>>? societyRepo = null,
+        Mock<IRepository<WingDetailsMastEntity, int>>? wingDetailsMastRepo = null,
+        Mock<IRepository<WingEntity, int>>? wingRepo = null,
+        Mock<IRepository<PropertyCertificateEntity>>? propertyCertRepo = null,
+        Mock<IRepository<DocumentBindingEntity>>? docBindingRepo = null,
+        Mock<IRepository<DocumentEntity>>? docRepo = null,
+        Mock<IRateableValueApiClient>? rateableValueApiClient = null,
+        Mock<IRetrospectiveTaxCalculationEngineService>? retrospectiveTaxEngine = null)
     {
         return new PropertyCertificateApplicationService(
             certService.Object,
@@ -42,85 +52,31 @@ public class PropertyCertificateApplicationServiceTests
             (moduleLookupService ?? new Mock<IModuleLookupService>()).Object,
             typeRepo.Object,
             (detailsRepo ?? new Mock<IRepository<PropertyDetailsEntity, int>>()).Object,
+            (propertyRepo ?? new Mock<IRepository<PropertyEntity, int>>()).Object,
+            (societyRepo ?? new Mock<IRepository<SocietyDetailsEntity, int>>()).Object,
+            (wingDetailsMastRepo ?? new Mock<IRepository<WingDetailsMastEntity, int>>()).Object,
+            (wingRepo ?? new Mock<IRepository<WingEntity, int>>()).Object,
             (publisher ?? new Mock<IPublisher>()).Object,
-            (guidelineReader ?? DefaultGuidelineReaderMock()).Object,
-            NullLogger<PropertyCertificateApplicationService>.Instance);
+            NullLogger<PropertyCertificateApplicationService>.Instance,
+            (rateableValueApiClient ?? new Mock<IRateableValueApiClient>()).Object,
+            (retrospectiveTaxEngine ?? new Mock<IRetrospectiveTaxCalculationEngineService>()).Object,
+            propertyCertRepo?.Object,
+            docBindingRepo?.Object,
+            docRepo?.Object);
     }
 
-    private static Mock<ICertificateTaxGuidelineReaderService> DefaultGuidelineReaderMock()
-    {
-        var mock = new Mock<ICertificateTaxGuidelineReaderService>();
-        mock.Setup(s => s.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CertificateTaxGuidelineSettings(
-                EnableCertificateBasedTax: true,
-                ApplyOnlyTaxableCertTypes: true,
-                DatePriority1: "CC", DatePriority2: "OC", DatePriority3: "ELECTRIC_BILL", DatePriority4: "RETROSPECTIVE",
-                CertificateRequireNoAndDate: false,
-                MissingCertificateNoAction: "IGNORE_FOR_TAX",
-                MissingCertificateDateAction: "IGNORE_FOR_TAX",
-                IgnoreCcToOcWithinValue: 6, IgnoreCcToOcWithinType: "MONTHS",
-                CcOcGapComparison: "LESS_THAN_OR_EQUAL",
-                CcOcGapWithinAction: "APPLY_OC_ONLY",
-                CcOcGapExceededAction: "APPLY_CC_THEN_OC",
-                InvalidCcOcDateOrderAction: "USE_PRIORITY_AND_LOG",
-                CcOnlyAction: "APPLY_FROM_CC_DATE",
-                OcOnlyAction: "APPLY_FROM_OC_DATE",
-                FinancialYearStartMonth: 4, FinancialYearStartDay: 1,
-                CCPeriodMultiplier: 1.0m, OCPeriodMultiplier: 1.0m,
-                ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
-                ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
-                TaxPersistenceMode: "PROPERTY_AGGREGATED",
-                SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
-                RecalculateOnSave: true, RecalculateOnDelete: true, GuidelineChangeApplyMode: "NEXT_CALCULATION",
-                CcPartialPolicyCode: "PARTIAL_CC", CcFullPolicyCode: "CC",
-                OcPartialPolicyCode: "PARTIAL_OC", OcFullPolicyCode: "OC",
-                ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
-                CertificateTaxScopeMode: "FLOOR_WISE", AllowFloorWiseCertificateMetadata: true, EnableCcToOcSplit: true,
-                ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
-                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
-        return mock;
-    }
+    // SaveCertificateAsync_FloorScope_WithoutPropertyDetailsId_ThrowsArgumentException and
+    // SaveCertificateAsync_PropertyScope_WithPropertyDetailsId_ThrowsArgumentException were removed:
+    // the method no longer rejects a mismatched CertificateScope/PropertyDetailsId combination --
+    // it silently normalizes CertificateScope from PropertyDetailsId.HasValue instead (see
+    // PropertyCertificateApplicationService.SaveCertificateAsync, entityType == "P" branch).
 
-    [Fact]
-    public async Task SaveCertificateAsync_FloorScope_WithoutPropertyDetailsId_ThrowsArgumentException()
-    {
-        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
-        var certService = new Mock<IPropertyCertificateService>();
-        var service = BuildService(certService, typeRepo);
-
-        var request = new SaveCertificateRequestDto
-        {
-            PropertyId = 550722,
-            PropertyDetailsId = null,
-            CertificateScope = CertificateScope.Floor, // invalid: Floor scope requires PropertyDetailsId
-            CertificateTypeId = 2,
-        };
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.SaveCertificateAsync(request, userId: 1));
-    }
-
-    [Fact]
-    public async Task SaveCertificateAsync_PropertyScope_WithPropertyDetailsId_ThrowsArgumentException()
-    {
-        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
-        var certService = new Mock<IPropertyCertificateService>();
-        var service = BuildService(certService, typeRepo);
-
-        var request = new SaveCertificateRequestDto
-        {
-            PropertyId = 550722,
-            PropertyDetailsId = 1702274, // invalid: Property scope must not carry a floor id
-            CertificateScope = CertificateScope.Property,
-            CertificateTypeId = 2,
-        };
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.SaveCertificateAsync(request, userId: 1));
-    }
+    // GetCertificateTypesWithStatusAsync_SocietyScopedRowSharesPropertyId_NotMisreportedAsPropertyWise
+    // was removed: it regression-tested a Society-scoped certificate sharing a representative
+    // unit's PropertyId with that unit's own property-wise certificate. PropertyCertificateEntity
+    // now enforces PropertyId == null for EntityType 'S'/'W' at construction time (ValidateEntityScope),
+    // so that scenario can no longer be constructed at all -- the bug class is prevented structurally
+    // instead of needing a runtime EntityType filter to guard against it.
 
     [Fact]
     public async Task SaveCertificateAsync_TaxableType_SavesMetadata_AndReportsTaxTriggered()
@@ -1102,4 +1058,524 @@ public class PropertyCertificateApplicationServiceTests
         // resolves to the default (false), not some suppressed overload.
         certService.Verify(s => s.DeleteAsync(resolvedCertificateId, 1, It.IsAny<CancellationToken>(), false), Times.Once);
     }
+
+    #region GetSocietyOrWingCertificateTypesWithStatusAsync Tests
+
+    [Fact]
+    public async Task GetSocietyOrWingCertificateTypesWithStatusAsync_BothNull_ThrowsArgumentException()
+    {
+        var certService = new Mock<IPropertyCertificateService>();
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        var service = BuildService(certService, typeRepo);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.GetSocietyOrWingCertificateTypesWithStatusAsync(null, null));
+    }
+
+    [Fact]
+    public async Task GetSocietyOrWingCertificateTypesWithStatusAsync_SocietyScope_ReturnsCorrectTypesAndStatuses()
+    {
+        const int societyDetailId = 101;
+        const int certTypeId1 = 1;
+        const int certTypeId2 = 2;
+
+        var certType1 = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Commencement Certificate",
+            CertificateTypeCode = "CC",
+            IsRequired = true,
+            IsProtected = true,
+            IsTaxable = false,
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType1, certTypeId1);
+
+        var certType2 = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Occupancy Certificate",
+            CertificateTypeCode = "OC",
+            IsRequired = false,
+            IsProtected = false,
+            IsTaxable = true,
+            IsActive = true,
+            DisplayOrder = 2
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType2, certTypeId2);
+
+        var societyCert = PropertyCertificateEntity.Create(
+            propertyId: null,
+            certificateTypeId: certTypeId1,
+            certificateNo: "SOC-CC-001",
+            issueDate: new DateTime(2025, 1, 15),
+            entityType: "S",
+            societyDetailId: societyDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(societyCert, 991);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType1, certType2 });
+
+        var propCertRepo = new Mock<IRepository<PropertyCertificateEntity>>();
+        propCertRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { societyCert });
+
+        var docBindingRepo = new Mock<IRepository<DocumentBindingEntity>>();
+        docBindingRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<DocumentBindingEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DocumentBindingEntity>());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        var service = BuildService(certService, typeRepo, propertyCertRepo: propCertRepo, docBindingRepo: docBindingRepo);
+
+        var result = await service.GetSocietyOrWingCertificateTypesWithStatusAsync(societyDetailId, null);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+
+        var ccResult = result.Single(r => r.CertificateTypeId == certTypeId1);
+        Assert.True(ccResult.HasCertificate);
+        Assert.Equal(991, ccResult.PropertyCertificateId);
+        Assert.Equal("SOC-CC-001", ccResult.CertificateNo);
+        Assert.Equal(new DateTime(2025, 1, 15), ccResult.IssueDate);
+
+        var ocResult = result.Single(r => r.CertificateTypeId == certTypeId2);
+        Assert.False(ocResult.HasCertificate);
+        Assert.Null(ocResult.PropertyCertificateId);
+        Assert.Null(ocResult.CertificateNo);
+    }
+
+    [Fact]
+    public async Task GetSocietyOrWingCertificateTypesWithStatusAsync_WingScope_WithDocument_ReturnsDocumentInfo()
+    {
+        const int wingDetailId = 202;
+        const int certTypeId = 1;
+        const int docBindingId = 88;
+        const int documentId = 77;
+        var docGuid = Guid.NewGuid();
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Commencement Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certTypeId);
+
+        var wingCert = PropertyCertificateEntity.CreateWithDocument(
+            propertyId: null,
+            certificateTypeId: certTypeId,
+            documentBindingId: docBindingId,
+            certificateNo: "WING-CC-001",
+            issueDate: new DateTime(2025, 3, 1),
+            entityType: "W",
+            societyDetailId: 101,
+            wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingCert, 992);
+
+        var docBinding = DocumentBindingEntity.CreateWithIntReference(
+            documentId: documentId,
+            departmentId: 1,
+            moduleId: 1,
+            referenceTableName: "PropertyCertificates",
+            referenceTableId: 992,
+            referencePropertyName: "DocumentBindingId");
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(docBinding, docBindingId);
+
+        var doc = new DocumentEntity
+        {
+            DocumentGuid = docGuid,
+            FileName = "wing_cc.pdf",
+            FileExtension = ".pdf",
+            FileSizeBytes = 1024,
+            MimeType = "application/pdf"
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(doc, documentId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propCertRepo = new Mock<IRepository<PropertyCertificateEntity>>();
+        propCertRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { wingCert });
+
+        var docBindingRepo = new Mock<IRepository<DocumentBindingEntity>>();
+        docBindingRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<DocumentBindingEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DocumentBindingEntity> { docBinding });
+
+        var docRepo = new Mock<IRepository<DocumentEntity>>();
+        docRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<DocumentEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DocumentEntity> { doc });
+
+        var certService = new Mock<IPropertyCertificateService>();
+        var service = BuildService(certService, typeRepo, propertyCertRepo: propCertRepo, docBindingRepo: docBindingRepo, docRepo: docRepo);
+
+        var result = await service.GetSocietyOrWingCertificateTypesWithStatusAsync(null, wingDetailId);
+
+        Assert.NotNull(result);
+        var item = Assert.Single(result);
+        Assert.True(item.HasCertificate);
+        Assert.Equal(992, item.PropertyCertificateId);
+        Assert.Equal("WING-CC-001", item.CertificateNo);
+        Assert.Equal(docGuid, item.DocumentGuid);
+        Assert.Equal("wing_cc.pdf", item.FileName);
+    }
+
+    #endregion
+
+    #region CreateCertificateRecordAsync Tests
+
+    private static PropertyCertificateTypeMasterEntity BuildTaxableOcType(int certificateTypeId = 4)
+    {
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Occupancy Certificate",
+            CertificateTypeCode = "OC",
+            IsRequired = false,
+            IsProtected = false,
+            IsTaxable = true,
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+        return certType;
+    }
+
+    private static void SetupCreateForAnyProperty(Mock<IPropertyCertificateService> certService, int certificateTypeId, Func<int?, int> resultByPropertyId)
+    {
+        certService.Setup(s => s.CreateAsync(
+                It.IsAny<int?>(), certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), It.IsAny<int>(),
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
+            .ReturnsAsync((int? propertyId, int _, string? _, DateTime? _, int _, CancellationToken _, int? _, bool _, string _, int? _, int? _)
+                => resultByPropertyId(propertyId));
+    }
+
+    private static PropertyCertificateApplicationService BuildRecordService(
+        Mock<IPropertyCertificateService> certService,
+        Mock<IRepository<PropertyCertificateTypeMasterEntity, int>> typeRepo,
+        Mock<IRepository<PropertyEntity, int>> propertyRepo,
+        Mock<IRepository<WingDetailsMastEntity, int>> wingDetailsMastRepo,
+        Mock<IRepository<SocietyDetailsEntity, int>> societyRepo,
+        Mock<IUnitOfWork>? unitOfWork = null,
+        Mock<IRateableValueApiClient>? rateableValueApiClient = null,
+        Mock<IRetrospectiveTaxCalculationEngineService>? retrospectiveTaxEngine = null)
+    {
+        var uow = unitOfWork ?? new Mock<IUnitOfWork>();
+        uow.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        uow.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        return BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo,
+            societyRepo: societyRepo, unitOfWork: uow, publisher: new Mock<IPublisher>(),
+            rateableValueApiClient: rateableValueApiClient, retrospectiveTaxEngine: retrospectiveTaxEngine);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_ApartmentLevel_CreatesSingleSocietyScopedRow()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+        const int representativePropertyId = 1;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>
+        {
+            new() { Id = societyDetailId, PropertyId = representativePropertyId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>
+        {
+            new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true }
+        }.BuildMock());
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 101, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        SetupCreateForAnyProperty(certService, certificateTypeId, _ => 501);
+
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo);
+
+        var result = await service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Apartment,
+            SocietyDetailId = societyDetailId,
+            CertificateTypeId = certificateTypeId,
+            CertificateNo = "SOC-OC-001",
+            CertificateIssueDate = DateTime.Now.AddDays(-10)
+        }, userId: 1);
+
+        Assert.Equal("Society", result.EffectiveScope);
+        Assert.Equal(new List<int> { 501 }, result.PropertyCertificateIds);
+        Assert.Equal(3, result.UnitCount); // representative property + 2 units under the wing
+        Assert.True(result.TaxRecalculationTriggered);
+        certService.Verify(s => s.CreateAsync(
+            null, certificateTypeId, "SOC-OC-001", It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
+            null, true, "S", societyDetailId, null), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_ApartmentLevel_ReportsPerPropertyRecalculationSuccessAndFailure()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+        const int representativePropertyId = 1;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>
+        {
+            new() { Id = societyDetailId, PropertyId = representativePropertyId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>
+        {
+            new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true }
+        }.BuildMock());
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 101, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        SetupCreateForAnyProperty(certService, certificateTypeId, _ => 501);
+
+        // Representative property (1) and unit 100 recalculate fine; unit 101's RV step throws.
+        var rateableValueApiClient = new Mock<IRateableValueApiClient>();
+        rateableValueApiClient.Setup(c => c.RecalculateAsync(representativePropertyId, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        rateableValueApiClient.Setup(c => c.RecalculateAsync(100, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        rateableValueApiClient.Setup(c => c.RecalculateAsync(101, It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("boom"));
+
+        var retrospectiveTaxEngine = new Mock<IRetrospectiveTaxCalculationEngineService>();
+        retrospectiveTaxEngine
+            .Setup(e => e.CalculateAndSaveAsync(It.IsAny<int>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetrospectiveTaxEngineResultDto?)null);
+
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo,
+            rateableValueApiClient: rateableValueApiClient, retrospectiveTaxEngine: retrospectiveTaxEngine);
+
+        var result = await service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Apartment,
+            SocietyDetailId = societyDetailId,
+            CertificateTypeId = certificateTypeId,
+            CertificateNo = "SOC-OC-002",
+            CertificateIssueDate = DateTime.Now.AddDays(-10)
+        }, userId: 1);
+
+        Assert.NotNull(result.RecalculationSummary);
+        Assert.Equal(3, result.RecalculationSummary!.TotalProperties);
+        Assert.Equal(2, result.RecalculationSummary.SucceededCount);
+        Assert.Equal(1, result.RecalculationSummary.FailedCount);
+        var failure = Assert.Single(result.RecalculationSummary.Failures);
+        Assert.Equal(101, failure.PropertyId);
+        // Plain-language message, not the raw exception text.
+        Assert.DoesNotContain("boom", failure.Reason);
+        Assert.NotEmpty(failure.Reason);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_WingLevel_CreatesSingleWingScopedRow()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 101, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        SetupCreateForAnyProperty(certService, certificateTypeId, _ => 502);
+
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo);
+
+        var result = await service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Wing,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId,
+            CertificateTypeId = certificateTypeId
+        }, userId: 1);
+
+        Assert.Equal("Wing", result.EffectiveScope);
+        Assert.Equal(new List<int> { 502 }, result.PropertyCertificateIds);
+        Assert.Equal(2, result.UnitCount);
+        certService.Verify(s => s.CreateAsync(
+            null, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
+            null, true, "W", societyDetailId, wingDetailId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_UnitLevel_AllUnitsSelected_CollapsesToWingScopedRow()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 101, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        SetupCreateForAnyProperty(certService, certificateTypeId, _ => 503);
+
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo);
+
+        var result = await service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Unit,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId,
+            UnitPropertyIds = new List<int> { 100, 101 },
+            CertificateTypeId = certificateTypeId
+        }, userId: 1);
+
+        Assert.Equal("Wing", result.EffectiveScope);
+        Assert.Equal(new List<int> { 503 }, result.PropertyCertificateIds);
+        Assert.Equal(2, result.UnitCount);
+        certService.Verify(s => s.CreateAsync(
+            null, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
+            null, true, "W", societyDetailId, wingDetailId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_UnitLevel_PartialSelection_CreatesOneRowPerSelectedUnit()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 101, WingDetailId = wingDetailId, IsActive = true },
+            new() { Id = 102, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(It.IsAny<int>(), It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+        SetupCreateForAnyProperty(certService, certificateTypeId, propertyId => propertyId == 100 ? 601 : 602);
+
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo);
+
+        var result = await service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Unit,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId,
+            UnitPropertyIds = new List<int> { 100, 101 }, // partial: unit 102 excluded
+            CertificateTypeId = certificateTypeId
+        }, userId: 1);
+
+        Assert.Equal("Unit", result.EffectiveScope);
+        Assert.Equal(new List<int> { 601, 602 }, result.PropertyCertificateIds);
+        Assert.Equal(2, result.UnitCount);
+        certService.Verify(s => s.CreateAsync(
+            100, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
+            null, true, "P", societyDetailId, wingDetailId), Times.Once);
+        certService.Verify(s => s.CreateAsync(
+            101, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
+            null, true, "P", societyDetailId, wingDetailId), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateCertificateRecordAsync_UnitLevel_UnitNotUnderWing_ThrowsArgumentException()
+    {
+        const int societyDetailId = 10;
+        const int wingDetailId = 20;
+        const int certificateTypeId = 4;
+
+        var certType = BuildTaxableOcType(certificateTypeId);
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetByIdAsync(certificateTypeId, It.IsAny<CancellationToken>())).ReturnsAsync(certType);
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>
+        {
+            new() { Id = 100, WingDetailId = wingDetailId, IsActive = true }
+        }.BuildMock());
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
+
+        var certService = new Mock<IPropertyCertificateService>();
+        var service = BuildRecordService(certService, typeRepo, propertyRepo, wingDetailsMastRepo, societyRepo);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateCertificateRecordAsync(new CreateCertificateRecordRequestDto
+        {
+            Level = CertificateRecordLevel.Unit,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId,
+            UnitPropertyIds = new List<int> { 100, 999 }, // 999 does not belong to this wing
+            CertificateTypeId = certificateTypeId
+        }, userId: 1));
+    }
+
+    #endregion
 }

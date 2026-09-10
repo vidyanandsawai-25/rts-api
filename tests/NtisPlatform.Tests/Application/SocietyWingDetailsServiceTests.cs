@@ -85,7 +85,7 @@ public class SocietyWingDetailsServiceTests
 
         var propertyData = new List<PropertyEntity>
         {
-            new PropertyEntity { Id = 100, IsActive = true, SocietyDetailId = 5 }
+            new PropertyEntity { Id = 100, IsActive = true }
         };
         _mockPropertyRepo.Setup(r => r.GetQueryable())
             .Returns(propertyData.BuildMock());
@@ -300,7 +300,7 @@ public class SocietyWingDetailsServiceTests
         // Duplicate exists
         var societyData = new List<SocietyDetailsEntity>
         {
-            new SocietyDetailsEntity { PropertyId = 100, WingId = 1, WingName = "A Wing", IsActive = true }
+            new SocietyDetailsEntity { PropertyId = 100, IsActive = true }
         };
         _mockSocietyDetailsRepo.Setup(r => r.GetQueryable())
             .Returns(societyData.BuildMock());

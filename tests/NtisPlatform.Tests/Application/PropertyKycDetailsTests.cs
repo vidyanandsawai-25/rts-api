@@ -734,16 +734,14 @@ public class PropertyKycDetailsTests
             var entity = new SocietyDetailsEntity
             {
                 Id = 1,
-                WingId = 5,
-                WingName = "West Wing",
+                SocietyName = "West Society",
                 IsActive = true,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now
             };
 
             Assert.Equal(1, entity.Id);
-            Assert.Equal(5, entity.WingId);
-            Assert.Equal("West Wing", entity.WingName);
+            Assert.Equal("West Society", entity.SocietyName);
             Assert.True(entity.IsActive);
         }
 

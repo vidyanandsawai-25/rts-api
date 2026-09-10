@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
@@ -76,10 +77,18 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Step 3: Sum PropertyDetails (includes both sqm and sqft) — read-only aggregation.
+        // Open-plot type-of-use ids: PropertyDetailsEntity no longer has its own IsOpenPlot column,
+        // so "open plot" is identified via TypeOfUseCategoryMaster.TypeOfUseCategoryCode == TypeOfUseConstants.Op.
+        var openTypeOfUseIds = await _context.TypeOfUse
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.TypeOfUseCategory != null && t.TypeOfUseCategory.TypeOfUseCategoryCode == TypeOfUseConstants.Op)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+
+        // Step 3: Sum PropertyDetails (includes both sqm and sqft), excluding open-plot rows — read-only aggregation.
         var detailsSum = await _context.PropertyDetails
             .AsNoTracking()
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.IsOpenPlot != true)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && !openTypeOfUseIds.Contains(x.TypeOfUseId))
             .GroupBy(x => x.PropertyId)
             .Select(g => new
             {
@@ -90,10 +99,10 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Step 3b: Retrieve open plot details for PlotAreaSqFeet and PlotAreaSqMeter from PropertyDetails where IsOpenPlot == true.
+        // Step 3b: Retrieve open plot details for PlotAreaSqFeet and PlotAreaSqMeter from PropertyDetails.
         var openPlotDetails = await _context.PropertyDetails
             .AsNoTracking()
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.IsOpenPlot == true)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && openTypeOfUseIds.Contains(x.TypeOfUseId))
             .OrderBy(x => x.Id)
             .Select(x => new
             {
@@ -118,13 +127,18 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             .FirstOrDefaultAsync(cancellationToken);
 
         // Step 5: Project only the wing-related columns needed from SocietyDetails.
-        var society = mainResult.Property.SocietyDetailId.HasValue
-            ? await _context.SocietyDetailsMast
-                .AsNoTracking()
-                .Where(x => x.Id == mainResult.Property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
-                .Select(x => new { x.WingId, x.WingName })
-                .FirstOrDefaultAsync(cancellationToken)
-            : null;
+        var society = await (
+                from s in _context.SocietyDetailsMast.AsNoTracking()
+                where s.PropertyId == mainResult.Property.Id && s.IsActive && !s.MarkedForDeletion
+                join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking() on s.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.Where(w => w.IsActive && !w.MarkedForDeletion).DefaultIfEmpty()
+                select new
+                {
+                    SocietyDetailId = s.Id,
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
         // Resolve WingNo from society.WingId lookup (already projecting only WingNo).
         string? wingNo = null;
@@ -135,6 +149,10 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
                 .Where(w => w.Id == society.WingId && w.IsActive)
                 .Select(w => w.WingNo)
                 .FirstOrDefaultAsync(cancellationToken);
+        }
+        if (string.IsNullOrWhiteSpace(wingNo) && society != null)
+        {
+            wingNo = society.WingName;
         }
 
         // Retrieve RateSectionDescription if WardId is set
@@ -173,11 +191,6 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .ToList();
-
-        if (!oldPropertyIds.Any() && mainResult.Property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(mainResult.Property.PropertyMastOldId.Value);
-        }
 
         double? oldCarpetAreaSqFeet = null;
         double? oldCarpetAreaSqMeter = null;
@@ -247,6 +260,8 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             PlotAreaSqMeter = openPlotDetails?.BuiltupAreaSqMeter != null ? Math.Round(openPlotDetails.BuiltupAreaSqMeter.Value, 2) : null,
             WingId = society?.WingId,
             WingName = society?.WingName,
+            WingDetailId = mainResult.Property.WingDetailId,
+            SocietyDetailId = society?.SocietyDetailId,
             RateSectionDescription = rateSectionDescription,
             Latitude = assessment?.Latitude,
             Longitude = assessment?.Longitude,
@@ -317,5 +332,16 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
     {
         return await _context.Set<WingEntity>()
             .FirstOrDefaultAsync(w => w.WingNo == wingNo && w.IsActive, cancellationToken);
+    }
+
+    public async Task<WingDetailsMastEntity?> GetWingDetailsMastBySocietyIdAsync(int societyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<WingDetailsMastEntity>()
+            .FirstOrDefaultAsync(w => w.SocietyDetailsMastId == societyId && w.IsActive && !w.MarkedForDeletion, cancellationToken);
+    }
+
+    public void AddWingDetailsMast(WingDetailsMastEntity wingDetailsMast)
+    {
+        _context.Set<WingDetailsMastEntity>().Add(wingDetailsMast);
     }
 }

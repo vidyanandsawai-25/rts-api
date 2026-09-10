@@ -12,6 +12,7 @@ public class PropertyPhotoTypeDto : BaseDtos
     public string PhotoTypeName { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
+    public string? PhotoScope { get; set; }
 }
 
 public class CreatePropertyPhotoTypeDto : CreateBaseDtos
@@ -28,6 +29,9 @@ public class CreatePropertyPhotoTypeDto : CreateBaseDtos
     public string? Description { get; set; }
 
     public int? DisplayOrder { get; set; }
+
+    [StringLength(50, ErrorMessage = "PhotoScope_MaxLen_50")]
+    public string? PhotoScope { get; set; }
 }
 
 public class UpdatePropertyPhotoTypeDto : UpdateBaseDtos
@@ -44,4 +48,7 @@ public class UpdatePropertyPhotoTypeDto : UpdateBaseDtos
     public string? Description { get; set; }
 
     public int? DisplayOrder { get; set; }
+
+    [StringLength(50, ErrorMessage = "PhotoScope_MaxLen_50")]
+    public string? PhotoScope { get; set; }
 }

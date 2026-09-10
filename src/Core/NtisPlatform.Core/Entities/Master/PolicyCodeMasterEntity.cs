@@ -32,6 +32,8 @@ public class PolicyCodeMasterEntity : BaseEntity
 
     public bool RequiresStageTracking { get; set; } = false;
 
+    public bool IsRetroDemand { get; set; } = false;
+
     public int DisplayOrder { get; set; } = 0;
 
     // ── Navigation ──────────────────────────────────────────────────────────────

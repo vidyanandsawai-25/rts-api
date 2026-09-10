@@ -17,6 +17,7 @@ public class ApartmentQCControllerTests
     private readonly Mock<IApartmentQCService> _mockService;
     private readonly Mock<ICapitalValueService> _mockCapitalValueService;
     private readonly Mock<IRateableValueService> _mockRateableValueService;
+    private readonly Mock<IWingWiseDetailsService> _mockWingWiseDetailsService;
     private readonly Mock<ILogger<ApartmentQCController>> _mockLogger;
     private readonly ApartmentQCController _controller;
 
@@ -25,8 +26,22 @@ public class ApartmentQCControllerTests
         _mockService = new Mock<IApartmentQCService>();
         _mockCapitalValueService = new Mock<ICapitalValueService>();
         _mockRateableValueService = new Mock<IRateableValueService>();
+        _mockWingWiseDetailsService = new Mock<IWingWiseDetailsService>();
         _mockLogger  = new Mock<ILogger<ApartmentQCController>>();
-        _controller  = new ApartmentQCController(_mockService.Object, _mockRateableValueService.Object, _mockCapitalValueService.Object, _mockLogger.Object);
+        _controller  = new ApartmentQCController(
+            _mockService.Object,
+            _mockWingWiseDetailsService.Object,
+            _mockRateableValueService.Object,
+            _mockCapitalValueService.Object,
+            new Mock<IApartmentQcCertificateGridService>().Object,
+            new Mock<IApartmentQcSearchService>().Object,
+            new Mock<IApartmentQcTopSectionService>().Object,
+            new Mock<IApartmentQcTopSectionBelowFlexService>().Object,
+            new Mock<IApartmentTaxDetailsService>().Object,
+            new Mock<IPropertyCertificateApplicationService>().Object,
+            new Mock<NtisPlatform.Application.Interfaces.Master.ISocialAttributeService>().Object,
+            _mockLogger.Object,
+            new Mock<IGetApartmentDetailsWingWiseService>().Object);
     }
 
     private void SetAuthenticatedUser(int userId = 42)
@@ -312,6 +327,63 @@ public class ApartmentQCControllerTests
         Assert.IsType<OkObjectResult>(result);
         _mockService.Verify(
             s => s.GetFilterOptionsAsync(It.IsAny<ApartmentQCQueryParameters>(), "Wing", default),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region GetWingWiseDetails
+
+    [Fact]
+    public async Task GetWingWiseDetails_MissingWardId_ReturnsBadRequest()
+    {
+        var query = new WingWiseDetailsQueryParameters { PropertyNo = "P001" };
+
+        var result = await _controller.GetWingWiseDetails(query, default);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(bad.Value);
+        Assert.False(response.Success);
+        Assert.Contains("WardId", response.Message);
+        _mockWingWiseDetailsService.Verify(
+            s => s.GetWingWiseDetailsAsync(It.IsAny<WingWiseDetailsQueryParameters>(), default),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetWingWiseDetails_ValidParams_CallsWingWiseService()
+    {
+        var query = new WingWiseDetailsQueryParameters { WardId = 1, PropertyNo = "P001" };
+        _mockWingWiseDetailsService
+            .Setup(s => s.GetWingWiseDetailsAsync(It.IsAny<WingWiseDetailsQueryParameters>(), default))
+            .ReturnsAsync(new WingWiseDetailsResponseDto
+            {
+                PropertyId = 10,
+                PropertyNo = "P001",
+                WardNo = "W001",
+                Wings =
+                [
+                    new WingWiseDetailDto
+                    {
+                        WingNo = "A",
+                        PropertyCount = 3,
+                        TotalArea = 1200m
+                    }
+                ]
+            });
+
+        var result = await _controller.GetWingWiseDetails(query, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<WingWiseDetailsResponseDto>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Record found successfully", response.Message);
+        Assert.NotNull(response.Items);
+        Assert.Single(response.Items.Wings);
+        _mockWingWiseDetailsService.Verify(
+            s => s.GetWingWiseDetailsAsync(
+                It.Is<WingWiseDetailsQueryParameters>(q => q.WardId == 1 && q.PropertyNo == "P001"),
+                default),
             Times.Once);
     }
 
@@ -609,6 +681,161 @@ public class ApartmentQCControllerTests
         var notFound = Assert.IsType<NotFoundObjectResult>(result);
         var response = Assert.IsType<ApiResponse<object>>(notFound.Value);
         Assert.False(response.Success);
+    }
+
+    #endregion
+
+    #region GetPlanType
+
+    [Fact]
+    public async Task GetPlanType_WithResults_ReturnsOkWithFoundMessage()
+    {
+        _mockService
+            .Setup(s => s.GetPlanTypesAsync(1, default))
+            .ReturnsAsync(new List<string> { "1", "2" });
+
+        var result = await _controller.GetPlanType(1, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<IReadOnlyList<string>>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Plan types retrieved successfully", response.Message);
+        Assert.Equal(new[] { "1", "2" }, response.Items);
+    }
+
+    [Fact]
+    public async Task GetPlanType_NoResults_ReturnsOkWithNotFoundMessage()
+    {
+        _mockService
+            .Setup(s => s.GetPlanTypesAsync(1, default))
+            .ReturnsAsync(Array.Empty<string>());
+
+        var result = await _controller.GetPlanType(1, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<IReadOnlyList<string>>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal("No plan types found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetPlanType_PassesPropertyIdToService()
+    {
+        _mockService
+            .Setup(s => s.GetPlanTypesAsync(7, default))
+            .ReturnsAsync(Array.Empty<string>());
+
+        await _controller.GetPlanType(7, default);
+
+        _mockService.Verify(s => s.GetPlanTypesAsync(7, default), Times.Once);
+    }
+
+    #endregion
+
+    #region GetNewPlanType
+
+    [Fact]
+    public async Task GetNewPlanType_ReturnsOkWithValue()
+    {
+        _mockService
+            .Setup(s => s.GetNextPlanTypeAsync(1, default))
+            .ReturnsAsync(7);
+
+        var result = await _controller.GetNewPlanType(1, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<int>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Equal(7, response.Items);
+    }
+
+    [Fact]
+    public async Task GetNewPlanType_PassesPropertyIdToService()
+    {
+        _mockService
+            .Setup(s => s.GetNextPlanTypeAsync(7, default))
+            .ReturnsAsync(1);
+
+        await _controller.GetNewPlanType(7, default);
+
+        _mockService.Verify(s => s.GetNextPlanTypeAsync(7, default), Times.Once);
+    }
+
+    #endregion
+
+    #region SavePlanType
+
+    [Fact]
+    public async Task SavePlanType_NullBody_ReturnsBadRequest()
+    {
+        SetAuthenticatedUser();
+
+        var result = await _controller.SavePlanType(1, null!, default);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(bad.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task SavePlanType_PropertyNotFound_Returns404()
+    {
+        SetAuthenticatedUser();
+        _mockService
+            .Setup(s => s.SavePlanTypeAsync(99, "1", 42, default))
+            .ReturnsAsync(SavePlanTypeOutcome.PropertyNotFound);
+
+        var result = await _controller.SavePlanType(99, new SavePlanTypeDto { Type = "1" }, default);
+
+        var notFound = Assert.IsType<NotFoundObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(notFound.Value);
+        Assert.False(response.Success);
+        Assert.Contains("99", response.Message);
+    }
+
+    [Fact]
+    public async Task SavePlanType_InvalidType_Returns400()
+    {
+        SetAuthenticatedUser();
+        _mockService
+            .Setup(s => s.SavePlanTypeAsync(1, "9", 42, default))
+            .ReturnsAsync(SavePlanTypeOutcome.InvalidType);
+
+        var result = await _controller.SavePlanType(1, new SavePlanTypeDto { Type = "9" }, default);
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(bad.Value);
+        Assert.False(response.Success);
+        Assert.Contains("9", response.Message);
+    }
+
+    [Fact]
+    public async Task SavePlanType_Success_ReturnsOk()
+    {
+        SetAuthenticatedUser();
+        _mockService
+            .Setup(s => s.SavePlanTypeAsync(1, "2", 42, default))
+            .ReturnsAsync(SavePlanTypeOutcome.Success);
+
+        var result = await _controller.SavePlanType(1, new SavePlanTypeDto { Type = "2" }, default);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(ok.Value);
+        Assert.True(response.Success);
+        Assert.Contains("saved successfully", response.Message);
+    }
+
+    [Fact]
+    public async Task SavePlanType_CallsServiceWithExtractedUserId()
+    {
+        SetAuthenticatedUser(userId: 15);
+        _mockService
+            .Setup(s => s.SavePlanTypeAsync(1, "3", 15, default))
+            .ReturnsAsync(SavePlanTypeOutcome.Success);
+
+        await _controller.SavePlanType(1, new SavePlanTypeDto { Type = "3" }, default);
+
+        _mockService.Verify(s => s.SavePlanTypeAsync(1, "3", 15, default), Times.Once);
     }
 
     #endregion

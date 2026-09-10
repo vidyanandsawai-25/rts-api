@@ -481,7 +481,7 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 $"{request.WorkflowStageId}.");
         }
 
-        if (request.RemarkId.HasValue)
+        if (request.RemarkId.HasValue && _commonRemarkDetailsRepository != null)
         {
             var remarkExists = await _commonRemarkDetailsRepository
                 .GetQueryable()
@@ -669,21 +669,20 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
 
         var currentDate = DateTime.Now;
 
-        var propertyDetails = await _repository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.Id == request.PropertyId &&
-                x.IsActive &&
-                !x.MarkedForDeletion)
-            .Select(x => new
-            {
-                x.Id,
-                x.SocietyDetailId,
-                x.PartitionNo,
-                x.WardId,
-                x.PropertyNo
-            })
+        var propertyDetails = await (
+                from x in _repository.GetQueryable().AsNoTracking()
+                join sd in _societyRepository.GetQueryable().AsNoTracking() on x.Id equals sd.PropertyId into sdGroup
+                from sd in sdGroup.DefaultIfEmpty()
+                where x.Id == request.PropertyId && x.IsActive && !x.MarkedForDeletion
+                select new
+                {
+                    x.Id,
+                    SocietyDetailId = sd != null ? (int?)sd.Id : null,
+                    x.PartitionNo,
+                    x.WardId,
+                    x.PropertyNo
+                }
+            )
             .FirstOrDefaultAsync(cancellationToken);
 
         var propertyIdsToVerify = new List<int>
@@ -693,21 +692,20 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
         var isSocietyOrWingHandled = false;
         if (propertyDetails?.SocietyDetailId != null)
         {
-            var currentSocietyDetail = await _societyRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(x =>
-                    x.Id == propertyDetails.SocietyDetailId.Value &&
-                    x.IsActive &&
-                    !x.MarkedForDeletion)
-                .Select(x => new
+            var wingQuery700 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var currentSocietyDetail = await (
+                from x in _societyRepository.GetQueryable().AsNoTracking()
+                where x.Id == propertyDetails.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion
+                join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
                     x.Id,
                     x.PropertyId,
-                    x.WingId,
-                    x.WingName
-                })
-                .FirstOrDefaultAsync(cancellationToken);
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
             int? wingSocietyDetailId = null;
             string? wingName = null;
@@ -717,16 +715,12 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 string.IsNullOrWhiteSpace(propertyDetails.PartitionNo))
             {
                 isSocietyOrWingHandled = true;
-                var societyWingDetailIds = await _societyRepository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.PropertyId == currentSocietyDetail.PropertyId &&
-                        x.WingId != null &&
-                        x.IsActive &&
-                        !x.MarkedForDeletion)
-                    .Select(x => x.Id)
-                    .ToListAsync(cancellationToken);
+                var societyWingDetailIds = await (
+                    from x in _societyRepository.GetQueryable().AsNoTracking()
+                    join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId
+                    where x.PropertyId == currentSocietyDetail.PropertyId && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
+                    select x.Id
+                ).ToListAsync(cancellationToken);
 
                 if (societyWingDetailIds.Count > 0)
                 {
@@ -734,10 +728,10 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                         .GetQueryable()
                         .AsNoTracking()
                         .Where(x =>
-                            x.SocietyDetailId.HasValue &&
-                            societyWingDetailIds.Contains(x.SocietyDetailId.Value) &&
                             x.IsActive &&
-                            !x.MarkedForDeletion)
+                            !x.MarkedForDeletion &&
+                            _societyRepository.GetQueryable().AsNoTracking()
+                                .Any(s => s.PropertyId == x.Id && societyWingDetailIds.Contains(s.Id)))
                         .Select(x => x.Id)
                         .ToListAsync(cancellationToken);
 
@@ -745,10 +739,11 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                         .GetQueryable()
                         .AsNoTracking()
                         .Where(x =>
-                            allWingPropertyIds.Contains(x.PropertyId) &&
+                            x.PropertyId.HasValue &&
+                            allWingPropertyIds.Contains(x.PropertyId.Value) &&
                             x.IsActive &&
                             !x.MarkedForDeletion)
-                        .Select(x => x.PropertyId)
+                        .Select(x => x.PropertyId!.Value)
                         .Distinct()
                         .ToListAsync(cancellationToken);
 
@@ -778,21 +773,12 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 var expectedWingName =
                     $"Wing {propertyDetails.PartitionNo.Trim()}";
 
-                var wingDetails = await _societyRepository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.PropertyId == currentSocietyDetail.PropertyId &&
-                        x.WingId != null &&
-                        x.WingName == expectedWingName &&
-                        x.IsActive &&
-                        !x.MarkedForDeletion)
-                    .Select(x => new
-                    {
-                        x.Id,
-                        x.WingName
-                    })
-                    .FirstOrDefaultAsync(cancellationToken);
+                var wingDetails = await (
+                    from x in _societyRepository.GetQueryable().AsNoTracking()
+                    join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId
+                    where x.PropertyId == currentSocietyDetail.PropertyId && wdm.WingName == expectedWingName && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
+                    select new { x.Id, wdm.WingName }
+                ).FirstOrDefaultAsync(cancellationToken);
 
                 if (wingDetails != null)
                 {
@@ -808,9 +794,10 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     .GetQueryable()
                     .AsNoTracking()
                     .Where(x =>
-                        x.SocietyDetailId == wingSocietyDetailId.Value &&
                         x.IsActive &&
-                        !x.MarkedForDeletion)
+                        !x.MarkedForDeletion &&
+                        _societyRepository.GetQueryable().AsNoTracking()
+                            .Any(s => s.PropertyId == x.Id && s.Id == wingSocietyDetailId.Value))
                     .Select(x => x.Id)
                     .ToListAsync(cancellationToken);
 
@@ -823,10 +810,11 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     .GetQueryable()
                     .AsNoTracking()
                     .Where(x =>
-                        wingPropertyIds.Contains(x.PropertyId) &&
+                        x.PropertyId.HasValue &&
+                        wingPropertyIds.Contains(x.PropertyId.Value) &&
                         x.IsActive &&
                         !x.MarkedForDeletion)
-                    .Select(x => x.PropertyId)
+                    .Select(x => x.PropertyId!.Value)
                     .Distinct()
                     .ToListAsync(cancellationToken);
 
@@ -865,10 +853,11 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                         .GetQueryable()
                         .AsNoTracking()
                         .Where(x =>
-                            individualPropertyIds.Contains(x.PropertyId) &&
+                            x.PropertyId.HasValue &&
+                            individualPropertyIds.Contains(x.PropertyId.Value) &&
                             x.IsActive &&
                             !x.MarkedForDeletion)
-                        .Select(x => x.PropertyId)
+                        .Select(x => x.PropertyId!.Value)
                         .Distinct()
                         .ToListAsync(cancellationToken);
 
@@ -1009,19 +998,18 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
         }
         var currentDate = DateTime.Now;
 
-        var propertyDetails = await _repository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.Id == request.PropertyId &&
-                x.IsActive &&
-                !x.MarkedForDeletion)
-            .Select(x => new
-            {
-                x.Id,
-                x.SocietyDetailId,
-                x.PartitionNo
-            })
+        var propertyDetails = await (
+                from x in _repository.GetQueryable().AsNoTracking()
+                join sd in _societyRepository.GetQueryable().AsNoTracking() on x.Id equals sd.PropertyId into sdGroup
+                from sd in sdGroup.DefaultIfEmpty()
+                where x.Id == request.PropertyId && x.IsActive && !x.MarkedForDeletion
+                select new
+                {
+                    x.Id,
+                    SocietyDetailId = sd != null ? (int?)sd.Id : null,
+                    x.PartitionNo
+                }
+            )
             .FirstOrDefaultAsync(cancellationToken);
 
         if (propertyDetails == null)
@@ -1037,21 +1025,20 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
 
         if (propertyDetails.SocietyDetailId.HasValue)
         {
-            var currentSocietyDetail = await _societyRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(x =>
-                    x.Id == propertyDetails.SocietyDetailId.Value &&
-                    x.IsActive &&
-                    !x.MarkedForDeletion)
-                .Select(x => new
+            var wingQuery1026 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var currentSocietyDetail = await (
+                from x in _societyRepository.GetQueryable().AsNoTracking()
+                where x.Id == propertyDetails.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion
+                join wdm in wingQuery1026 on x.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
                     x.Id,
                     x.PropertyId,
-                    x.WingId,
-                    x.WingName
-                })
-                .FirstOrDefaultAsync(cancellationToken);
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
             int? wingSocietyDetailId = null;
 
@@ -1066,20 +1053,12 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 var expectedWingName =
                     $"Wing {propertyDetails.PartitionNo.Trim()}";
 
-                var wingDetails = await _societyRepository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.PropertyId == currentSocietyDetail.PropertyId &&
-                        x.WingId != null &&
-                        x.WingName == expectedWingName &&
-                        x.IsActive &&
-                        !x.MarkedForDeletion)
-                    .Select(x => new
-                    {
-                        x.Id
-                    })
-                    .FirstOrDefaultAsync(cancellationToken);
+                var wingDetails = await (
+                    from x in _societyRepository.GetQueryable().AsNoTracking()
+                    join wdm in wingQuery1026 on x.Id equals wdm.SocietyDetailsMastId
+                    where x.PropertyId == currentSocietyDetail.PropertyId && wdm.WingName == expectedWingName && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
+                    select new { x.Id }
+                ).FirstOrDefaultAsync(cancellationToken);
 
                 if (wingDetails != null)
                 {
@@ -1093,9 +1072,10 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     .GetQueryable()
                     .AsNoTracking()
                     .Where(x =>
-                        x.SocietyDetailId == wingSocietyDetailId.Value &&
                         x.IsActive &&
-                        !x.MarkedForDeletion)
+                        !x.MarkedForDeletion &&
+                        _societyRepository.GetQueryable().AsNoTracking()
+                            .Any(s => s.PropertyId == x.Id && s.Id == wingSocietyDetailId.Value))
                     .Select(x => x.Id)
                     .ToListAsync(cancellationToken);
 

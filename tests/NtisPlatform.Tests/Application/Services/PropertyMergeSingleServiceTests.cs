@@ -25,6 +25,7 @@ public class PropertyMergeSingleServiceTests
     private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _mockPropertyTypeRepository;
     private readonly Mock<IRepository<WingEntity, int>> _mockWingMasterRepository;
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _mockAssessmentRepository;
+    private readonly Mock<IRepository<WingDetailsMastEntity, int>> _mockWingDetailsMastRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<ILogger<PropertyMergeSingleService>> _mockLogger;
     private readonly Mock<IMapper> _mockMapper;
@@ -42,6 +43,7 @@ public class PropertyMergeSingleServiceTests
         _mockPropertyTypeRepository = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
         _mockWingMasterRepository = new Mock<IRepository<WingEntity, int>>();
         _mockAssessmentRepository = new Mock<IRepository<PropertyAssessmentEntity, int>>();
+        _mockWingDetailsMastRepository = new Mock<IRepository<WingDetailsMastEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockLogger = new Mock<ILogger<PropertyMergeSingleService>>();
         _mockMapper = new Mock<IMapper>();
@@ -57,6 +59,7 @@ public class PropertyMergeSingleServiceTests
             _mockPropertyTypeRepository.Object,
             _mockWingMasterRepository.Object,
             _mockAssessmentRepository.Object,
+            _mockWingDetailsMastRepository.Object,
             _mockUnitOfWork.Object,
             _mockLogger.Object,
             _mockMapper.Object);
@@ -90,13 +93,14 @@ public class PropertyMergeSingleServiceTests
 
         var properties = new List<PropertyEntity>
         {
-            new PropertyEntity { Id = 10, WardId = 1, PropertyNo = "101", PartitionNo = "A", IsActive = true, MarkedForDeletion = false, SocietyDetailId = 1 },
-            new PropertyEntity { Id = 11, WardId = 1, PropertyNo = "101", PartitionNo = "B", IsActive = true, MarkedForDeletion = false, SocietyDetailId = 1 }
+            new PropertyEntity { Id = 10, WardId = 1, PropertyNo = "101", PartitionNo = "A", WingDetailId = 1, IsActive = true, MarkedForDeletion = false },
+            new PropertyEntity { Id = 11, WardId = 1, PropertyNo = "101", PartitionNo = "B", WingDetailId = 1, IsActive = true, MarkedForDeletion = false }
         };
 
         var societies = new List<SocietyDetailsEntity>
         {
-            new SocietyDetailsEntity { Id = 1, SocietyName = "Sunrise", IsActive = true }
+            new SocietyDetailsEntity { Id = 1, PropertyId = 10, SocietyName = "Sunrise", IsActive = true },
+            new SocietyDetailsEntity { Id = 2, PropertyId = 11, SocietyName = "Sunrise", IsActive = true }
         };
 
         var wards = new List<WardEntity>
@@ -111,6 +115,11 @@ public class PropertyMergeSingleServiceTests
         _mockWingMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<WingEntity>().BuildMock());
         _mockPropertyMapDetailRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMapDetailEntity>().BuildMock());
         _mockAssessmentRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyAssessmentEntity>().BuildMock());
+        var wings = new List<WingDetailsMastEntity> { new WingDetailsMastEntity { Id = 1, WingMasterId = 1, WingName = "A", IsActive = true } };
+        _mockWingDetailsMastRepository.Setup(r => r.GetQueryable()).Returns(wings.BuildMock());
+        _mockPropertyMapMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMapMasterEntity>().BuildMock());
+        _mockPropertyOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockMergeDetailRepository.Setup(r => r.GetQueryable()).Returns(new List<MergeDetailEntity>().BuildMock());
 
         // Act
         var result = await _service.GetAllAsync(queryParams, CancellationToken.None);
