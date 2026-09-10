@@ -438,6 +438,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IOldWardMasterService, OldWardMasterService>();
+        services.AddScoped<IPropertyDashboardService, PropertyDashboardService>();
 
         // GIS Engine Master Services
         services.AddScoped<IGisCorporationConfigService, GisCorporationConfigService>();

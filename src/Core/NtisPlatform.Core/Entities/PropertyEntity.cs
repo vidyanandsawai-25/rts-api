@@ -93,8 +93,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public string? OccupierMobileNo { get; set; }
     public int? OccupierMobileNoRemarkId { get; set; }
 
-    // Society Information
-    public int? WingDetailId { get; set; }
+   public int? WingDetailId { get; set; }
 
     /// <summary>
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
