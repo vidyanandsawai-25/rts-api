@@ -28,6 +28,7 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
     private readonly IRepository<WingEntity, int> _wingMasterRepository;
     private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
     private readonly IRepository<FloorEntity, int> _floorRepository;
+    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
     private readonly new IUnitOfWork _unitOfWork;
     private readonly ILogger<PropertyMappingService> _logger;
 
@@ -47,10 +48,10 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
         IRepository<WingEntity, int> wingMasterRepository,
         IRepository<TypeOfUseEntity, int> typeOfUseRepository,
         IRepository<FloorEntity, int> floorRepository,
+        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository,
         IUnitOfWork unitOfWork,
         ILogger<PropertyMappingService> logger,
-        IMapper mapper,
-        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null) : base(propertyMapDetailRepository, unitOfWork, mapper)
+        IMapper mapper) : base(propertyMapDetailRepository, unitOfWork, mapper)
     {
         _propertyMapMasterRepository = propertyMapMasterRepository;
         _propertyOldRepository = propertyOldRepository;
@@ -67,14 +68,12 @@ public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapD
         _wingMasterRepository = wingMasterRepository;
         _typeOfUseRepository = typeOfUseRepository;
         _floorRepository = floorRepository;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
-        _wingDetailsMastRepository = wingDetailsMastRepository;
     }
 
-    protected readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
-
-    public override async Task<PropertyMapDetailDto> CreateAsync(CreatePropertyMapDetailsDto dto,CancellationToken cancellationToken = default)
+    public override async Task<PropertyMapDetailDto> CreateAsync(CreatePropertyMapDetailsDto dto, CancellationToken cancellationToken = default)
     {
         try
         {

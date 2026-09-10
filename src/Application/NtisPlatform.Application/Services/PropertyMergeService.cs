@@ -69,7 +69,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (oldPropertyIds.Count < 2)
             {
-                throw new ValidationException("Old Property","Multiple merge requires at least two unique old properties",OperationType.Create);
+                throw new ValidationException("Old Property", "Multiple merge requires at least two unique old properties", OperationType.Create);
             }
 
             //  Load all old properties - ONE DB call
@@ -98,7 +98,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
             {
                 var foundIds = oldProperties.Select(x => x.Id).ToHashSet();
                 var missingIds = oldPropertyIds.Where(x => !foundIds.Contains(x));
-                throw new ValidationException("Old Property",$"Old properties not found: {string.Join(", ", missingIds)}",OperationType.Create);
+                throw new ValidationException("Old Property", $"Old properties not found: {string.Join(", ", missingIds)}", OperationType.Create);
             }
 
             //  Load new property + Society - ONE DB call
@@ -137,7 +137,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (newProperty == null)
             {
-                throw new ValidationException("New Property","New Property not found",OperationType.Create);
+                throw new ValidationException("New Property", "New Property not found", OperationType.Create);
             }
 
             // Check all old properties already merged - ONE DB call
@@ -160,7 +160,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                 throw new ValidationException("Old Property", $"Old properties already merged: {string.Join(", ", oldNos)}", OperationType.Create);
             }
 
-            var newPropertyNo = BuildPropertyNumber(newProperty.WardNo,newProperty.PropertyNo,newProperty.PartitionNo);
+            var newPropertyNo = BuildPropertyNumber(newProperty.WardNo, newProperty.PropertyNo, newProperty.PartitionNo);
             var now = DateTime.Now;
             var latitude = decimal.TryParse(dto.Latitude, out var lat) ? lat : (decimal?)null;
             var longitude = decimal.TryParse(dto.Longitude, out var lon) ? lon : (decimal?)null;
@@ -181,12 +181,12 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
             var propertyMapDetails = new List<PropertyMapDetailEntity>(orderedOldProperties.Count);
             var oldPropertyNos = new List<string>(orderedOldProperties.Count);
 
-           
+
             //  Build entities ONLY in memory
             //    NO database call inside loop
             foreach (var oldProperty in orderedOldProperties)
             {
-                var oldPropertyNo = BuildPropertyNumber(oldProperty.OldWardNo,oldProperty.OldPropertyNo,oldProperty.OldPartitionNo);
+                var oldPropertyNo = BuildPropertyNumber(oldProperty.OldWardNo, oldProperty.OldPropertyNo, oldProperty.OldPartitionNo);
                 oldPropertyNos.Add(oldPropertyNo);
 
                 // Snapshot BEFORE merging this particular old property
@@ -259,31 +259,31 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                     x.PropertyMapId != propertyMapId)
                 .ExecuteUpdateAsync(
                     setters => setters
-                        .SetProperty(x => x.PropertyMapId,propertyMapId)
-                        .SetProperty(x => x.UpdatedBy,dto.CreatedBy)
-                        .SetProperty(x => x.UpdatedDate,now),
+                        .SetProperty(x => x.PropertyMapId, propertyMapId)
+                        .SetProperty(x => x.UpdatedBy, dto.CreatedBy)
+                        .SetProperty(x => x.UpdatedDate, now),
                     cancellationToken);
 
             //  Update PropertyMaster - ONE SQL UPDATE
             int updatedCount;
             if (dto.IsOldDataUpdate)
             {
-                 updatedCount = await _repository.GetQueryable()
-                    .Where(x =>
-                        x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
-                    .ExecuteUpdateAsync(
-                        setters => setters
-                            .SetProperty(x => x.OwnerName, x => !string.IsNullOrWhiteSpace(ownerName) ? ownerName : x.OwnerName)
-                            .SetProperty(x => x.OwnerNameEnglish, x => !string.IsNullOrWhiteSpace(ownerNameEnglish) ? ownerNameEnglish : x.OwnerNameEnglish)
-                            .SetProperty(x => x.OccupierName, x => !string.IsNullOrWhiteSpace(occupierName) ? occupierName : x.OccupierName)
-                            .SetProperty(x => x.OccupierNameEnglish, x => !string.IsNullOrWhiteSpace(occupierNameEnglish) ? occupierNameEnglish : x.OccupierNameEnglish)
-                            .SetProperty(x => x.MobileNo, x => !string.IsNullOrWhiteSpace(mobileNo) ? mobileNo : x.MobileNo)
-                            .SetProperty(x => x.Address, x => !string.IsNullOrWhiteSpace(address) ? address : x.Address)
-                            .SetProperty(x => x.AddressEnglish, x => !string.IsNullOrWhiteSpace(addressEnglish) ? addressEnglish : x.AddressEnglish)
-                            .SetProperty(x => x.FlatOrShopNo, x => !string.IsNullOrWhiteSpace(flatOrShopNo) ? flatOrShopNo : x.FlatOrShopNo)
-                            .SetProperty(x => x.UpdatedBy, dto.CreatedBy)
-                            .SetProperty(x => x.UpdatedDate, now),
-                        cancellationToken);
+                updatedCount = await _repository.GetQueryable()
+                   .Where(x =>
+                       x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
+                   .ExecuteUpdateAsync(
+                       setters => setters
+                           .SetProperty(x => x.OwnerName, x => !string.IsNullOrWhiteSpace(ownerName) ? ownerName : x.OwnerName)
+                           .SetProperty(x => x.OwnerNameEnglish, x => !string.IsNullOrWhiteSpace(ownerNameEnglish) ? ownerNameEnglish : x.OwnerNameEnglish)
+                           .SetProperty(x => x.OccupierName, x => !string.IsNullOrWhiteSpace(occupierName) ? occupierName : x.OccupierName)
+                           .SetProperty(x => x.OccupierNameEnglish, x => !string.IsNullOrWhiteSpace(occupierNameEnglish) ? occupierNameEnglish : x.OccupierNameEnglish)
+                           .SetProperty(x => x.MobileNo, x => !string.IsNullOrWhiteSpace(mobileNo) ? mobileNo : x.MobileNo)
+                           .SetProperty(x => x.Address, x => !string.IsNullOrWhiteSpace(address) ? address : x.Address)
+                           .SetProperty(x => x.AddressEnglish, x => !string.IsNullOrWhiteSpace(addressEnglish) ? addressEnglish : x.AddressEnglish)
+                           .SetProperty(x => x.FlatOrShopNo, x => !string.IsNullOrWhiteSpace(flatOrShopNo) ? flatOrShopNo : x.FlatOrShopNo)
+                           .SetProperty(x => x.UpdatedBy, dto.CreatedBy)
+                           .SetProperty(x => x.UpdatedDate, now),
+                       cancellationToken);
             }
             else
             {
@@ -314,13 +314,13 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
             return new PropertyMergeDto
             {
                 Success = true,
-                Message = $"Old properties {string.Join(", ", oldPropertyNos)} " +$"merged successfully in new property no {newPropertyNo}",
+                Message = $"Old properties {string.Join(", ", oldPropertyNos)} " + $"merged successfully in new property no {newPropertyNo}",
                 Data = null
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,"Multiple property merge failed Old:{OldIds} New:{NewId}",dto.PropertyOldIds != null ? string.Join(",", dto.PropertyOldIds) : null,dto.PropertyId);      
+            _logger.LogError(ex, "Multiple property merge failed Old:{OldIds} New:{NewId}", dto.PropertyOldIds != null ? string.Join(",", dto.PropertyOldIds) : null, dto.PropertyId);
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
@@ -336,7 +336,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (oldPropertyIds.Count < 2)
             {
-                throw new ValidationException("Old Property","Multiple demerge requires at least two old properties",OperationType.Update);
+                throw new ValidationException("Old Property", "Multiple demerge requires at least two old properties", OperationType.Update);
             }
 
             //  Load selected ACTIVE merge mappings
@@ -365,7 +365,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                                 x.IsActive && !x.MarkedForDeletion,
                             cancellationToken);
 
-                throw new ValidationException("Property",propertyExists ? "No merge details found to demerge" : "Property not found",OperationType.Update);
+                throw new ValidationException("Property", propertyExists ? "No merge details found to demerge" : "Property not found", OperationType.Update);
             }
 
             // All requested old properties must have active mapping.
@@ -376,7 +376,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (invalidOldPropertyIds.Count > 0)
             {
-                throw new ValidationException("Old Property",$"Active merge mapping not found for old property Id(s): {string.Join(", ", invalidOldPropertyIds)}",OperationType.Update);
+                throw new ValidationException("Old Property", $"Active merge mapping not found for old property Id(s): {string.Join(", ", invalidOldPropertyIds)}", OperationType.Update);
             }
 
             var propertyMapDetailIds = validationQuery.Select(x => x.Id).ToList();
@@ -389,7 +389,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                     .ToListAsync(cancellationToken);
             if (mergeDetails.Count == 0)
             {
-                throw new ValidationException("Merge Details","Original property data not found", OperationType.Update);
+                throw new ValidationException("Merge Details", "Original property data not found", OperationType.Update);
             }
 
             // Ensure every selected mapping has snapshot
@@ -398,7 +398,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (mappingsWithoutSnapshot.Count > 0)
             {
-                throw new ValidationException("Merge Details","Merge snapshot not found for one or more selected properties",OperationType.Update);
+                throw new ValidationException("Merge Details", "Merge snapshot not found for one or more selected properties", OperationType.Update);
             }
 
             //  Load current PropertyMaster
@@ -412,13 +412,14 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         x.OwnerName,
                         x.OwnerNameEnglish,
                         x.OccupierName,
-                        x.OccupierNameEnglish
+                        x.OccupierNameEnglish,
+                        x.Id
                     })
                     .FirstOrDefaultAsync(cancellationToken);
 
             if (currentProperty == null)
             {
-                throw new ValidationException("Property","Property not found", OperationType.Update);
+                throw new ValidationException("Property", "Property not found", OperationType.Update);
             }
 
             //  Load ALL selected old properties
@@ -440,7 +441,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
             {
                 var foundIds = oldPropertyData.Select(x => x.Id).ToHashSet();
                 var missingIds = oldPropertyIds.Where(x => !foundIds.Contains(x));
-                throw new ValidationException("Old Property",$"Old property not found for Id(s): " +$"{string.Join(", ", missingIds)}",OperationType.Update);
+                throw new ValidationException("Old Property", $"Old property not found for Id(s): " + $"{string.Join(", ", missingIds)}", OperationType.Update);
             }
 
             //Remove ALL selected old Owner / Occupier names
@@ -451,10 +452,10 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
 
             foreach (var oldProperty in oldPropertyData)
             {
-                updatedOwnerName = RemoveOwnerNameFromCommaSeparated(updatedOwnerName,oldProperty.OldOwnerName);
-                updatedOwnerNameEnglish = RemoveOwnerNameFromCommaSeparated(updatedOwnerNameEnglish,oldProperty.OldOwnerNameEnglish);
-                updatedOccupierName = RemoveOwnerNameFromCommaSeparated(updatedOccupierName,oldProperty.OldOccupierName);
-                updatedOccupierNameEnglish = RemoveOwnerNameFromCommaSeparated(updatedOccupierNameEnglish,oldProperty.OldOccupierNameEnglish);
+                updatedOwnerName = RemoveOwnerNameFromCommaSeparated(updatedOwnerName, oldProperty.OldOwnerName);
+                updatedOwnerNameEnglish = RemoveOwnerNameFromCommaSeparated(updatedOwnerNameEnglish, oldProperty.OldOwnerNameEnglish);
+                updatedOccupierName = RemoveOwnerNameFromCommaSeparated(updatedOccupierName, oldProperty.OldOccupierName);
+                updatedOccupierNameEnglish = RemoveOwnerNameFromCommaSeparated(updatedOccupierNameEnglish, oldProperty.OldOccupierNameEnglish);
             }
 
             // Multiple merge stores snapshots sequentially.
@@ -462,7 +463,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
             var restoreData = mergeDetails.FirstOrDefault(x => x.PropertyMapDetailId == firstPropertyMapDetailId);
             if (restoreData == null)
             {
-                throw new ValidationException("Merge Details","Restore snapshot not found",OperationType.Update);
+                throw new ValidationException("Merge Details", "Restore snapshot not found", OperationType.Update);
             }
 
             var updatedDate = DateTime.Now;
@@ -477,7 +478,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                             pm.IsActive && !pm.MarkedForDeletion)
                         .ExecuteUpdateAsync(
                             setters => setters
-                                .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "The Holder" : updatedOwnerName)
+                                .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "धारक" : updatedOwnerName)
                                 .SetProperty(pm => pm.OwnerNameEnglish, string.IsNullOrWhiteSpace(updatedOwnerNameEnglish) ? "The Holder" : updatedOwnerNameEnglish)
                                 .SetProperty(pm => pm.OccupierName, updatedOccupierName)
                                 .SetProperty(pm => pm.OccupierNameEnglish, updatedOccupierNameEnglish)
@@ -493,16 +494,19 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                             cancellationToken);
 
                 //  Restore Society Builder details
-                await _societyRepository.GetQueryable()
-                    .Where(s =>
-                        s.PropertyId == newPropertyId && s.IsActive)
-                    .ExecuteUpdateAsync(
-                        setters => setters
-                            .SetProperty(s => s.BuilderName, restoreData.BuilderName)
-                            .SetProperty(s => s.BuilderNameEnglish, restoreData.BuilderNameEnglish)
-                            .SetProperty(s => s.UpdatedBy, dto.UpdatedBy)
-                            .SetProperty(s => s.UpdatedDate, updatedDate),
-                        cancellationToken);
+                if (currentProperty.Id != 0)
+                {
+                    await _societyRepository.GetQueryable()
+                        .Where(s =>
+                            s.PropertyId == currentProperty.Id && s.IsActive)
+                        .ExecuteUpdateAsync(
+                            setters => setters
+                                .SetProperty(s => s.BuilderName, restoreData.BuilderName)
+                                .SetProperty(s => s.BuilderNameEnglish, restoreData.BuilderNameEnglish)
+                                .SetProperty(s => s.UpdatedBy, dto.UpdatedBy)
+                                .SetProperty(s => s.UpdatedDate, updatedDate),
+                            cancellationToken);
+                }
             }
             else
             {
@@ -513,7 +517,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                             pm.IsActive && !pm.MarkedForDeletion)
                         .ExecuteUpdateAsync(
                             setters => setters
-                                .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "The Holder" : updatedOwnerName)
+                                .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "धारक" : updatedOwnerName)
                                 .SetProperty(pm => pm.OwnerNameEnglish, string.IsNullOrWhiteSpace(updatedOwnerNameEnglish) ? "The Holder" : updatedOwnerNameEnglish)
                                 .SetProperty(pm => pm.OccupierName, updatedOccupierName)
                                 .SetProperty(pm => pm.OccupierNameEnglish, updatedOccupierNameEnglish)
@@ -521,7 +525,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                                 .SetProperty(pm => pm.UpdatedDate, updatedDate),
                             cancellationToken);
             }
-            
+
             if (propertyUpdatedCount == 0)
             {
                 throw new InvalidOperationException("Demerge failed. Property was not updated.");
@@ -563,10 +567,10 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         pmd.IsActive && pmd.Status == PropertyMapStatus.Active)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty(pmd => pmd.Status,PropertyMapStatus.Cancelled)
-                            .SetProperty(pmd => pmd.IsActive,false)
-                            .SetProperty(pmd => pmd.UpdatedBy,dto.UpdatedBy)
-                            .SetProperty(pmd => pmd.UpdatedDate,updatedDate),
+                            .SetProperty(pmd => pmd.Status, PropertyMapStatus.Cancelled)
+                            .SetProperty(pmd => pmd.IsActive, false)
+                            .SetProperty(pmd => pmd.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(pmd => pmd.UpdatedDate, updatedDate),
                         cancellationToken);
 
             if (updatedMappingCount != oldPropertyIds.Count)
@@ -580,9 +584,9 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         propertyMapDetailIds.Contains(md.PropertyMapDetailId) && md.IsActive)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty(md => md.IsActive,false)
-                            .SetProperty(md => md.UpdatedBy,dto.UpdatedBy)
-                            .SetProperty(md => md.UpdatedDate,updatedDate),
+                            .SetProperty(md => md.IsActive, false)
+                            .SetProperty(md => md.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(md => md.UpdatedDate, updatedDate),
                         cancellationToken);
 
             if (updatedMergeDetailCount == 0)
@@ -601,7 +605,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         cancellationToken);
 
 
-           
+
             //If only ONE mapping remains,convert it to One-To-One
             if (remainingMappingCount == 1)
             {
@@ -624,9 +628,9 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                         pmd.Status == PropertyMapStatus.Active)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty(pmd => pmd.PropertyMapId,oneToOnePropertyMapId)
-                            .SetProperty(pmd => pmd.UpdatedBy,dto.UpdatedBy)
-                            .SetProperty(pmd => pmd.UpdatedDate,updatedDate),
+                            .SetProperty(pmd => pmd.PropertyMapId, oneToOnePropertyMapId)
+                            .SetProperty(pmd => pmd.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(pmd => pmd.UpdatedDate, updatedDate),
                         cancellationToken);
             }
 
@@ -643,13 +647,13 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
         }
         catch (Exception ex)
         {
-            _logger.LogError( ex, "Multiple demerge failed NewProperty:{PropertyId} OldProperties:{OldPropertyIds}",dto.PropertyId,dto.PropertyOldIds != null? string.Join(",", dto.PropertyOldIds) : null);
-             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError(ex, "Multiple demerge failed NewProperty:{PropertyId} OldProperties:{OldPropertyIds}", dto.PropertyId, dto.PropertyOldIds != null ? string.Join(",", dto.PropertyOldIds) : null);
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
 
-    public override async Task<PropertyMergeDto?> GetByIdAsync(int propertyId,CancellationToken cancellationToken = default)
+    public override async Task<PropertyMergeDto?> GetByIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -704,7 +708,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                     OldTotalTax = pmo.OldTotalTax,
                     OldPlotArea = pmo.OldPlotArea,
                     OldGeneralTax = pmo.OldGeneralTax,
-                    OldConstructionYear = pmo.OldConstructionYear == null ? null: Convert.ToInt32(pmo.OldConstructionYear),
+                    OldConstructionYear = pmo.OldConstructionYear == null ? null : Convert.ToInt32(pmo.OldConstructionYear),
                     OldConstructionArea = pmo.OldConstructionArea
                 })
                 .ToListAsync(cancellationToken);
@@ -728,7 +732,7 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,"Error retrieving merge details for property {PropertyId}",propertyId);
+            _logger.LogError(ex, "Error retrieving merge details for property {PropertyId}", propertyId);
             throw;
         }
     }
@@ -755,7 +759,8 @@ public class PropertyMergeService : BaseCommonCrudService<PropertyMapDetailEntit
                     continue;
                 }
                 // Remove placeholder value
-                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(name, "धारक", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

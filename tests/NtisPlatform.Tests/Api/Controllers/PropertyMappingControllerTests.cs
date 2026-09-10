@@ -107,7 +107,7 @@ public class PropertyMappingControllerTests
     public async Task GetPropertyMappingDetails_Success_ReturnsOk()
     {
         // Arrange
-        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, SocietyId = 1, CreatedBy = 100 };
+        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 100 };
         var matchingDetails = new List<PropertyMatchingResponseDto>
         {
             new() { PropertyId = 10, RowSource = "MATCHED", IsMatchProperty = true, OwnerName = "John Doe" }

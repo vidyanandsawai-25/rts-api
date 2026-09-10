@@ -80,10 +80,10 @@ public class PropertyMappingServiceTests
             _mockWingMasterRepository.Object,
             _mockTypeOfUseRepository.Object,
             _mockFloorRepository.Object,
+            _mockWingDetailsMastRepository.Object,
             _mockUnitOfWork.Object,
             _mockLogger.Object,
-            _mockMapper.Object,
-            _mockWingDetailsMastRepository.Object);
+            _mockMapper.Object);
     }
 
     private void SetDefaultEmptyRepositories()
@@ -103,7 +103,8 @@ public class PropertyMappingServiceTests
         _mockWingMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<WingEntity>().BuildMock());
         _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseEntity>().BuildMock());
         _mockFloorRepository.Setup(r => r.GetQueryable()).Returns(new List<FloorEntity>().BuildMock());
-        _mockWingDetailsMastRepository.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+        var defaultWings = new List<WingDetailsMastEntity> { new() { Id = 50, WingMasterId = 1, WingName = "WING A", IsActive = true, MarkedForDeletion = false }, new() { Id = 51, WingMasterId = 1, WingName = "WING B", IsActive = true, MarkedForDeletion = false }, new() { Id = 52, WingMasterId = 1, WingName = "WING C", IsActive = true, MarkedForDeletion = false } };
+        _mockWingDetailsMastRepository.Setup(r => r.GetQueryable()).Returns(defaultWings.BuildMock());
     }
 
     #region Step 1 & Step 2 Validation Tests
@@ -190,10 +191,10 @@ public class PropertyMappingServiceTests
     public async Task GetPropertyMatchingDetailsAsync_WhenWingIdSpecifiedAndWingNotFound_ReturnsEmptyList()
     {
         // Arrange
-        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, SocietyId = 5, CreatedBy = 1 };
+        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, WingId = 999, CreatedBy = 1 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -223,7 +224,7 @@ public class PropertyMappingServiceTests
         var properties = new List<PropertyEntity>
         {
             // PartitionNo is whitespace -> should be excluded in Step 4
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "   ", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "   ", WingDetailId = 50, IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -248,7 +249,7 @@ public class PropertyMappingServiceTests
         var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 1 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "A-1", PropertyTypeId = 100, IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "A-1", WingDetailId = 50, PropertyTypeId = 100, IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -278,7 +279,7 @@ public class PropertyMappingServiceTests
         var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 1 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "WING-A", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "WING-A", WingDetailId = 50, IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -317,7 +318,7 @@ public class PropertyMappingServiceTests
                 Id = 10,
                 WardId = 1,
                 PropertyNo = "P-100",
-                PartitionNo = "101",
+                PartitionNo = "101", WingDetailId = 50,
                 FlatOrShopNo = "101",
                 FlatOrShopName = "Galaxy",
                 MobileNo = "9876543210",
@@ -374,7 +375,7 @@ public class PropertyMappingServiceTests
 
         var wingDetails = new List<WingDetailsMastEntity>
         {
-            new() { SocietyDetailsMastId = 50, WingName = "A Wing", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 50, SocietyDetailsMastId = 50, WingName = "WING A", IsActive = true, MarkedForDeletion = false }
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
@@ -403,7 +404,7 @@ public class PropertyMappingServiceTests
         Assert.Equal("1", item.WardNo);
         Assert.Equal("P-100", item.PropertyNo);
         Assert.Equal("101", item.PartitionNo);
-        Assert.Equal("A Wing", item.WingName);
+        Assert.Equal("WING A", item.WingName);
         Assert.Equal("101", item.FlatShopNo);
         Assert.Equal("Galaxy", item.ShopName);
         Assert.Equal("9876543210", item.MobileNo);
@@ -435,8 +436,8 @@ public class PropertyMappingServiceTests
         var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 1 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", FlatOrShopNo = "101", OwnerName = "First Owner", IsActive = true, MarkedForDeletion = false },
-            new() { Id = 11, WardId = 1, PropertyNo = "P-100", PartitionNo = "101-DUP", FlatOrShopNo = "101", OwnerName = "Duplicate Owner", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, FlatOrShopNo = "101", OwnerName = "First Owner", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 11, WardId = 1, PropertyNo = "P-100", PartitionNo = "101-DUP", WingDetailId = 50, FlatOrShopNo = "101", OwnerName = "Duplicate Owner", IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -484,7 +485,7 @@ public class PropertyMappingServiceTests
                 Id = 10,
                 WardId = 1,
                 PropertyNo = "P-100",
-                PartitionNo = "101",
+                PartitionNo = "101", WingDetailId = 50,
                 FlatOrShopNo = "101",
                 OwnerName = "New Owner",
                 IsActive = true,
@@ -504,7 +505,7 @@ public class PropertyMappingServiceTests
                 OldWardNo = "1",
                 OldPropertyNo = "OP-10",
                 OldPartitionNo = "01",
-                OldWing = "A",
+                OldWing = "WING A",
                 OldFlatOrShopNumber = "101",
                 OldOwnerName = "Old Owner",
                 OldOccupierName = "Old Occupier",
@@ -554,7 +555,7 @@ public class PropertyMappingServiceTests
         Assert.Equal(1200m, item.OldTotalTax);
         Assert.Equal(800m, item.OldPropertyTax);
         Assert.Equal("123 Old St", item.OldAddress);
-        Assert.Equal("A", item.OldWingName);
+        Assert.Equal("WING A", item.OldWingName);
         Assert.Equal("101", item.OldFlatShopNo);
     }
 
@@ -570,7 +571,7 @@ public class PropertyMappingServiceTests
                 Id = 10,
                 WardId = 1,
                 PropertyNo = "P-100",
-                PartitionNo = "101",
+                PartitionNo = "101", WingDetailId = 50,
                 FlatOrShopNo = "101",
                 IsActive = true,
                 MarkedForDeletion = false
@@ -650,7 +651,7 @@ public class PropertyMappingServiceTests
                 Id = 10,
                 WardId = 1,
                 PropertyNo = "P-100",
-                PartitionNo = "101",
+                PartitionNo = "101", WingDetailId = 50,
                 FlatOrShopNo = "101",
                 OwnerName = "Merged New Owner",
                 IsActive = true,
@@ -735,7 +736,7 @@ public class PropertyMappingServiceTests
         var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 99 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -790,7 +791,7 @@ public class PropertyMappingServiceTests
         var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, CreatedBy = 99 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -841,10 +842,10 @@ public class PropertyMappingServiceTests
     public async Task GetPropertyMatchingDetailsAsync_WithWingIdSpecified_FiltersOldPropertiesByWingKey()
     {
         // Arrange
-        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, SocietyId = 1, CreatedBy = 1 };
+        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, WingId = 1, CreatedBy = 1 };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -888,11 +889,11 @@ public class PropertyMappingServiceTests
         var properties = new List<PropertyEntity>
         {
             // Will match with old prop 100 -> MATCHED (SortSource 1)
-            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 10, WardId = 1, PropertyNo = "P-100", PartitionNo = "101", WingDetailId = 50, FlatOrShopNo = "101", IsActive = true, MarkedForDeletion = false },
             // Merged with old prop 200 -> Merge (SortSource 2)
-            new() { Id = 11, WardId = 1, PropertyNo = "P-100", PartitionNo = "102", FlatOrShopNo = "102", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 11, WardId = 1, PropertyNo = "P-100", PartitionNo = "102", WingDetailId = 51, FlatOrShopNo = "102", IsActive = true, MarkedForDeletion = false },
             // Only New -> NEW (SortSource 3)
-            new() { Id = 12, WardId = 1, PropertyNo = "P-100", PartitionNo = "103", FlatOrShopNo = "103", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 12, WardId = 1, PropertyNo = "P-100", PartitionNo = "103", WingDetailId = 52, FlatOrShopNo = "103", IsActive = true, MarkedForDeletion = false }
         };
         var societies = new List<SocietyDetailsEntity>
         {
@@ -902,10 +903,10 @@ public class PropertyMappingServiceTests
         };
         var oldProperties = new List<PropertyMastOldEntity>
         {
-            new() { Id = 100, OldSocietyName = "Sunrise Society", OldWing = "A", OldFlatOrShopNumber = "101", IsActive = true, MarkedForDeletion = false },
-            new() { Id = 200, OldSocietyName = "Sunrise Society", OldWing = "A", OldFlatOrShopNumber = "102", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 100, OldSocietyName = "Sunrise Society", OldWing = "WING A", OldFlatOrShopNumber = "101", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 200, OldSocietyName = "Sunrise Society", OldWing = "WING B", OldFlatOrShopNumber = "102", IsActive = true, MarkedForDeletion = false },
             // Only Old -> OLD (SortSource 4)
-            new() { Id = 300, OldSocietyName = "Sunrise Society", OldWing = "B", OldFlatOrShopNumber = "201", IsActive = true, MarkedForDeletion = false }
+            new() { Id = 300, OldSocietyName = "Sunrise Society", OldWing = "WING B", OldFlatOrShopNumber = "201", IsActive = true, MarkedForDeletion = false }
         };
         var mapDetails = new List<PropertyMapDetailEntity>
         {
@@ -955,3 +956,4 @@ public class PropertyMappingServiceTests
 
     #endregion
 }
+
