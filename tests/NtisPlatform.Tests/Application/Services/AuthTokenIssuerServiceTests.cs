@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -17,6 +18,7 @@ public class AuthTokenIssuerServiceTests
     private readonly Mock<ITokenService> _tokenServiceMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
+    private readonly Mock<IUserAccessRepository> _userAccessRepositoryMock = new();
     private readonly Mock<IConfiguration> _configurationMock = new();
     private readonly AuthTokenIssuerService _service;
 
@@ -26,11 +28,20 @@ public class AuthTokenIssuerServiceTests
         _configurationMock.Setup(c => c["Jwt:RefreshTokenExpiryDays"]).Returns("7");
         _passwordHasherMock.Setup(x => x.HashPassword(It.IsAny<string>())).Returns((string s) => $"hash:{s}");
         _tokenServiceMock.Setup(x => x.GenerateRefreshToken()).Returns("raw-refresh-token");
+        _userAccessRepositoryMock.Setup(x => x.GetUserRolesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "Admin" });
+        _userAccessRepositoryMock.Setup(x => x.IsAdminAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _userAccessRepositoryMock.Setup(x => x.GetUserPermissionsAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<NtisPlatform.Application.DTOs.Auth.LoginPermissionDto>());
+        _userAccessRepositoryMock.Setup(x => x.CanAllocateWardsAsync(It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _service = new AuthTokenIssuerService(
             _tokenServiceMock.Object,
             _passwordHasherMock.Object,
             _refreshTokenRepositoryMock.Object,
+            _userAccessRepositoryMock.Object,
             _configurationMock.Object);
     }
 

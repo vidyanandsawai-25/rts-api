@@ -218,6 +218,7 @@ public static class ServiceCollectionExtensions
         // Read-only data repository bound to ReportDataDbContext (report data replica)
         services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<ITwoFactorRecoveryCodeRepository, TwoFactorRecoveryCodeRepository>();
         services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();

@@ -96,6 +96,58 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Login endpoint (v2) - authenticate user and return JWT token along with user roles, permissions, and access details.
+    /// </summary>
+    /// <param name="request">Login credentials</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Login response with JWT token, roles, permissions, and user access details if successful</returns>
+    [HttpPost("login-v2")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginV2ResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
+    public async Task<IActionResult> LoginV2([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var response = await _authService.LoginV2Async(request, cancellationToken);
+
+            if (!response.Success)
+            {
+                if (response.Throttled)
+                {
+                    _logger.LogWarning("Login throttled for username: {Username}", request.Username);
+                    return StatusCode(StatusCodes.Status423Locked, new { message = response.Message });
+                }
+
+                _logger.LogWarning("Failed login attempt for username: {Username}", request.Username);
+                return Unauthorized(new { message = response.Message, remainingLoginAttempts = response.RemainingLoginAttempts });
+            }
+
+            _logger.LogInformation("Successful login (v2) for user: {Username}", request.Username);
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client disconnected or request timed out - let it propagate
+            // ASP.NET Core will handle this appropriately (no 500 error logged)
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for username: {Username}", request.Username);
+            return StatusCode(500, new { message = "An error occurred during login" });
+        }
+    }
+
+    /// <summary>
     /// Completes a login that returned RequiresTwoFactor by verifying a TOTP or recovery code
     /// against the pending MFA challenge.
     /// </summary>

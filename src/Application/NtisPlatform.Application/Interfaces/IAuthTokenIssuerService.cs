@@ -18,4 +18,9 @@ public interface IAuthTokenIssuerService
     /// <param name="user">The authenticated user.</param>
     /// <param name="authenticationMethod">"pwd" or "mfa" — embedded as the access token's amr claim.</param>
     Task<LoginResponseDto> IssueAsync(UserEntity user, string authenticationMethod, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Issues an access token and user access details (roles, permissions, admin status, ward allocation) for v2 login.
+    /// </summary>
+    Task<LoginV2ResponseDto> IssueV2Async(UserEntity user, string authenticationMethod, CancellationToken cancellationToken = default);
 }
