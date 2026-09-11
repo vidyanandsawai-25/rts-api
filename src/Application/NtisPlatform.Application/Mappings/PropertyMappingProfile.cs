@@ -36,9 +36,9 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
-            .ForMember(dest => dest.FloorId, opt => opt.MapFrom(src => 1)) // Default FloorId
-            .ForMember(dest => dest.ConstructionTypeId, opt => opt.MapFrom(src => 1)) // Default Construction Type
-            .ForMember(dest => dest.TypeOfUseId, opt => opt.MapFrom(src => 1))  // Default TypeOfUseId
+            .ForMember(dest => dest.FloorId, opt => opt.MapFrom(src => src.FloorId > 0 ? (int?)src.FloorId : null))
+            .ForMember(dest => dest.ConstructionTypeId, opt => opt.MapFrom(src => src.ConstructionTypeId > 0 ? (int?)src.ConstructionTypeId : null))
+            .ForMember(dest => dest.TypeOfUseId, opt => opt.MapFrom(src => src.TypeOfUseId))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(src => false));
 
@@ -63,6 +63,17 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(src => false));
+
+        // CreateNewPropertyDto to PropertyWorkflowDetailsEntity
+        CreateMap<CreateNewPropertyDto, PropertyWorkflowDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.WorkflowStageId, opt => opt.MapFrom(src => src.WorkflowStageId))
+            .ForMember(dest => dest.CurrentStatus, opt => opt.MapFrom(src => true))
+            .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => src.CreatedDate ?? DateTime.UtcNow))
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true));
 
         // UpdateDto to Entity
         CreateMap<UpdatePropertyDto, PropertyEntity>()

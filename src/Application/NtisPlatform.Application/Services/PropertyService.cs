@@ -60,6 +60,7 @@ public partial class PropertyService
     private readonly IRepository<WingEntity, int> _wingRepository;
     private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
     private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
+    private readonly IPropertyWorkflowDetailsRepository? _workflowDetailsRepository;
     private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
 
 
@@ -93,7 +94,8 @@ public partial class PropertyService
         IRepository<WingEntity, int> wingRepository,
         IRepository<SocietyWingDetailsEntity, int> societyWingRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null,
-        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null,
+        IPropertyWorkflowDetailsRepository? workflowDetailsRepository = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -122,6 +124,7 @@ public partial class PropertyService
         _wingMasterRepository = wingMasterRepository;
         _oldWardMasterRepository = oldWardMasterRepository;
         _wingDetailsMastRepository = wingDetailsMastRepository;
+        _workflowDetailsRepository = workflowDetailsRepository;
         _societyWingRepository = societyWingRepository;
     }
 
