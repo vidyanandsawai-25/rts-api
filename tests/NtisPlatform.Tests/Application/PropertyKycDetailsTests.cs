@@ -30,7 +30,23 @@ public class PropertyKycDetailsTests
 {
     /// <summary>Composes the KYC use-case service over the in-memory context (feature repo + unit of work).</summary>
     private static PropertyKycService CreateKycService(ApplicationDbContext context)
-        => new(new PropertyKycRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+        => new(
+            new PropertyKycRepository(context),
+            new UnitOfWork(context),
+            new PropertyMutationInvariantPolicy(),
+            new Repository<PropertyEntity, int>(context),
+            new Repository<PropertyAssessmentEntity, int>(context),
+            new Repository<OwnerTypeMasterEntity, int>(context),
+            new Repository<SocietyDetailsEntity, int>(context),
+            new Repository<WingEntity, int>(context),
+            new Repository<RoomWiseSubmissionDetailsEntity, int>(context),
+            new Repository<CommunicationDetailsEntity, int>(context),
+            new Repository<PropertyMapDetailEntity, int>(context),
+            new Repository<PropertyMastOldEntity, int>(context),
+            new Mock<ILogger<PropertyKycService>>().Object,
+            new Repository<WingDetailsMastEntity, int>(context),
+            new Repository<PropertyDetailsEntity, int>(context),
+            new Repository<VirtualPropertyTransferHistoryEntity, int>(context));
 
     #region UpdatePropertyKycDetailsDto Tests
 
@@ -621,7 +637,23 @@ public class PropertyKycDetailsTests
         {
             repo = new Mock<IPropertyKycRepository>();
             unitOfWork = new Mock<IUnitOfWork>();
-            return new PropertyKycService(repo.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy());
+            return new PropertyKycService(
+                repo.Object,
+                unitOfWork.Object,
+                new PropertyMutationInvariantPolicy(),
+                new Mock<IRepository<PropertyEntity, int>>().Object,
+                new Mock<IRepository<PropertyAssessmentEntity, int>>().Object,
+                new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+                new Mock<IRepository<SocietyDetailsEntity, int>>().Object,
+                new Mock<IRepository<WingEntity, int>>().Object,
+                new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object,
+                new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+                new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
+                new Mock<IRepository<PropertyMastOldEntity, int>>().Object,
+                new Mock<ILogger<PropertyKycService>>().Object,
+                new Mock<IRepository<WingDetailsMastEntity, int>>().Object,
+                new Mock<IRepository<PropertyDetailsEntity, int>>().Object,
+                new Mock<IRepository<VirtualPropertyTransferHistoryEntity, int>>().Object);
         }
 
         [Fact]

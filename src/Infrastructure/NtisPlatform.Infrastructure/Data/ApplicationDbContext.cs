@@ -39,6 +39,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
     public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
     public DbSet<CombinePropertyHistoryEntity> CombinePropertyHistory { get; set; } = null!;
+    public DbSet<VirtualPropertyTransferHistoryEntity> VirtualPropertyTransferHistory { get; set; } = null!;
     public DbSet<PropertyScreenLockEntity> PropertyScreenLocks { get; set; } = null!;
     public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
@@ -1632,6 +1633,46 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.SourcePropertyId);
             entity.HasIndex(e => e.CombinedPropertyId);
+        });
+
+        // VirtualPropertyTransferHistory configuration
+        modelBuilder.Entity<VirtualPropertyTransferHistoryEntity>(entity =>
+        {
+            entity.ToTable("VirtualPropertyTransferHistory", "GSMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.PropertyNo).HasMaxLength(50);
+            entity.Property(e => e.PartitionNo).HasMaxLength(50);
+            entity.Property(e => e.TransferredWardId).IsRequired();
+            entity.Property(e => e.TransferredPropertyNo).HasMaxLength(50);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Foreign Key Relationships
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Ward)
+                .WithMany()
+                .HasForeignKey(e => e.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TransferredWard)
+                .WithMany()
+                .HasForeignKey(e => e.TransferredWardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.WardId);
+            entity.HasIndex(e => e.TransferredWardId);
         });
         // TransMast configuration
         modelBuilder.Entity<TransMastEntity>(entity =>

@@ -189,13 +189,99 @@ public class PropertySurveyServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Single(result.Items);
-        var item = result.Items.First();
+        Assert.Single(result.Data);
+        var item = result.Data.First();
         Assert.Equal(100, item.Id);
         Assert.Equal("Ward_05", item.WardNo);
         Assert.Equal("Residential Category", item.CategoryName);
         Assert.Equal("Residential Type", item.PropertyDescription);
+        Assert.Equal("TestPropertyNo_1-A", item.DisplayProperty);
         Assert.True(item.CanDelete); // Should be true since it has the max PropertySeqNo
+    }
+
+    [Fact]
+    public async Task SearchNewlyCreatedPropertiesAsync_SurveyModule_ReturnsExpectedResponse()
+    {
+        // Arrange
+        var request = new CreatedByUserPropertySearchRequestDto
+        {
+            ModuleId = 2,
+            UserId = 10,
+            WardId = 5,
+            PageNumber = 1,
+            PageSize = 10,
+            SearchText = "English"
+        };
+
+        var modules = new List<ModuleMasterEntity>
+        {
+            new() { Id = 2, ModuleCode = "SURVEY", IsActive = true }
+        }.BuildMock();
+
+        var properties = new List<PropertyEntity>
+        {
+            new()
+            {
+                Id = 200,
+                CreatedBy = 10,
+                WardId = 5,
+                IsActive = true,
+                MarkedForDeletion = false,
+                PropertyNo = "SurveyProp_1",
+                PartitionNo = "",
+                CategoryId = 2,
+                PropertyTypeId = 3,
+                OwnerNameEnglish = "EnglishOwner",
+                PropertySeqNo = 20
+            }
+        }.BuildMock();
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 5, WardNo = "Ward_05" }
+        }.BuildMock();
+
+        var categories = new List<PropertyCategoryEntity>
+        {
+            new() { Id = 2, PropertyCategoryName = "Individual" }
+        }.BuildMock();
+
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 3, PropertyDescription = "Residential Type", PartType = "NotAmenity", Type = "Ratable" }
+        }.BuildMock();
+
+        var mapDetails = new List<PropertyMapDetailEntity>().BuildMock();
+        var oldProperties = new List<PropertyMastOldEntity>().BuildMock();
+        var societies = new List<SocietyDetailsEntity>().BuildMock();
+        var wings = new List<WingEntity>().BuildMock();
+        var photos = new List<PropertyPhotoEntity>().BuildMock();
+        var societyWings = new List<SocietyWingDetailsEntity>().BuildMock();
+        var roomWiseSubmissions = new List<RoomWiseSubmissionDetailsEntity>().BuildMock();
+
+        _mockModuleMasterRepo.Setup(r => r.GetQueryable()).Returns(modules);
+        _mockPropertyRepo.Setup(r => r.GetQueryable()).Returns(properties);
+        _mockWardRepo.Setup(r => r.GetQueryable()).Returns(wards);
+        _mockCategoryRepo.Setup(r => r.GetQueryable()).Returns(categories);
+        _mockPropertyTypeRepo.Setup(r => r.GetQueryable()).Returns(propertyTypes);
+        _mockPropertyMapDetailRepo.Setup(r => r.GetQueryable()).Returns(mapDetails);
+        _mockPropertyOldRepo.Setup(r => r.GetQueryable()).Returns(oldProperties);
+        _mockSocietyRepo.Setup(r => r.GetQueryable()).Returns(societies);
+        _mockWingMasterRepo.Setup(r => r.GetQueryable()).Returns(wings);
+        _mockPropertyPhotoRepo.Setup(r => r.GetQueryable()).Returns(photos);
+        _mockSocietyWingRepo.Setup(r => r.GetQueryable()).Returns(societyWings);
+        _mockRoomWiseRepo.Setup(r => r.GetQueryable()).Returns(roomWiseSubmissions);
+
+        // Act
+        var result = await _service.SearchNewlyCreatedPropertiesAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Data);
+        var item = result.Data.First();
+        Assert.Equal(200, item.Id);
+        Assert.Equal("SurveyProp_1", item.DisplayProperty);
+        Assert.True(item.CanDelete);
     }
 
     [Fact]
