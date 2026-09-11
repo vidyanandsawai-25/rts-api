@@ -72,7 +72,11 @@ public class WingDetailsMastEntity : BaseEntity
     [ForeignKey(nameof(SecretaryMobileNoRemarkId))]
     public virtual CommonRemarkTypeMasterEntity? SecretaryMobileNoRemarkMaster { get; set; }
 
+    [InverseProperty(nameof(SocietyWingDetailsEntity.WingDetailsMast))]
+    public virtual SocietyWingDetailsEntity? SocietyWingDetails { get; set; }
+
+
+    // Collection navigation properties
     [InverseProperty(nameof(PropertyEntity.WingDetailsMast))]
     public virtual ICollection<PropertyEntity> Properties { get; set; } = new List<PropertyEntity>();
-
 }

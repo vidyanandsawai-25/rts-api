@@ -127,9 +127,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public virtual PropertyTypeMasterEntity? PropertyTypeMaster { get; set; }
 
-    [ForeignKey(nameof(WingDetailId))]
-    public virtual WingDetailsMastEntity? WingDetailsMast { get; set; }
-
     // ===== Child Entity Navigation Properties =====
     // 
     // ARCHITECTURE NOTE: Navigation properties serve THREE purposes:
@@ -151,6 +148,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     // - Manual control provides audit trails, reversibility, and business rule enforcement
     //
     // See docs/PropertyEntityNavigationPropertiesExplained.md for detailed architecture.
+
+    // Wing details navigation property
+    [ForeignKey(nameof(WingDetailId))]
+    public virtual WingDetailsMastEntity? WingDetailsMast { get; set; }
 
     // Core Property Data
     public ICollection<FlagMasterEntity> FlagMaster { get; set; } = new List<FlagMasterEntity>();

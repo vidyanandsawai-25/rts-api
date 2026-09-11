@@ -31,10 +31,6 @@ public class SocietyWingDetailsEntity : BaseEntity
 
     public int? NoOfRowHouse { get; set; }
 
-    public int? WingPhoto { get; set; }
-
-    public int? BoardPhoto { get; set; }
-
     // Navigation properties
     [ForeignKey(nameof(WingId))]
     public virtual WingEntity? WingMaster { get; set; }

@@ -279,6 +279,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IModuleLookupService, ModuleLookupService>();
 
+        // Wing details services
+        services.AddScoped<IWingDetailsMastService, WingDetailsMastService>();
+
         // Document Authorization Handlers (per-department entity-level authorization)
         // Register handlers for document access based on parent entity (Property, WaterConnection, etc.)
         services.AddScoped<IDocumentAuthorizationHandler>(sp =>

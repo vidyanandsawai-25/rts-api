@@ -213,8 +213,8 @@ public class AutoMapperValidationTest
                 // GisUploadHistory, the system-set upload metadata (who/what/when uploaded it is
                 // recorded once at creation and never user-editable afterward).
                 "FilterKey", "KpiCode", "LayerCode", "FileName", "UploadedBy", "UploadedAt",
-                
-                "WingDetailsMast"
+                // Wing & Photo navigation properties intentionally unmapped in DTO profiles
+                "WingDetailsMast", "WingPhoto", "BoardPhoto"
              };
 
             // Check if all unmapped properties are in the expected list

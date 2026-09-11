@@ -3,12 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
-using NtisPlatform.Core.Models;
-using NtisPlatform.Application.Extensions;
 
 namespace NtisPlatform.Application.Services;
 
@@ -164,26 +163,6 @@ public class SocietyWingDetailsService : BaseCommonCrudService<SocietyWingDetail
     /// </summary>
     public override async Task<SocietyWingDetailsDto?> UpdateAsync(int id, UpdateSocietyWingDetailsDto updateDto, CancellationToken cancellationToken = default)
     {
-        // Validate PropertyId if provided
-        if (updateDto.PropertyId.HasValue)
-        {
-            var propertyExists = await _propertymast.GetQueryable()
-                .AnyAsync(x => x.Id == updateDto.PropertyId && x.IsActive, cancellationToken);
-
-            if (!propertyExists)
-            {
-                throw new ValidationException($"PropertyId {updateDto.PropertyId} does not exist or is inactive.", OperationType.Update);
-            }
-        }
-
-        var isWingIdValid = await _wingrepository.GetQueryable()
-              .AnyAsync(x => x.IsActive && x.Id == updateDto.WingId, cancellationToken);
-
-        if (!isWingIdValid)
-        {
-            throw new ValidationException($"WingId {updateDto.WingId} does not exist or is inactive.", OperationType.Update);
-        }
-
         // FromFloor to ToFloor validation
         if (!string.IsNullOrEmpty(updateDto.FromFloor) && !string.IsNullOrEmpty(updateDto.ToFloor))
         {
@@ -199,20 +178,6 @@ public class SocietyWingDetailsService : BaseCommonCrudService<SocietyWingDetail
             {
                 throw new ValidationException("FromFloor cannot be greater than ToFloor.", OperationType.Update);
             }
-        }
-
-        // duplicate check
-       if (!updateDto.SocietyDetailId.HasValue)
-         {
-             throw new ValidationException("SocietyDetailId is required.", OperationType.Update);
-         }
-
-       bool isSocietydetailsExists = await _societydetails.GetQueryable()
-             .AnyAsync(x => x.PropertyId == updateDto.PropertyId && x.Id == updateDto.SocietyDetailId.Value && x.IsActive, cancellationToken);
-
-        if (!isSocietydetailsExists)
-        {
-            throw new ValidationException($"SocietyDetailsId {updateDto.SocietyDetailId} does not exist or is inactive.", OperationType.Update);
         }
 
         // --- Transactional work ---
@@ -309,8 +274,6 @@ public class SocietyWingDetailsService : BaseCommonCrudService<SocietyWingDetail
                                 NoOfFlat = sw != null ? sw.NoOfFlat : null,
                                 NoOfShop = sw != null ? sw.NoOfShop : null,
                                 NoOfRowHouse = sw != null ? sw.NoOfRowHouse : null,
-                                WingPhoto = sw != null ? sw.WingPhoto : null,
-                                BoardPhoto = sw != null ? sw.BoardPhoto : null,
                                 IsActive = sw != null ? sw.IsActive : sd.IsActive,
                                 CreatedBy = sw != null ? sw.CreatedBy : sd.CreatedBy,
                                 CreatedDate = sw != null ? sw.CreatedDate : sd.CreatedDate,
@@ -345,8 +308,6 @@ public class SocietyWingDetailsService : BaseCommonCrudService<SocietyWingDetail
                         NoOfFlat = sw != null ? sw.NoOfFlat : null,
                         NoOfShop = sw != null ? sw.NoOfShop : null,
                         NoOfRowHouse = sw != null ? sw.NoOfRowHouse : null,
-                        WingPhoto = sw != null ? sw.WingPhoto : null,
-                        BoardPhoto = sw != null ? sw.BoardPhoto : null,
                         IsActive = sw != null ? sw.IsActive : sd.IsActive,
                         CreatedBy = sw != null ? sw.CreatedBy : sd.CreatedBy,
                         CreatedDate = sw != null ? sw.CreatedDate : sd.CreatedDate,

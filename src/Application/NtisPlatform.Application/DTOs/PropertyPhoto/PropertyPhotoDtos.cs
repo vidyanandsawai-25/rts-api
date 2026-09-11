@@ -12,6 +12,9 @@ public class PropertyPhotoUploadResponseDto
     public Guid DocumentGuid { get; set; }
     public int DocumentId { get; set; }
     public int DocumentBindingId { get; set; }
+    public string? PhotoTypeCode { get; set; }
+    public bool IsPrimary { get; set; }
+    public bool IsLatest { get; set; } = true;
     public int PropertyId { get; set; }
     public int PhotoTypeId { get; set; }
     public int? DisplayOrder { get; set; }
