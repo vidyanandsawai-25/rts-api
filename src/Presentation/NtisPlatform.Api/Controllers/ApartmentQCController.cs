@@ -34,6 +34,7 @@ public partial class ApartmentQCController : ControllerBase
     private readonly IPropertyCertificateApplicationService _certificateApplicationService;
     private readonly ISocialAttributeService _socialAttributeService;
     private readonly IGetApartmentDetailsWingWiseService _getApartmentDetailsWingWiseService;
+    private readonly IApartmentDashboardService _apartmentDashboardService;
 
     private readonly ILogger<ApartmentQCController> _logger;
 
@@ -53,7 +54,8 @@ public partial class ApartmentQCController : ControllerBase
         IPropertyCertificateApplicationService certificateApplicationService,
         ISocialAttributeService socialAttributeService,
         ILogger<ApartmentQCController> logger,
-        IGetApartmentDetailsWingWiseService getApartmentDetailsWingWiseService)
+        IGetApartmentDetailsWingWiseService getApartmentDetailsWingWiseService,
+        IApartmentDashboardService apartmentDashboardService)
     {
         _service = service;
         _wingWiseDetailsService = wingWiseDetailsService;
@@ -68,6 +70,7 @@ public partial class ApartmentQCController : ControllerBase
         _certificateApplicationService = certificateApplicationService;
         _socialAttributeService = socialAttributeService;
         _getApartmentDetailsWingWiseService = getApartmentDetailsWingWiseService;
+        _apartmentDashboardService = apartmentDashboardService;
     }
     /// <summary>
     /// </summary>

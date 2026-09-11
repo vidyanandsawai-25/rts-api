@@ -127,6 +127,9 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public virtual PropertyTypeMasterEntity? PropertyTypeMaster { get; set; }
 
+    [ForeignKey(nameof(WingDetailId))]
+    public virtual WingDetailsMastEntity? WingDetailsMast { get; set; }
+
     // ===== Child Entity Navigation Properties =====
     // 
     // ARCHITECTURE NOTE: Navigation properties serve THREE purposes:

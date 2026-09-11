@@ -212,7 +212,9 @@ public class AutoMapperValidationTest
                 // (same pattern as other entities' natural keys elsewhere in this list) and, for
                 // GisUploadHistory, the system-set upload metadata (who/what/when uploaded it is
                 // recorded once at creation and never user-editable afterward).
-                "FilterKey", "KpiCode", "LayerCode", "FileName", "UploadedBy", "UploadedAt"
+                "FilterKey", "KpiCode", "LayerCode", "FileName", "UploadedBy", "UploadedAt",
+                
+                "WingDetailsMast"
              };
 
             // Check if all unmapped properties are in the expected list

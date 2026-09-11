@@ -28,7 +28,8 @@ public class ApartmentQCTopSectionBelowFlexControllerTests
             new Mock<IPropertyCertificateApplicationService>().Object,
             new Mock<NtisPlatform.Application.Interfaces.Master.ISocialAttributeService>().Object,
             NullLogger<ApartmentQCController>.Instance,
-            new Mock<IGetApartmentDetailsWingWiseService>().Object);
+            new Mock<IGetApartmentDetailsWingWiseService>().Object,
+            new Mock<IApartmentDashboardService>().Object);
     }
 
     [Fact]

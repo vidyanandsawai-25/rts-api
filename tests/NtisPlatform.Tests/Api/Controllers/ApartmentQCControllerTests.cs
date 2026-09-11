@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Property.ApartmentQC;
+using NtisPlatform.Application.DTOs.Property.ApartmentQC.ApartmentDashboard;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 using NtisPlatform.Application.Models;
@@ -18,6 +19,7 @@ public class ApartmentQCControllerTests
     private readonly Mock<ICapitalValueService> _mockCapitalValueService;
     private readonly Mock<IRateableValueService> _mockRateableValueService;
     private readonly Mock<IWingWiseDetailsService> _mockWingWiseDetailsService;
+    private readonly Mock<IApartmentDashboardService> _mockApartmentDashboardService;
     private readonly Mock<ILogger<ApartmentQCController>> _mockLogger;
     private readonly ApartmentQCController _controller;
 
@@ -27,6 +29,7 @@ public class ApartmentQCControllerTests
         _mockCapitalValueService = new Mock<ICapitalValueService>();
         _mockRateableValueService = new Mock<IRateableValueService>();
         _mockWingWiseDetailsService = new Mock<IWingWiseDetailsService>();
+        _mockApartmentDashboardService = new Mock<IApartmentDashboardService>();
         _mockLogger  = new Mock<ILogger<ApartmentQCController>>();
         _controller  = new ApartmentQCController(
             _mockService.Object,
@@ -41,7 +44,8 @@ public class ApartmentQCControllerTests
             new Mock<IPropertyCertificateApplicationService>().Object,
             new Mock<NtisPlatform.Application.Interfaces.Master.ISocialAttributeService>().Object,
             _mockLogger.Object,
-            new Mock<IGetApartmentDetailsWingWiseService>().Object);
+            new Mock<IGetApartmentDetailsWingWiseService>().Object,
+            _mockApartmentDashboardService.Object);
     }
 
     private void SetAuthenticatedUser(int userId = 42)
@@ -836,6 +840,33 @@ public class ApartmentQCControllerTests
         await _controller.SavePlanType(1, new SavePlanTypeDto { Type = "3" }, default);
 
         _mockService.Verify(s => s.SavePlanTypeAsync(1, "3", 15, default), Times.Once);
+    }
+
+    #endregion
+
+    #region Dashboard
+
+    [Fact]
+    public async Task GetApartmentDashboardDetailsAsync_ReturnsOkWithDashboardDto()
+    {
+        var queryParams = new ApartmentDashboardQueryParameters { SocietyDetailsId = 1, WingId = 2 };
+        var dashboardDto = new ApartmentDashboardDto
+        {
+            SocietyId = 1,
+            TotalProperties = 100,
+            Assessed = 50
+        };
+
+        _mockApartmentDashboardService
+            .Setup(s => s.GetAllAsync(queryParams, default))
+            .ReturnsAsync(dashboardDto);
+
+        var result = await _controller.GetApartmentDashboardDetailsAsync(queryParams, default);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedDto = Assert.IsType<ApartmentDashboardDto>(okResult.Value);
+        Assert.Equal(1, returnedDto.SocietyId);
+        Assert.Equal(100, returnedDto.TotalProperties);
     }
 
     #endregion
