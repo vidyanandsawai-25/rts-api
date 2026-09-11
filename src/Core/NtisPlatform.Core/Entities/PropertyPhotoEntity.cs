@@ -1,5 +1,6 @@
-using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -307,7 +308,7 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         DocumentBindingId = null;
     }
 
-    public void UpdateDetails(string entityType, int? societyDetailId, int? wingDetailId, int? propertyId, string? type = null)
+    public void UpdateDetails(string entityType, int? societyDetailId, int? wingDetailId,int? propertyId)
     {
         if (string.IsNullOrWhiteSpace(entityType))
             throw new ArgumentException("Entity type cannot be null or empty.", nameof(entityType));
@@ -316,7 +317,6 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         SocietyDetailId = societyDetailId;
         WingDetailId = wingDetailId;
         PropertyId = propertyId;
-        Type = type;
     }
 
     public void SetDisplayOrder(int? displayOrder)
@@ -383,4 +383,5 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
         if (!string.IsNullOrWhiteSpace(remarks) && remarks.Length > 500)
             throw new ArgumentException("Remarks cannot exceed 500 characters.", nameof(remarks));
     }
+
 }

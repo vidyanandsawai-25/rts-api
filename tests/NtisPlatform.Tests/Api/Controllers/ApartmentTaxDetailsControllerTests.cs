@@ -29,7 +29,8 @@ public class ApartmentTaxDetailsControllerTests
             new Mock<IPropertyCertificateApplicationService>().Object,
             new Mock<ISocialAttributeService>().Object,
             NullLogger<ApartmentQCController>.Instance,
-            new Mock<IGetApartmentDetailsWingWiseService>().Object);
+            new Mock<IGetApartmentDetailsWingWiseService>().Object,
+            new Mock<IApartmentDashboardService>().Object);
     }
 
     [Fact]

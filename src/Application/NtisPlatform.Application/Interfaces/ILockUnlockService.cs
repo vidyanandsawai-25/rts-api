@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using NtisPlatform.Application.DTOs.LockUnlock;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Models;
@@ -23,6 +24,12 @@ public interface ILockUnlockService
     /// </exception>
     Task<PagedResult<PropertyLockRowDto>> GetPropertyLocksByCategoryAsync(
         PropertySearchByCategoryQueryParameters request, CancellationToken ct);
+
+    Task<PropertyLockExcelPagedResultDto> GetPropertyLocksByExcelFileAsync(
+        IFormFile file, int pageNumber, int pageSize, string? searchTerm = null, CancellationToken ct = default);
+
+    Task<PropertyLockExcelPagedResultDto> GetPropertyLocksByExcelAsync(
+        SearchByExcelRequestDto request, CancellationToken ct);
 
     Task<BulkLockResultDto> BulkApplyAsync(
         BulkLockRequestDto request, int actingUserId, CancellationToken ct);

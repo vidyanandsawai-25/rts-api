@@ -6765,8 +6765,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.NoOfFlat).IsRequired(false);
             entity.Property(e => e.NoOfShop).IsRequired(false);
             entity.Property(e => e.NoOfRowHouse).IsRequired(false);
-            entity.Property(e => e.WingPhoto).IsRequired(false);
-            entity.Property(e => e.BoardPhoto).IsRequired(false);
 
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy).IsRequired(false);

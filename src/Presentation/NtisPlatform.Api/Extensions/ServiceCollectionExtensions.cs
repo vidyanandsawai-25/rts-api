@@ -219,6 +219,7 @@ public static class ServiceCollectionExtensions
         // Read-only data repository bound to ReportDataDbContext (report data replica)
         services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<ITwoFactorRecoveryCodeRepository, TwoFactorRecoveryCodeRepository>();
         services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();
@@ -281,6 +282,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IModuleLookupService, ModuleLookupService>();
 
+        // Wing details services
+        services.AddScoped<IWingDetailsMastService, WingDetailsMastService>();
+
         // Document Authorization Handlers (per-department entity-level authorization)
         // Register handlers for document access based on parent entity (Property, WaterConnection, etc.)
         services.AddScoped<IDocumentAuthorizationHandler>(sp =>
@@ -342,6 +346,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
+        services.AddScoped<IPropertyLockExcelService, PropertyLockExcelService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
         services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
         services.AddScoped<IInventoryDocumentApplicationService, InventoryDocumentApplicationService>();
@@ -742,6 +747,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertySplitService, PropertySplitService>();
         services.AddScoped<IPropertyBulkMergeService, PropertyBulkMergeService>();
         services.AddScoped<IPropertyChangeCategoryService, PropertyChangeCategoryService>();
+        services.AddScoped<IPropertyNumberDetailsService, PropertyNumberDetailsService>();
+        services.AddScoped<IApartmentDashboardService, ApartmentDashboardService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

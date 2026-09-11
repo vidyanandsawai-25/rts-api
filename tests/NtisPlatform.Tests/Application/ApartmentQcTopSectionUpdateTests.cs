@@ -189,7 +189,8 @@ public class ApartmentQcTopSectionUpdateTests
             new Mock<IPropertyCertificateApplicationService>().Object,
             new Mock<NtisPlatform.Application.Interfaces.Master.ISocialAttributeService>().Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ApartmentQCController>.Instance,
-            new Mock<IGetApartmentDetailsWingWiseService>().Object);
+            new Mock<IGetApartmentDetailsWingWiseService>().Object,
+            new Mock<IApartmentDashboardService>().Object);
     }
 
     [Fact]

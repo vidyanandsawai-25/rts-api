@@ -149,6 +149,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     //
     // See docs/PropertyEntityNavigationPropertiesExplained.md for detailed architecture.
 
+    // Wing details navigation property
+    [ForeignKey(nameof(WingDetailId))]
+    public virtual WingDetailsMastEntity? WingDetailsMast { get; set; }
+
     // Core Property Data
     public ICollection<FlagMasterEntity> FlagMaster { get; set; } = new List<FlagMasterEntity>();
     public ICollection<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = new List<PropertyTaxCalculationCVResultsEntity>();

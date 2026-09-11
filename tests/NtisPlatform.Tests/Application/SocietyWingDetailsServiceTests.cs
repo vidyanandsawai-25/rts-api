@@ -15,7 +15,7 @@ using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 namespace NtisPlatform.Tests.Application;
 
 /// <summary>
-/// Comprehensive tests for SocietyWingDetailsService
+/// Comprehensive tests for SocietyWingDetailsService 
 /// Coverage: Service layer CRUD operations, validation, transactional behavior, and DTO validation
 /// </summary>
 public class SocietyWingDetailsServiceTests
@@ -368,9 +368,6 @@ public class SocietyWingDetailsServiceTests
         // Arrange
         var updateDto = new UpdateSocietyWingDetailsDto
         {
-            WingId = 1,
-            PropertyId = 100,
-            SocietyDetailId = 5,
             NewWingName = "Updated Wing",
             FromFloor = "1",
             ToFloor = "10",
@@ -437,65 +434,6 @@ public class SocietyWingDetailsServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task UpdateAsync_InvalidPropertyId_ThrowsValidationException()
-    {
-        // Arrange
-        var updateDto = new UpdateSocietyWingDetailsDto
-        {
-            WingId = 1,
-            PropertyId = 999,
-            SocietyDetailId = 5,
-            NewWingName = "Updated Wing"
-        };
-
-        var propertyData = new List<PropertyEntity>();
-        _mockPropertyRepo.Setup(r => r.GetQueryable())
-            .Returns(propertyData.BuildMock());
-
-        var wingData = new List<WingEntity>
-        {
-            new WingEntity { Id = 1, IsActive = true, WingNo = "A" }
-        };
-        _mockWingRepo.Setup(r => r.GetQueryable())
-            .Returns(wingData.BuildMock());
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
-            () => _service.UpdateAsync(5, updateDto, CancellationToken.None));
-
-        Assert.Contains("PropertyId", exception.Message);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_InvalidWingId_ThrowsValidationException()
-    {
-        // Arrange
-        var updateDto = new UpdateSocietyWingDetailsDto
-        {
-            WingId = 999,
-            PropertyId = 100,
-            SocietyDetailId = 5,
-            NewWingName = "Updated Wing"
-        };
-
-        var propertyData = new List<PropertyEntity>
-        {
-            new PropertyEntity { Id = 100, IsActive = true }
-        };
-        _mockPropertyRepo.Setup(r => r.GetQueryable())
-            .Returns(propertyData.BuildMock());
-
-        var wingData = new List<WingEntity>();
-        _mockWingRepo.Setup(r => r.GetQueryable())
-            .Returns(wingData.BuildMock());
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
-            () => _service.UpdateAsync(5, updateDto, CancellationToken.None));
-
-        Assert.Contains("WingId", exception.Message);
-    }
 
     [Fact]
     public async Task UpdateAsync_FromFloorGreaterThanToFloor_ThrowsValidationException()
@@ -503,9 +441,6 @@ public class SocietyWingDetailsServiceTests
         // Arrange
         var updateDto = new UpdateSocietyWingDetailsDto
         {
-            WingId = 1,
-            PropertyId = 100,
-            SocietyDetailId = 5,
             FromFloor = "10",
             ToFloor = "3"
         };
@@ -537,9 +472,6 @@ public class SocietyWingDetailsServiceTests
         // Arrange
         var updateDto = new UpdateSocietyWingDetailsDto
         {
-            WingId = 1,
-            PropertyId = 100,
-            SocietyDetailId = 5,
             NewWingName = "Updated Wing"
         };
 
@@ -709,8 +641,6 @@ public class SocietyWingDetailsDtoTests
             NoOfFlat = 20,
             NoOfShop = 5,
             NoOfRowHouse = 3,
-            WingPhoto = 101,
-            BoardPhoto = 102,
             CreatedBy = 1,
             UpdatedBy = 2,
             IsActive = true
@@ -728,8 +658,6 @@ public class SocietyWingDetailsDtoTests
         Assert.Equal(20, dto.NoOfFlat);
         Assert.Equal(5, dto.NoOfShop);
         Assert.Equal(3, dto.NoOfRowHouse);
-        Assert.Equal(101, dto.WingPhoto);
-        Assert.Equal(102, dto.BoardPhoto);
         Assert.Equal(1, dto.CreatedBy);
         Assert.Equal(2, dto.UpdatedBy);
         Assert.True(dto.IsActive);
@@ -906,9 +834,6 @@ public class SocietyWingDetailsDtoTests
         // Arrange
         var dto = new UpdateSocietyWingDetailsDto
         {
-            WingId = 1,
-            PropertyId = 100,
-            SocietyDetailId = 5,
             FromFloor = "1",
             ToFloor = "10",
             NewWingName = "Updated Wing",

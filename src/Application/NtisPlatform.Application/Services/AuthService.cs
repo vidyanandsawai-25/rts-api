@@ -231,6 +231,49 @@ public class AuthService : IAuthService
         return await _authTokenIssuer.IssueAsync(user, "pwd", cancellationToken);
     }
 
+    public async Task<LoginV2ResponseDto> LoginV2Async(LoginRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var baseResult = await LoginAsync(request, cancellationToken);
+        if (!baseResult.Success || baseResult.RequiresTwoFactor || baseResult.RequiresPasswordChange)
+        {
+            return new LoginV2ResponseDto
+            {
+                Success = baseResult.Success,
+                Message = baseResult.Message,
+                RequiresPasswordChange = baseResult.RequiresPasswordChange,
+                RequiresTwoFactor = baseResult.RequiresTwoFactor,
+                TwoFactorMethod = baseResult.TwoFactorMethod,
+                ChallengeId = baseResult.ChallengeId,
+                ChallengeExpiresAt = baseResult.ChallengeExpiresAt,
+                RequiresTwoFactorSetup = baseResult.RequiresTwoFactorSetup,
+                Throttled = baseResult.Throttled,
+                RemainingLoginAttempts = baseResult.RemainingLoginAttempts,
+                UserId = baseResult.UserId,
+                Username = baseResult.Username
+            };
+        }
+
+        var user = await _userRepository.GetByIdAsync(baseResult.UserId, cancellationToken);
+        if (user != null)
+        {
+            return await _authTokenIssuer.IssueV2Async(user, "pwd", cancellationToken);
+        }
+
+        return new LoginV2ResponseDto
+        {
+            Success = baseResult.Success,
+            Token = baseResult.Token,
+            RefreshToken = baseResult.RefreshToken,
+            UserId = baseResult.UserId,
+            Username = baseResult.Username,
+            FirstName = baseResult.FirstName,
+            MiddleName = baseResult.MiddleName,
+            LastName = baseResult.LastName,
+            Message = baseResult.Message,
+            ExpiresAt = baseResult.ExpiresAt
+        };
+    }
+
     public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken = default)
     {
         // Find the refresh token (verifies hash)
