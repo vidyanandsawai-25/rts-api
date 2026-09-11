@@ -31,6 +31,7 @@ public static class PropertyControllerTestHelper
         Mock<IPropertyOldDetailsService>? oldDetailsService = null,
         Mock<IPropertySearchService>? searchService = null,
         Mock<IPropertyWorkflowDetailsService>? workflowDetailsService = null,
+        Mock<IBuilding3DViewService>? building3DViewService = null,
         Mock<IPropertyNumberDetailsService>? numberDetailsService = null)
     {
         basicDetailsService ??= new Mock<IPropertyBasicDetailsService>();
@@ -40,6 +41,7 @@ public static class PropertyControllerTestHelper
         oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
         searchService ??= new Mock<IPropertySearchService>();
         workflowDetailsService ??= new Mock<IPropertyWorkflowDetailsService>();
+        building3DViewService ??= new Mock<IBuilding3DViewService>();
         numberDetailsService ??= new Mock<IPropertyNumberDetailsService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
@@ -63,6 +65,7 @@ public static class PropertyControllerTestHelper
             mockEnvironment.Object,
             fileValidationHelper,
             workflowDetailsService.Object,
+            building3DViewService.Object,
             numberDetailsService.Object);
     }
 
@@ -99,6 +102,7 @@ public static class PropertyControllerTestHelper
         var fileValidationHelper = new FileValidationHelper(configuration);
 
         var mockWorkflowDetailsService = new Mock<IPropertyWorkflowDetailsService>();
+        var mockBuilding3DViewService = new Mock<IBuilding3DViewService>();
 
         var controller = new PropertyController(
             mockPropertyService.Object,
@@ -112,6 +116,7 @@ public static class PropertyControllerTestHelper
             mockEnvironment.Object,
             fileValidationHelper,
             mockWorkflowDetailsService.Object,
+            mockBuilding3DViewService.Object,
             mockNumberDetailsService.Object);
 
         return (

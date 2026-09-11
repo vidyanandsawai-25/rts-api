@@ -502,6 +502,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyMutationInvariantPolicy, PropertyMutationInvariantPolicy>();
         services.AddScoped<PropertyApiExceptionFilter>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IBuilding3DViewService, Building3DViewService>();
         services.AddScoped<IPropertySurveyService, PropertySurveyService>();
         services.AddScoped<IPropertyVisitTrackerService, PropertySurveyService>();
         services.AddScoped<IPropertyBasicDetailsService, PropertyBasicDetailsService>();

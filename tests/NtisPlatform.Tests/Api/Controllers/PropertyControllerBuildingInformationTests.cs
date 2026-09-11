@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Application.DTOs.Building3DView;
 using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -198,5 +199,104 @@ public class PropertyControllerBuildingInformationTests
         var response = Assert.IsType<ApiResponse<List<PropertyBuildingInformationDto>>>(okResult.Value);
         Assert.True(response.Success);
         Assert.Equal("No records found matching the search criteria", response.Message);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetBuilding3DView_WithInvalidPropertyId_ReturnsNotFound(int propertyId)
+    {
+        // Arrange
+        var mockService = new Mock<IBuilding3DViewService>();
+        var queryParams = new Building3DViewQueryParameters
+        {
+            PropertyId = propertyId
+        };
+
+        mockService
+            .Setup(s => s.GetBuilding3DViewAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Building3DViewDto?)null);
+
+        var controller = PropertyControllerTestHelper.CreateController(
+            _mockPropertyService,
+            _mockLogger,
+            building3DViewService: mockService);
+
+        // Act
+        var result = await controller.GetBuilding3DView(queryParams, CancellationToken.None);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<Building3DViewDto>>(notFoundResult.Value);
+        Assert.False(response.Success);
+        Assert.Equal($"Property with ID {propertyId} not found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetBuilding3DView_WhenPropertyNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var mockService = new Mock<IBuilding3DViewService>();
+        var queryParams = new Building3DViewQueryParameters
+        {
+            PropertyId = 999
+        };
+
+        mockService
+            .Setup(s => s.GetBuilding3DViewAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Building3DViewDto?)null);
+
+        var controller = PropertyControllerTestHelper.CreateController(
+            _mockPropertyService,
+            _mockLogger,
+            building3DViewService: mockService);
+
+        // Act
+        var result = await controller.GetBuilding3DView(queryParams, CancellationToken.None);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<Building3DViewDto>>(notFoundResult.Value);
+        Assert.False(response.Success);
+        Assert.Equal("Property with ID 999 not found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetBuilding3DView_WhenPropertyExists_ReturnsOkWithData()
+    {
+        // Arrange
+        var mockService = new Mock<IBuilding3DViewService>();
+        var queryParams = new Building3DViewQueryParameters
+        {
+            PropertyId = 1
+        };
+
+        var expectedDto = new Building3DViewDto
+        {
+            MainPropertyId = 1,
+            PropertyNo = "P-101",
+            PropertyName = "John Doe"
+        };
+
+        mockService
+            .Setup(s => s.GetBuilding3DViewAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        var controller = PropertyControllerTestHelper.CreateController(
+            _mockPropertyService,
+            _mockLogger,
+            building3DViewService: mockService);
+
+        // Act
+        var result = await controller.GetBuilding3DView(queryParams, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<Building3DViewDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Record fetched successfully", response.Message);
+        Assert.NotNull(response.Items);
+        Assert.Equal(1, response.Items.MainPropertyId);
+        Assert.Equal("P-101", response.Items.PropertyNo);
     }
 }

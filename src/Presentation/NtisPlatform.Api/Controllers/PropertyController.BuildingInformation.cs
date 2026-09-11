@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.DTOs.Building3DView;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
 using NtisPlatform.Application.Models;
 
@@ -39,4 +41,40 @@ public partial class PropertyController
             Items = result
         });
     }
-}
+
+
+    /// <summary>
+    /// Retrieves 3D building view representation for a given property.
+    /// </summary>
+    /// <param name="queryParams">Building 3D view query parameters containing PropertyId and optional WingdetailsId.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>3D building view data structure.</returns>
+    /// <response code="200">Returns the 3D building view data.</response>
+    /// <response code="400">Invalid query parameters.</response>
+    /// <response code="404">Property not found.</response>
+    [HttpGet("building-3D-view")]
+    [ProducesResponseType(typeof(ApiResponse<Building3DViewDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<Building3DViewDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<Building3DViewDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBuilding3DView([FromQuery] Building3DViewQueryParameters queryParams, CancellationToken ct)
+    {
+        var result = await _building3DViewService.GetBuilding3DViewAsync(queryParams, ct);
+
+        if (result == null)
+        {
+            _logger.LogWarning("Property with ID {PropertyId} not found for 3D Building View", queryParams.PropertyId);
+            return NotFound(new ApiResponse<Building3DViewDto>
+            {
+                Success = false,
+                Message = $"Property with ID {queryParams.PropertyId} not found"
+            });
+        }
+
+        return Ok(new ApiResponse<Building3DViewDto>
+        {
+            Success = true,
+            Message = "Record fetched successfully",
+            Items = result
+        });
+    }
+} 
