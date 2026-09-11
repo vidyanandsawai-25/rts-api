@@ -71,7 +71,7 @@ public class PropertyPhotoService : IPropertyPhotoService
     {
         var property = await _context.PropertyMast
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.WingDetailId })
+            .Select(p => new { p.WingDetailId, p.Type })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (property == null)
@@ -139,7 +139,8 @@ public class PropertyPhotoService : IPropertyPhotoService
             targetWingDetailId,
             documentBindingId: null,
             displayOrder: displayOrder,
-            remarks: remarks);
+            remarks: remarks,
+            type: property.Type);
 
         entity.CreatedBy = createdBy;
         entity.CreatedDate = DateTime.Now;
@@ -264,17 +265,18 @@ public class PropertyPhotoService : IPropertyPhotoService
         // Resolve property's WingDetailId and SocietyDetailId (if any)
         var propertyInfo = await _context.PropertyMast
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.WingDetailId, p.Type })
+            .Select(p => new { p.WardId, p.PropertyNo, p.WingDetailId, p.Type, p.PropertyTypeId, p.PartitionNo })
             .FirstOrDefaultAsync(cancellationToken);
 
         int? wingDetailId = propertyInfo?.WingDetailId;
         string? propertyType = propertyInfo?.Type;
         int? societyDetailId = null;
+        bool isAmenity = propertyInfo?.PropertyTypeId == 140 || (propertyInfo != null && !string.IsNullOrWhiteSpace(propertyInfo.PartitionNo) && propertyInfo.PartitionNo.Trim().StartsWith("AM", StringComparison.OrdinalIgnoreCase));
 
-        var planPhotoTypeId = await _context.PropertyPhotoTypes
-            .Where(t => t.PhotoTypeCode == "PROPERTY_PLAN")
-            .Select(t => (int?)t.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var planPhotoTypeIds = await _context.PropertyPhotoTypes
+            .Where(t => t.PhotoTypeCode == "PROPERTY_PLAN" || t.PhotoTypeCode == "PHOTO_PLAN")
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
 
         if (wingDetailId.HasValue)
         {
@@ -319,19 +321,19 @@ public class PropertyPhotoService : IPropertyPhotoService
                                 && x.DocumentBinding.Document.IsActive
                                 && !x.DocumentBinding.Document.MarkedForDeletion))
                         && (
-                            x.PropertyId == propertyId
-                            || (x.EntityType == "W" && (
-                                (wingDetailId.HasValue && x.WingDetailId == wingDetailId.Value)
-                                || (!wingDetailId.HasValue && societyDetailId.HasValue && x.WingDetailId.HasValue && wingDetailIds.Contains(x.WingDetailId.Value))
+                            (!planPhotoTypeIds.Contains(x.PhotoTypeId) && x.PropertyId == propertyId)
+                            || (planPhotoTypeIds.Contains(x.PhotoTypeId) && (
+                                (x.PropertyId == propertyId && (!string.IsNullOrWhiteSpace(x.Type) ? x.Type == propertyType : true))
+                                || (!isAmenity && !string.IsNullOrWhiteSpace(propertyType) && x.Type == propertyType && (
+                                    (wingDetailId.HasValue && x.WingDetailId == wingDetailId.Value) ||
+                                    (societyDetailId.HasValue && x.SocietyDetailId == societyDetailId.Value)
+                                ))
                             ))
-                            || (x.EntityType == "S" && societyDetailId.HasValue && x.SocietyDetailId == societyDetailId.Value
-                                // The shared PROPERTY_PLAN row carries no PropertyId -- every unit
-                                // resolves it by matching its own Type against the stored Type.
-                                && (!planPhotoTypeId.HasValue || x.PhotoTypeId != planPhotoTypeId.Value || x.Type == propertyType))
-                            || ((x.EntityType == "P" || x.EntityType == null) && (
+                            || (x.EntityType == "W" && !planPhotoTypeIds.Contains(x.PhotoTypeId) && (
                                 (wingDetailId.HasValue && x.WingDetailId == wingDetailId.Value)
-                                || (societyDetailId.HasValue && x.SocietyDetailId == societyDetailId.Value)
+                                || (societyDetailId.HasValue && (x.SocietyDetailId == societyDetailId.Value || (x.WingDetailId.HasValue && wingDetailIds.Contains(x.WingDetailId.Value))))
                             ))
+                            || (x.EntityType == "S" && societyDetailId.HasValue && x.SocietyDetailId == societyDetailId.Value && !planPhotoTypeIds.Contains(x.PhotoTypeId))
                         ))
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.PhotoTypeId)

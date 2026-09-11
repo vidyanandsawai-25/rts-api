@@ -134,6 +134,61 @@ public class PropertyPhotoDocumentBindingHandlerTests
     }
 
     [Fact]
+    public async Task OnAfterUploadAsync_NewSocietyPhoto_UsesSocietyReferenceForGalleryLookup()
+    {
+        var context = GetInMemoryDbContext();
+        var photoService = new Mock<IPropertyPhotoService>();
+        var logger = new Mock<ILogger<PropertyPhotoDocumentBindingHandler>>();
+
+        var society = new SocietyDetailsEntity { SocietyName = "Green Meadows", IsActive = true };
+        context.SocietyDetailsMast.Add(society);
+
+        var photoType = new PropertyPhotoTypeEntity
+        {
+            PhotoTypeCode = "SOCIETY_PLACE",
+            PhotoScope = "SOCIETY",
+            IsActive = true
+        };
+        context.PropertyPhotoTypes.Add(photoType);
+
+        var document = new DocumentEntity
+        {
+            DocumentGuid = Guid.NewGuid(),
+            DocumentType = "SOCIETY_PLACE",
+            FileName = "society_photo.jpg",
+            OriginalFileName = "society_photo.jpg",
+            FileExtension = ".jpg",
+            MimeType = "image/jpeg",
+            StoragePath = "Uploads/society_photo.jpg",
+            IsActive = true
+        };
+        context.Documents.Add(document);
+        await context.SaveChangesAsync();
+
+        var binding = new DocumentBindingEntity
+        {
+            DocumentId = document.Id,
+            ReferenceTableName = "PropertyPhoto",
+            ReferencePropertyName = "SocietyDetailId",
+            ReferenceTableId = society.Id,
+            BindingPurpose = "Society Place Photo",
+            IsActive = true
+        };
+        context.DocumentBindings.Add(binding);
+        await context.SaveChangesAsync();
+
+        var handler = new PropertyPhotoDocumentBindingHandler(photoService.Object, context, logger.Object);
+
+        await handler.OnAfterUploadAsync(document.Id, binding.Id, society.Id, 42, CancellationToken.None);
+
+        var createdPhoto = await context.PropertyPhotos.SingleAsync(p => p.DocumentBindingId == binding.Id);
+        Assert.Equal("S", createdPhoto.EntityType);
+        Assert.Equal(society.Id, createdPhoto.SocietyDetailId);
+        Assert.Null(createdPhoto.WingDetailId);
+        Assert.Null(createdPhoto.PropertyId);
+    }
+
+    [Fact]
     public async Task OnAfterUploadAsync_ReplaceExistingPhoto_ResolvesWingAndSocietyDetails()
     {
         // Arrange

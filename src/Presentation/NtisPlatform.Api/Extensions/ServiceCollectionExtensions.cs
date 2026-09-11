@@ -117,8 +117,12 @@ public static class ServiceCollectionExtensions
         // Report queue DB (separate database; schema owned by the ntis DB project mapping only)
         services.AddPooledDbContextFactory<ReportingDbContext>(options =>
         {
-            var reportingConnection = configuration.GetConnectionString("ReportingConnection")
-                ?? throw new InvalidOperationException("ConnectionStrings:ReportingConnection is not configured.");
+            var reportingConnection = configuration.GetConnectionString("ReportingConnection");
+            if (string.IsNullOrWhiteSpace(reportingConnection))
+            {
+                reportingConnection = configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+            }
             options.UseSqlServer(reportingConnection);
         });
         services.AddScoped(sp =>

@@ -66,4 +66,63 @@ public class SocietyController : ControllerBase
             Items = new { maxType = maxType + 1 }
         });
     }
+
+    [HttpGet("{societyDetailId}/types")]
+    [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetExistingTypesForSociety(
+        int societyDetailId,
+        [FromQuery] int? wingDetailId,
+        CancellationToken ct)
+    {
+        if (societyDetailId <= 0 && (!wingDetailId.HasValue || wingDetailId.Value <= 0))
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid SocietyDetailId or WingDetailId" });
+        }
+
+        List<int> wingIds = new();
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            wingIds.Add(wingDetailId.Value);
+        }
+        else if (societyDetailId > 0)
+        {
+            wingIds = await _wingDetailsMastRepository
+                .GetQueryable()
+                .Where(w => w.SocietyDetailsMastId == societyDetailId && w.IsActive && !w.MarkedForDeletion)
+                .Select(w => w.Id)
+                .ToListAsync(ct);
+        }
+
+        if (!wingIds.Any())
+        {
+            return Ok(new ApiResponse<List<string>>
+            {
+                Success = true,
+                Message = "No plan types found",
+                Items = new List<string>()
+            });
+        }
+
+        var query = _propertyRepository.GetQueryable()
+            .Where(p => p.IsActive && !p.MarkedForDeletion
+                        && p.WingDetailId.HasValue && wingIds.Contains(p.WingDetailId.Value)
+                        && p.Type != null && p.Type.Trim() != "" && p.Type.Trim().ToLower() != "null");
+        var distinctTypes = await query
+            .Select(p => p.Type!.Trim())
+            .Distinct()
+            .ToListAsync(ct);
+
+        // Sort numerically if possible, otherwise alphabetically
+        var sortedTypes = distinctTypes
+            .OrderBy(t => int.TryParse(t, out var n) ? n : int.MaxValue)
+            .ThenBy(t => t)
+            .ToList();
+
+        return Ok(new ApiResponse<List<string>>
+        {
+            Success = true,
+            Message = "Distinct property types fetched successfully.",
+            Items = sortedTypes
+        });
+    }
 }

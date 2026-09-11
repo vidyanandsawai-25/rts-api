@@ -301,8 +301,9 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
 
         var photoScope = await ResolvePhotoScopeAsync(propertyId, cancellationToken);
-        var allTypes = await _photoTypeRepository.GetAsync(
+        var allTypesRaw = await _photoTypeRepository.GetAsync(
             t => t.IsActive && (t.PhotoScope == photoScope
+                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoTypeCode == "PROPERTY_PLAN" || t.PhotoTypeCode == "PHOTO_PLAN"))
                 || (photoScope == "SOCIETY" && t.PhotoScope == "WING")
                 || (photoScope == "SOCIETY" && t.PhotoTypeCode == "PROPERTY_PLAN")),
             cancellationToken);
@@ -312,6 +313,8 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         var photosByType = existingPhotos
             .GroupBy(p => p.PhotoTypeId)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        var allTypes = allTypesRaw.ToList();
 
         var groups = allTypes.OrderBy(t => t.DisplayOrder).Select(type =>
         {
@@ -349,9 +352,9 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
 
         var photoScope = await ResolvePhotoScopeAsync(propertyId, cancellationToken);
-        var allTypes = await _photoTypeRepository.GetAsync(
+        var allTypesRaw = await _photoTypeRepository.GetAsync(
             t => t.IsActive && (t.PhotoScope == photoScope
-                || t.PhotoScope == "AMENITY"
+                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoTypeCode == "PROPERTY_PLAN" || t.PhotoTypeCode == "PHOTO_PLAN"))
                 || (photoScope == "SOCIETY" && t.PhotoScope == "WING")
                 || (photoScope == "SOCIETY" && t.PhotoTypeCode == "PROPERTY_PLAN")),
             cancellationToken);
@@ -361,6 +364,8 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         var photosByType = existingPhotos
             .GroupBy(p => p.PhotoTypeId)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        var allTypes = allTypesRaw.ToList();
 
         return allTypes.OrderBy(t => t.DisplayOrder).Select(type =>
         {
@@ -636,14 +641,6 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
 
     private async Task<string> ResolvePhotoScopeAsync(int propertyId, CancellationToken cancellationToken)
     {
-        var societyList = await _societyRepository.GetAsync(
-            s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion,
-            cancellationToken);
-        if (societyList.Any())
-        {
-            return "SOCIETY";
-        }
-
         var property = await _propertyRepository.GetByIdAsync(propertyId, cancellationToken);
         if (property != null)
         {
@@ -654,14 +651,14 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
             bool isUnit = !string.IsNullOrWhiteSpace(property.PartitionNo)
                           && property.PartitionNo.Trim() != "-";
 
+            if (property.PropertyTypeId == 140 || (isUnit && property.PartitionNo?.Trim().StartsWith("AM", StringComparison.OrdinalIgnoreCase) == true))
+            {
+                return "AMENITY";
+            }
+
             if (isUnit)
             {
                 return "PROPERTY";
-            }
-
-            if (property.WingDetailId.HasValue)
-            {
-                return "WING";
             }
 
             if (property.CategoryId.HasValue)
@@ -687,6 +684,11 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
                         return "SOCIETY";
                     }
                 }
+            }
+
+            if (property.WingDetailId.HasValue)
+            {
+                return "WING";
             }
         }
         return "PROPERTY";
