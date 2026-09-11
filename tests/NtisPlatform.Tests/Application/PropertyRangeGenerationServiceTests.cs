@@ -846,6 +846,50 @@ namespace NtisPlatform.Tests.Application
             
         }
 
+        [Fact]
+        public async Task CreatePropertiesFromRangeAsync_ShouldCreateWorkflowDetails_WhenWorkflowStageIdProvided()
+        {
+            // Arrange
+            var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
+            var workflowDetailsRepoMock = new Mock<IPropertyWorkflowDetailsRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
+
+            var service = new PropertyService(
+                repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object,
+                wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object,
+                assessmentRepoMock.Object, wardAllocationRepoMock.Object, new Mock<IRepository<OldWardMasterEntity, int>>().Object,
+                propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object,
+                propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+                new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+                new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+                new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object,
+                new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, ruleLogServiceMock.Object, null, workflowDetailsRepository: workflowDetailsRepoMock.Object);
+
+            mapperMock.Setup(m => m.Map<PropertyWorkflowDetailsEntity>(It.IsAny<CreateNewPropertyDto>()))
+                .Returns((CreateNewPropertyDto src) => new PropertyWorkflowDetailsEntity { WorkflowStageId = src.WorkflowStageId ?? 0 });
+
+            var request = new RangeCreateRequest<CreateNewPropertyDto>
+            {
+                RangeFrom = "1",
+                RangeTo = "1",
+                Template = new CreateNewPropertyDto
+                {
+                    WardId = 1,
+                    PropertyTypeId = 1,
+                    CategoryId = 1,
+                    WorkflowStageId = 5
+                }
+            };
+
+            // Act
+            var result = await service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
+
+            // Assert
+            result.SuccessCount.Should().Be(1);
+            workflowDetailsRepoMock.Verify(x => x.ResetCurrentStatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+            workflowDetailsRepoMock.Verify(x => x.AddAsync(It.Is<PropertyWorkflowDetailsEntity>(w => w.WorkflowStageId == 5), It.IsAny<CancellationToken>()), Times.Once);
+        }
+
         #endregion
     }
 

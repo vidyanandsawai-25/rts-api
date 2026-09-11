@@ -233,4 +233,119 @@ public class PropertyCertificateControllerTests
     }
 
     #endregion
+
+    #region New Endpoints: GetByPropertyId, ReplaceDocument, DeleteByDocumentId
+
+    [Fact]
+    public async Task GetByPropertyId_ReturnsOk_WithListOfCertificates()
+    {
+        var controller = Create(out var service);
+        var certificates = new List<PropertyCertificateDto>
+        {
+            new() { Id = 1, PropertyId = 100, CertificateTypeId = 2, CertificateNo = "CERT-100" }
+        };
+
+        service.Setup(s => s.GetByPropertyIdAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(certificates);
+
+        var result = await controller.GetByPropertyId(100, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<List<PropertyCertificateDto>>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Single(apiResponse.Items!);
+        Assert.Equal("CERT-100", apiResponse.Items![0].CertificateNo);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsBadRequest_WhenFileNullOrEmpty()
+    {
+        var controller = Create(out _);
+
+        var result = await controller.ReplaceDocument(1, null!, CancellationToken.None);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("File is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsOk_WhenFileValid()
+    {
+        var controller = Create(out var service);
+        var file = MakeFile("test.pdf", "application/pdf", new byte[] { 1, 2, 3 });
+
+        var uploadResponse = new PropertyCertificateUploadResponseDto
+        {
+            PropertyCertificateId = 1,
+            DocumentId = 10,
+            FileName = "test.pdf"
+        };
+
+        service.Setup(s => s.ReplaceDocumentAsync(
+            1,
+            It.IsAny<Stream>(),
+            "test.pdf",
+            "application/pdf",
+            3,
+            42,
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(uploadResponse);
+
+        var result = await controller.ReplaceDocument(1, file, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<PropertyCertificateUploadResponseDto>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal("Document replaced successfully", apiResponse.Message);
+        Assert.NotNull(apiResponse.Items);
+        Assert.Equal(10, apiResponse.Items!.DocumentId);
+    }
+
+    [Fact]
+    public async Task DeleteByDocumentId_ReturnsBadRequest_WhenDocumentIdInvalid()
+    {
+        var controller = Create(out _);
+
+        var result = await controller.DeleteByDocumentId(0, CancellationToken.None);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("A valid DocumentId is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteByDocumentId_ReturnsNotFound_WhenServiceReturnsFalse()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.DeleteByDocumentIdAsync(55, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.DeleteByDocumentId(55, CancellationToken.None);
+
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal("Active PropertyCertificate document was not found", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteByDocumentId_ReturnsOk_WhenDeleteSucceeds()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.DeleteByDocumentIdAsync(55, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.DeleteByDocumentId(55, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal("PropertyCertificate document deleted successfully", apiResponse.Message);
+    }
+
+    #endregion
 }
+

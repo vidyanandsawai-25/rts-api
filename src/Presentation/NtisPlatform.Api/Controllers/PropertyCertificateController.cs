@@ -565,6 +565,152 @@ public class PropertyCertificateController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get PropertyCertificates by PropertyId
+    /// </summary>
+    [HttpGet("by-property/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertyCertificateDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetByPropertyId(int propertyId, CancellationToken cancellationToken)
+    {
+        var result = await _service.GetByPropertyIdAsync(propertyId, cancellationToken);
+        return Ok(new ApiResponse<List<PropertyCertificateDto>> { Success = true, Items = result });
+    }
+
+    /// <summary>
+    /// Replace document for PropertyCertificate
+    /// </summary>
+    [HttpPut("replace-document/{propertyCertificateId:int}")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyCertificateUploadResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReplaceDocument(
+        int propertyCertificateId,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+        using var stream = file.OpenReadStream();
+        var result = await _service.ReplaceDocumentAsync(
+            propertyCertificateId,
+            stream,
+            file.FileName,
+            file.ContentType,
+            file.Length,
+            GetUserId(),
+            cancellationToken);
+
+        return Ok(new ApiResponse<PropertyCertificateUploadResponseDto>
+        {
+            Success = true,
+            Message = "Document replaced successfully",
+            Items = result
+        });
+    }
+
+    /// <summary>
+    /// Soft deletes the PropertyCertificate, DocumentBinding,
+    /// and Document using DocumentId.
+    /// </summary>
+    [HttpDelete("by-document/{documentId:int}")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeleteByDocumentId(
+        [FromRoute] int documentId,
+        CancellationToken cancellationToken)
+    {
+        if (documentId <= 0)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "A valid DocumentId is required"
+            });
+        }
+
+        try
+        {
+            var deleted = await _service.DeleteByDocumentIdAsync(
+                documentId,
+                GetUserId(),
+                cancellationToken);
+
+            if (!deleted)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Active PropertyCertificate document was not found"
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "PropertyCertificate document deleted successfully"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogWarning(
+                ex,
+                "Unauthorized PropertyCertificate deletion attempt. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogWarning(
+                ex,
+                "Validation error while deleting PropertyCertificate. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogError(
+                ex,
+                "Error deleting PropertyCertificate document. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = _environment.IsDevelopment()
+                        ? $"An error occurred: {ex.Message}"
+                        : "An error occurred while deleting the PropertyCertificate document",
+                    CorrelationId = correlationId
+                });
+        }
+    }
+
     private int GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

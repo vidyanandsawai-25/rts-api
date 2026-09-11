@@ -58,9 +58,12 @@ public partial class PropertyService
     private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
     private readonly IRepository<OwnerTypeMasterEntity, int> _ownerTypeRepository;
     private readonly IRepository<WingEntity, int> _wingRepository;
+    private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
     private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
     private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
-    private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly IPropertyWorkflowDetailsRepository? _workflowDetailsRepository;
+    private readonly IRepository<PropertySurveyVisitEntity, int>? _propertySurveyVisitRepository;
 
 
     public PropertyService(
@@ -93,7 +96,10 @@ public partial class PropertyService
         IRepository<WingEntity, int> wingRepository,
         IRepository<SocietyWingDetailsEntity, int> societyWingRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null,
-        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null,
+        IServiceProvider? serviceProvider = null,
+        IPropertyWorkflowDetailsRepository? workflowDetailsRepository = null,
+        IRepository<PropertySurveyVisitEntity, int>? propertySurveyVisitRepository = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -119,10 +125,13 @@ public partial class PropertyService
         _ownerTypeRepository = ownerTypeRepository;
         _communicationRepository = communicationRepository;
         _wingRepository = wingRepository;
+        _societyWingRepository = societyWingRepository;
         _wingMasterRepository = wingMasterRepository;
         _oldWardMasterRepository = oldWardMasterRepository;
         _wingDetailsMastRepository = wingDetailsMastRepository;
-        _societyWingRepository = societyWingRepository;
+        _serviceProvider = serviceProvider;
+        _workflowDetailsRepository = workflowDetailsRepository;
+        _propertySurveyVisitRepository = propertySurveyVisitRepository;
     }
 
 
@@ -883,6 +892,9 @@ public partial class PropertyService
             return;
 
         var groupDataMap = groupData.ToDictionary(x => x.WingDetailId);
+
+        if (_societyWingRepository == null)
+            return;
 
         var societyWingQueryable = _societyWingRepository.GetQueryable();
         if (societyWingQueryable == null)

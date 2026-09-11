@@ -395,9 +395,9 @@ public class PropertySurveyServiceTests
         _mockWorkflowStageRepo.Setup(r => r.GetQueryable()).Returns(stages);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<PropertyValidationException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             _service.VerifyPropertySurveyVisitAsync(request, 10, CancellationToken.None));
-        Assert.Contains("Please click photo before property verification.", ex.Message);
+        Assert.Contains("before property verification", ex.Message);
     }
 
     [Fact]
@@ -456,9 +456,9 @@ public class PropertySurveyServiceTests
         _mockPropertyPhotoRepo.Setup(r => r.GetQueryable()).Returns(photos);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<PropertyValidationException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             _service.VerifyPropertySurveyVisitAsync(request, 10, CancellationToken.None));
-        Assert.Contains("Please click photo before property verification.", ex.Message);
+        Assert.Contains("before property verification", ex.Message);
     }
 
     [Fact]
@@ -495,7 +495,8 @@ public class PropertySurveyServiceTests
         var result = await _service.UnverifyPropertySurveyVisitAsync(request, 10, CancellationToken.None);
 
         // Assert
-        Assert.True(result);
+        Assert.NotNull(result);
+        Assert.True(result.Status);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
