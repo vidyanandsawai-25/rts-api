@@ -202,7 +202,7 @@ public class AutoMapperValidationTest
                 "RuleDefinition",
                 // Retrospective Tax Rule Engine navigation properties (EF Core managed); the
                 // corresponding *Id foreign keys are what the DTOs/mapping profiles actually carry.
-                "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy",
+                "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy", "WingDetailsMast",
                 // Unmapped computed / domain fields
                 "OCDate", "RentYearly", "RentMonthly", "RenterName", "RenterNameEnglish", "RateableValue",
                 "NewTaxTotal", "NewTaxTotalCV", "NewTaxTotalRV", "YearlyRent", "MonthlyRate", "YearlyRate",

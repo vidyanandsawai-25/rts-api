@@ -11,6 +11,8 @@ public class SocietyWingDetailsEntity : BaseEntity
 {
     public int? WingId { get; set; }
 
+    public int? WingDetailsMastId { get; set; }
+
     public int? PropertyId { get; set; }
 
     public int? SocietyDetailId { get; set; }
@@ -39,4 +41,7 @@ public class SocietyWingDetailsEntity : BaseEntity
 
     [ForeignKey(nameof(SocietyDetailId))]
     public virtual SocietyDetailsEntity? SocietyDetailsMast { get; set; }
+
+    [ForeignKey(nameof(WingDetailsMastId))]
+    public virtual WingDetailsMastEntity? WingDetailsMast { get; set; }
 }

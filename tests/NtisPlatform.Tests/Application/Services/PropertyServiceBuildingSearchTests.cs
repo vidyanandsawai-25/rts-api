@@ -672,6 +672,7 @@ public class PropertyServiceBuildingSearchTests
             new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
+            new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object,
             ruleLogService.Object);
     }
 }

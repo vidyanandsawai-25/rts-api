@@ -158,6 +158,8 @@ public virtual Task HardDeleteAsync(T entity, CancellationToken cancellationToke
 
             return await query.ToListAsync(cancellationToken);
         }
+
+        public Task UpdateRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
     public RepositoryTests()

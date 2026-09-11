@@ -90,7 +90,7 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
             new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
-            new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
+            new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
     private void SetupBasicMocks(PropertyEntity property, UpdateAllPropertyDetailsDto dto)
@@ -348,4 +348,5 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
         newRoomWise.PropertyDetails.Should().Be(newPropertyDetails);
     }
 }
+
 

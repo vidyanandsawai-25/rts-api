@@ -322,6 +322,8 @@ public class AssetMasterServiceLocationTests
         public Task HardDeleteAsync(T entity, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> ExistsAsync(int id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IEnumerable<T>> GetAsync(Expression<Func<T, bool>>? filter = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task UpdateRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)=>   throw new NotImplementedException();
+
     }
 
     private static (LocationTestDbContext Context, SqliteConnection Connection) CreateSqliteContext()

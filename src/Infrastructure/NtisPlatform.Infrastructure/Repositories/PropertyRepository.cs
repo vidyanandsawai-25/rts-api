@@ -4,6 +4,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Utilities;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -11,6 +12,7 @@ using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Infrastructure.Repositories;
 
@@ -1121,8 +1123,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     /// </summary>
     public async Task<List<RoomWiseMinusDataEntity>> GetRoomWiseMinusBySubmissionIdsAsync(List<int> roomWiseSubmissionIds, CancellationToken cancellationToken = default)
     {
-        return await _context.RoomWiseMinusData
-            .Where(x => roomWiseSubmissionIds.Contains(x.RoomWiseSubmissionId))
+        return await _context.RoomWiseMinusData.Where(x => roomWiseSubmissionIds.Contains(x.RoomWiseSubmissionId))
             .ToListAsync(cancellationToken);
     }
 
@@ -1376,6 +1377,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         PropertyAssessmentEntity? propertyMastDetails = null;
         try
         {
+            var ward = await _context.WardMaster.FirstOrDefaultAsync(x => x.Id == dto.WardId, cancellationToken);
+
+            if (ward == null)
+            {
+                throw new ValidationException($"Ward with Id {dto.WardId} not found.");
+            }
 
             // Property insert
             property = new PropertyEntity
@@ -1387,8 +1394,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 PropertySeqNo = dto.PropertySeqNo,
                 PropertyTypeId = dto.PropertyTypeId,
                 CategoryId = dto.CategoryId,
+                UPICId = UpicIdBuilderHelper.Generate(ward.WardNo,dto.PropertyNo,dto.PartitionNo),
                 OwnerTitle = string.Empty,
                 OwnerTitleEnglish = string.Empty,
+                OpenPlot = dto.OpenPlot,
                 OwnerName = dto.OwnerName,
                 OwnerNameEnglish = dto.OwnerNameEnglish,
                 FlatOrShopNo = dto.FlatOrShopNo,
@@ -1397,11 +1406,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 AddressEnglish = dto?.AddressEnglish,
                 Location = dto?.Location,
                 LocationEnglish = dto?.LocationEnglish,
-                // dto.SocietyDetailId identifies the wing (validated as "Society Wing Details" upstream) —
-                // PropertyMast now links to a wing via WingDetailId, not a forward SocietyDetailId FK.
-                WingDetailId = dto?.SocietyDetailId,
+                WingDetailId = dto?.WingDetailId,
                 PropertyFloorId = dto?.PropertyFloorId,
-
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedBy = dto?.CreatedBy
@@ -1410,10 +1416,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             _context.PropertyMast.Add(property);
             var propertySaveResult = await _context.SaveChangesAsync(cancellationToken);
 
+
             // Assessment insert 
             propertyMastDetails = new PropertyAssessmentEntity
             {
                 PropertyId = property.Id,
+                BHK = dto?.BHK,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedBy = dto?.CreatedBy
@@ -1429,10 +1437,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 {
                     PropertyId = property.Id,
                     FloorId = property!.PropertyFloorId!.Value,
+                    SubFloorId = dto.SubFloorId,
                     ConstructionTypeId = dto!.ConstructionTypeId!.Value,
                     TypeOfUseId = dto.TypeOfUseId!.Value,
                     SubTypeOfUseId = dto.SubTypeOfUseId,
                     ConstructionYear = dto.ConstructionYear,
+                    AssessmentYear = dto.AssessmentYear,
+                    CarpetAreaSqMeter = dto.CarpetAreaSqMeter,
+                    CarpetAreaSqFeet = dto.CarpetAreaSqFeet,
+                    BuiltupAreaSqMeter = dto.BuiltupAreaSqMeter,
+                    BuiltupAreaSqFeet = dto.BuiltupAreaSqFeet,
+                    NoOfRooms = dto.NoOfRooms,
                     IsActive = true,
                     MarkedForDeletion = false,
                     CreatedBy = dto?.CreatedBy
@@ -1468,6 +1483,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
         }
     }
+    
     public async Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
     {
         return await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "" && x.MarkedForDeletion == false, cancellationToken);
@@ -1497,7 +1513,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return await _context.PropertyMast.AnyAsync(
             x => x.WardId == dto.WardId
               && x.PropertyNo == dto.PropertyNo
-              && x.WingDetailId == dto.SocietyDetailId
+              && x.WingDetailId == dto.WingDetailId
               && x.FlatOrShopNo == dto.FlatOrShopNo && x.MarkedForDeletion == false,
             cancellationToken);
     }

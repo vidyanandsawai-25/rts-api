@@ -60,6 +60,7 @@ public partial class PropertyService
     private readonly IRepository<WingEntity, int> _wingRepository;
     private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
     private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
+    private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
 
 
     public PropertyService(
@@ -90,6 +91,7 @@ public partial class PropertyService
         IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
         IRepository<OwnerTypeMasterEntity, int> ownerTypeRepository,
         IRepository<WingEntity, int> wingRepository,
+        IRepository<SocietyWingDetailsEntity, int> societyWingRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null,
         IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null)
         : base(repository, unitOfWork, mapper)
@@ -120,6 +122,7 @@ public partial class PropertyService
         _wingMasterRepository = wingMasterRepository;
         _oldWardMasterRepository = oldWardMasterRepository;
         _wingDetailsMastRepository = wingDetailsMastRepository;
+        _societyWingRepository = societyWingRepository;
     }
 
 
@@ -692,6 +695,18 @@ public partial class PropertyService
             errors.Count > 0 ? errors : null);
     }
 
+    /// <summary>
+    /// Creates multiple properties in bulk within a single transaction.
+    /// Performs the following validations before creation:
+    /// 1. Building existence check
+    /// 2. Category validation
+    /// 3. Society wing details check (for apartment categories)
+    /// 4. Duplicate property partition check
+    /// 5. Duplicate flat/shop number check
+    /// </summary>
+    /// <param name="items">Array of bulk property creation DTOs</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Bulk result containing success/failure counts and created property details</returns>
     public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
     {
         if (items.Length == 0)
@@ -700,44 +715,23 @@ public partial class PropertyService
         }
 
         var results = new List<CreateBulkPropertyResponseDto>();
-        var errors = new List<string>();
-
 
 
         var buildingResult = await _propertyRepository.CheckBuildingIfExists(items[0], ct);
 
         if (buildingResult == null)
-        {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-            0,
-            items.Length,
-            [],
-            ["Building Not Found"]
-        );
-        }
-
+            throw new ValidationException("Building not found.", OperationType.Create);
 
         var category = await _propertyRepository.GetBuildingCategory(items[0].CategoryId, ct);
         if (category == null)
-        {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                0,
-                items.Length,
-                [],
-                ["Invalid CategoryId - category not found."]
-            );
-        }
+            throw new ValidationException("Category not found.", OperationType.Create);
 
         if (category.PropertyCategoryName != null &&
-            category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (items[0].SocietyDetailId == null || items[0].SocietyDetailId == 0))
+            category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (items[0].WingDetailId == null || items[0].WingDetailId == 0))
         {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-               0,
-               items.Length,
-               [],
-               ["Society Wing Details is not Found"]
-           );
+            throw new ValidationException("Society wing details not found.", OperationType.Create);
         }
+
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -776,30 +770,26 @@ public partial class PropertyService
             }
             if (strPropertyExistsMessage.Length > 0)
             {
-                strPropertyExistsMessage.Append(" this property partition already exists in this wing");
+                strPropertyExistsMessage.Append(" - this property partition already exists in this wing");
             }
             if (strPropertyFlatExistsMessage.Length > 0)
             {
-                strPropertyFlatExistsMessage.Append(" this property flat already exists in this wing");
+                strPropertyFlatExistsMessage.Append(" - this property flat already exists in this wing");
             }
-           
 
             var errorParts = new List<string>(capacity: 2);
-            errorParts.Add(strPropertyExistsMessage.ToString());
+
+            if (strPropertyExistsMessage.Length > 0)
+                errorParts.Add(strPropertyExistsMessage.ToString());
 
             if (strPropertyFlatExistsMessage.Length > 0)
                 errorParts.Add(strPropertyFlatExistsMessage.ToString());
 
-            var strErrorMsg = string.Join(", ", errorParts);
-            if (strErrorMsg.Length > 0)
+            if (errorParts.Count > 0)
             {
+                var strErrorMsg = string.Join(", ", errorParts);
                 await _unitOfWork.RollbackTransactionAsync(ct);
-                return new BulkResult<CreateBulkPropertyResponseDto>(
-                 0,
-                 items.Length,
-                 [],
-                 [strErrorMsg.ToString()]
-             );
+                return new BulkResult<CreateBulkPropertyResponseDto>(0, items.Length, [], [strErrorMsg]);
             }
 
             var amenityPropertyTypeResult = await _propertyRepository.GetAmenityPropertyType(ct);
@@ -811,11 +801,11 @@ public partial class PropertyService
                     item.OpenPlot = true;
                 }
 
-                item.Address = buildingResult?.Address;
-                item.AddressEnglish = buildingResult?.AddressEnglish;
-                item.Location = buildingResult?.Location;
-                item.LocationEnglish = buildingResult?.LocationEnglish;
-                item.PropertySeqNo = buildingResult?.PropertySeqNo;
+                item.Address = buildingResult.Address;
+                item.AddressEnglish = buildingResult.AddressEnglish;
+                item.Location = buildingResult.Location;
+                item.LocationEnglish = buildingResult.LocationEnglish;
+                item.PropertySeqNo = buildingResult.PropertySeqNo;
                 item.OwnerName = "धारक";
                 item.OwnerNameEnglish = "The Holder";
                 if (amenityPropertyTypeResult != null && item.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
@@ -828,15 +818,9 @@ public partial class PropertyService
                 }
 
                 var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
-                if (res == null || !res.Success )
+                if (res == null || !res.Success)
                 {
-                    await _unitOfWork.RollbackTransactionAsync(ct);
-                    return new BulkResult<CreateBulkPropertyResponseDto>(
-                        0,
-                        items.Length,
-                        [],
-                        [$"{i}: {res?.Message ?? "Unknown error"}"]
-                    );
+                    throw new ValidationException($"Failed to create property at row {i + 1}: {res?.Message ?? "Unknown error"}", OperationType.Create);
                 }
 
                 results.Add(res);
@@ -845,25 +829,85 @@ public partial class PropertyService
 
             await _unitOfWork.CommitTransactionAsync(ct);
 
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                results.Count,
-                0,
-                results,
-                null
-            );
+            //── Refresh wing statistics after successful commit ─────────────────────
+            try
+            {
+                await SyncWingStatisticsAsync(items, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error refreshing wing statistics after BulkCreateAsync commit");
+                // Do NOT rethrow — the properties were committed successfully
+            }
+
+            return new BulkResult<CreateBulkPropertyResponseDto>(results.Count, 0, results, null);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await _unitOfWork.RollbackTransactionAsync(ct);
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                0,
-                items.Length,
-                [],
-                [$"Transaction failed: {ex.Message}"]
-            );
+            throw;
         }
     }
 
+    /// <summary>
+    /// Aggregates flat/shop counts per wing from committed property data and synchronizes
+    /// them to the corresponding SocietyWingDetails records.
+    /// </summary>
+    private record WingAggregation(int WingDetailId, int NoOfFlat, int NoOfShop);
 
-   
+    private async Task SyncWingStatisticsAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
+    {
+        var item = items.FirstOrDefault();
+        if (item == null || string.IsNullOrWhiteSpace(item.PropertyNo))
+            return;
+
+        var queryable = _propertyRepository.GetQueryable();
+        if (queryable == null)
+            return;
+
+        var groupData = await queryable
+            .Where(x =>
+                x.WardId == item.WardId &&
+                x.PropertyNo == item.PropertyNo &&
+                x.WingDetailId.HasValue &&
+                x.IsActive &&
+                !x.MarkedForDeletion)
+            .GroupBy(x => x.WingDetailId)
+            .Select(g => new WingAggregation(
+                g.Key!.Value,
+                g.Count(x => x.PropertyTypeMaster!.Type == "R"),
+                g.Count(x => x.PropertyTypeMaster!.Type == "C")))
+            .ToListAsync(ct);
+
+        if (groupData.Count == 0)
+            return;
+
+        var groupDataMap = groupData.ToDictionary(x => x.WingDetailId);
+
+        var societyWingQueryable = _societyWingRepository.GetQueryable();
+        if (societyWingQueryable == null)
+            return;
+
+        var wingDetails = await societyWingQueryable
+            .Where(x =>
+                x.WingDetailsMastId.HasValue &&
+                groupDataMap.Keys.Contains(x.WingDetailsMastId.Value))
+            .ToListAsync(ct);
+
+        foreach (var wing in wingDetails)
+        {
+            if (wing.WingDetailsMastId.HasValue &&
+                groupDataMap.TryGetValue(wing.WingDetailsMastId.Value, out var data))
+            {
+                wing.NoOfFlat = data.NoOfFlat;
+                wing.NoOfShop = data.NoOfShop;
+            }
+        }
+
+        if (wingDetails.Count > 0)
+        {
+            await _societyWingRepository.UpdateRangeAsync(wingDetails, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+    }
 }
