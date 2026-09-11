@@ -723,6 +723,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertySplitService, PropertySplitService>();
         services.AddScoped<IPropertyBulkMergeService, PropertyBulkMergeService>();
         services.AddScoped<IPropertyChangeCategoryService, PropertyChangeCategoryService>();
+        services.AddScoped<IPropertyNumberDetailsService, PropertyNumberDetailsService>();
         services.AddScoped<IApartmentDashboardService, ApartmentDashboardService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
