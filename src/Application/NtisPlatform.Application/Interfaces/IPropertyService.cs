@@ -73,4 +73,7 @@ public interface IPropertyService
     SearchBuildingInformationAsync(
         BuildingInformationQueryParameters queryParameters,CancellationToken cancellationToken = default);
 
+    Task<List<GetPropertiesItemDto>> GetPropertiesAsync(
+        GetPropertiesQueryParameters queryParameters,
+        CancellationToken cancellationToken = default);
 }

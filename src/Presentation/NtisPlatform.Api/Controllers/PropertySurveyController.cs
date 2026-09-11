@@ -238,7 +238,7 @@ public class PropertySurveyController : ControllerBase
     /// </summary>
     [HttpPost("survey-visit/unverify")]
     [ProducesResponseType(
-        typeof(ApiResponse<bool>),
+        typeof(ApiResponse<UnverifyPropertySurveyVisitResponseDto>),
         StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -265,10 +265,10 @@ public class PropertySurveyController : ControllerBase
                 loggedInUserId,
                 cancellationToken);
 
-        return Ok(new ApiResponse<bool>
+        return Ok(new ApiResponse<UnverifyPropertySurveyVisitResponseDto>
         {
-            Success = result,
-            Message = "Property unverified successfully.",
+            Success = true,
+            Message = result.Message,
             Items = result
         });
     }

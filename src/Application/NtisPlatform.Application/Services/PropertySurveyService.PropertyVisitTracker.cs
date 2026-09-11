@@ -566,7 +566,7 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 SurveyVisitId = surveyVisit.Id,
                 WorkflowStageId = workflowDetails.WorkflowStageId,
                 ModuleId = workflowDetails.ModuleId,
-                InternalSurveyVerified = surveyVisit.InternalSurveyVerified,
+                InternalSurveyVerified = surveyVisit.InternalSurveyVerified ?? false,
                 RemarkId = surveyVisit.RemarkId,
                 RemarkText = surveyVisit.RemarkText,
                 Latitude = surveyVisit.Latitude,
@@ -601,38 +601,24 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
         }
     }
 
-    public async Task<VerifyPropertySurveyVisitResponseDto>
-        VerifyPropertySurveyVisitAsync(
-            VerifyPropertySurveyVisitDto request,
-            int loggedInUserId,
-            CancellationToken cancellationToken = default)
+    public async Task<VerifyPropertySurveyVisitResponseDto> VerifyPropertySurveyVisitAsync(
+        VerifyPropertySurveyVisitDto request,
+        int loggedInUserId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         if (loggedInUserId <= 0)
         {
-            throw new UnauthorizedAccessException(
-                "Logged-in user information is invalid.");
+            throw new UnauthorizedAccessException("Logged-in user information is invalid.");
         }
 
-        // 1. Check property exists
-        var propertyExists = await _repository
-            .GetQueryable()
-            .AsNoTracking()
-            .AnyAsync(
-                x =>
-                    x.Id == request.PropertyId &&
-                    x.IsActive &&
-                    !x.MarkedForDeletion,
-                cancellationToken);
-
-        if (!propertyExists)
+        if ((!request.PropertyId.HasValue || request.PropertyId.Value <= 0) &&
+            (!request.WingDetailId.HasValue || request.WingDetailId.Value <= 0))
         {
-            throw new KeyNotFoundException(
-                "Property not found.");
+            throw new ArgumentException("Please provide either PropertyId or WingDetailId for verification.");
         }
 
-        // 1b. Check workflow stage exists and is active
         var workflowStageExists = await _workflowStageRepository
             .GetQueryable()
             .AsNoTracking()
@@ -645,238 +631,420 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
         if (!workflowStageExists)
         {
             throw new ArgumentException(
-                $"Invalid or inactive WorkflowStageId: " +
-                $"{request.WorkflowStageId}.");
+                $"Invalid or inactive WorkflowStageId: {request.WorkflowStageId}.");
         }
 
-        // 2. Property must have photo before verification
-        var hasPhoto = await _propertyPhotoRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .AnyAsync(
-                x =>
-                    x.PropertyId == request.PropertyId &&
-                    x.IsActive &&
-                    !x.MarkedForDeletion,
-                cancellationToken);
-
-        if (!hasPhoto)
+        if (request.RemarkId.HasValue && _commonRemarkDetailsRepository != null)
         {
-            throw new PropertyValidationException(
-                "Please click photo before property verification.");
-    
+            var remarkExists = await _commonRemarkDetailsRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.Id == request.RemarkId.Value &&
+                        x.IsActive,
+                    cancellationToken);
+
+            if (!remarkExists)
+            {
+                throw new ArgumentException(
+                    $"Invalid or inactive RemarkId: {request.RemarkId.Value}.");
+            }
         }
 
         var currentDate = DateTime.Now;
+        int? targetSocietyDetailId = null;
+        string? targetSocietyName = null;
+        bool isMainSocietyWithoutWings = false;
+        int? requestOrPropertyWingDetailId = request.WingDetailId;
+        int resolvedPropertyId = request.PropertyId ?? 0;
+        var propertyIdsToVerify = new List<int>();
+        var verifiedPropertiesList = new List<PropertyVerificationStatusItemDto>();
+        var unverifiedPropertiesList = new List<PropertyVerificationStatusItemDto>();
 
-        var propertyDetails = await (
-                from x in _repository.GetQueryable().AsNoTracking()
-                join sd in _societyRepository.GetQueryable().AsNoTracking() on x.Id equals sd.PropertyId into sdGroup
-                from sd in sdGroup.DefaultIfEmpty()
-                where x.Id == request.PropertyId && x.IsActive && !x.MarkedForDeletion
-                select new
+        var wingDetailsRepo = _wingDetailsMastRepository;
+
+        // CASE 1: Direct Wing Verification (WingDetailId is provided)
+        if (request.WingDetailId.HasValue && request.WingDetailId.Value > 0)
+        {
+            if (wingDetailsRepo == null)
+            {
+                throw new InvalidOperationException("WingDetails repository is not configured.");
+            }
+
+            var wing = await wingDetailsRepo.GetQueryable().AsNoTracking()
+                .Where(x => x.Id == request.WingDetailId.Value && x.IsActive && !x.MarkedForDeletion)
+                .Select(x => new
                 {
                     x.Id,
-                    SocietyDetailId = sd != null ? (int?)sd.Id : null,
-                    x.PartitionNo,
-                    x.WardId,
-                    x.PropertyNo
-                }
-            )
-            .FirstOrDefaultAsync(cancellationToken);
+                    x.WingName,
+                    x.SocietyDetailsMastId
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-        var propertyIdsToVerify = new List<int>
-        {
-            request.PropertyId
-        };
-        var isSocietyOrWingHandled = false;
-        if (propertyDetails?.SocietyDetailId != null)
-        {
-            var wingQuery700 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
-            var currentSocietyDetail = await (
-                from x in _societyRepository.GetQueryable().AsNoTracking()
-                where x.Id == propertyDetails.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion
-                join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId into wdmGroup
-                from wdm in wdmGroup.DefaultIfEmpty()
-                select new
-                {
-                    x.Id,
-                    x.PropertyId,
-                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
-                    WingName = wdm != null ? wdm.WingName : null
-                }
-            ).FirstOrDefaultAsync(cancellationToken);
-
-            int? wingSocietyDetailId = null;
-            string? wingName = null;
-
-            if (currentSocietyDetail != null &&
-                currentSocietyDetail.WingId == null &&
-                string.IsNullOrWhiteSpace(propertyDetails.PartitionNo))
+            if (wing == null)
             {
-                isSocietyOrWingHandled = true;
-                var societyWingDetailIds = await (
-                    from x in _societyRepository.GetQueryable().AsNoTracking()
-                    join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId
-                    where x.PropertyId == currentSocietyDetail.PropertyId && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
-                    select x.Id
-                ).ToListAsync(cancellationToken);
+                throw new ArgumentException(
+                    $"Wing with ID {request.WingDetailId.Value} not found.");
+            }
 
-                if (societyWingDetailIds.Count > 0)
+            targetSocietyDetailId = wing.SocietyDetailsMastId;
+
+            // Resolve parent PropertyId from SocietyDetailsMast if not already passed
+            if (resolvedPropertyId <= 0 && targetSocietyDetailId.HasValue && targetSocietyDetailId.Value > 0)
+            {
+                var society = await _societyRepository.GetQueryable().AsNoTracking()
+                    .Where(x => x.Id == targetSocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
+                    .Select(x => new { x.Id, x.PropertyId, x.SocietyName })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (society?.PropertyId != null && society.PropertyId > 0)
                 {
-                    var allWingPropertyIds = await _repository
-                        .GetQueryable()
-                        .AsNoTracking()
-                        .Where(x =>
-                            x.IsActive &&
-                            !x.MarkedForDeletion &&
-                            _societyRepository.GetQueryable().AsNoTracking()
-                                .Any(s => s.PropertyId == x.Id && societyWingDetailIds.Contains(s.Id)))
-                        .Select(x => x.Id)
-                        .ToListAsync(cancellationToken);
-
-                    var allWingPropertyIdsWithPhoto = await _propertyPhotoRepository
-                        .GetQueryable()
-                        .AsNoTracking()
-                        .Where(x =>
-                            x.PropertyId.HasValue &&
-                            allWingPropertyIds.Contains(x.PropertyId.Value) &&
-                            x.IsActive &&
-                            !x.MarkedForDeletion)
-                        .Select(x => x.PropertyId!.Value)
-                        .Distinct()
-                        .ToListAsync(cancellationToken);
-
-                    var allWingPropertyIdsWithoutPhoto = allWingPropertyIds
-                        .Except(allWingPropertyIdsWithPhoto)
-                        .ToList();
-
-                    if (allWingPropertyIdsWithoutPhoto.Count > 0)
-                    {
-                        throw new ArgumentException(
-                            "Please capture photo for all Wing properties " +
-                            "before Main Society verification.");
-                    }
+                    resolvedPropertyId = society.PropertyId.Value;
+                    targetSocietyName = society.SocietyName;
                 }
             }
 
-            if (currentSocietyDetail?.WingId != null)
-            {
-                isSocietyOrWingHandled = true;
-                wingSocietyDetailId = currentSocietyDetail.Id;
-                wingName = currentSocietyDetail.WingName;
-            }
-            else if (currentSocietyDetail != null &&
-                     currentSocietyDetail.WingId == null &&
-                     !string.IsNullOrWhiteSpace(propertyDetails.PartitionNo))
-            {
-                var expectedWingName =
-                    $"Wing {propertyDetails.PartitionNo.Trim()}";
+            // Validate Wing photo (EntityType = 'W', PropertyId IS NULL or 0)
+            var hasWingPhoto = await _propertyPhotoRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .AnyAsync(x =>
+                    x.WingDetailId == wing.Id &&
+                    (x.PropertyId == null || x.PropertyId == 0) &&
+                    x.EntityType == "W" &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion &&
+                    x.IsLatest,
+                    cancellationToken);
 
-                var wingDetails = await (
-                    from x in _societyRepository.GetQueryable().AsNoTracking()
-                    join wdm in wingQuery700 on x.Id equals wdm.SocietyDetailsMastId
-                    where x.PropertyId == currentSocietyDetail.PropertyId && wdm.WingName == expectedWingName && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
-                    select new { x.Id, wdm.WingName }
-                ).FirstOrDefaultAsync(cancellationToken);
-
-                if (wingDetails != null)
-                {
-                    isSocietyOrWingHandled = true;
-                    wingSocietyDetailId = wingDetails.Id;
-                    wingName = wingDetails.WingName;
-                }
+            if (!hasWingPhoto)
+            {
+                throw new ArgumentException(
+                    $"Please capture wing photo for {wing.WingName ?? "Wing"} before verification.");
             }
 
-            if (wingSocietyDetailId.HasValue)
-            {
-                var wingPropertyIds = await _repository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.IsActive &&
-                        !x.MarkedForDeletion &&
-                        _societyRepository.GetQueryable().AsNoTracking()
-                            .Any(s => s.PropertyId == x.Id && s.Id == wingSocietyDetailId.Value))
-                    .Select(x => x.Id)
-                    .ToListAsync(cancellationToken);
-
-                propertyIdsToVerify = wingPropertyIds
-                    .Append(request.PropertyId)
-                    .Distinct()
-                    .ToList();
-
-                var wingPropertyIdsWithPhoto = await _propertyPhotoRepository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(x =>
-                        x.PropertyId.HasValue &&
-                        wingPropertyIds.Contains(x.PropertyId.Value) &&
-                        x.IsActive &&
-                        !x.MarkedForDeletion)
-                    .Select(x => x.PropertyId!.Value)
-                    .Distinct()
-                    .ToListAsync(cancellationToken);
-
-                var wingPropertyIdsWithoutPhoto = wingPropertyIds
-                    .Except(wingPropertyIdsWithPhoto)
-                    .ToList();
-
-                if (wingPropertyIdsWithoutPhoto.Count > 0)
-                {
-                    throw new ArgumentException(
-                        $"Please capture photo for all properties of " +
-                        $"{wingName} before verification.");
-                }
-            }
-        }
-
-        if (!isSocietyOrWingHandled &&
-            propertyDetails != null &&
-            !string.IsNullOrWhiteSpace(propertyDetails.PropertyNo))
-        {
-            var individualPropertyIds = await _repository
+            // Fetch all child properties under this wing
+            var wingProperties = await _repository
                 .GetQueryable()
                 .AsNoTracking()
                 .Where(x =>
-                    x.WardId == propertyDetails.WardId &&
-                    x.PropertyNo == propertyDetails.PropertyNo &&
+                    x.WingDetailId == wing.Id &&
                     x.IsActive &&
                     !x.MarkedForDeletion)
-                .Select(x => x.Id)
+                .Select(x => new
+                {
+                    x.Id,
+                    PropertyNo = !string.IsNullOrWhiteSpace(x.PropertyNo) ? x.PropertyNo : x.Id.ToString(),
+                    PartitionNo = !string.IsNullOrWhiteSpace(x.PartitionNo) ? x.PartitionNo : "N/A"
+                })
                 .ToListAsync(cancellationToken);
 
-            if (individualPropertyIds.Count > 1)
+            if (wingProperties.Count > 0)
             {
-                var individualPropertyIdsWithPhoto =
-                    await _propertyPhotoRepository
+                var wingPropIds = wingProperties.Select(w => w.Id).ToList();
+
+                var propertiesWithPhoto = await _propertyPhotoRepository
+                    .GetQueryable()
+                    .AsNoTracking()
+                    .Where(x =>
+                        wingPropIds.Contains(x.PropertyId ?? 0) &&
+                        x.IsActive &&
+                        !x.MarkedForDeletion &&
+                        x.IsLatest)
+                    .Select(x => x.PropertyId)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+
+                foreach (var prop in wingProperties)
+                {
+                    var hasPPhoto = propertiesWithPhoto.Contains(prop.Id);
+                    var item = new PropertyVerificationStatusItemDto
+                    {
+                        PropertyId = prop.Id,
+                        PropertyNo = prop.PropertyNo,
+                        PartitionNo = prop.PartitionNo,
+                        HasPhoto = hasPPhoto,
+                        IsVerified = hasPPhoto,
+                        StatusMessage = hasPPhoto ? "Verified successfully" : "Photo not available"
+                    };
+
+                    if (hasPPhoto)
+                    {
+                        verifiedPropertiesList.Add(item);
+                        propertyIdsToVerify.Add(prop.Id);
+                    }
+                    else
+                    {
+                        unverifiedPropertiesList.Add(item);
+                    }
+                }
+            }
+        }
+        // CASE 2: Property Verification (PropertyId is provided without WingDetailId)
+        else
+        {
+            var propertyDetails = await _repository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == request.PropertyId!.Value &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+               .Select(x => new
+               {
+                   x.Id,
+                   x.WingDetailId,
+                   x.PartitionNo,
+                   x.WardId,
+                   x.PropertyNo
+               })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (propertyDetails == null)
+            {
+                throw new KeyNotFoundException(
+                    "Property not found.");
+            }
+
+            resolvedPropertyId = propertyDetails.Id;
+
+            // Resolve target Society ID directly from SocietyDetailsMast using PropertyId
+            var societyInfo = await _societyRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x =>
+                    x.PropertyId == propertyDetails.Id &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+                .Select(x => new { x.Id, x.SocietyName })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (societyInfo != null)
+            {
+                targetSocietyDetailId = societyInfo.Id;
+                targetSocietyName = societyInfo.SocietyName;
+            }
+
+            // If not found directly, check if this property has a WingDetailId pointing to a Society
+            if (!targetSocietyDetailId.HasValue && propertyDetails.WingDetailId.HasValue && propertyDetails.WingDetailId.Value > 0 && wingDetailsRepo != null)
+            {
+                var wingInfo = await wingDetailsRepo
+                    .GetQueryable()
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.Id == propertyDetails.WingDetailId.Value &&
+                        x.IsActive &&
+                        !x.MarkedForDeletion)
+                    .Select(x => new { x.SocietyDetailsMastId })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (wingInfo?.SocietyDetailsMastId != null)
+                {
+                    targetSocietyDetailId = wingInfo.SocietyDetailsMastId;
+                    targetSocietyName = await _societyRepository
+                        .GetQueryable()
+                        .AsNoTracking()
+                        .Where(x => x.Id == targetSocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
+                        .Select(x => x.SocietyName)
+                        .FirstOrDefaultAsync(cancellationToken);
+                }
+            }
+
+            requestOrPropertyWingDetailId = propertyDetails.WingDetailId;
+
+            // Standalone individual property (not belonging to a Society/Wing)
+            if (!targetSocietyDetailId.HasValue || targetSocietyDetailId.Value <= 0)
+            {
+                var hasPhoto = await _propertyPhotoRepository
+                    .GetQueryable()
+                    .AsNoTracking()
+                    .AnyAsync(
+                        x =>
+                            x.PropertyId == request.PropertyId &&
+                            x.IsActive &&
+                            !x.MarkedForDeletion &&
+                            x.IsLatest,
+                        cancellationToken);
+
+                if (!hasPhoto)
+                {
+                    var propNoStr = !string.IsNullOrWhiteSpace(propertyDetails.PropertyNo) ? propertyDetails.PropertyNo : request.PropertyId.ToString();
+                    var partNoStr = !string.IsNullOrWhiteSpace(propertyDetails.PartitionNo) ? propertyDetails.PartitionNo : "N/A";
+
+                    throw new ArgumentException(
+                        $"Please click photo for Property No: {propNoStr}, Partition No: {partNoStr} before property verification.");
+                }
+
+                propertyIdsToVerify.Add(request.PropertyId!.Value);
+                verifiedPropertiesList.Add(new PropertyVerificationStatusItemDto
+                {
+                    PropertyId = propertyDetails.Id,
+                    PropertyNo = !string.IsNullOrWhiteSpace(propertyDetails.PropertyNo) ? propertyDetails.PropertyNo : propertyDetails.Id.ToString(),
+                    PartitionNo = !string.IsNullOrWhiteSpace(propertyDetails.PartitionNo) ? propertyDetails.PartitionNo : "N/A",
+                    HasPhoto = true,
+                    IsVerified = true,
+                    StatusMessage = "Verified successfully"
+                });
+            }
+            else
+            {
+                // Society & Wing photo validation
+                var societyWingsQuery = wingDetailsRepo != null
+                    ? wingDetailsRepo
                         .GetQueryable()
                         .AsNoTracking()
                         .Where(x =>
-                            x.PropertyId.HasValue &&
-                            individualPropertyIds.Contains(x.PropertyId.Value) &&
+                            x.SocietyDetailsMastId == targetSocietyDetailId.Value &&
                             x.IsActive &&
                             !x.MarkedForDeletion)
-                        .Select(x => x.PropertyId!.Value)
-                        .Distinct()
-                        .ToListAsync(cancellationToken);
+                    : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
 
-                var individualPropertyIdsWithoutPhoto =
-                    individualPropertyIds
-                        .Except(individualPropertyIdsWithPhoto)
-                        .ToList();
-
-                if (individualPropertyIdsWithoutPhoto.Count > 0)
+                if (requestOrPropertyWingDetailId.HasValue && requestOrPropertyWingDetailId.Value > 0)
                 {
-                    throw new ArgumentException(
-                        "Please capture photo for all partition properties " +
-                        "before verification.");
+                    societyWingsQuery = societyWingsQuery.Where(x => x.Id == requestOrPropertyWingDetailId.Value);
                 }
 
-                propertyIdsToVerify = individualPropertyIds
-                    .Append(request.PropertyId)
-                    .Distinct()
-                    .ToList();
+                var societyWings = await societyWingsQuery
+                    .Select(x => new
+                    {
+                        x.Id,
+                        x.WingName
+                    })
+                    .ToListAsync(cancellationToken);
+
+                if (societyWings.Count > 0)
+                {
+                    // If society has only ONE wing, enforce that the single wing must have a wing photo
+                    if (societyWings.Count == 1)
+                    {
+                        var singleWing = societyWings.First();
+                        var hasSingleWingPhoto = await _propertyPhotoRepository
+                            .GetQueryable()
+                            .AsNoTracking()
+                            .AnyAsync(x =>
+                                x.WingDetailId == singleWing.Id &&
+                                (x.PropertyId == null || x.PropertyId == 0) &&
+                                x.EntityType == "W" &&
+                                x.IsActive &&
+                                !x.MarkedForDeletion &&
+                                x.IsLatest,
+                                cancellationToken);
+
+                        if (!hasSingleWingPhoto)
+                        {
+                            throw new ArgumentException(
+                                $"Please capture wing photo for {singleWing.WingName ?? "Wing"} before verification.");
+                        }
+                    }
+
+                    var allSocietyWingPropertyIdsToVerify = new List<int>();
+
+                    foreach (var wing in societyWings)
+                    {
+                        // Fetch all properties under this wing
+                        var wingProperties = await _repository
+                            .GetQueryable()
+                            .AsNoTracking()
+                            .Where(x =>
+                                x.WingDetailId == wing.Id &&
+                                x.IsActive &&
+                                !x.MarkedForDeletion)
+                            .Select(x => new
+                            {
+                                x.Id,
+                                PropertyNo = !string.IsNullOrWhiteSpace(x.PropertyNo) ? x.PropertyNo : x.Id.ToString(),
+                                PartitionNo = !string.IsNullOrWhiteSpace(x.PartitionNo) ? x.PartitionNo : "N/A"
+                            })
+                            .ToListAsync(cancellationToken);
+
+                        if (wingProperties.Count > 0)
+                        {
+                            var wingPropIds = wingProperties.Select(w => w.Id).ToList();
+
+                            var propertiesWithPhoto = await _propertyPhotoRepository
+                                .GetQueryable()
+                                .AsNoTracking()
+                                .Where(x =>
+                                    wingPropIds.Contains(x.PropertyId ?? 0) &&
+                                    x.IsActive &&
+                                    !x.MarkedForDeletion &&
+                                    x.IsLatest)
+                                .Select(x => x.PropertyId)
+                                .Where(id => id.HasValue)
+                                .Select(id => id!.Value)
+                                .Distinct()
+                                .ToListAsync(cancellationToken);
+
+                            foreach (var prop in wingProperties)
+                            {
+                                var hasPPhoto = propertiesWithPhoto.Contains(prop.Id);
+                                var item = new PropertyVerificationStatusItemDto
+                                {
+                                    PropertyId = prop.Id,
+                                    PropertyNo = prop.PropertyNo,
+                                    PartitionNo = prop.PartitionNo,
+                                    HasPhoto = hasPPhoto,
+                                    IsVerified = hasPPhoto,
+                                    StatusMessage = hasPPhoto ? "Verified successfully" : "Photo not available"
+                                };
+
+                                if (hasPPhoto)
+                                {
+                                    verifiedPropertiesList.Add(item);
+                                    allSocietyWingPropertyIdsToVerify.Add(prop.Id);
+                                }
+                                else
+                                {
+                                    unverifiedPropertiesList.Add(item);
+                                }
+                            }
+                        }
+                    }
+
+                    propertyIdsToVerify = allSocietyWingPropertyIdsToVerify
+                        .Distinct()
+                        .ToList();
+                }
+                else
+                {
+                    // Society has NO wings: verify the main society property directly using its photo
+                    isMainSocietyWithoutWings = true;
+
+                    var hasPhoto = await _propertyPhotoRepository
+                        .GetQueryable()
+                        .AsNoTracking()
+                        .AnyAsync(
+                            x =>
+                                x.PropertyId == request.PropertyId &&
+                                x.IsActive &&
+                                !x.MarkedForDeletion &&
+                                x.IsLatest,
+                            cancellationToken);
+
+                    var propNoStr = !string.IsNullOrWhiteSpace(propertyDetails.PropertyNo) ? propertyDetails.PropertyNo : request.PropertyId.ToString();
+                    var partNoStr = !string.IsNullOrWhiteSpace(propertyDetails.PartitionNo) ? propertyDetails.PartitionNo : "N/A";
+                    var societyLabel = !string.IsNullOrWhiteSpace(targetSocietyName) ? $" '{targetSocietyName}'" : "";
+
+                    if (!hasPhoto)
+                    {
+                        throw new ArgumentException(
+                            $"This is Main Society{societyLabel} and it has no wings. Please click photo for Property No: {propNoStr}, Partition No: {partNoStr} before property verification.");
+                    }
+
+                    propertyIdsToVerify.Add(request.PropertyId!.Value);
+                    verifiedPropertiesList.Add(new PropertyVerificationStatusItemDto
+                    {
+                        PropertyId = propertyDetails.Id,
+                        PropertyNo = propNoStr,
+                        PartitionNo = partNoStr,
+                        HasPhoto = true,
+                        IsVerified = true,
+                        StatusMessage = $"This is Main Society{societyLabel} and it has no wings. Verified successfully."
+                    });
+                }
             }
         }
 
@@ -887,41 +1055,40 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
 
         try
         {
-            var existingActiveWorkflows = await _workflowDetailsRepository
-                .GetQueryable()
-                .Where(x =>
-                    propertyIdsToVerify.Contains(x.PropertyId) &&
-                    x.IsActive)
-                .ToListAsync(cancellationToken);
-
-            var existingWorkflowIds = existingActiveWorkflows.Select(w => w.Id).ToList();
-
-            var existingSurveyVisits = await _propertySurveyVisitRepository
-                .GetQueryable()
-                .Where(x =>
-                    existingWorkflowIds.Contains(x.PropertyWorkflowDetailsId) &&
-                    x.IsActive)
-                .ToListAsync(cancellationToken);
-
-            foreach (var existingWorkflow in existingActiveWorkflows)
-            {
-                existingWorkflow.IsActive = false;
-                existingWorkflow.UpdatedBy = loggedInUserId;
-                existingWorkflow.UpdatedDate = currentDate;
-            }
-
-            foreach (var existingVisit in existingSurveyVisits)
-            {
-                existingVisit.IsActive = false;
-                existingVisit.UpdatedBy = loggedInUserId;
-                existingVisit.UpdatedDate = currentDate;
-            }
-
-            PropertyWorkflowDetailsEntity? requestedWorkflowDetails = null;
-            PropertySurveyVisitEntity? requestedSurveyVisit = null;
-
             foreach (var propertyId in propertyIdsToVerify)
             {
+                // Deactivate existing active workflows for this property
+                var existingActiveWorkflows = await _workflowDetailsRepository
+                    .GetQueryable()
+                    .Where(x =>
+                        x.PropertyId == propertyId &&
+                        x.IsActive)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var existingWorkflow in existingActiveWorkflows)
+                {
+                    existingWorkflow.IsActive = false;
+                    existingWorkflow.UpdatedBy = loggedInUserId;
+                    existingWorkflow.UpdatedDate = currentDate;
+
+                    var existingSurveyVisits = await _propertySurveyVisitRepository
+                        .GetQueryable()
+                        .Where(x =>
+                            x.PropertyWorkflowDetailsId == existingWorkflow.Id &&
+                            x.IsActive)
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var existingVisit in existingSurveyVisits)
+                    {
+                        existingVisit.IsActive = false;
+                        existingVisit.UpdatedBy = loggedInUserId;
+                        existingVisit.UpdatedDate = currentDate;
+                    }
+                }
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                // Create new workflow
                 var workflowDetails = new PropertyWorkflowDetailsEntity
                 {
                     PropertyId = propertyId,
@@ -936,16 +1103,23 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     workflowDetails,
                     cancellationToken);
 
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                // Create new verified survey visit
                 var surveyVisit = new PropertySurveyVisitEntity
                 {
-                    PropertyWorkflowDetails = workflowDetails,
+                    PropertyWorkflowDetailsId = workflowDetails.Id,
                     InternalSurveyVerified = true,
+
                     RemarkId = request.RemarkId,
                     RemarkText = request.RemarkText,
+
                     Latitude = request.Latitude,
                     Longitude = request.Longitude,
                     Location = request.Location,
+
                     IsActive = true,
+
                     CreatedBy = loggedInUserId,
                     CreatedDate = currentDate
                 };
@@ -954,18 +1128,17 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     surveyVisit,
                     cancellationToken);
 
-                if (propertyId == request.PropertyId)
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                // Keep response IDs for originally requested or resolved property
+                if (propertyId == resolvedPropertyId || requestedWorkflowDetailsId == 0)
                 {
-                    requestedWorkflowDetails = workflowDetails;
-                    requestedSurveyVisit = surveyVisit;
+                    requestedWorkflowDetailsId = workflowDetails.Id;
+                    requestedSurveyVisitId = surveyVisit.Id;
                 }
             }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            requestedWorkflowDetailsId = requestedWorkflowDetails?.Id ?? 0;
-            requestedSurveyVisitId = requestedSurveyVisit?.Id ?? 0;
         }
         catch (Exception)
         {
@@ -976,15 +1149,24 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
         return new VerifyPropertySurveyVisitResponseDto
         {
             Status = true,
-            Message = "Property verified successfully.",
-            PropertyId = request.PropertyId,
+            Message = unverifiedPropertiesList.Count > 0
+                ? $"Property verification completed. {verifiedPropertiesList.Count} properties verified, {unverifiedPropertiesList.Count} properties skipped (missing photo)."
+                : (propertyIdsToVerify.Count > 0 
+                    ? (isMainSocietyWithoutWings && !string.IsNullOrWhiteSpace(targetSocietyName) 
+                        ? $"This is Main Society '{targetSocietyName}' and it has no wings. Property verified successfully." 
+                        : "Property verified successfully.") 
+                    : "No properties verified."),
+            PropertyId = resolvedPropertyId > 0 ? resolvedPropertyId : request.PropertyId,
+            WingDetailId = requestOrPropertyWingDetailId,
             PropertyWorkflowDetailsId = requestedWorkflowDetailsId,
             SurveyVisitId = requestedSurveyVisitId,
-            IsVerified = true
+            IsVerified = propertyIdsToVerify.Count > 0,
+            VerifiedProperties = verifiedPropertiesList,
+            UnverifiedProperties = unverifiedPropertiesList
         };
     }
 
-    public async Task<bool> UnverifyPropertySurveyVisitAsync(
+    public async Task<UnverifyPropertySurveyVisitResponseDto> UnverifyPropertySurveyVisitAsync(
         UnverifyPropertySurveyVisitDto request,
         int loggedInUserId,
         CancellationToken cancellationToken = default)
@@ -996,101 +1178,108 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
             throw new UnauthorizedAccessException(
                 "Logged-in user information is invalid.");
         }
-        var currentDate = DateTime.Now;
 
-        var propertyDetails = await (
-                from x in _repository.GetQueryable().AsNoTracking()
-                join sd in _societyRepository.GetQueryable().AsNoTracking() on x.Id equals sd.PropertyId into sdGroup
-                from sd in sdGroup.DefaultIfEmpty()
-                where x.Id == request.PropertyId && x.IsActive && !x.MarkedForDeletion
-                select new
-                {
-                    x.Id,
-                    SocietyDetailId = sd != null ? (int?)sd.Id : null,
-                    x.PartitionNo
-                }
-            )
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (propertyDetails == null)
+        if ((!request.PropertyId.HasValue || request.PropertyId.Value <= 0) &&
+            (!request.WingDetailId.HasValue || request.WingDetailId.Value <= 0))
         {
-            throw new KeyNotFoundException(
-                "Property not found.");
+            throw new ArgumentException("Please provide either PropertyId or WingDetailId for unverification.");
         }
 
-        var propertyIdsToUnverify = new List<int>
-        {
-            request.PropertyId
-        };
+        var currentDate = DateTime.Now;
+        var propertyIdsToUnverify = new List<int>();
 
-        if (propertyDetails.SocietyDetailId.HasValue)
+        // CASE 1: Direct Wing Unverification (WingDetailId is provided)
+        if (request.WingDetailId.HasValue && request.WingDetailId.Value > 0)
         {
-            var wingQuery1026 = _wingDetailsMastRepository != null ? _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
-            var currentSocietyDetail = await (
-                from x in _societyRepository.GetQueryable().AsNoTracking()
-                where x.Id == propertyDetails.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion
-                join wdm in wingQuery1026 on x.Id equals wdm.SocietyDetailsMastId into wdmGroup
-                from wdm in wdmGroup.DefaultIfEmpty()
-                select new
+            var wingPropertyIds = await _repository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x =>
+                    x.WingDetailId == request.WingDetailId.Value &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+                .Select(x => x.Id)
+                .ToListAsync(cancellationToken);
+
+            propertyIdsToUnverify.AddRange(wingPropertyIds);
+
+            if (request.PropertyId.HasValue && request.PropertyId.Value > 0)
+            {
+                if (!propertyIdsToUnverify.Contains(request.PropertyId.Value))
+                {
+                    propertyIdsToUnverify.Add(request.PropertyId.Value);
+                }
+            }
+        }
+        // CASE 2: Property Unverification (PropertyId is provided without WingDetailId)
+        else if (request.PropertyId.HasValue && request.PropertyId.Value > 0)
+        {
+            var propertyDetails = await _repository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(x =>
+                    x.Id == request.PropertyId.Value &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+                .Select(x => new
                 {
                     x.Id,
-                    x.PropertyId,
-                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
-                    WingName = wdm != null ? wdm.WingName : null
-                }
-            ).FirstOrDefaultAsync(cancellationToken);
+                    x.WingDetailId
+                })
+                .FirstOrDefaultAsync(cancellationToken);
 
-            int? wingSocietyDetailId = null;
-
-            if (currentSocietyDetail?.WingId != null)
+            if (propertyDetails == null)
             {
-                wingSocietyDetailId = currentSocietyDetail.Id;
-            }
-            else if (currentSocietyDetail != null &&
-                     currentSocietyDetail.WingId == null &&
-                     !string.IsNullOrWhiteSpace(propertyDetails.PartitionNo))
-            {
-                var expectedWingName =
-                    $"Wing {propertyDetails.PartitionNo.Trim()}";
-
-                var wingDetails = await (
-                    from x in _societyRepository.GetQueryable().AsNoTracking()
-                    join wdm in wingQuery1026 on x.Id equals wdm.SocietyDetailsMastId
-                    where x.PropertyId == currentSocietyDetail.PropertyId && wdm.WingName == expectedWingName && x.IsActive && !x.MarkedForDeletion && wdm.IsActive && !wdm.MarkedForDeletion
-                    select new { x.Id }
-                ).FirstOrDefaultAsync(cancellationToken);
-
-                if (wingDetails != null)
-                {
-                    wingSocietyDetailId = wingDetails.Id;
-                }
+                throw new KeyNotFoundException(
+                    "Property not found.");
             }
 
-            if (wingSocietyDetailId.HasValue)
+            propertyIdsToUnverify.Add(propertyDetails.Id);
+
+            if (propertyDetails.WingDetailId.HasValue)
             {
                 var wingPropertyIds = await _repository
                     .GetQueryable()
                     .AsNoTracking()
                     .Where(x =>
+                        x.WingDetailId == propertyDetails.WingDetailId.Value &&
                         x.IsActive &&
-                        !x.MarkedForDeletion &&
-                        _societyRepository.GetQueryable().AsNoTracking()
-                            .Any(s => s.PropertyId == x.Id && s.Id == wingSocietyDetailId.Value))
+                        !x.MarkedForDeletion)
                     .Select(x => x.Id)
                     .ToListAsync(cancellationToken);
 
                 propertyIdsToUnverify = wingPropertyIds
-                    .Append(request.PropertyId)
+                    .Append(propertyDetails.Id)
                     .Distinct()
                     .ToList();
             }
         }
+
+        if (propertyIdsToUnverify.Count == 0)
+        {
+            throw new KeyNotFoundException("No active properties found for unverification.");
+        }
+
+        var propertiesToUnverifyDetails = await _repository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x => propertyIdsToUnverify.Contains(x.Id))
+            .Select(x => new
+            {
+                x.Id,
+                PropertyNo = !string.IsNullOrWhiteSpace(x.PropertyNo) ? x.PropertyNo : x.Id.ToString(),
+                PartitionNo = !string.IsNullOrWhiteSpace(x.PartitionNo) ? x.PartitionNo : "N/A"
+            })
+            .ToListAsync(cancellationToken);
+
+        var unverifiedPropertiesList = new List<PropertyVerificationStatusItemDto>();
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             foreach (var propertyId in propertyIdsToUnverify)
             {
+                // 1. Find currently active workflow for this property.
                 var workflowDetails = await _workflowDetailsRepository
                     .GetQueryable()
                     .Where(x =>
@@ -1099,11 +1288,14 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     .OrderByDescending(x => x.Id)
                     .FirstOrDefaultAsync(cancellationToken);
 
+                // If a Wing member has no active workflow,
+                // simply continue with the remaining properties.
                 if (workflowDetails == null)
                 {
                     continue;
                 }
 
+                // 2. Find current active survey visit.
                 var existingSurveyVisit = await _propertySurveyVisitRepository
                     .GetQueryable()
                     .Where(x =>
@@ -1112,28 +1304,30 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                     .OrderByDescending(x => x.Id)
                     .FirstOrDefaultAsync(cancellationToken);
 
-                if (existingSurveyVisit == null)
-                {
-                    continue;
-                }
-
+                // 3. Deactivate active workflow (IsActive = 0 in PTIS.PropertyWorkFlowDetails)
                 workflowDetails.IsActive = false;
                 workflowDetails.UpdatedBy = loggedInUserId;
                 workflowDetails.UpdatedDate = currentDate;
 
-                existingSurveyVisit.IsActive = false;
-                existingSurveyVisit.UpdatedBy = loggedInUserId;
-                existingSurveyVisit.UpdatedDate = currentDate;
+                if (existingSurveyVisit != null)
+                {
+                    // 4. Deactivate survey visit & set InternalSurveyVerified = 0 and IsActive = 0 in GSMS.PropertySurveyVisit
+                    existingSurveyVisit.InternalSurveyVerified = false;
+                    existingSurveyVisit.IsActive = false;
+                    existingSurveyVisit.UpdatedBy = loggedInUserId;
+                    existingSurveyVisit.UpdatedDate = currentDate;
+                }
 
+                // 5. Create NEW UnVerified history row.
                 var unverifiedSurveyVisit = new PropertySurveyVisitEntity
                 {
                     PropertyWorkflowDetailsId = workflowDetails.Id,
                     InternalSurveyVerified = false,
                     RemarkId = request.RemarkId,
                     RemarkText = request.RemarkText,
-                    Latitude = existingSurveyVisit.Latitude,
-                    Longitude = existingSurveyVisit.Longitude,
-                    Location = existingSurveyVisit.Location,
+                    Latitude = existingSurveyVisit?.Latitude,
+                    Longitude = existingSurveyVisit?.Longitude,
+                    Location = existingSurveyVisit?.Location,
                     IsActive = false,
                     CreatedBy = loggedInUserId,
                     CreatedDate = currentDate
@@ -1142,6 +1336,17 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
                 await _propertySurveyVisitRepository.AddAsync(
                     unverifiedSurveyVisit,
                     cancellationToken);
+
+                var propInfo = propertiesToUnverifyDetails.FirstOrDefault(p => p.Id == propertyId);
+                unverifiedPropertiesList.Add(new PropertyVerificationStatusItemDto
+                {
+                    PropertyId = propertyId,
+                    PropertyNo = propInfo?.PropertyNo ?? propertyId.ToString(),
+                    PartitionNo = propInfo?.PartitionNo ?? "N/A",
+                    IsVerified = false,
+                    HasPhoto = true,
+                    StatusMessage = "Unverified successfully"
+                });
             }
 
             await _unitOfWork.SaveChangesAsync(
@@ -1155,6 +1360,16 @@ public partial class PropertySurveyService : IPropertyVisitTrackerService
             throw;
         }
 
-        return true;
+        return new UnverifyPropertySurveyVisitResponseDto
+        {
+            Status = true,
+            Message = unverifiedPropertiesList.Count > 0
+                ? $"Property unverification completed. {unverifiedPropertiesList.Count} properties unverified."
+                : "No properties unverified.",
+            PropertyId = request.PropertyId,
+            WingDetailId = request.WingDetailId,
+            IsVerified = false,
+            UnverifiedProperties = unverifiedPropertiesList
+        };
     }
 }

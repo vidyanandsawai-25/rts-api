@@ -10,10 +10,15 @@ public class PropertyCertificateDto
     public int Id { get; set; }
     public int PropertyId { get; set; }
     public int CertificateTypeId { get; set; }
+    public string? CertificateTypeName { get; set; }
     public string? CertificateTypeCode { get; set; }
     public string? CertificateNo { get; set; }
     public DateTime? IssueDate { get; set; }
+    public DateTime? CertificateIssueDate => IssueDate;
     public int? PropertyDetailsId { get; set; }
+    public int? DocumentBindingId { get; set; }
+    public int? DocumentId { get; set; }
+    public Guid? DocumentGuid { get; set; }
     public string? EntityType { get; set; }
     public int? SocietyDetailId { get; set; }
     public int? WingDetailId { get; set; }
@@ -70,4 +75,3 @@ public class PropertyCertificateWithStatusDto
     public int? SocietyDetailId { get; set; }
     public int? WingDetailId { get; set; }
 }
-

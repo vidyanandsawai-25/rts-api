@@ -1882,4 +1882,232 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
 
         return (pagedItems, totalCount);
     }
+
+    public async Task<List<PropertyCertificateDto>> GetByPropertyIdAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
+
+        using var scope = _serviceProvider?.CreateScope();
+        var sp = scope?.ServiceProvider;
+
+        var certRepo = _propertyCertificateRepository ?? sp?.GetService<IRepository<PropertyCertificateEntity>>();
+        var docBindingRepo = _documentBindingRepository ?? sp?.GetService<IRepository<DocumentBindingEntity>>();
+        var docRepo = _documentRepository ?? sp?.GetService<IRepository<DocumentEntity>>();
+
+        var certTypes = (await _certificateTypeRepository.GetAsync(
+            pctm => pctm.IsActive,
+            cancellationToken))
+            .OrderBy(pctm => pctm.Id)
+            .ToList();
+
+        List<PropertyCertificateEntity> certificates = new();
+        if (certRepo != null)
+        {
+            certificates = await certRepo.GetQueryable().AsNoTracking()
+                .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                .ToListAsync(cancellationToken);
+        }
+
+        var certLookup = certificates
+            .GroupBy(c => c.CertificateTypeId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var bindingIds = certificates
+            .Where(c => c.DocumentBindingId.HasValue)
+            .Select(c => c.DocumentBindingId!.Value)
+            .Distinct()
+            .ToList();
+
+        Dictionary<int, DocumentBindingEntity> docBindings = new();
+        Dictionary<int, DocumentEntity> docs = new();
+
+        if (bindingIds.Count > 0 && docBindingRepo != null)
+        {
+            var bindings = await docBindingRepo.GetQueryable().AsNoTracking()
+                .Where(b => bindingIds.Contains(b.Id) && b.IsActive && !b.MarkedForDeletion)
+                .ToListAsync(cancellationToken);
+
+            docBindings = bindings.ToDictionary(b => b.Id);
+
+            var docIds = bindings.Select(b => b.DocumentId).Distinct().ToList();
+            if (docIds.Count > 0 && docRepo != null)
+            {
+                var docList = await docRepo.GetQueryable().AsNoTracking()
+                    .Where(d => docIds.Contains(d.Id) && d.IsActive && !d.MarkedForDeletion)
+                    .ToListAsync(cancellationToken);
+
+                docs = docList.ToDictionary(d => d.Id);
+            }
+        }
+
+        var result = new List<PropertyCertificateDto>();
+
+        foreach (var pctm in certTypes)
+        {
+            var hasCert = certLookup.TryGetValue(pctm.Id, out var pc);
+            DocumentBindingEntity? db = null;
+            DocumentEntity? d = null;
+
+            if (hasCert && pc?.DocumentBindingId.HasValue == true && docBindings.TryGetValue(pc.DocumentBindingId.Value, out var binding))
+            {
+                db = binding;
+                docs.TryGetValue(binding.DocumentId, out d);
+            }
+
+            result.Add(new PropertyCertificateDto
+            {
+                Id = pc != null ? pc.Id : 0,
+                PropertyId = pc != null && pc.PropertyId.HasValue ? pc.PropertyId.Value : propertyId,
+                WingDetailId = pc?.WingDetailId,
+                SocietyDetailId = pc?.SocietyDetailId,
+                CertificateTypeId = pctm.Id,
+                CertificateTypeName = pctm.CertificateTypeName,
+                CertificateTypeCode = pctm.CertificateTypeCode,
+                CertificateNo = pc?.CertificateNo,
+                IssueDate = pc?.IssueDate,
+                PropertyDetailsId = pc?.PropertyDetailsId,
+                EntityType = pc?.EntityType ?? "P",
+                DocumentBindingId = pc?.DocumentBindingId,
+                DocumentId = db?.DocumentId,
+                DocumentGuid = d?.DocumentGuid
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<bool> DeleteByDocumentIdAsync(
+        int documentId,
+        int deletedBy,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.AgainstNegativeOrZero(documentId, nameof(documentId));
+        Guard.AgainstNegativeOrZero(deletedBy, nameof(deletedBy));
+
+        using var scope = _serviceProvider?.CreateScope();
+        var sp = scope?.ServiceProvider;
+
+        var certRepo = _propertyCertificateRepository ?? sp?.GetService<IRepository<PropertyCertificateEntity>>();
+        var docBindingRepo = _documentBindingRepository ?? sp?.GetService<IRepository<DocumentBindingEntity>>();
+        var docRepo = _documentRepository ?? sp?.GetService<IRepository<DocumentEntity>>();
+
+        if (docBindingRepo == null || certRepo == null || docRepo == null)
+        {
+            return false;
+        }
+
+        var documentBinding = await docBindingRepo.GetQueryable().AsNoTracking()
+            .FirstOrDefaultAsync(x =>
+                x.DocumentId == documentId &&
+                (x.ReferenceTableName == "PropertyCertificate" || 
+                 x.ReferenceTableName == "PropertyCertificates") &&
+                x.IsActive &&
+                !x.MarkedForDeletion,
+                cancellationToken);
+
+        if (documentBinding == null)
+        {
+            return false;
+        }
+
+        var propertyCertificate = await certRepo.GetQueryable()
+            .FirstOrDefaultAsync(x =>
+                x.Id == documentBinding.ReferenceTableId &&
+                x.DocumentBindingId == documentBinding.Id &&
+                x.IsActive &&
+                !x.MarkedForDeletion,
+                cancellationToken);
+
+        if (propertyCertificate == null)
+        {
+            return false;
+        }
+
+        var documentExists = await docRepo.GetQueryable().AsNoTracking()
+            .AnyAsync(x =>
+                x.Id == documentId &&
+                x.IsActive &&
+                !x.MarkedForDeletion,
+                cancellationToken);
+
+        if (!documentExists)
+        {
+            return false;
+        }
+
+        var currentDate = DateTime.Now;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            propertyCertificate.MarkForDeletion();
+            propertyCertificate.UpdatedBy = deletedBy;
+            propertyCertificate.UpdatedDate = currentDate;
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            var bindingUpdated = await docBindingRepo.GetQueryable()
+                .Where(x =>
+                    x.Id == documentBinding.Id &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.MarkedForDeletion, true)
+                    .SetProperty(x => x.IsActive, false)
+                    .SetProperty(x => x.UpdatedBy, deletedBy)
+                    .SetProperty(x => x.UpdatedDate, currentDate),
+                    cancellationToken);
+
+            if (bindingUpdated == 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return false;
+            }
+
+            var documentUpdated = await docRepo.GetQueryable()
+                .Where(x =>
+                    x.Id == documentId &&
+                    x.IsActive &&
+                    !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(x => x.MarkedForDeletion, true)
+                    .SetProperty(x => x.IsActive, false)
+                    .SetProperty(x => x.UpdatedBy, deletedBy)
+                    .SetProperty(x => x.UpdatedDate, currentDate),
+                    cancellationToken);
+
+            if (documentUpdated == 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return false;
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            if (propertyCertificate.PropertyId.HasValue)
+            {
+                var isTaxable = await _certificateTypeRepository.GetQueryable().AsNoTracking()
+                    .Where(t => t.Id == propertyCertificate.CertificateTypeId)
+                    .Select(t => t.IsTaxable)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (isTaxable)
+                {
+                    await _publisher.Publish(
+                        new PropertyCertificateChangedEvent(propertyCertificate.PropertyId.Value, deletedBy),
+                        cancellationToken);
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
 }

@@ -9,6 +9,13 @@ namespace NtisPlatform.Application.Interfaces;
 public interface IPropertyCertificateApplicationService
 {
     /// <summary>
+    /// Gets all certificate types with their certificate records for a given PropertyId.
+    /// </summary>
+    Task<List<PropertyCertificateDto>> GetByPropertyIdAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 1. GET - Gets all certificate types with their status for a property
     /// Shows which certificates exist (enabled/disabled) and which don't exist yet.
     /// Pass propertyDetailsId to scope to one floor's certificates; leave null for property-wise
@@ -69,6 +76,14 @@ public interface IPropertyCertificateApplicationService
     /// </summary>
     Task DeleteDocumentAsync(
         int propertyCertificateId,
+        int deletedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft deletes the PropertyCertificate, DocumentBinding, and Document using DocumentId.
+    /// </summary>
+    Task<bool> DeleteByDocumentIdAsync(
+        int documentId,
         int deletedBy,
         CancellationToken cancellationToken = default);
 
@@ -177,4 +192,3 @@ public interface IPropertyCertificateApplicationService
         int userId,
         CancellationToken cancellationToken = default);
 }
-

@@ -863,7 +863,7 @@ namespace NtisPlatform.Tests.Application
                 new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object,
                 new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
                 new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object,
-                new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, ruleLogServiceMock.Object, null, workflowDetailsRepoMock.Object);
+                new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, ruleLogServiceMock.Object, null, workflowDetailsRepository: workflowDetailsRepoMock.Object);
 
             mapperMock.Setup(m => m.Map<PropertyWorkflowDetailsEntity>(It.IsAny<CreateNewPropertyDto>()))
                 .Returns((CreateNewPropertyDto src) => new PropertyWorkflowDetailsEntity { WorkflowStageId = src.WorkflowStageId ?? 0 });
