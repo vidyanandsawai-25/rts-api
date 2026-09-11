@@ -40,6 +40,7 @@ public class PropertySurveySearchResponseDto
     public string? FlatOrShopNo { get; set; }
     public int TotalWingCount { get; set; }
     public int TotalFlatShopCount { get; set; }
+    public int TotalRowHouseCount { get; set; }
     public string? BuilderName { get; set; }
     public double? OldRV { get; set; }
     public double? OldTotalTax { get; set; }

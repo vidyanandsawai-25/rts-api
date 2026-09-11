@@ -16,97 +16,106 @@ namespace NtisPlatform.Tests.Application.Services;
 
 public class PropertyServiceBuildingSearchTests
 {
-    private readonly Mock<IRepository<PropertyEntity, int>>
-        _propertyRepository;
-
-    private readonly Mock<IRepository<PropertyMastOldEntity, int>>
-        _propertyOldRepository;
-
-    private readonly Mock<IRepository<SocietyDetailsEntity, int>>
-        _societyRepository;
-
-    private readonly Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>
-        _roomWiseRepository;
-
-    private readonly Mock<IRepository<PropertyMapDetailEntity, int>>
-        _propertyMapDetailRepository;
+    private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepository;
+    private readonly Mock<IRepository<PropertyMastOldEntity, int>> _propertyOldRepository;
+    private readonly Mock<IRepository<SocietyDetailsEntity, int>> _societyRepository;
+    private readonly Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>> _roomWiseRepository;
+    private readonly Mock<IRepository<PropertyMapDetailEntity, int>> _propertyMapDetailRepository;
 
     public PropertyServiceBuildingSearchTests()
     {
-        _propertyRepository =
-            new Mock<IRepository<PropertyEntity, int>>();
-
-        _propertyOldRepository =
-            new Mock<IRepository<PropertyMastOldEntity, int>>();
-
-        _societyRepository =
-            new Mock<IRepository<SocietyDetailsEntity, int>>();
-
-        _roomWiseRepository =
-            new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>();
-
-        _propertyMapDetailRepository =
-            new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        _propertyRepository = new Mock<IRepository<PropertyEntity, int>>();
+        _propertyOldRepository = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        _societyRepository = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        _roomWiseRepository = new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>();
+        _propertyMapDetailRepository = new Mock<IRepository<PropertyMapDetailEntity, int>>();
     }
 
     [Fact]
-    public async Task SearchBuildingInformationAsync_WithNullParameters_ThrowsArgumentNullException()
+    public async Task SearchBuildingInformationAsync_WithNullOrEmptyDtos_ReturnsEmptyList()
     {
-        // Arrange
         var service = CreateService();
 
-        // Act and Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => service.SearchBuildingInformationAsync(
-                null!,
-                CancellationToken.None));
-    }
+        var resultNull = await service.SearchBuildingInformationAsync(null!);
+        var resultEmpty = await service.SearchBuildingInformationAsync(new List<SearchBuildingInformationDto>());
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task SearchBuildingInformationAsync_WithoutOldWardNo_ThrowsInvalidOperationException(
-        string? oldWardNo)
-    {
-        // Arrange
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = oldWardNo
-        };
-
-        // Act
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.SearchBuildingInformationAsync(
-                queryParameters,
-                CancellationToken.None));
-
-        // Assert
-        Assert.Equal(
-            "BuildingInformation_OldWardNo_Required",
-            exception.Message);
+        Assert.NotNull(resultNull);
+        Assert.Empty(resultNull);
+        Assert.NotNull(resultEmpty);
+        Assert.Empty(resultEmpty);
     }
 
     [Fact]
-    public async Task SearchBuildingInformationAsync_WithMatchingRecords_ReturnsPagedResult()
+    public async Task SearchBuildingInformationAsync_WithValidCriteria_WhenNoPropertyMastLinkage_ReturnsPropertyMastOldData()
     {
         // Arrange
         var oldProperties = new List<PropertyMastOldEntity>
         {
             new()
             {
-                Id = 501,
-                OldWardNo = "W1",
-                OldSocietyName = "ABC Society",
-                OldPropertyNo = "OLD-001",
+                Id = 101,
+                OldWardNo = "1",
+                OldSocietyName = "Ganesh Krupa",
+                OldPropertyNo = "PROP001",
                 OldWing = "A",
                 OldFlatOrShopNumber = "101",
-                OldOwnerName = "Owner One",
-                OldMobileNo = "9999999999",
-                OldRV = 1000,
-                OldTotalTax = 250,
+                OldPropertyTypeId = 1,
+                OldOwnerName = "Ramesh Patil",
+                OldRV = 15000,
+                IsActive = true,
+                MarkedForDeletion = false
+            }
+        };
+
+        var mapDetails = new List<PropertyMapDetailEntity>
+        {
+            new()
+            {
+                PropertyIdOld = 101,
+                Status = "ACTIVE",
+                IsActive = true
+            }
+        };
+
+        SetupRepositories(oldProperties: oldProperties, mapDetails: mapDetails);
+
+        var service = CreateService();
+
+        var dtos = new List<SearchBuildingInformationDto>
+        {
+            new() { OldWardNo = "1", OldSocietyName = "Ganesh Krupa" }
+        };
+
+        // Act
+        var result = await service.SearchBuildingInformationAsync(dtos);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result);
+        var item = result[0];
+        Assert.Equal(101, item.Id);
+        Assert.Equal(0, item.PropertyId);
+        Assert.Equal("Ganesh Krupa", item.SocietyName);
+        Assert.Equal("PROP001", item.OldPropertyNo);
+        Assert.Equal("A", item.OldWing);
+        Assert.Equal("101", item.OldFlatOrShopNumber);
+        Assert.True(item.Identify);
+    }
+
+    [Fact]
+    public async Task SearchBuildingInformationAsync_WithValidCriteria_WhenPropertyMastLinkageExists_ReturnsFullData()
+    {
+        // Arrange
+        var oldProperties = new List<PropertyMastOldEntity>
+        {
+            new()
+            {
+                Id = 101,
+                OldWardNo = "1",
+                OldSocietyName = "Ganesh Krupa",
+                OldPropertyNo = "PROP001",
+                OldWing = "A",
+                OldFlatOrShopNumber = "101",
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -116,8 +125,9 @@ public class PropertyServiceBuildingSearchTests
         {
             new()
             {
-                Id = 101,
-                PropertyMastOldId = 501,
+                Id = 501,
+                PropertyMastOldId = 101,
+                PropertyNo = "NEW001",
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -127,24 +137,23 @@ public class PropertyServiceBuildingSearchTests
         {
             new()
             {
-                Id = 201,
-                PropertyId = 101,
-                BuilderName = "Builder One",
-                BuilderNameEnglish = "Builder One",
-                BuilderMobileNo = "8888888888",
+                Id = 1,
+                PropertyId = 501,
+                SocietyName = "Ganesh Krupa New",
+                BuilderName = "ABC Builders",
                 IsActive = true,
                 MarkedForDeletion = false
             }
         };
 
-        var roomDetails = new List<RoomWiseSubmissionDetailsEntity>
+        var roomWise = new List<RoomWiseSubmissionDetailsEntity>
         {
             new()
             {
-                Id = 301,
-                PropertyId = 101,
-                AreaSqMtr = 50,
-                TotalAreaSqMtr = 60,
+                Id = 1,
+                PropertyId = 501,
+                AreaSqMtr = 55.5,
+                TotalAreaSqMtr = 60.0,
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -154,517 +163,129 @@ public class PropertyServiceBuildingSearchTests
         {
             new()
             {
-                Id = 401,
-                PropertyMapId = 10,
-                PropertyIdNew = 101,
-                PropertyIdOld = 501,
+                PropertyIdOld = 101,
+                PropertyIdNew = 501,
                 Status = "ACTIVE",
-                IsActive = true,
-                CreatedDate = DateTime.Now
+                IsActive = true
             }
         };
 
-        SetupQueryableRepositories(
-            oldProperties,
-            properties,
-            societies,
-            roomDetails,
-            mapDetails);
+        SetupRepositories(
+            properties: properties,
+            oldProperties: oldProperties,
+            societies: societies,
+            roomWise: roomWise,
+            mapDetails: mapDetails);
 
         var service = CreateService();
 
-        var queryParameters = new BuildingInformationQueryParameters
+        var dtos = new List<SearchBuildingInformationDto>
         {
-            OldWardNo = " W1 ",
-            OldSocietyName = "ABC",
-            MapId = 10,
-            PageNumber = 1,
-            PageSize = 10
+            new() { OldWardNo = "1", OldSocietyName = "Ganesh Krupa" }
         };
 
         // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
+        var result = await service.SearchBuildingInformationAsync(dtos);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TotalCount);
-        Assert.Equal(1, result.PageNumber);
-        Assert.Equal(10, result.PageSize);
-        Assert.Single(result.Items);
-
-        var item = result.Items.First();
-
-        Assert.Equal(101, item.PropertyId);
-        Assert.Equal(501, item.Id);
-        Assert.Equal("OLD-001", item.OldPropertyNo);
-        Assert.Equal("A", item.OldWing);
-        Assert.Equal("101", item.OldFlatOrShopNumber);
-        Assert.Equal("Owner One", item.OldOwnerName);
-        Assert.Equal("Builder One", item.BuilderName);
-        Assert.Equal(50m, item.AreaSqMtr);
-        Assert.Equal(60m, item.TotalAreaSqMtr);
+        Assert.Single(result);
+        var item = result[0];
+        Assert.Equal(501, item.PropertyId);
+        Assert.Equal(101, item.Id);
+        Assert.Equal("ABC Builders", item.BuilderName);
+        Assert.Equal(55.5m, item.AreaSqMtr);
+        Assert.Equal(60.0m, item.TotalAreaSqMtr);
         Assert.True(item.Identify);
     }
 
     [Fact]
-    public async Task SearchBuildingInformationAsync_WithoutLinkedProperty_ReturnsOldPropertyWithZeroPropertyId()
+    public async Task SearchBuildingInformationAsync_SortsWingWiseAndFlatNumberCorrectly()
     {
         // Arrange
         var oldProperties = new List<PropertyMastOldEntity>
         {
-            new()
-            {
-                Id = 501,
-                OldWardNo = "W1",
-                OldPropertyNo = "OLD-001",
-                OldOwnerName = "Owner One",
-                IsActive = true,
-                MarkedForDeletion = false
-            }
+            new() { Id = 1, OldWardNo = "1", OldSocietyName = "Soc", OldWing = "B", OldFlatOrShopNumber = "102", IsActive = true },
+            new() { Id = 2, OldWardNo = "1", OldSocietyName = "Soc", OldWing = "A", OldFlatOrShopNumber = "101", IsActive = true },
+            new() { Id = 3, OldWardNo = "1", OldSocietyName = "Soc", OldWing = "A", OldFlatOrShopNumber = "12", IsActive = true },
+            new() { Id = 4, OldWardNo = "1", OldSocietyName = "Soc", OldWing = "A", OldFlatOrShopNumber = "2", IsActive = true }
         };
 
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            []);
+        SetupRepositories(oldProperties: oldProperties);
 
         var service = CreateService();
 
-        var queryParameters = new BuildingInformationQueryParameters
+        var dtos = new List<SearchBuildingInformationDto>
         {
-            OldWardNo = "W1",
-            PageNumber = 1,
-            PageSize = 10
+            new() { OldWardNo = "1", OldSocietyName = "Soc" }
         };
 
         // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
+        var result = await service.SearchBuildingInformationAsync(dtos);
 
-        // Assert
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
-
-        var item = result.Items.First();
-
-        Assert.Equal(0, item.PropertyId);
-        Assert.Equal(501, item.Id);
-        Assert.Equal("OLD-001", item.OldPropertyNo);
-        Assert.Null(item.BuilderName);
-        Assert.Null(item.AreaSqMtr);
-        Assert.False(item.Identify);
+        // Assert: Expected order: A-2, A-12, A-101, B-102
+        Assert.Equal(4, result.Count);
+        Assert.Equal("A", result[0].OldWing);
+        Assert.Equal("2", result[0].OldFlatOrShopNumber);
+        Assert.Equal("12", result[1].OldFlatOrShopNumber);
+        Assert.Equal("101", result[2].OldFlatOrShopNumber);
+        Assert.Equal("B", result[3].OldWing);
+        Assert.Equal("102", result[3].OldFlatOrShopNumber);
     }
 
-    [Fact]
-    public async Task SearchBuildingInformationAsync_WithDifferentMapId_ReturnsNoRecords()
+    private void SetupRepositories(
+        IEnumerable<PropertyEntity>? properties = null,
+        IEnumerable<PropertyMastOldEntity>? oldProperties = null,
+        IEnumerable<SocietyDetailsEntity>? societies = null,
+        IEnumerable<RoomWiseSubmissionDetailsEntity>? roomWise = null,
+        IEnumerable<PropertyMapDetailEntity>? mapDetails = null)
     {
-        // Arrange
-        var oldProperties = new List<PropertyMastOldEntity>
-        {
-            new()
-            {
-                Id = 501,
-                OldWardNo = "W1",
-                OldPropertyNo = "OLD-001",
-                IsActive = true,
-                MarkedForDeletion = false
-            }
-        };
+        _propertyRepository.Setup(x => x.GetQueryable())
+            .Returns((properties ?? []).ToList().BuildMock());
 
-        var mapDetails = new List<PropertyMapDetailEntity>
-        {
-            new()
-            {
-                Id = 401,
-                PropertyMapId = 20,
-                PropertyIdOld = 501,
-                Status = "ACTIVE",
-                IsActive = true,
-                CreatedDate = DateTime.Now
-            }
-        };
+        _propertyOldRepository.Setup(x => x.GetQueryable())
+            .Returns((oldProperties ?? []).ToList().BuildMock());
 
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            mapDetails);
+        _societyRepository.Setup(x => x.GetQueryable())
+            .Returns((societies ?? []).ToList().BuildMock());
 
-        var service = CreateService();
+        _roomWiseRepository.Setup(x => x.GetQueryable())
+            .Returns((roomWise ?? []).ToList().BuildMock());
 
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            MapId = 10,
-            PageNumber = 1,
-            PageSize = 10
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(0, result.TotalCount);
-        Assert.Empty(result.Items);
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_WithInactiveOldProperty_DoesNotReturnRecord()
-    {
-        // Arrange
-        var oldProperties = new List<PropertyMastOldEntity>
-        {
-            new()
-            {
-                Id = 501,
-                OldWardNo = "W1",
-                OldPropertyNo = "OLD-001",
-                IsActive = false,
-                MarkedForDeletion = false
-            }
-        };
-
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            PageNumber = 1,
-            PageSize = 10
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(0, result.TotalCount);
-        Assert.Empty(result.Items);
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_WithDeletedOldProperty_DoesNotReturnRecord()
-    {
-        // Arrange
-        var oldProperties = new List<PropertyMastOldEntity>
-        {
-            new()
-            {
-                Id = 501,
-                OldWardNo = "W1",
-                OldPropertyNo = "OLD-001",
-                IsActive = true,
-                MarkedForDeletion = true
-            }
-        };
-
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            PageNumber = 1,
-            PageSize = 10
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(0, result.TotalCount);
-        Assert.Empty(result.Items);
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_WithSocietyNameFilter_ReturnsMatchingRecords()
-    {
-        // Arrange
-        var oldProperties = new List<PropertyMastOldEntity>
-        {
-            new()
-            {
-                Id = 501,
-                OldWardNo = "W1",
-                OldSocietyName = "ABC Society",
-                OldPropertyNo = "OLD-001",
-                IsActive = true,
-                MarkedForDeletion = false
-            },
-            new()
-            {
-                Id = 502,
-                OldWardNo = "W1",
-                OldSocietyName = "XYZ Society",
-                OldPropertyNo = "OLD-002",
-                IsActive = true,
-                MarkedForDeletion = false
-            }
-        };
-
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            OldSocietyName = "ABC",
-            PageNumber = 1,
-            PageSize = 10
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
-        Assert.Equal("OLD-001", result.Items.First().OldPropertyNo);
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_WithInvalidPaging_UsesDefaultPaging()
-    {
-        // Arrange
-        SetupQueryableRepositories(
-            [],
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            PageNumber = 0,
-            PageSize = 0
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.PageNumber);
-        Assert.Equal(10, result.PageSize);
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_AppliesPagination()
-    {
-        // Arrange
-        var oldProperties = Enumerable.Range(1, 15)
-            .Select(index => new PropertyMastOldEntity
-            {
-                Id = index,
-                OldWardNo = "W1",
-                OldPropertyNo = $"OLD-{index:000}",
-                IsActive = true,
-                MarkedForDeletion = false
-            })
-            .ToList();
-
-        SetupQueryableRepositories(
-            oldProperties,
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1",
-            PageNumber = 2,
-            PageSize = 10
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            CancellationToken.None);
-
-        // Assert
-        Assert.Equal(15, result.TotalCount);
-        Assert.Equal(2, result.PageNumber);
-        Assert.Equal(10, result.PageSize);
-        Assert.Equal(5, result.Items.Count());
-    }
-
-    [Fact]
-    public async Task SearchBuildingInformationAsync_PropagatesCancellationToken()
-    {
-        // Arrange
-        SetupQueryableRepositories(
-            [],
-            [],
-            [],
-            [],
-            []);
-
-        var service = CreateService();
-
-        using var cancellationTokenSource =
-            new CancellationTokenSource();
-
-        var queryParameters = new BuildingInformationQueryParameters
-        {
-            OldWardNo = "W1"
-        };
-
-        // Act
-        var result = await service.SearchBuildingInformationAsync(
-            queryParameters,
-            cancellationTokenSource.Token);
-
-        // Assert
-        Assert.NotNull(result);
-    }
-
-    private void SetupQueryableRepositories(
-        List<PropertyMastOldEntity> oldProperties,
-        List<PropertyEntity> properties,
-        List<SocietyDetailsEntity> societies,
-        List<RoomWiseSubmissionDetailsEntity> roomDetails,
-        List<PropertyMapDetailEntity> mapDetails)
-    {
-        var oldPropertiesQueryable = oldProperties
-            .BuildMock();
-
-        var propertiesQueryable = properties
-            .BuildMock();
-
-        var societiesQueryable = societies
-            .BuildMock();
-
-        var roomDetailsQueryable = roomDetails
-            .BuildMock();
-
-        var mapDetailsQueryable = mapDetails
-            .BuildMock();
-
-        _propertyOldRepository
-            .Setup(repository => repository.GetQueryable())
-            .Returns(oldPropertiesQueryable);
-
-        _propertyRepository
-            .Setup(repository => repository.GetQueryable())
-            .Returns(propertiesQueryable);
-
-        _societyRepository
-            .Setup(repository => repository.GetQueryable())
-            .Returns(societiesQueryable);
-
-        _roomWiseRepository
-            .Setup(repository => repository.GetQueryable())
-            .Returns(roomDetailsQueryable);
-
-        _propertyMapDetailRepository
-            .Setup(repository => repository.GetQueryable())
-            .Returns(mapDetailsQueryable);
+        _propertyMapDetailRepository.Setup(x => x.GetQueryable())
+            .Returns((mapDetails ?? []).ToList().BuildMock());
     }
 
     private PropertyService CreateService()
     {
-        var unitOfWork =
-            new Mock<IUnitOfWork>();
-
-        var mapper =
-            new Mock<IMapper>();
-
-        var customPropertyRepository =
-            new Mock<IPropertyRepository>();
-
-        var logger =
-            new Mock<ILogger<PropertyService>>();
-
-        var featureFlags = Options.Create(
-            new FeatureFlagsOptions());
-
-        var wardRepository =
-            new Mock<IRepository<WardEntity, int>>();
-
-        var categoryRepository =
-            new Mock<IRepository<PropertyCategoryEntity, int>>();
-
-        var propertyDetailsRepository =
-            new Mock<IRepository<PropertyDetailsEntity, int>>();
-
-        var assessmentRepository =
-            new Mock<IRepository<PropertyAssessmentEntity, int>>();
-
-        var wardAllocationRepository =
-            new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>();
-
-        var propertyMapMasterRepository =
-            new Mock<IRepository<PropertyMapMasterEntity, int>>();
-
-        var userRepository =
-            new Mock<IRepository<UserEntity, int>>();
-
-        var propertyTypeRepository =
-            new Mock<IRepository<PropertyTypeMasterEntity, int>>();
-
-        var ruleLogService =
-            new Mock<IPropertyRuleApplicationLogService>();
+        var mockUnitOfWork = new Mock<IUnitOfWork>();
+        var mockMapper = new Mock<IMapper>();
+        var mockPropRepo = new Mock<IPropertyRepository>();
+        var mockLogger = new Mock<ILogger<PropertyService>>();
+        var mockFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+        mockFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions());
 
         return new PropertyService(
             _propertyRepository.Object,
-            unitOfWork.Object,
-            mapper.Object,
-            customPropertyRepository.Object,
-            logger.Object,
-            featureFlags,
-            wardRepository.Object,
-            categoryRepository.Object,
+            mockUnitOfWork.Object,
+            mockMapper.Object,
+            mockPropRepo.Object,
+            mockLogger.Object,
+            mockFlags.Object,
+            new Mock<IRepository<WardEntity, int>>().Object,
+            new Mock<IRepository<PropertyCategoryEntity, int>>().Object,
             _societyRepository.Object,
-            propertyDetailsRepository.Object,
+            new Mock<IRepository<PropertyDetailsEntity, int>>().Object,
             _roomWiseRepository.Object,
-            assessmentRepository.Object,
-            wardAllocationRepository.Object,
+            new Mock<IRepository<PropertyAssessmentEntity, int>>().Object,
+            new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object,
             new Mock<IRepository<OldWardMasterEntity, int>>().Object,
-            propertyMapMasterRepository.Object,
+            new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
             _propertyMapDetailRepository.Object,
             new Mock<IRepository<WingEntity, int>>().Object,
-            userRepository.Object,
+            new Mock<IRepository<UserEntity, int>>().Object,
             _propertyOldRepository.Object,
-            propertyTypeRepository.Object,
+            new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object,
             new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
             new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
             new Mock<IRepository<DocumentBindingEntity, int>>().Object,
@@ -673,6 +294,6 @@ public class PropertyServiceBuildingSearchTests
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
             new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object,
-            ruleLogService.Object);
+            new Mock<IPropertyRuleApplicationLogService>().Object);
     }
 }

@@ -13,30 +13,30 @@ public partial class PropertyController
     /// Searches building information by old ward number,
     /// optional old society name and optional map identifier.
     /// </summary>
-    /// <param name="queryParameters">Building-information search parameters.</param>
+    /// <param name="dtos">Building-information search parameters list.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>A paginated list of matching building information.</returns>
+    /// <returns>A list of matching building information.</returns>
     /// <response code="200">Returns matching building information.</response>
     /// <response code="400">Invalid search parameters.</response>
-    [HttpGet("building-information/search")]
+    [HttpPost("building-information/search")]
     [ProducesResponseType(
-        typeof(ApiResponse<PagedResult<PropertyBuildingInformationDto>>),
+        typeof(ApiResponse<List<PropertyBuildingInformationDto>>),
         StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SearchBuildingInformation(
-        [FromQuery] BuildingInformationQueryParameters queryParameters,
+        [FromBody] List<SearchBuildingInformationDto>? dtos,
         CancellationToken ct)
     {
         var result = await _propertyService
-            .SearchBuildingInformationAsync(queryParameters, ct);
+            .SearchBuildingInformationAsync(dtos!, ct);
 
-        return Ok(new ApiResponse<PagedResult<PropertyBuildingInformationDto>>
+        return Ok(new ApiResponse<List<PropertyBuildingInformationDto>>
         {
             Success = true,
-            Message = result.TotalCount > 0
-                ? $"{result.TotalCount} record(s) found"
+            Message = result.Count > 0
+                ? $"{result.Count} record(s) found"
                 : "No records found matching the search criteria",
             Items = result
         });
     }
-} 
+}
