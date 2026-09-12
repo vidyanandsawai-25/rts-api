@@ -1,9 +1,11 @@
 using AutoMapper;
+using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using Xunit;
@@ -525,6 +527,287 @@ public class SocietyDetailsServiceTests
     }
 
     #endregion
+
+    #region GetSocietySummaryAsync Tests
+
+    [Fact]
+    public async Task GetSocietySummaryAsync_WithNullRequest_ReturnsNull()
+    {
+        // Act
+        var result = await _service.GetSocietySummaryAsync(null!);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetSocietySummaryAsync_WithMissingWardNo_ReturnsNull(string? wardNo)
+    {
+        // Arrange
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = wardNo!,
+            PropertyNo = "P-100"
+        };
+
+        // Act
+        var result = await _service.GetSocietySummaryAsync(request);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetSocietySummaryAsync_WithMissingPropertyNo_ReturnsNull(string? propertyNo)
+    {
+        // Arrange
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-01",
+            PropertyNo = propertyNo!
+        };
+
+        // Act
+        var result = await _service.GetSocietySummaryAsync(request);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetSocietySummaryAsync_WhenOptionalRepositoriesAreNull_ReturnsNull()
+    {
+        // Arrange - _service in test fixture has null property/ward/societyWing repositories
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-01",
+            PropertyNo = "P-100"
+        };
+
+        // Act
+        var result = await _service.GetSocietySummaryAsync(request);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetSocietySummaryAsync_WithWingsAndDistinctWingDetailsMastId_AggregatesCorrectly()
+    {
+        // Arrange
+        var mockPropRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockWardRepo = new Mock<IRepository<WardEntity, int>>();
+        var mockSocWingRepo = new Mock<IRepository<SocietyWingDetailsEntity, int>>();
+        var mockWingMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        var mockPropTypeRepo = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
+
+        // Property & Ward
+        var properties = new List<PropertyEntity>
+        {
+            // Main society property record
+            new() { Id = 100, WardId = 10, PropertyNo = "P-101", PartitionNo = null, IsActive = true, MarkedForDeletion = false },
+            // Child property 1 in Wing 201 (Residential)
+            new() { Id = 101, WardId = 10, PropertyNo = "P-101", PartitionNo = "A-1", WingDetailId = 201, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false },
+            // Child property 2 in Wing 201 (Commercial)
+            new() { Id = 102, WardId = 10, PropertyNo = "P-101", PartitionNo = "A-2", WingDetailId = 201, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false },
+            // Child property 3 in Wing 202 (Commercial)
+            new() { Id = 103, WardId = 10, PropertyNo = "P-101", PartitionNo = "B-1", WingDetailId = 202, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false },
+            // Amenity property
+            new() { Id = 104, WardId = 10, PropertyNo = "P-101", PartitionNo = "CLUB", PropertyTypeId = 3, IsActive = true, MarkedForDeletion = false }
+        };
+        mockPropRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 10, WardNo = "W-1", IsActive = true }
+        };
+        mockWardRepo.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        // Society details
+        var societies = new List<SocietyDetailsEntity>
+        {
+            new() { Id = 50, PropertyId = 100, SocietyName = "Green Meadows", BuilderName = "ABC Builders", SocietyAddress = "Sector 5", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(societies.BuildMock());
+
+        // Society Wings: Note that SocietyWingDetails.Id (5, 6) != WingDetailsMastId (201, 202)
+        var societyWings = new List<SocietyWingDetailsEntity>
+        {
+            new() { Id = 5, PropertyId = 100, SocietyDetailId = 50, WingDetailsMastId = 201, NoOfRowHouse = 2, IsActive = true },
+            new() { Id = 6, PropertyId = 100, SocietyDetailId = 50, WingDetailsMastId = 202, NoOfRowHouse = 1, IsActive = true }
+        };
+        mockSocWingRepo.Setup(r => r.GetQueryable()).Returns(societyWings.BuildMock());
+
+        // WingDetailsMast
+        var wingMasterList = new List<WingDetailsMastEntity>
+        {
+            new() { Id = 201, SocietyDetailsMastId = 50, WingName = "A", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 202, SocietyDetailsMastId = 50, WingName = "B", IsActive = true, MarkedForDeletion = false }
+        };
+        mockWingMastRepo.Setup(r => r.GetQueryable()).Returns(wingMasterList.BuildMock());
+
+        // Property Types
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 1, Type = "R", PartType = "Residential", IsActive = true },
+            new() { Id = 2, Type = "C", PartType = "Commercial", IsActive = true },
+            new() { Id = 3, Type = "A", PartType = "Amenity", IsActive = true }
+        };
+        mockPropTypeRepo.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
+
+        var service = new SocietyDetailsService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object,
+            mockPropRepo.Object,
+            mockWardRepo.Object,
+            mockSocWingRepo.Object,
+            mockWingMastRepo.Object,
+            mockPropTypeRepo.Object);
+
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-1",
+            PropertyNo = "P-101"
+        };
+
+        // Act
+        var result = await service.GetSocietySummaryAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Green Meadows", result.SocietyName);
+        Assert.Equal("ABC Builders", result.BuilderName);
+        Assert.Equal("Sector 5", result.SocietyAddress);
+        Assert.Equal(2, result.TotalWingCount);
+        Assert.Equal(1, result.NoOfFlat); // 1 Residential flat
+        Assert.Equal(2, result.NoOfShop); // 2 Commercial shops
+        Assert.Equal(3, result.NoOfRowHouse); // 2 + 1 row houses
+        Assert.Equal(1, result.TotalAmenityCount); // 1 Amenity
+    }
+
+    [Fact]
+    public async Task GetSocietySummaryAsync_NoWingsFallback_CalculatesFromWardAndPropertyNo()
+    {
+        // Arrange
+        var mockPropRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockWardRepo = new Mock<IRepository<WardEntity, int>>();
+        var mockSocWingRepo = new Mock<IRepository<SocietyWingDetailsEntity, int>>();
+        var mockWingMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        var mockPropTypeRepo = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 100, WardId = 10, PropertyNo = "P-102", PartitionNo = "01", PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false },
+            new() { Id = 101, WardId = 10, PropertyNo = "P-102", PartitionNo = "02", PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false }
+        };
+        mockPropRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 10, WardNo = "W-1", IsActive = true }
+        };
+        mockWardRepo.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var societies = new List<SocietyDetailsEntity>
+        {
+            new() { Id = 51, PropertyId = 100, SocietyName = "Sunrise Heights", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(societies.BuildMock());
+
+        // No wings associated
+        var societyWings = new List<SocietyWingDetailsEntity>();
+        mockSocWingRepo.Setup(r => r.GetQueryable()).Returns(societyWings.BuildMock());
+        mockWingMastRepo.Setup(r => r.GetQueryable()).Returns(new List<WingDetailsMastEntity>().BuildMock());
+
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 1, Type = "R", IsActive = true },
+            new() { Id = 2, Type = "C", IsActive = true }
+        };
+        mockPropTypeRepo.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
+
+        var service = new SocietyDetailsService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object,
+            mockPropRepo.Object,
+            mockWardRepo.Object,
+            mockSocWingRepo.Object,
+            mockWingMastRepo.Object,
+            mockPropTypeRepo.Object);
+
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-1",
+            PropertyNo = "P-102",
+            PartitionNo = "01"
+        };
+
+        // Act
+        var result = await service.GetSocietySummaryAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Sunrise Heights", result.SocietyName);
+        Assert.Equal(0, result.TotalWingCount);
+        Assert.Equal(1, result.NoOfFlat);
+        Assert.Equal(1, result.NoOfShop);
+        Assert.Equal(0, result.NoOfRowHouse);
+    }
+
+    [Fact]
+    public async Task GetSocietySummaryAsync_DeactivatedWard_ReturnsNull()
+    {
+        // Arrange
+        var mockPropRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockWardRepo = new Mock<IRepository<WardEntity, int>>();
+        var mockSocWingRepo = new Mock<IRepository<SocietyWingDetailsEntity, int>>();
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 100, WardId = 10, PropertyNo = "P-103", IsActive = true, MarkedForDeletion = false }
+        };
+        mockPropRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+
+        // Ward is deactivated
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 10, WardNo = "W-1", IsActive = false }
+        };
+        mockWardRepo.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var service = new SocietyDetailsService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object,
+            mockPropRepo.Object,
+            mockWardRepo.Object,
+            mockSocWingRepo.Object);
+
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-1",
+            PropertyNo = "P-103"
+        };
+
+        // Act
+        var result = await service.GetSocietySummaryAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
 }
 
 /// <summary>
@@ -892,3 +1175,5 @@ public class SocietyDetailsEntityTests
         Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 }
+
+

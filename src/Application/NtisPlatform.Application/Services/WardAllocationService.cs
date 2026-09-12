@@ -112,7 +112,7 @@ public class WardAllocationService :
             if (oldWard != null)
             {
                 dto.OldWardNo = oldWard.OldWardNo;
-                dto.OldZoneName = oldWard.OldZoneName;
+                dto.OldZoneName = oldWard.Description;
             }
         }
 
@@ -244,7 +244,7 @@ public class WardAllocationService :
                     out var oldWard))
             {
                 dto.OldWardNo = oldWard.OldWardNo;
-                dto.OldZoneName = oldWard.OldZoneName;
+                dto.OldZoneName = oldWard.Description;
             }
         }
 
@@ -826,7 +826,7 @@ public class WardAllocationService :
                 : null,
 
                             OldZoneName = oldWard != null
-                ? oldWard.OldZoneName
+                ? oldWard.Description
                 : null
             })
             .Distinct()
@@ -1003,7 +1003,7 @@ public class WardAllocationService :
                 : null,
 
                             OldZoneName = oldWard != null
-                ? oldWard.OldZoneName
+                ? oldWard.Description
                 : null,
 
                 IsActive = allocation.IsActive,
@@ -1194,7 +1194,7 @@ public class WardAllocationService :
             {
                 OldWardId = x.Id,
                 OldWardNo = x.OldWardNo,
-                OldZoneName = x.OldZoneName
+                OldZoneName = x.Description
             })
             .ToListAsync(cancellationToken);
     }

@@ -459,7 +459,7 @@ public class WardAllocationServiceTests
                 {
                     Id = 500,
                     OldWardNo = "10",
-                    OldZoneName = "Old Zone A",
+                    Description = "Old Zone A",
                     IsActive = true
                 }
             };
@@ -650,7 +650,7 @@ public class WardAllocationServiceTests
                 {
                     Id = 500,
                     OldWardNo = "10",
-                    OldZoneName = "Old Zone A",
+                    Description = "Old Zone A",
                     IsActive = false
                 }
             };
