@@ -39,30 +39,13 @@ public partial class PropertyService
             PropertySurveySearchQueryParameters request,
             CancellationToken cancellationToken)
     {
-        var properties = _propertyRepository
-            .GetQueryable()
-            .AsNoTracking();
+        var properties = _propertyRepository.GetQueryable().AsNoTracking();
+        var wards = _wardRepository.GetQueryable().AsNoTracking();
+        var propertyTypes = _propertyTypeRepository.GetQueryable().AsNoTracking();
+        var societies = _societyRepository.GetQueryable().AsNoTracking();
+        var query = properties.Where(property =>property.IsActive &&!property.MarkedForDeletion);
 
-        var wards = _wardRepository
-            .GetQueryable()
-            .AsNoTracking();
-
-        var propertyTypes = _propertyTypeRepository
-            .GetQueryable()
-            .AsNoTracking();
-
-        var societies = _societyRepository
-            .GetQueryable()
-            .AsNoTracking();
-
-        var query = properties.Where(property =>
-            property.IsActive &&
-            !property.MarkedForDeletion);
-
-        query = query.Where(property =>
-            wards.Any(ward =>
-                ward.Id == property.WardId &&
-                ward.IsActive &&
+        query = query.Where(property => wards.Any(ward =>ward.Id == property.WardId && ward.IsActive &&
                 ward.WardNo.ToString() == request.WardNo));
 
         if (request.PartitionNo != null)
@@ -75,34 +58,21 @@ public partial class PropertyService
         {
             // Resolve apartment category IDs dynamically from PropertyCategoryMaster
             // instead of hardcoding ID = 6, matching the pattern used across the codebase.
-            var apartmentCategoryIds = await _categoryRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(category =>
-                    category.IsActive &&
-                    category.PropertyCategoryName.Contains(
+            var apartmentCategoryIds = await _categoryRepository.GetQueryable().AsNoTracking()
+                .Where(category => category.IsActive && category.PropertyCategoryName.Contains(
                         CapitalValueConstants.PropertyCategory.ApartmentKeyword))
                 .Select(category => category.Id)
                 .ToListAsync(cancellationToken);
 
-            query = query.Where(property =>
-                property.CategoryId.HasValue &&
-                apartmentCategoryIds.Contains(property.CategoryId.Value));
+            query = query.Where(property => property.CategoryId.HasValue && apartmentCategoryIds.Contains(property.CategoryId.Value));
         }
 
         if (request.SearchText != null)
         {
             var search = request.SearchText;
-
             var matchingWingSocietyIds = _wingDetailsMastRepository != null
-                ? (await _wingDetailsMastRepository
-                    .GetQueryable()
-                    .AsNoTracking()
-                    .Where(wdm =>
-                        wdm.IsActive &&
-                        !wdm.MarkedForDeletion &&
-                        wdm.WingName != null &&
-                        wdm.WingName.Contains(search))
+                ? (await _wingDetailsMastRepository.GetQueryable().AsNoTracking()
+                    .Where(wdm => wdm.IsActive && !wdm.MarkedForDeletion && wdm.WingName != null && wdm.WingName.Contains(search))
                     .Select(wdm => wdm.SocietyDetailsMastId)
                     .ToListAsync(cancellationToken))
                     .ToHashSet()
@@ -342,29 +312,22 @@ var results = await ApplyPagination(
         Id = property.Id,
         PropertyId = null,
         Source = SurveySearchStatus.Old,
-
         WardNo = request.WardNo,
         OldWardNo = property.OldWardNo,
-
         PropertyNo = property.OldPropertyNo,
         PartitionNo = property.OldPartitionNo,
         PropertyTypeId = property.OldPropertyTypeId,
-
         OwnerName = property.OldOwnerName,
         OwnerNameEnglish = property.OldOwnerNameEnglish,
         OccupierName = property.OldOccupierName,
         OccupierNameEnglish = property.OldOccupierNameEnglish,
-
         Address = property.OldAddress,
         AddressEnglish = property.OldAddressEnglish,
-
         MobileNo = property.OldMobileNo,
         EmailId = property.OldEmailId,
-
         SocietyName = property.OldSocietyName,
         Wing = property.OldWing,
         FlatOrShopNo = property.OldFlatOrShopNumber,
-
         OldRV = (double?)property.OldRV,
         OldTotalTax = (double?)property.OldTotalTax,
         OldAssessmentYear = property.OldAssessmentYear,
@@ -401,7 +364,7 @@ var results = await ApplyPagination(
                     .Distinct()
                     .Count(),
 
-               
+                TotalRowHouseCount = group.Count(x => x.OldPropertyTypeId == 3 || x.OldPropertyTypeId == 4)
             })
             .ToListAsync(cancellationToken);
 
@@ -479,10 +442,12 @@ var results = await ApplyPagination(
             result.TotalFlatShopCount =
                 aggregate?.TotalFlatShopCount ?? 0;
 
-           
+            result.TotalRowHouseCount =
+                aggregate?.TotalRowHouseCount ?? 0;
 
             result.Active = IsActiveMapStatus(mapDetail.Status);
             result.Status = mapDetail.Status;
+            result.PropertyId = newProperty?.PropertyId ?? mapDetail.PropertyIdNew;
 
             result.NewPropertyNo = newProperty?.PropertyNo;
             result.NewWardNo = newProperty?.WardNo;
@@ -508,11 +473,10 @@ var results = await ApplyPagination(
         PropertySurveySearchQueryParameters request,
         CancellationToken cancellationToken)
     {
-
         var allocatedOldWardNumbers =
-       await GetAllocatedOldWardNumbersAsync(
-           request,
-           cancellationToken);
+            await GetAllocatedOldWardNumbersAsync(
+                request,
+                cancellationToken);
 
         if (allocatedOldWardNumbers.Count == 0)
         {
@@ -520,22 +484,30 @@ var results = await ApplyPagination(
         }
 
         var matchingPropertiesQuery = BuildOldPropertyQuery(
-    request,
-    allocatedOldWardNumbers,
-    requireSociety: true);
+            request,
+            allocatedOldWardNumbers,
+            requireSociety: true);
 
-        var matchedSocietyNames = await matchingPropertiesQuery
-            .Select(property => property.OldSocietyName)
-            .Where(societyName => societyName != null)
+        var pagedSocietyNamesQuery = matchingPropertiesQuery
+            .Where(property => property.OldSocietyName != null && property.OldSocietyName != string.Empty)
+            .Select(property => property.OldSocietyName!)
             .Distinct()
+            .OrderBy(societyName => societyName);
+
+        var pagedSocietyNames = await ApplyPagination(pagedSocietyNamesQuery, request)
             .ToListAsync(cancellationToken);
 
-        if (matchedSocietyNames.Count == 0)
+        if (pagedSocietyNames.Count == 0)
         {
             return EmptySurveyResponse();
         }
 
-        var allSocietyPropertiesQuery = _propertyOldRepository
+        var hasNext = request.PageSize != -1 && pagedSocietyNames.Count > request.PageSize;
+        var currentSocietyNames = hasNext
+            ? pagedSocietyNames.Take(request.PageSize).ToList()
+            : pagedSocietyNames;
+
+        var pageProperties = await _propertyOldRepository
             .GetQueryable()
             .AsNoTracking()
             .Where(property =>
@@ -543,177 +515,75 @@ var results = await ApplyPagination(
                 !property.MarkedForDeletion &&
                 property.OldWardNo != null &&
                 allocatedOldWardNumbers.Contains(property.OldWardNo) &&
-                matchedSocietyNames.Contains(
-                    property.OldSocietyName));
-
-        var societyGroups = await allSocietyPropertiesQuery
-            .GroupBy(property => property.OldSocietyName)
-            .Select(group => new PropertySurveySearchResponseDto
-            {
-                SocietyName = group.Key,
-                Source = SurveySearchStatus.Old,
-                WardNo = request.WardNo,
-
-                TotalWingCount = group
-                    .Select(property => property.OldWing)
-                    .Distinct()
-                    .Count(),
-
-                TotalFlatShopCount = group
-                    .Select(property =>
-                        property.OldFlatOrShopNumber)
-                    .Distinct()
-                    .Count(),
-
-                Id = group
-                    .OrderBy(property =>
-                        property.OldPartitionNo == null ||
-                        property.OldPartitionNo == string.Empty
-                            ? 0
-                            : 1)
-                    .ThenBy(property => property.OldPropertyNo)
-                    .Select(property => property.Id)
-                    .FirstOrDefault(),
-
-                OldWardNo = group
-                    .OrderBy(property =>
-                        property.OldPartitionNo == null ||
-                        property.OldPartitionNo == string.Empty
-                            ? 0
-                            : 1)
-                    .ThenBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldWardNo)
-                    .FirstOrDefault(),
-
-                PropertyNo = group
-                    .OrderBy(property =>
-                        property.OldPartitionNo == null ||
-                        property.OldPartitionNo == string.Empty
-                            ? 0
-                            : 1)
-                    .ThenBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldPropertyNo)
-                    .FirstOrDefault(),
-
-                PartitionNo = group
-                    .OrderBy(property =>
-                        property.OldPartitionNo == null ||
-                        property.OldPartitionNo == string.Empty
-                            ? 0
-                            : 1)
-                    .ThenBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldPartitionNo)
-                    .FirstOrDefault(),
-
-                PropertyTypeId = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldPropertyTypeId)
-                    .FirstOrDefault(),
-
-                OwnerName = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldOwnerName)
-                    .FirstOrDefault(),
-
-                OwnerNameEnglish = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldOwnerNameEnglish)
-                    .FirstOrDefault(),
-
-                OccupierName = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldOccupierName)
-                    .FirstOrDefault(),
-
-                OccupierNameEnglish = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldOccupierNameEnglish)
-                    .FirstOrDefault(),
-
-                Address = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldAddress)
-                    .FirstOrDefault(),
-
-                AddressEnglish = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldAddressEnglish)
-                    .FirstOrDefault(),
-
-                MobileNo = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldMobileNo)
-                    .FirstOrDefault(),
-
-                EmailId = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldEmailId)
-                    .FirstOrDefault(),
-
-                Wing = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldWing)
-                    .FirstOrDefault(),
-
-                FlatOrShopNo = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldFlatOrShopNumber)
-                    .FirstOrDefault(),
-
-                OldRV = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => (double?)property.OldRV)
-                    .FirstOrDefault(),
-
-                OldTotalTax = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => (double?)property.OldTotalTax)
-                    .FirstOrDefault(),
-
-                OldAssessmentYear = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldAssessmentYear)
-                    .FirstOrDefault(),
-
-                OldFloor = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property => property.OldFloor)
-                    .FirstOrDefault(),
-
-                TotalArea = group
-                    .OrderBy(property => property.OldPropertyNo)
-                    .Select(property =>
-                        (double?)property.OldConstructionArea)
-                    .FirstOrDefault()
-            })
-            .OrderBy(group => group.SocietyName)
-            .Skip(GetSkip(request))
-            .Take(request.PageSize + 1)
+                property.OldSocietyName != null &&
+                currentSocietyNames.Contains(property.OldSocietyName))
             .ToListAsync(cancellationToken);
 
-        var hasNext = societyGroups.Count > request.PageSize;
+        var data = currentSocietyNames
+            .Select(societyName =>
+            {
+                var group = pageProperties
+                    .Where(p => p.OldSocietyName == societyName)
+                    .ToList();
 
-        var data = hasNext
-            ? societyGroups.Take(request.PageSize).ToList()
-            : societyGroups;
+                var representative = group
+                    .OrderBy(property =>
+                        string.IsNullOrEmpty(property.OldPartitionNo)
+                            ? 0
+                            : 1)
+                    .ThenBy(property => property.OldPropertyNo)
+                    .FirstOrDefault();
+
+                return new PropertySurveySearchResponseDto
+                {
+                    SocietyName = societyName,
+                    Source = SurveySearchStatus.Old,
+                    WardNo = request.WardNo,
+
+                    TotalWingCount = group
+                        .Where(x => !string.IsNullOrWhiteSpace(x.OldWing))
+                        .Select(property => property.OldWing!.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count(),
+
+                    TotalFlatShopCount = group
+                        .Where(x => !string.IsNullOrWhiteSpace(x.OldFlatOrShopNumber))
+                        .Select(property => (property.OldPropertyNo ?? "") + "_" + property.OldFlatOrShopNumber!.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count(),
+
+                    TotalRowHouseCount = group.Count(x => x.OldPropertyTypeId == 3 || x.OldPropertyTypeId == 4),
+
+                    Id = representative?.Id ?? 0,
+                    OldWardNo = representative?.OldWardNo,
+                    PropertyNo = representative?.OldPropertyNo,
+                    PartitionNo = representative?.OldPartitionNo,
+                    PropertyTypeId = representative?.OldPropertyTypeId,
+                    OwnerName = representative?.OldOwnerName,
+                    OwnerNameEnglish = representative?.OldOwnerNameEnglish,
+                    OccupierName = representative?.OldOccupierName,
+                    OccupierNameEnglish = representative?.OldOccupierNameEnglish,
+                    Address = representative?.OldAddress,
+                    AddressEnglish = representative?.OldAddressEnglish,
+                    MobileNo = representative?.OldMobileNo,
+                    EmailId = representative?.OldEmailId,
+                    Wing = representative?.OldWing,
+                    FlatOrShopNo = representative?.OldFlatOrShopNumber,
+                    OldRV = (double?)representative?.OldRV,
+                    OldTotalTax = (double?)representative?.OldTotalTax,
+                    OldAssessmentYear = representative?.OldAssessmentYear,
+                    OldFloor = representative?.OldFloor,
+                    TotalArea = (double?)representative?.OldConstructionArea,
+                    OldConstructionYear = ParseNullableInt(representative?.OldConstructionYear)
+                };
+            })
+            .Where(x => x.Id > 0)
+            .ToList();
 
         var oldPropertyIds = data
             .Select(group => group.Id)
-            .Where(id => id > 0)
             .Distinct()
             .ToList();
-
-        var oldPropertyMetadata = await allSocietyPropertiesQuery
-            .Where(property =>
-                oldPropertyIds.Contains(property.Id))
-            .Select(property => new
-            {
-                property.Id,
-                property.OldConstructionYear
-            })
-            .ToDictionaryAsync(
-                x => x.Id,
-                cancellationToken);
 
         var mapDetailsDict = await GetLatestMapDetailsAsync(
             oldPropertyIds,
@@ -742,10 +612,6 @@ var results = await ApplyPagination(
                 result.Id,
                 out var mapDetail);
 
-            oldPropertyMetadata.TryGetValue(
-                result.Id,
-                out var metadata);
-
             var newProperty = ResolveMappedNewProperty(
                 result.Id,
                 mapDetail.PropertyIdNew,
@@ -753,11 +619,9 @@ var results = await ApplyPagination(
                 newPropertiesByMappedId,
                 newPropertiesByOldId);
 
-            result.OldConstructionYear =
-                ParseNullableInt(metadata?.OldConstructionYear);
-
             result.Active = IsActiveMapStatus(mapDetail.Status);
             result.Status = mapDetail.Status;
+            result.PropertyId = newProperty?.PropertyId ?? mapDetail.PropertyIdNew;
 
             result.NewPropertyNo = newProperty?.PropertyNo;
             result.NewWardNo = newProperty?.WardNo;
@@ -1219,15 +1083,17 @@ var results = await ApplyPagination(
     }
 
     private async Task<List<string>> GetAllocatedOldWardNumbersAsync(
-    PropertySurveySearchQueryParameters request,
-    CancellationToken cancellationToken)
+        PropertySurveySearchQueryParameters request,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.WardNo) || !request.UserId.HasValue)
+        if (string.IsNullOrWhiteSpace(request.WardNo))
         {
             return [];
         }
 
         var wardNo = request.WardNo.Trim();
+        var numericWardNo = ExtractNumericPart(wardNo);
+        var isNumericId = int.TryParse(wardNo, out var parsedWardId);
 
         // Step 1: Resolve current WardNo -> WardId(s)
         var wardIds = await _wardRepository
@@ -1236,7 +1102,9 @@ var results = await ApplyPagination(
             .Where(ward =>
                 ward.IsActive &&
                 ward.WardNo != null &&
-                ward.WardNo == wardNo)
+                (ward.WardNo == wardNo ||
+                 (numericWardNo != "" && ward.WardNo == numericWardNo) ||
+                 (isNumericId && ward.Id == parsedWardId)))
             .Select(ward => ward.Id)
             .ToListAsync(cancellationToken);
 
@@ -1245,12 +1113,12 @@ var results = await ApplyPagination(
             return [];
         }
 
-        // Step 2: Get OldWardId(s) allocated to this user + current ward
+        // Step 2: Get OldWardId(s) allocated to this WardId
         var oldWardIds = await _wardAllocationRepository
             .GetQueryable()
             .AsNoTracking()
             .Where(allocation =>
-                allocation.UserId == request.UserId.Value &&
+                (!request.UserId.HasValue || request.UserId.Value <= 0 || allocation.UserId == request.UserId.Value) &&
                 allocation.IsActive &&
                 wardIds.Contains(allocation.WardId) &&
                 allocation.OldWardId.HasValue)

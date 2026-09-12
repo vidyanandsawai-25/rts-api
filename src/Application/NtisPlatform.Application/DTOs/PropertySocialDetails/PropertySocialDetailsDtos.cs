@@ -126,7 +126,8 @@ public class BulkCreatePropertySocialDetailsByPropertyIdsDto : CreateBaseDtos
                 DateValue = DateValue,
                 DocumentBindingId = DocumentBindingId,
                 Remark = Remark,
-                CreatedBy = CreatedBy
+                CreatedBy = CreatedBy,
+                IsActive = IsActive
             })
             .ToList();
     }

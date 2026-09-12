@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.DTOs.RetrospectiveTax;
 using NtisPlatform.Application.Events;
@@ -1224,6 +1225,131 @@ public class PropertyCertificateApplicationServiceTests
 
     #endregion
 
+    #region GetCertificateTypesWithStatusAsync Wing/Society Fallback Tests
+
+
+
+    /// <summary>
+    /// A unit's own certificate always takes precedence over an inherited Wing/Society one, even
+    /// when both exist for the same certificate type.
+    /// </summary>
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_UnitHasOwnCertificate_DoesNotFallBack()
+    {
+        const int propertyId = 702;
+        const int wingDetailId = 22;
+        const int societyDetailId = 12;
+        const int certificateTypeId = 6;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Occupancy Certificate",
+            CertificateTypeCode = "OC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var ownCert = PropertyCertificateEntity.Create(propertyId, certificateTypeId, "OWN-OC-001", new DateTime(2025, 7, 1));
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(ownCert, 995);
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(
+                propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { ownCert });
+
+        var propertyEntity = new PropertyEntity { WingDetailId = wingDetailId, IsActive = true };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(propertyEntity, propertyId);
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(propertyEntity);
+
+        var wingEntity = new WingDetailsMastEntity { SocietyDetailsMastId = societyDetailId, IsActive = true };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingEntity, wingDetailId);
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetByIdAsync(wingDetailId, It.IsAny<CancellationToken>())).ReturnsAsync(wingEntity);
+
+        // A Wing-scoped certificate also exists for this type, but must be ignored since the unit
+        // has its own.
+        var wingCert = PropertyCertificateEntity.Create(
+            propertyId: null,
+            certificateTypeId: certificateTypeId,
+            certificateNo: "WING-OC-999",
+            issueDate: new DateTime(2025, 1, 1),
+            entityType: "W",
+            societyDetailId: societyDetailId,
+            wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingCert, 996);
+
+        var propCertRepo = new Mock<IRepository<PropertyCertificateEntity>>();
+        propCertRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyCertificateEntity> { wingCert }.BuildMock());
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo,
+            wingDetailsMastRepo: wingDetailsMastRepo, propertyCertRepo: propCertRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId);
+
+        var item = Assert.Single(result);
+        Assert.True(item.HasCertificate);
+        Assert.False(item.IsInherited);
+        Assert.Equal(995, item.PropertyCertificateId);
+        Assert.Equal("OWN-OC-001", item.CertificateNo);
+    }
+
+    /// <summary>
+    /// A floor-scoped request (propertyDetailsId set) is a distinct, more specific view and must
+    /// not fall back to Wing/Society certificates -- only the property-wise (propertyDetailsId ==
+    /// null) scope does.
+    /// </summary>
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_FloorScope_DoesNotFallBackToWingOrSociety()
+    {
+        const int propertyId = 703;
+        const int propertyDetailsId = 8001;
+        const int certificateTypeId = 7;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Commencement Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(
+                propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        var propCertRepo = new Mock<IRepository<PropertyCertificateEntity>>();
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo,
+            wingDetailsMastRepo: wingDetailsMastRepo, propertyCertRepo: propCertRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId, propertyDetailsId: propertyDetailsId);
+
+        var item = Assert.Single(result);
+        Assert.False(item.HasCertificate);
+        Assert.False(item.IsInherited);
+        // Wing/Society resolution must never even be attempted for a floor-scoped request.
+        propertyRepo.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        propCertRepo.Verify(r => r.GetQueryable(), Times.Never);
+    }
+
+
+
+    #endregion
+
     #region CreateCertificateRecordAsync Tests
 
     private static PropertyCertificateTypeMasterEntity BuildTaxableOcType(int certificateTypeId = 4)
@@ -1259,7 +1385,8 @@ public class PropertyCertificateApplicationServiceTests
         Mock<IRepository<SocietyDetailsEntity, int>> societyRepo,
         Mock<IUnitOfWork>? unitOfWork = null,
         Mock<IRateableValueApiClient>? rateableValueApiClient = null,
-        Mock<IRetrospectiveTaxCalculationEngineService>? retrospectiveTaxEngine = null)
+        Mock<IRetrospectiveTaxCalculationEngineService>? retrospectiveTaxEngine = null,
+        Mock<IDocumentApplicationService>? documentService = null)
     {
         var uow = unitOfWork ?? new Mock<IUnitOfWork>();
         uow.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
@@ -1267,7 +1394,8 @@ public class PropertyCertificateApplicationServiceTests
 
         return BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo,
             societyRepo: societyRepo, unitOfWork: uow, publisher: new Mock<IPublisher>(),
-            rateableValueApiClient: rateableValueApiClient, retrospectiveTaxEngine: retrospectiveTaxEngine);
+            rateableValueApiClient: rateableValueApiClient, retrospectiveTaxEngine: retrospectiveTaxEngine,
+            documentService: documentService);
     }
 
     [Fact]
@@ -1541,6 +1669,7 @@ public class PropertyCertificateApplicationServiceTests
             101, certificateTypeId, It.IsAny<string?>(), It.IsAny<DateTime?>(), 1, It.IsAny<CancellationToken>(),
             null, true, "P", societyDetailId, wingDetailId), Times.Once);
     }
+
 
     [Fact]
     public async Task CreateCertificateRecordAsync_UnitLevel_UnitNotUnderWing_ThrowsArgumentException()

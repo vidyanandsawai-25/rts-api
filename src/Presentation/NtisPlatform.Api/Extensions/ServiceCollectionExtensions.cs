@@ -117,8 +117,12 @@ public static class ServiceCollectionExtensions
         // Report queue DB (separate database; schema owned by the ntis DB project mapping only)
         services.AddPooledDbContextFactory<ReportingDbContext>(options =>
         {
-            var reportingConnection = configuration.GetConnectionString("ReportingConnection")
-                ?? throw new InvalidOperationException("ConnectionStrings:ReportingConnection is not configured.");
+            var reportingConnection = configuration.GetConnectionString("ReportingConnection");
+            if (string.IsNullOrWhiteSpace(reportingConnection))
+            {
+                reportingConnection = configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+            }
             options.UseSqlServer(reportingConnection);
         });
         services.AddScoped(sp =>
@@ -501,6 +505,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyMutationInvariantPolicy, PropertyMutationInvariantPolicy>();
         services.AddScoped<PropertyApiExceptionFilter>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IBuilding3DViewService, Building3DViewService>();
         services.AddScoped<IPropertySurveyService, PropertySurveyService>();
         services.AddScoped<IPropertyVisitTrackerService, PropertySurveyService>();
         services.AddScoped<IPropertyBasicDetailsService, PropertyBasicDetailsService>();
@@ -509,6 +514,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDiscountService, PropertyDiscountService>();
         services.AddScoped<IPropertyOldDetailsService, PropertyOldDetailsService>();
         services.AddScoped<IPropertySearchService, PropertySearchService>();
+        services.AddScoped<IPropertyAmenityService, PropertyAmenityService>();
         services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<ApartmentQcTopSectionPerformanceCalculator>();

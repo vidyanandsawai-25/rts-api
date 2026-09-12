@@ -8,6 +8,11 @@ public class PropertyDrawPlanStatusDto
 {
     public int PropertyId { get; set; }
     public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
     public int? PropertyTypeId { get; set; }
     public string? Type { get; set; }
+    public bool HasType { get; set; }
+    public string? CurrentType { get; set; }
+    public bool IsIndividualOrAmenity { get; set; }
+    public bool RequiresTypeAssignment { get; set; }
 }

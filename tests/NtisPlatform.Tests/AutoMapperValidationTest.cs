@@ -109,6 +109,7 @@ public class AutoMapperValidationTest
               "OccupierTitle", "OccupierName", "OccupierTitleEnglish", "OccupierNameEnglish",
               // Flat/Shop detail fields  
               "FlatOrShopNo", "FlatOrShopName", "FlatOrShopNoEnglish", "FlatOrShopNameEnglish",
+              "NoOfFlat", "NoOfShop", "IsMerged",
               // Address detail fields
               "Address", "Location", "AddressEnglish", "LocationEnglish",
               // Contact fields

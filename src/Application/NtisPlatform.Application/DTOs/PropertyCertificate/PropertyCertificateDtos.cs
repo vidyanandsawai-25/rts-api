@@ -74,4 +74,12 @@ public class PropertyCertificateWithStatusDto
     public string? EntityType { get; set; }
     public int? SocietyDetailId { get; set; }
     public int? WingDetailId { get; set; }
+
+    /// <summary>
+    /// True when this unit has no certificate of its own for this type and the row shown is
+    /// instead falling back to its Wing's or Society's applied certificate (EntityType/
+    /// SocietyDetailId/WingDetailId above identify which). False for the unit's own certificate
+    /// or when there is no certificate at all (HasCertificate = false).
+    /// </summary>
+    public bool IsInherited { get; set; }
 }

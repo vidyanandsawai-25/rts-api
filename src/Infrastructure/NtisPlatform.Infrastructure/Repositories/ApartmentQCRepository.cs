@@ -204,9 +204,9 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             return Array.Empty<string>();
 
         var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(property.Type))
-            types.Add(property.Type!.Trim());
-
+        var ownType = property.Type?.Trim();
+        if (!string.IsNullOrWhiteSpace(ownType) && !string.Equals(ownType, "null", StringComparison.OrdinalIgnoreCase))
+            types.Add(ownType);
         // Not every property is linked to a wing/society (e.g. standalone plots) — in that
         // case the property's own Type above is all we have; there is no society to scan.
         if (property.WingDetailId is int wingDetailId)

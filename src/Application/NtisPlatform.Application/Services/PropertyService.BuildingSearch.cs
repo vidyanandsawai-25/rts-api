@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
-using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Entities;
+using System.Text.RegularExpressions;
 
 namespace NtisPlatform.Application.Services;
 
@@ -9,223 +10,285 @@ namespace NtisPlatform.Application.Services;
 /// </summary>
 public partial class PropertyService
 {
-    /// <summary>
-    /// Searches old-property building information using ward number,
-    /// optional society name and optional property map.
-    /// </summary>
-    public async Task<PagedResult<PropertyBuildingInformationDto>>
-        SearchBuildingInformationAsync(
-            BuildingInformationQueryParameters queryParameters,
-            CancellationToken cancellationToken = default)
+    public async Task<List<PropertyBuildingInformationDto>> SearchBuildingInformationAsync(
+        List<SearchBuildingInformationDto> dtos,
+        CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(queryParameters);
-
-        var oldWardNo = queryParameters.OldWardNo?.Trim();
-
-        if (string.IsNullOrWhiteSpace(oldWardNo))
+        if (dtos == null || dtos.Count == 0)
         {
-            throw new InvalidOperationException(
-                "BuildingInformation_OldWardNo_Required");
+            return new List<PropertyBuildingInformationDto>();
         }
 
-        var oldSocietyName =
-            string.IsNullOrWhiteSpace(queryParameters.OldSocietyName)
-                ? null
-                : queryParameters.OldSocietyName.Trim();
-
-        var pageNumber = queryParameters.PageNumber <= 0
-            ? 1
-            : queryParameters.PageNumber;
-
-        var pageSize = queryParameters.PageSize <= 0
-            ? 10
-            : queryParameters.PageSize;
-
-        /*
-         * Start from PropertyMastOld.
-         *
-         * This ensures old-property records are returned even when there is
-         * no related PropertyMast record.
-         */
-        var oldPropertyQuery = _propertyOldRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                !x.MarkedForDeletion &&
-                x.OldWardNo == oldWardNo);
-
-        if (oldSocietyName != null)
-        {
-            oldPropertyQuery = oldPropertyQuery.Where(x =>
-                x.OldSocietyName != null &&
-                x.OldSocietyName.Contains(oldSocietyName));
-        }
-
-        /*
-         * When MapId is supplied, return only old properties belonging
-         * to that property map.
-         */
-        if (queryParameters.MapId is > 0)
-        {
-            var mapId = queryParameters.MapId.Value;
-
-            var mappedOldPropertyIds = _propertyMapDetailRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(x =>
-                    x.PropertyMapId == mapId &&
-                    x.PropertyIdOld.HasValue &&
-                    x.IsActive)
-                .Select(x => x.PropertyIdOld!.Value)
-                .Distinct();
-
-            oldPropertyQuery = oldPropertyQuery.Where(x =>
-                mappedOldPropertyIds.Contains(x.Id));
-        }
-
-        var propertyQuery = _repository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                !x.MarkedForDeletion);
-
-        var societyQuery = _societyRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                !x.MarkedForDeletion);
-
-        var roomWiseQuery = _roomWiseRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                !x.MarkedForDeletion);
-
-        var mapDetailQuery = _propertyMapDetailRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .Where(x =>
-                x.IsActive &&
-                x.PropertyIdOld.HasValue);
-
-        var query =
-            from oldProperty in oldPropertyQuery
-
-            let latestMapDetail = mapDetailQuery
-                .Where(x =>
-                    x.PropertyIdOld == oldProperty.Id)
-                .OrderByDescending(x => x.CreatedDate)
-                .ThenByDescending(x => x.Id)
-                .FirstOrDefault()
-
-            join property in propertyQuery
-                on (latestMapDetail != null ? latestMapDetail.PropertyIdNew : null) equals (int?)property.Id
-                into propertyGroup
-            from property in propertyGroup.DefaultIfEmpty()
-
-            join society in societyQuery
-                on (property == null ? null : (int?)property.Id) equals society.PropertyId
-                into societyGroup
-            from society in societyGroup.DefaultIfEmpty()
-
-            let roomWiseDetail = roomWiseQuery
-                .Where(x =>
-                    property != null &&
-                    x.PropertyId == property.Id)
-                .OrderBy(x => x.Id)
-                .FirstOrDefault()
-
-            select new PropertyBuildingInformationDto
+        // Remove invalid and duplicate ward-society combinations
+        var distinctCriteria = dtos
+            .Where(x => !string.IsNullOrWhiteSpace(x.OldWardNo))
+            .GroupBy(x => new
             {
-                PropertyId = property != null
-       ? property.Id
-       : 0,
+                OldWardNo = x.OldWardNo.Trim().ToUpperInvariant(),
 
-                Id = oldProperty.Id,
-                OldPropertyNo = oldProperty.OldPropertyNo,
-                OldWing = oldProperty.OldWing,
-                OldFlatOrShopNumber = oldProperty.OldFlatOrShopNumber,
-                OldPropertyTypeId = oldProperty.OldPropertyTypeId,
-                OldOwnerName = oldProperty.OldOwnerName,
-                OldMobileNo = oldProperty.OldMobileNo,
+                OldSocietyName = string.IsNullOrWhiteSpace(x.OldSocietyName)
+                    ? string.Empty
+                    : x.OldSocietyName.Trim().ToUpperInvariant(),
 
-                OldRV = oldProperty.OldRV.HasValue
-       ? (decimal?)Convert.ToDecimal(oldProperty.OldRV.Value)
-       : null,
+                x.MapId
+            })
+            .Select(group => group.First())
+            .ToList();
 
-                OldTotalTax = oldProperty.OldTotalTax.HasValue
-       ? (decimal?)Convert.ToDecimal(oldProperty.OldTotalTax.Value)
-       : null,
+        var finalResults = new List<PropertyBuildingInformationDto>();
 
-                BuilderName = society != null
-       ? society.BuilderName
-       : null,
+        foreach (var dto in distinctCriteria)
+        {
+            var results = await SearchBuildingInformationByCriteriaAsync(
+                dto,
+                cancellationToken);
 
-                BuilderNameEnglish = society != null
-       ? society.BuilderNameEnglish
-       : null,
+            finalResults.AddRange(results);
+        }
 
-                BuilderMobileNo = society != null
-       ? society.BuilderMobileNo
-       : null,
+        // Prevent duplicate response records and sort Wing-wise & Flat-wise
+        var uniqueResults = finalResults
+            .GroupBy(x => new
+            {
+                x.PropertyId,
+                OldPropertyId = x.Id
+            })
+            .Select(group => group.First())
+            .ToList();
 
-                BuilderMobileNoRemarkId = society != null
-       ? society.BuilderMobileNoRemarkId
-       : null,
-
-                AreaSqMtr = roomWiseDetail != null &&
-                roomWiseDetail.AreaSqMtr.HasValue
-       ? (decimal?)Convert.ToDecimal(roomWiseDetail.AreaSqMtr.Value)
-       : null,
-
-                TotalAreaSqMtr = roomWiseDetail != null &&
-                     roomWiseDetail.TotalAreaSqMtr.HasValue
-       ? (decimal?)Convert.ToDecimal(roomWiseDetail.TotalAreaSqMtr.Value)
-       : null,
-
-                Identify =
-       latestMapDetail != null &&
-       latestMapDetail.Status != null &&
-       (
-           latestMapDetail.Status == "DRAFT" ||
-           latestMapDetail.Status == "ACTIVE"
-       )
-            };
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .OrderBy(x => x.OldPropertyNo)
-            .ThenBy(x => x.OldWing)
-            .ThenBy(x => x.OldFlatOrShopNumber)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
-
-        return CreateBuildingInformationPage(
-            items,
-            totalCount,
-            pageNumber,
-            pageSize);
+        return SortBuildingInformationWingWise(uniqueResults);
     }
 
-    private static PagedResult<PropertyBuildingInformationDto>
-        CreateBuildingInformationPage(
-            List<PropertyBuildingInformationDto> items,
-            int totalCount,
-            int pageNumber,
-            int pageSize)
+    private async Task<List<PropertyBuildingInformationDto>> SearchBuildingInformationByCriteriaAsync(
+        SearchBuildingInformationDto dto,
+        CancellationToken cancellationToken = default)
     {
-        return new PagedResult<PropertyBuildingInformationDto>
+        // Step 1: If MapId is provided (and greater than 0), filter by PropertyMapDetail first
+        List<int> filteredPropertyMastOldIds = new List<int>();
+
+        if (dto.MapId.HasValue && dto.MapId.Value > 0)
         {
-            Items = items,
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
+            // Get PropertyMastOld IDs from PropertyMapDetail filtered by MapId
+            var mapDetailsFiltered = await _propertyMapDetailRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.PropertyMapId == dto.MapId.Value &&
+                           x.PropertyIdOld.HasValue &&
+                           x.IsActive)
+                .Select(x => x.PropertyIdOld!.Value)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (mapDetailsFiltered.Count == 0)
+                return new List<PropertyBuildingInformationDto>();
+
+            filteredPropertyMastOldIds = mapDetailsFiltered;
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.OldWardNo))
+            return new List<PropertyBuildingInformationDto>();
+
+        var oldWardNo = dto.OldWardNo.Trim();
+
+        // Step 2: Query PropertyMastOld to find properties by OldWardNo
+        var propertyMastOldQuery = _propertyOldRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.OldWardNo != null &&
+                        (x.OldWardNo == oldWardNo || x.OldWardNo.Trim() == oldWardNo) &&
+                        x.IsActive &&
+                        !x.MarkedForDeletion);
+
+        // Apply MapId filter if provided and greater than 0
+        if (dto.MapId.HasValue && dto.MapId.Value > 0 && filteredPropertyMastOldIds.Count > 0)
+        {
+            propertyMastOldQuery = propertyMastOldQuery.Where(x => filteredPropertyMastOldIds.Contains(x.Id));
+        }
+
+        var propertyMastOldRecords = await propertyMastOldQuery.ToListAsync(cancellationToken);
+
+        if (propertyMastOldRecords.Count == 0)
+            return new List<PropertyBuildingInformationDto>();
+
+        // Step 3: Filter by OldSocietyName in PropertyMastOld if provided
+        if (!string.IsNullOrWhiteSpace(dto.OldSocietyName))
+        {
+            var searchTerm = dto.OldSocietyName.Trim();
+
+            propertyMastOldRecords = propertyMastOldRecords
+                .Where(x => x.OldSocietyName != null &&
+                           x.OldSocietyName.Trim().Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (propertyMastOldRecords.Count == 0)
+                return new List<PropertyBuildingInformationDto>();
+        }
+
+        // Step 4: Get PropertyMastOldIds
+        var propertyMastOldIds = propertyMastOldRecords.Select(x => x.Id).ToList();
+
+        // Step 5: Get PropertyMapDetail records for these Old Property IDs
+        var propertyMapDetails = await _propertyMapDetailRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.PropertyIdOld.HasValue && propertyMastOldIds.Contains(x.PropertyIdOld.Value) && x.IsActive)
+            .GroupBy(x => x.PropertyIdOld)
+            .Select(g => new
+            {
+                PropertyOldId = g.Key,
+                MapDetail = g.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.Id).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var propertyMapDict = propertyMapDetails
+            .Where(x => x.MapDetail != null && x.PropertyOldId.HasValue)
+            .ToDictionary(x => x.PropertyOldId!.Value, x => x.MapDetail!);
+
+        // Step 6: Identify mapped new property IDs (PropertyMast.Id)
+        var mappedNewPropertyIds = propertyMapDict.Values
+            .Where(x => x.PropertyIdNew.HasValue && x.PropertyIdNew.Value > 0)
+            .Select(x => x.PropertyIdNew!.Value)
+            .Distinct()
+            .ToList();
+
+        // Step 7: Fetch linked PropertyMast records (if mapped)
+        var properties = mappedNewPropertyIds.Count > 0
+            ? await _repository.GetQueryable()
+                .AsNoTracking()
+                .Where(p => mappedNewPropertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
+                .ToListAsync(cancellationToken)
+            : new List<PropertyEntity>();
+
+        var propertyDict = properties.ToDictionary(p => p.Id);
+
+        // Step 8: Fetch SocietyDetailsMast records for mapped properties
+        var societies = mappedNewPropertyIds.Count > 0
+            ? await _societyRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(s => s.PropertyId.HasValue && mappedNewPropertyIds.Contains(s.PropertyId.Value) && s.IsActive && !s.MarkedForDeletion)
+                .ToListAsync(cancellationToken)
+            : new List<SocietyDetailsEntity>();
+
+        var societyDict = societies
+            .Where(s => s.PropertyId.HasValue)
+            .GroupBy(s => s.PropertyId!.Value)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Step 9: Fetch RoomWiseSubmissionDetails records for mapped properties
+        var roomWiseDetailsList = mappedNewPropertyIds.Count > 0
+            ? await _roomWiseRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(x => x.PropertyId.HasValue && mappedNewPropertyIds.Contains(x.PropertyId.Value) && x.IsActive && !x.MarkedForDeletion)
+                .ToListAsync(cancellationToken)
+            : new List<RoomWiseSubmissionDetailsEntity>();
+
+        var roomWiseDetailsDict = roomWiseDetailsList
+            .Where(x => x.PropertyId.HasValue)
+            .GroupBy(x => x.PropertyId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).First());
+
+        // Step 10: Build result list
+        var results = new List<PropertyBuildingInformationDto>();
+
+        foreach (var propertyMastOld in propertyMastOldRecords)
+        {
+            var hasMapDetail = propertyMapDict.TryGetValue(propertyMastOld.Id, out var mapDetail);
+            bool identify = hasMapDetail && mapDetail != null && mapDetail.Status != null &&
+                           (mapDetail.Status.Equals("DRAFT", StringComparison.OrdinalIgnoreCase) ||
+                            mapDetail.Status.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase));
+
+            int newPropertyId = 0;
+            SocietyDetailsEntity? society = null;
+            RoomWiseSubmissionDetailsEntity? roomWiseDetails = null;
+
+            if (hasMapDetail && mapDetail?.PropertyIdNew != null && mapDetail.PropertyIdNew.Value > 0)
+            {
+                if (propertyDict.TryGetValue(mapDetail.PropertyIdNew.Value, out var propEntity))
+                {
+                    newPropertyId = propEntity.Id;
+                    societyDict.TryGetValue(newPropertyId, out society);
+                    roomWiseDetailsDict.TryGetValue(newPropertyId, out roomWiseDetails);
+                }
+            }
+
+            results.Add(new PropertyBuildingInformationDto
+            {
+                PropertyId = newPropertyId,
+
+                // From PropertyMastOld
+                Id = propertyMastOld.Id,
+                OldPropertyNo = propertyMastOld.OldPropertyNo,
+                OldWing = propertyMastOld.OldWing,
+                OldFlatOrShopNumber = propertyMastOld.OldFlatOrShopNumber,
+                OldPropertyTypeId = propertyMastOld.OldPropertyTypeId,
+                OldOwnerName = propertyMastOld.OldOwnerName,
+                OldMobileNo = propertyMastOld.OldMobileNo,
+                OldRV = propertyMastOld.OldRV.HasValue ? (decimal?)propertyMastOld.OldRV.Value : null,
+                OldTotalTax = propertyMastOld.OldTotalTax.HasValue ? (decimal?)propertyMastOld.OldTotalTax.Value : null,
+                SocietyName = society?.SocietyName ?? propertyMastOld.OldSocietyName,
+
+                // From SocietyDetailsMast (if mapped PropertyMast exists)
+                BuilderName = society?.BuilderName,
+                BuilderNameEnglish = society?.BuilderNameEnglish,
+                BuilderMobileNo = society?.BuilderMobileNo,
+                BuilderMobileNoRemarkId = society?.BuilderMobileNoRemarkId,
+
+                // From RoomWiseSubmissionDetails (if mapped PropertyMast exists)
+                AreaSqMtr = roomWiseDetails?.AreaSqMtr.HasValue == true ? (decimal)roomWiseDetails.AreaSqMtr.Value : null,
+                TotalAreaSqMtr = roomWiseDetails?.TotalAreaSqMtr.HasValue == true ? (decimal)roomWiseDetails.TotalAreaSqMtr.Value : null,
+
+                // From PropertyMapDetail
+                Identify = identify
+            });
+        }
+
+        return results;
+    }
+
+    private static List<PropertyBuildingInformationDto> SortBuildingInformationWingWise(List<PropertyBuildingInformationDto> items)
+    {
+        if (items == null || items.Count == 0)
+        {
+            return new List<PropertyBuildingInformationDto>();
+        }
+
+        return items
+            .Select(x => new
+            {
+                Item = x,
+                HasWing = !string.IsNullOrWhiteSpace(x.OldWing),
+                WingName = !string.IsNullOrWhiteSpace(x.OldWing) ? x.OldWing.Trim().ToUpperInvariant() : string.Empty,
+                FlatInfo = ParseFlatNumberInfo(x.OldFlatOrShopNumber)
+            })
+            .OrderBy(x => x.HasWing ? 0 : 1)
+            .ThenBy(x => x.WingName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.FlatInfo.Group)
+            .ThenBy(x => x.FlatInfo.Number)
+            .ThenBy(x => x.FlatInfo.Raw, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Item)
+            .ToList();
+    }
+
+    private static (int Group, int Number, string Raw) ParseFlatNumberInfo(string? flatOrShopNumber)
+    {
+        if (string.IsNullOrWhiteSpace(flatOrShopNumber))
+        {
+            return (1, int.MaxValue, string.Empty);
+        }
+
+        string raw = flatOrShopNumber.Trim();
+
+        // Direct integer match e.g. "1", "12", "101"
+        if (int.TryParse(raw, out int directNum))
+        {
+            return (0, directNum, raw);
+        }
+
+        // Extract leading or contained numeric value e.g. "1A", "Flat 5"
+        var match = Regex.Match(raw, @"\d+");
+        if (match.Success && int.TryParse(match.Value, out int extractedNum))
+        {
+            return (0, extractedNum, raw);
+        }
+
+        // Purely non-numeric string
+        return (1, int.MaxValue, raw);
     }
 }

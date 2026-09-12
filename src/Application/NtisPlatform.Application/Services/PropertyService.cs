@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using NtisPlatform.Application.DTOs.Building3DView;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
@@ -857,7 +858,6 @@ public partial class PropertyService
             throw;
         }
     }
-
     /// <summary>
     /// Aggregates flat/shop counts per wing from committed property data and synchronizes
     /// them to the corresponding SocietyWingDetails records.

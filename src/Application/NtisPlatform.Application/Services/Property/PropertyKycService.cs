@@ -32,16 +32,9 @@ public class PropertyKycService : IPropertyKycService
     private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
     private readonly ILogger<PropertyKycService> _logger;
-
-    public PropertyKycService(
-        IPropertyKycRepository repository,
-        IUnitOfWork unitOfWork,
-        IPropertyMutationInvariantPolicy invariantPolicy)
-    {
-        _repository = repository;
-        _unitOfWork = unitOfWork;
-        _invariantPolicy = invariantPolicy;
-    }
+    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
+    private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
+    private readonly IRepository<VirtualPropertyTransferHistoryEntity, int> _virtualPropertyTransferHistoryRepository;
 
     public PropertyKycService(
         IPropertyKycRepository repository,
@@ -57,7 +50,9 @@ public class PropertyKycService : IPropertyKycService
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<PropertyMastOldEntity, int> propertyOldRepository,
         ILogger<PropertyKycService> logger,
-        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository)
+        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository,
+        IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
+        IRepository<VirtualPropertyTransferHistoryEntity, int> virtualPropertyTransferHistoryRepository)
     {
         _repository = repository;
         _unitOfWork = unitOfWork;
@@ -73,9 +68,9 @@ public class PropertyKycService : IPropertyKycService
         _propertyOldRepository = propertyOldRepository;
         _logger = logger;
         _wingDetailsMastRepository = wingDetailsMastRepository;
+        _propertyDetailsRepository = propertyDetailsRepository;
+        _virtualPropertyTransferHistoryRepository = virtualPropertyTransferHistoryRepository;
     }
-
-    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
 
     public async Task<PropertyKycDetailsCommonDto?> GetKycDetailsCommon(
         PropertyKycDetailsQueryParameters queryParameters,
@@ -107,6 +102,8 @@ public class PropertyKycService : IPropertyKycService
             .Select(x => new
             {
                 x.Id,
+                x.PropertyNo,
+                x.PartitionNo,
                 x.PropertyTypeId,
                 x.CategoryId,
                 x.PlotNo,
@@ -157,21 +154,21 @@ public class PropertyKycService : IPropertyKycService
 
         // Step 2: Assessment details
         var assessment = await _assessmentRepository
-    .GetQueryable()
-    .AsNoTracking()
-    .Where(x =>
-        x.PropertyId == propertyId &&
-        x.IsActive &&
-        !x.MarkedForDeletion)
-    .OrderBy(x => x.Id)
-    .Select(x => new
-    {
-        x.OwnerTypeId,
-        x.AdharCardNo,
-        x.BlockNo,
-        x.SurveyRemark
-    })
-    .FirstOrDefaultAsync(cancellationToken);
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x =>
+                x.PropertyId == propertyId &&
+                x.IsActive &&
+                !x.MarkedForDeletion)
+            .OrderBy(x => x.Id)
+            .Select(x => new
+            {
+                x.OwnerTypeId,
+                x.AdharCardNo,
+                x.BlockNo,
+                x.SurveyRemark
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
         // Step 3: Owner type
         string? ownerType = null;
@@ -298,46 +295,80 @@ public class PropertyKycService : IPropertyKycService
                 .FirstOrDefaultAsync(cancellationToken)
             : null;
 
-        // Step 8: Return response
+        // Step 8: TypeOfUseId from PropertyDetails
+        var typeOfUseId = await _propertyDetailsRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x =>
+                x.PropertyId == propertyId &&
+                x.IsActive &&
+                !x.MarkedForDeletion)
+            .OrderBy(x => x.Id)
+            .Select(x => (int?)x.TypeOfUseId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Step 9: VirtualPropertyTransferHistory active records for PropertyId
+        var virtualPropertyTransferHistory = await _virtualPropertyTransferHistoryRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .OrderByDescending(x => x.CreatedDate)
+            .Select(x => new VirtualPropertyTransferHistoryDto
+            {
+                Id = x.Id,
+                PropertyId = x.PropertyId,
+                WardId = x.WardId,
+                PropertyNo = x.PropertyNo,
+                PartitionNo = x.PartitionNo,
+                TransferredWardId = x.TransferredWardId,
+                TransferredPropertyNo = x.TransferredPropertyNo,
+                IsActive = x.IsActive,
+                CreatedBy = x.CreatedBy,
+                CreatedDate = x.CreatedDate,
+                UpdatedBy = x.UpdatedBy,
+                UpdatedDate = x.UpdatedDate
+            })
+            .ToListAsync(cancellationToken);
+
+        // Step 10: Count of active records from PropertyMapDetail
+        var mapCount = await _propertyMapDetailRepository
+            .GetQueryable()
+            .AsNoTracking()
+            .CountAsync(x => x.PropertyIdNew == propertyId && x.IsActive, cancellationToken);
+
+        // Step 11: Return response
         return new PropertyKycDetailsCommonDto
         {
             PropertyId = property.Id,
-
+            PropertyNo = property.PropertyNo,
+            PartitionNo = property.PartitionNo,
             PropertyTypeId = property.PropertyTypeId,
             CategoryId = property.CategoryId,
             PlotNo = property.PlotNo,
             CSN = property.CSN,
-
             OwnerTypeId = assessment?.OwnerTypeId,
-            OwnerType = ownerType,
             AdharCardNo = assessment?.AdharCardNo,
             BlockNo = assessment?.BlockNo,
             SurveyRemark = assessment?.SurveyRemark,
-
+            TypeOfUseId = typeOfUseId,
+            OwnerType = ownerType,
             OldCSN = oldProperty?.OldCSN,
-            OldWardNo = oldProperty?.OldWardNo,
-            OldSocietyName = oldProperty?.OldSocietyName,
-
             OwnerTitle = property.OwnerTitle,
             OwnerName = property.OwnerName,
             OwnerTitleEnglish = property.OwnerTitleEnglish,
             OwnerNameEnglish = property.OwnerNameEnglish,
-
             OccupierTitle = property.OccupierTitle,
             OccupierName = property.OccupierName,
             OccupierTitleEnglish = property.OccupierTitleEnglish,
             OccupierNameEnglish = property.OccupierNameEnglish,
-
             Address = property.Address,
             Location = property.Location,
             AddressEnglish = property.AddressEnglish,
             LocationEnglish = property.LocationEnglish,
-
             FlatOrShopName = property.FlatOrShopName,
             FlatOrShopNameEnglish = property.FlatOrShopNameEnglish,
             FlatOrShopNo = property.FlatOrShopNo,
             FlatOrShopNoEnglish = property.FlatOrShopNoEnglish,
-
             MobileNo = property.MobileNo,
             MobileNoRemarkId = property.MobileNoRemarkId,
             AlternateMobileNo = property.AlternateMobileNo,
@@ -345,51 +376,46 @@ public class PropertyKycService : IPropertyKycService
             OccupierMobileNoRemarkId = property.OccupierMobileNoRemarkId,
             EmailId = property.EmailId,
             PinCode = property.PinCode,
-
-            SocietyDetailId = society?.Id,
             SocietyName = society?.SocietyName,
             SocietyAddress = society?.SocietyAddress,
             SocietyNameEnglish = society?.SocietyNameEnglish,
             SocietyAddressEnglish = society?.SocietyAddressEnglish,
             SocietyEmailId = society?.SocietyEmailId,
-
             WingId = society?.WingId,
             WingNo = wingNo,
             WingName = society?.WingName,
-
             ManagerName = society?.ManagerName,
             ManagerNameEnglish = society?.ManagerNameEnglish,
             ManagerMobileNo = society?.ManagerMobileNo,
             ManagerMobileNoId = society?.ManagerMobileNoRemarkId,
             ManagerEmailId = society?.ManagerEmailId,
-
             SecretaryName = society?.SecretaryName,
             SecretaryNameEnglish = society?.SecretaryNameEnglish,
             SecretaryMobileNo = society?.SecretaryMobileNo,
             SecretaryMobileNoId = society?.SecretaryMobileNoRemarkId,
             SecretaryEmailId = society?.SecretaryEmailId,
-
             LandOwnerName = society?.LandOwnerName,
             LandOwnerNameEnglish = society?.LandOwnerNameEnglish,
-
             BuilderName = society?.BuilderName,
             BuilderNameEnglish = society?.BuilderNameEnglish,
             BuilderMobileNo = society?.BuilderMobileNo,
             BuilderMobileNoId = society?.BuilderMobileNoRemarkId,
-
+            SocietyDetailId = society?.Id,
             PlotLength = roomWiseDetails?.LengthMtr != null
                 ? (double?)roomWiseDetails.LengthMtr
                 : null,
-
             PlotWidth = roomWiseDetails?.WidthMtr != null
                 ? (double?)roomWiseDetails.WidthMtr
                 : null,
-
             TotalArea = roomWiseDetails?.TotalAreaSqMtr != null
                 ? (double?)roomWiseDetails.TotalAreaSqMtr
                 : null,
-
             IssuedBy = issuedBy?.ToString(),
+            OldWardNo = oldProperty?.OldWardNo,
+            OldSocietyName = oldProperty?.OldSocietyName,
+            VirtualPropertyTransferHistory = virtualPropertyTransferHistory,
+            MapCount = mapCount,
+            PropertyIdOld = oldPropertyId > 0 ? oldPropertyId : null,
         };
     }
 

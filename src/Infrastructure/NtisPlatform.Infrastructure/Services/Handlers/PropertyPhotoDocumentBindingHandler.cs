@@ -234,25 +234,32 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
                     }
                 }
             }
+            else if (string.Equals(binding.ReferencePropertyName, "SocietyDetailId", StringComparison.OrdinalIgnoreCase))
+            {
+                // A society photo is uploaded against SocietyDetailsMast directly. Do not treat
+                // its ID as a PropertyMast ID; doing so leaves SocietyDetailId null and causes
+                // the property gallery query to omit the newly uploaded photo.
+                societyDetailId = referenceTableId;
+            }
             else
             {
-                int? defaultWingId = null;
                 var propertyInfo = await _context.PropertyMast
                     .Where(p => p.Id == referenceTableId && p.IsActive && !p.MarkedForDeletion)
                     .Select(p => new { p.WingDetailId })
                     .FirstOrDefaultAsync(cancellationToken);
 
-                defaultWingId = propertyInfo?.WingDetailId;
+                wingDetailId = propertyInfo?.WingDetailId;
+                int? defaultWingId = wingDetailId;
 
                 societyDetailId = await _context.SocietyDetailsMast
                     .Where(s => s.PropertyId == referenceTableId && s.IsActive && !s.MarkedForDeletion)
                     .Select(s => (int?)s.Id)
                     .FirstOrDefaultAsync(cancellationToken);
 
-                if (!societyDetailId.HasValue && defaultWingId.HasValue)
+                if (!societyDetailId.HasValue && wingDetailId.HasValue)
                 {
                     var wingInfo = await _context.Set<WingDetailsMastEntity>()
-                        .Where(w => w.Id == defaultWingId.Value && w.IsActive && !w.MarkedForDeletion)
+                        .Where(w => w.Id == wingDetailId.Value && w.IsActive && !w.MarkedForDeletion)
                         .Select(w => new { w.SocietyDetailsMastId })
                         .FirstOrDefaultAsync(cancellationToken);
                     societyDetailId = wingInfo?.SocietyDetailsMastId;
@@ -355,7 +362,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
                 int? societyDetailId = existingPhoto.SocietyDetailId;
                 int? propId = existingPhoto.PropertyId;
 
-                if (!wingDetailId.HasValue && !societyDetailId.HasValue && propId.HasValue)
+                if ((!wingDetailId.HasValue || !societyDetailId.HasValue) && propId.HasValue)
                 {
                     var propertyInfo = await _context.PropertyMast
                         .Where(p => p.Id == propId.Value && p.IsActive && !p.MarkedForDeletion)
@@ -430,7 +437,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
         int uploadedBy,
         CancellationToken cancellationToken)
     {
-        var (entityType, targetPropertyId, targetSocietyDetailId, type) =
+        var (entityType, targetPropertyId, targetSocietyDetailId, targetWingDetailId, type) =
             await ResolvePropertyPlanBindingAsync(propertyId, cancellationToken);
 
         PropertyPhotoEntity? reusable = null;
@@ -468,7 +475,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
             photoTypeId: photoTypeId,
             entityType: entityType,
             societyDetailId: targetSocietyDetailId,
-            wingDetailId: null,
+            wingDetailId: targetWingDetailId,
             documentBindingId: bindingId,
             displayOrder: 1,
             remarks: binding.BindingPurpose,
@@ -489,7 +496,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
             photo.Id, entityType, targetPropertyId, targetSocietyDetailId, type);
     }
 
-    private async Task<(string EntityType, int? PropertyId, int? SocietyDetailId, string? Type)> ResolvePropertyPlanBindingAsync(
+    private async Task<(string EntityType, int? PropertyId, int? SocietyDetailId, int? WingDetailId, string? Type)> ResolvePropertyPlanBindingAsync(
         int propertyId, CancellationToken cancellationToken)
     {
         var property = await _context.PropertyMast
@@ -499,7 +506,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
 
         if (property == null || property.CategoryId != ApartmentCategoryId)
         {
-            return ("P", propertyId, null, null);
+            return ("P", propertyId, null, property?.WingDetailId, null);
         }
 
         if (property.PropertyTypeId == AmenityPropertyTypeId)
@@ -509,7 +516,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
                 .Select(s => (int?)s.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            return ("P", propertyId, amenitySocietyId, null);
+            return ("P", propertyId, amenitySocietyId, property?.WingDetailId, null);
         }
 
         int? unitSocietyId = null;
@@ -522,7 +529,7 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
             unitSocietyId = wingInfo?.SocietyDetailsMastId;
         }
 
-        return ("S", null, unitSocietyId, property.Type);
+        return ("S", null, unitSocietyId, property?.WingDetailId, property?.Type);
     }
 
     /// <summary>

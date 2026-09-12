@@ -21,6 +21,7 @@ public class PropertyAssessmentEntity : BaseEntity, IHardDeletable
 
     [Column(TypeName = "nvarchar(400)")]
     public string? FlatSystemRemark { get; set; }
+    public string? UnitGenerationType { get; set; }
 
     [Column(TypeName = "nvarchar(400)")]
     public string? CombPropRemark { get; set; }

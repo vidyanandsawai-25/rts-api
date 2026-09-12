@@ -1,6 +1,7 @@
 
 using NtisPlatform.Application.DTOs.Queries;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace NtisPlatform.Application.DTOs.PropertySurveySearch;
 
@@ -40,6 +41,7 @@ public class PropertySurveySearchResponseDto
     public string? FlatOrShopNo { get; set; }
     public int TotalWingCount { get; set; }
     public int TotalFlatShopCount { get; set; }
+    public int TotalRowHouseCount { get; set; }
     public string? BuilderName { get; set; }
     public double? OldRV { get; set; }
     public double? OldTotalTax { get; set; }
@@ -164,15 +166,38 @@ public class CreatedByUserPropertySearchRequestDto : BaseQueryParameters
         ErrorMessage = "WardId is required and must be greater than zero.")]
     public int WardId { get; set; }
 
+    public string? PropertyNo { get; set; }
+
+    public string? PartitionNo { get; set; }
+
+    public int? PropertyTypeId { get; set; }
+
+    public List<int>? PropertyTypeIds { get; set; }
+
     [StringLength(
         200,
         ErrorMessage = "SearchText cannot exceed 200 characters.")]
     public string? SearchText { get; set; }
 }
 
-
-public class CreatedByUserPropertyResponseDto : BaseDtos
+public class NewlyCreatedPropertyWingDetailDto
 {
+    public int Id { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? PropertyId { get; set; }
+    public int? WingId { get; set; }
+    public string? WingName { get; set; }
+    public string? FromFloor { get; set; }
+    public string? ToFloor { get; set; }
+    public int NoOfFlat { get; set; }
+    public int NoOfShop { get; set; }
+    public int NoOfRowHouse { get; set; }
+}
+
+public class CreatedByUserPropertyResponseDto
+{
+    public int Id { get; set; }
+
     public int WardId { get; set; }
 
     public string? WardNo { get; set; }
@@ -181,9 +206,17 @@ public class CreatedByUserPropertyResponseDto : BaseDtos
 
     public string? PartitionNo { get; set; }
 
-    public int? CategoryId { get; set; }
+    public int? PropertyTypeId { get; set; }
 
-    public string? CategoryName { get; set; }
+    public string? FlatOrShopNo { get; set; }
+
+    public string? BlockNo { get; set; }
+
+    public string? Type { get; set; }
+
+    public string? BHK { get; set; }
+
+    public int? CategoryId { get; set; }
 
     public string? PropertyDescription { get; set; }
 
@@ -195,7 +228,13 @@ public class CreatedByUserPropertyResponseDto : BaseDtos
 
     public string? UpicId { get; set; }
 
+    public int? CreatedBy { get; set; }
+
+    public DateTime? CreatedDate { get; set; }
+
     public bool CanDelete { get; set; }
+
+    public int MapCount { get; set; }
 
     // Society details
     public string? SocietyName { get; set; }
@@ -204,26 +243,44 @@ public class CreatedByUserPropertyResponseDto : BaseDtos
 
     public string? SocietyAddress { get; set; }
 
-    public int FlatCount { get; set; }
+    public int NoOfFlat { get; set; }
 
-    public int ShopCount { get; set; }
+    public int NoOfShop { get; set; }
 
-    public int WingCount { get; set; }
+    public int NoOfRowHouse { get; set; }
 
-    public double TotalArea { get; set; }
+    public int TotalAmenityCount { get; set; }
 
-    public double? OldAlv { get; set; }
+    public string? CategoryName { get; set; }
 
-    public double? OldRv { get; set; }
+    [JsonPropertyName("oldALV")]
+    public double? OldALV { get; set; }
+
+    [JsonPropertyName("oldRV")]
+    public double? OldRV { get; set; }
 
     public double? OldGeneralTax { get; set; }
 
     public double? OldTotalTax { get; set; }
 
+    public int TotalWingCount { get; set; }
+
+    public double TotalArea { get; set; }
+
     public double? OldConstructionArea { get; set; }
 
     public List<PropertySearchDocumentDto> Documents { get; set; } = new();
 
+    public List<NewlyCreatedPropertyWingDetailDto> Wings { get; set; } = new();
+
+    public string DisplayProperty =>
+        string.IsNullOrWhiteSpace(PropertyNo)
+            ? string.IsNullOrWhiteSpace(PartitionNo)
+                ? string.Empty
+                : $"-{PartitionNo}"
+            : string.IsNullOrWhiteSpace(PartitionNo)
+                ? PropertyNo!
+                : $"{PropertyNo}-{PartitionNo}";
 }
 
 public class PropertySearchDocumentDto
@@ -255,13 +312,19 @@ public class PropertySearchDocumentDto
     public int? DisplayOrder { get; set; }
 
     public string? Remarks { get; set; }
+
+    public string? ViewUrl { get; set; }
+
+    public string? DownloadUrl { get; set; }
 }
 
 public class UserPropertyPageDto
 {
-    public List<CreatedByUserPropertyResponseDto> Items { get; set; } = new();
+    public bool Status { get; set; } = true;
 
-    public int PageItemCount { get; set; }
+    public string Message { get; set; } = "Properties fetched successfully.";
+
+    public int Count { get; set; }
 
     public int TotalCount { get; set; }
 
@@ -272,4 +335,6 @@ public class UserPropertyPageDto
     public int TotalPages { get; set; }
 
     public bool HasNext { get; set; }
+
+    public List<CreatedByUserPropertyResponseDto> Data { get; set; } = new();
 }

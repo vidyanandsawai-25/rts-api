@@ -23,39 +23,31 @@ public partial class PropertyController
         [FromServices] IUnitOfWork unitOfWork,
         CancellationToken ct)
     {
-        if (request == null || request.Type < 0)
+        string? typeStr = request?.Type switch
+        {
+            null => null,
+            string s => s,
+            System.Text.Json.JsonElement je when je.ValueKind == System.Text.Json.JsonValueKind.String => je.GetString(),
+            System.Text.Json.JsonElement je when je.ValueKind == System.Text.Json.JsonValueKind.Number => je.GetRawText(),
+            _ => null
+        };
+        typeStr = typeStr?.Trim();
+
+        if (string.IsNullOrWhiteSpace(typeStr)
+            || typeStr.Equals("null", System.StringComparison.OrdinalIgnoreCase)
+            || typeStr.Length > 5)
         {
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid Type provided." });
         }
 
-        var property = await propertyRepository.GetQueryable().FirstOrDefaultAsync(p => p.Id == propertyId, ct);
+        var property = await propertyRepository.GetQueryable()
+            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, ct);
         if (property == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Property not found." });
         }
 
-        // Check if type already exists in the same society for Apartment units
-        if (property.WingDetailId.HasValue)
-        {
-            var wing = await wingDetailsMastRepository.GetQueryable().FirstOrDefaultAsync(w => w.Id == property.WingDetailId.Value, ct);
-            if (wing != null && wing.SocietyDetailsMastId > 0)
-            {
-                var wingsInSociety = await wingDetailsMastRepository.GetQueryable()
-                    .Where(w => w.SocietyDetailsMastId == wing.SocietyDetailsMastId && w.IsActive && !w.MarkedForDeletion)
-                    .Select(w => w.Id)
-                    .ToListAsync(ct);
-
-                var existingType = await propertyRepository.GetQueryable()
-                    .AnyAsync(p => p.WingDetailId.HasValue && wingsInSociety.Contains(p.WingDetailId.Value) && p.Type == request.Type.ToString() && p.IsActive && !p.MarkedForDeletion && p.Id != propertyId, ct);
-
-                if (existingType)
-                {
-                    return StatusCode(409, new ApiResponse<object> { Success = false, Message = "Type already exists in this society." });
-                }
-            }
-        }
-
-        property.Type = request.Type.ToString();
+        property.Type = typeStr;
 
         await propertyRepository.UpdateAsync(property, ct);
         await unitOfWork.SaveChangesAsync(ct);
@@ -67,9 +59,59 @@ public partial class PropertyController
             Items = new { propertyId = property.Id, type = property.Type }
         });
     }
+
+    [HttpGet("building-types")]
+    [ProducesResponseType(typeof(ApiResponse<List<string>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetBuildingTypes(
+        [FromQuery] int? wingDetailId,
+        [FromQuery] int? societyDetailId,
+        [FromServices] IRepository<PropertyEntity, int> propertyRepository,
+        [FromServices] IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository,
+        CancellationToken ct)
+    {
+        var query = propertyRepository.GetQueryable().AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion);
+
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            query = query.Where(p => p.WingDetailId == wingDetailId.Value);
+        }
+        else if (societyDetailId.HasValue && societyDetailId.Value > 0)
+        {
+            var wingIds = await wingDetailsMastRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(w => w.SocietyDetailsMastId == societyDetailId.Value && w.IsActive && !w.MarkedForDeletion)
+                .Select(w => w.Id)
+                .ToListAsync(ct);
+
+            query = query.Where(p => p.WingDetailId.HasValue && wingIds.Contains(p.WingDetailId.Value));
+        }
+        else
+        {
+            return Ok(new ApiResponse<List<string>>
+            {
+                Success = true,
+                Message = "No building filters provided",
+                Items = new List<string>()
+            });
+        }
+
+        var types = await query
+            .Where(p => p.Type != null && p.Type.Trim() != "" && p.Type.Trim().ToLower() != "null")
+            .Select(p => p.Type!.Trim())
+            .Distinct()
+            .OrderBy(t => t)
+            .ToListAsync(ct);
+
+        return Ok(new ApiResponse<List<string>>
+        {
+            Success = true,
+            Message = "Building types retrieved successfully",
+            Items = types
+        });
+    }
 }
 
 public class SetPropertyTypeRequest
 {
-    public int Type { get; set; }
+    public object? Type { get; set; }
 }
