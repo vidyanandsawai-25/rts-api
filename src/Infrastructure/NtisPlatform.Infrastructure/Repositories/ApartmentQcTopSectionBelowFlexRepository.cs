@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Property.ApartmentQcTopSection;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 
 namespace NtisPlatform.Infrastructure.Repositories;
@@ -77,8 +78,7 @@ public sealed class ApartmentQcTopSectionBelowFlexRepository : IApartmentQcTopSe
 
         var typeIds = types.Select(t => t.Id).ToList();
 
-        // Property-level certificates only (EntityType == "P", PropertyDetailsId == null) - this
-        // panel mirrors ApartmentQcTopSection's property-level scope, not floor-wise certificates.
+        // Property-level certificates (EntityType == "P", PropertyDetailsId == null)
         var certs = await _context.PropertyCertificates
             .AsNoTracking()
             .Where(c => c.PropertyId == propertyId && c.EntityType == "P" && c.PropertyDetailsId == null
@@ -91,9 +91,61 @@ public sealed class ApartmentQcTopSectionBelowFlexRepository : IApartmentQcTopSe
                 g => g.Key,
                 g => g.OrderByDescending(c => c.CreatedDate ?? DateTime.MinValue).ThenByDescending(c => c.Id).First());
 
+        // Resolve Wing and Society for inheritance fallback
+        var wingDetailId = await _context.PropertyMast.AsNoTracking()
+            .Where(p => p.Id == propertyId && !p.MarkedForDeletion)
+            .Select(p => p.WingDetailId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        int? societyDetailId = null;
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            societyDetailId = await _context.WingDetailsMast.AsNoTracking()
+                .Where(w => w.Id == wingDetailId.Value && w.IsActive && !w.MarkedForDeletion)
+                .Select(w => (int?)w.SocietyDetailsMastId)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (!societyDetailId.HasValue)
+        {
+            societyDetailId = await _context.SocietyDetailsMast.AsNoTracking()
+                .Where(s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion)
+                .Select(s => (int?)s.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        var wingCerts = wingDetailId.HasValue && wingDetailId.Value > 0
+            ? await _context.PropertyCertificates.AsNoTracking()
+                .Where(c => c.EntityType == "W" && c.WingDetailId == wingDetailId.Value
+                            && typeIds.Contains(c.CertificateTypeId) && c.IsActive && !c.MarkedForDeletion)
+                .ToListAsync(cancellationToken)
+            : new List<PropertyCertificateEntity>();
+
+        var latestByWing = wingCerts
+            .GroupBy(c => c.CertificateTypeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(c => c.CreatedDate ?? DateTime.MinValue).ThenByDescending(c => c.Id).First());
+
+        var societyCerts = societyDetailId.HasValue && societyDetailId.Value > 0
+            ? await _context.PropertyCertificates.AsNoTracking()
+                .Where(c => c.EntityType == "S" && c.SocietyDetailId == societyDetailId.Value
+                            && typeIds.Contains(c.CertificateTypeId) && c.IsActive && !c.MarkedForDeletion)
+                .ToListAsync(cancellationToken)
+            : new List<PropertyCertificateEntity>();
+
+        var latestBySociety = societyCerts
+            .GroupBy(c => c.CertificateTypeId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(c => c.CreatedDate ?? DateTime.MinValue).ThenByDescending(c => c.Id).First());
+
         return types.Select(type =>
         {
-            latestByType.TryGetValue(type.Id, out var cert);
+            var cert = latestByType.GetValueOrDefault(type.Id)
+                       ?? latestByWing.GetValueOrDefault(type.Id)
+                       ?? latestBySociety.GetValueOrDefault(type.Id);
+
             return new CertificateTypeStatusDto
             {
                 CertificateTypeId = type.Id,

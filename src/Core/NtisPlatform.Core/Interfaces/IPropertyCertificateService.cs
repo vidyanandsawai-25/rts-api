@@ -127,6 +127,30 @@ public interface IPropertyCertificateService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets active property certificates applied wing-wise (EntityType = 'W') by WingDetailId.
+    /// </summary>
+    /// <param name="wingDetailId">The WingDetailsMast ID</param>
+    /// <param name="includeOptions">Flags indicating which related entities to load</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of active certificates applied to the specified wing</returns>
+    Task<List<PropertyCertificateEntity>> GetByWingDetailIdAsync(
+        int wingDetailId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets active property certificates applied society-wise (EntityType = 'S') by SocietyDetailId.
+    /// </summary>
+    /// <param name="societyDetailId">The SocietyDetailsMast ID</param>
+    /// <param name="includeOptions">Flags indicating which related entities to load</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of active certificates applied to the specified society</returns>
+    Task<List<PropertyCertificateEntity>> GetBySocietyDetailIdAsync(
+        int societyDetailId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates property certificate metadata (number and date)
     /// </summary>
     /// <param name="id">The property certificate ID</param>

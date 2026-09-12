@@ -1707,4 +1707,359 @@ public class PropertyCertificateApplicationServiceTests
     }
 
     #endregion
+
+    #region Unit Wing Society Fallback Inheritance Tests
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_UnitHasOwnCertificate_ReturnsUnitCertificate_NotInherited()
+    {
+        // When unit (PropertyId 300) has its own certificate for a type, display ONLY that unit certificate (IsInherited = false, EntityType = "P"), even if Wing and Society certificates also exist.
+        const int propertyId = 300;
+        const int wingDetailId = 200;
+        const int societyDetailId = 100;
+        const int certificateTypeId = 1;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Completion Certificate",
+            CertificateTypeCode = "CC",
+            IsRequired = false,
+            IsProtected = false,
+            IsTaxable = true,
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyEntity> { new() { Id = propertyId, WingDetailId = wingDetailId, IsActive = true } });
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<WingDetailsMastEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WingDetailsMastEntity> { new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true } });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<SocietyDetailsEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocietyDetailsEntity> { new() { Id = societyDetailId, PropertyId = propertyId, IsActive = true } });
+
+        var unitCert = PropertyCertificateEntity.Create(
+            propertyId, certificateTypeId, "UNIT-CC-001", DateTime.Now.AddDays(-10),
+            propertyDetailsId: null, entityType: "P", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(unitCert, 501);
+
+        var wingCert = PropertyCertificateEntity.Create(
+            null, certificateTypeId, "WING-CC-001", DateTime.Now.AddDays(-20),
+            propertyDetailsId: null, entityType: "W", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingCert, 502);
+
+        var societyCert = PropertyCertificateEntity.Create(
+            null, certificateTypeId, "SOC-CC-001", DateTime.Now.AddDays(-30),
+            propertyDetailsId: null, entityType: "S", societyDetailId: societyDetailId, wingDetailId: null);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(societyCert, 503);
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { unitCert });
+        certService.Setup(s => s.GetByWingDetailIdAsync(wingDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { wingCert });
+        certService.Setup(s => s.GetBySocietyDetailIdAsync(societyDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { societyCert });
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo, societyRepo: societyRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId, CancellationToken.None, propertyDetailsId: null);
+
+        var certResult = Assert.Single(result);
+        Assert.True(certResult.HasCertificate);
+        Assert.False(certResult.IsInherited);
+        Assert.Equal("P", certResult.EntityType);
+        Assert.Equal(501, certResult.PropertyCertificateId);
+        Assert.Equal("UNIT-CC-001", certResult.CertificateNo);
+    }
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_UnitHasNoCertificate_WingHasCertificate_ReturnsWingCertificate_IsInherited()
+    {
+        // When unit has no certificate for a type, fallback to Wing certificate (IsInherited = true, EntityType = "W").
+        const int propertyId = 300;
+        const int wingDetailId = 200;
+        const int societyDetailId = 100;
+        const int certificateTypeId = 1;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Completion Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyEntity> { new() { Id = propertyId, WingDetailId = wingDetailId, IsActive = true } });
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<WingDetailsMastEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WingDetailsMastEntity> { new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true } });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<SocietyDetailsEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocietyDetailsEntity> { new() { Id = societyDetailId, PropertyId = propertyId, IsActive = true } });
+
+        var wingCert = PropertyCertificateEntity.Create(
+            null, certificateTypeId, "WING-CC-001", DateTime.Now.AddDays(-20),
+            propertyDetailsId: null, entityType: "W", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingCert, 502);
+
+        var societyCert = PropertyCertificateEntity.Create(
+            null, certificateTypeId, "SOC-CC-001", DateTime.Now.AddDays(-30),
+            propertyDetailsId: null, entityType: "S", societyDetailId: societyDetailId, wingDetailId: null);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(societyCert, 503);
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>()); // No unit certificate
+        certService.Setup(s => s.GetByWingDetailIdAsync(wingDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { wingCert });
+        certService.Setup(s => s.GetBySocietyDetailIdAsync(societyDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { societyCert });
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo, societyRepo: societyRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId, CancellationToken.None, propertyDetailsId: null);
+
+        var certResult = Assert.Single(result);
+        Assert.True(certResult.HasCertificate);
+        Assert.True(certResult.IsInherited);
+        Assert.Equal("W", certResult.EntityType);
+        Assert.Equal(502, certResult.PropertyCertificateId);
+        Assert.Equal("WING-CC-001", certResult.CertificateNo);
+    }
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_UnitAndWingHaveNoCertificate_SocietyHasCertificate_ReturnsSocietyCertificate_IsInherited()
+    {
+        // When neither unit nor wing has a certificate for a type, fallback to Society certificate (IsInherited = true, EntityType = "S").
+        const int propertyId = 300;
+        const int wingDetailId = 200;
+        const int societyDetailId = 100;
+        const int certificateTypeId = 1;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Completion Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyEntity> { new() { Id = propertyId, WingDetailId = wingDetailId, IsActive = true } });
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<WingDetailsMastEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WingDetailsMastEntity> { new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true } });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<SocietyDetailsEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocietyDetailsEntity> { new() { Id = societyDetailId, PropertyId = propertyId, IsActive = true } });
+
+        var societyCert = PropertyCertificateEntity.Create(
+            null, certificateTypeId, "SOC-CC-001", DateTime.Now.AddDays(-30),
+            propertyDetailsId: null, entityType: "S", societyDetailId: societyDetailId, wingDetailId: null);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(societyCert, 503);
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>()); // No unit certificate
+        certService.Setup(s => s.GetByWingDetailIdAsync(wingDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>()); // No wing certificate
+        certService.Setup(s => s.GetBySocietyDetailIdAsync(societyDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { societyCert });
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo, societyRepo: societyRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId, CancellationToken.None, propertyDetailsId: null);
+
+        var certResult = Assert.Single(result);
+        Assert.True(certResult.HasCertificate);
+        Assert.True(certResult.IsInherited);
+        Assert.Equal("S", certResult.EntityType);
+        Assert.Equal(503, certResult.PropertyCertificateId);
+        Assert.Equal("SOC-CC-001", certResult.CertificateNo);
+    }
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatusAsync_UnitWingSocietyHaveNoCertificate_ReturnsHasCertificateFalse()
+    {
+        // When no certificate exists at Unit, Wing, or Society level, HasCertificate is false, IsInherited is false.
+        const int propertyId = 300;
+        const int wingDetailId = 200;
+        const int societyDetailId = 100;
+        const int certificateTypeId = 1;
+
+        var certType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Completion Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true,
+            DisplayOrder = 1
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(certType, certificateTypeId);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { certType });
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyEntity> { new() { Id = propertyId, WingDetailId = wingDetailId, IsActive = true } });
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<WingDetailsMastEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WingDetailsMastEntity> { new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true } });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<SocietyDetailsEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocietyDetailsEntity> { new() { Id = societyDetailId, PropertyId = propertyId, IsActive = true } });
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+        certService.Setup(s => s.GetByWingDetailIdAsync(wingDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+        certService.Setup(s => s.GetBySocietyDetailIdAsync(societyDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+
+        var service = BuildService(certService, typeRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo, societyRepo: societyRepo);
+
+        var result = await service.GetCertificateTypesWithStatusAsync(propertyId, CancellationToken.None, propertyDetailsId: null);
+
+        var certResult = Assert.Single(result);
+        Assert.False(certResult.HasCertificate);
+        Assert.False(certResult.IsInherited);
+        Assert.Null(certResult.PropertyCertificateId);
+    }
+
+    [Fact]
+    public async Task GetFloorCertificatesAsync_FloorWiseAndPropertyWise_AndFallbackToWingSociety()
+    {
+        const int propertyId = 300;
+        const int wingDetailId = 200;
+        const int societyDetailId = 100;
+        const int floorDetailsId = 50;
+
+        var ccType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Completion Certificate",
+            CertificateTypeCode = "CC",
+            IsActive = true
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(ccType, 1);
+
+        var ocType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Occupancy Certificate",
+            CertificateTypeCode = "OC",
+            IsActive = true
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(ocType, 2);
+
+        var electricType = new PropertyCertificateTypeMasterEntity
+        {
+            CertificateTypeName = "Electricity Bill",
+            CertificateTypeCode = "ELECTRIC_BILL",
+            IsActive = true
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(electricType, 3);
+
+        var typeRepo = new Mock<IRepository<PropertyCertificateTypeMasterEntity, int>>();
+        typeRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyCertificateTypeMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateTypeMasterEntity> { ccType, ocType, electricType });
+
+        var floorEntity = new PropertyDetailsEntity
+        {
+            PropertyId = propertyId,
+            Floor = new FloorEntity { Description = "1st Floor" },
+            IsActive = true
+        };
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(floorEntity, floorDetailsId);
+
+        var detailsRepo = new Mock<IRepository<PropertyDetailsEntity, int>>();
+        detailsRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyDetailsEntity> { floorEntity }.BuildMock());
+
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<PropertyEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyEntity> { new() { Id = propertyId, WingDetailId = wingDetailId, IsActive = true } });
+
+        var wingDetailsMastRepo = new Mock<IRepository<WingDetailsMastEntity, int>>();
+        wingDetailsMastRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<WingDetailsMastEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<WingDetailsMastEntity> { new() { Id = wingDetailId, SocietyDetailsMastId = societyDetailId, IsActive = true } });
+
+        var societyRepo = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        societyRepo.Setup(r => r.GetAsync(It.IsAny<Expression<Func<SocietyDetailsEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocietyDetailsEntity> { new() { Id = societyDetailId, PropertyId = propertyId, IsActive = true } });
+
+        // Floor-wise CC
+        var floorCc = PropertyCertificateEntity.Create(
+            propertyId, 1, "FLOOR-CC-001", new DateTime(2023, 1, 1),
+            propertyDetailsId: floorDetailsId, entityType: "P", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(floorCc, 601);
+        typeof(PropertyCertificateEntity).GetProperty(nameof(PropertyCertificateEntity.CertificateType))!.SetValue(floorCc, ccType);
+
+        // Property-wise OC
+        var propOc = PropertyCertificateEntity.Create(
+            propertyId, 2, "PROP-OC-001", new DateTime(2023, 6, 1),
+            propertyDetailsId: null, entityType: "P", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(propOc, 602);
+        typeof(PropertyCertificateEntity).GetProperty(nameof(PropertyCertificateEntity.CertificateType))!.SetValue(propOc, ocType);
+
+        // Wing-wise Electric Bill
+        var wingElectric = PropertyCertificateEntity.Create(
+            null, 3, "WING-ELEC-001", new DateTime(2023, 9, 1),
+            propertyDetailsId: null, entityType: "W", societyDetailId: societyDetailId, wingDetailId: wingDetailId);
+        typeof(BaseEntity).GetProperty(nameof(BaseEntity.Id))!.SetValue(wingElectric, 603);
+        typeof(PropertyCertificateEntity).GetProperty(nameof(PropertyCertificateEntity.CertificateType))!.SetValue(wingElectric, electricType);
+
+        var certService = new Mock<IPropertyCertificateService>();
+        certService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { floorCc, propOc });
+        certService.Setup(s => s.GetByPropertyIdIncludingInactiveAsync(propertyId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { floorCc, propOc });
+        certService.Setup(s => s.GetByWingDetailIdAsync(wingDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity> { wingElectric });
+        certService.Setup(s => s.GetBySocietyDetailIdAsync(societyDetailId, It.IsAny<PropertyCertificateIncludeOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateEntity>());
+
+        var service = BuildService(certService, typeRepo, detailsRepo: detailsRepo, propertyRepo: propertyRepo, wingDetailsMastRepo: wingDetailsMastRepo, societyRepo: societyRepo);
+
+        var result = await service.GetFloorCertificatesAsync(propertyId, selectedPropertyDetailsId: floorDetailsId);
+
+        Assert.NotNull(result.SelectedFloor);
+        Assert.True(result.SelectedFloor.CertificateApplicable);
+        Assert.Equal(new DateTime(2023, 1, 1), result.SelectedFloor.CcDate);
+        Assert.Equal("FLOOR-CC-001", result.SelectedFloor.CcCertificateNo);
+        Assert.Equal(new DateTime(2023, 6, 1), result.SelectedFloor.OcDate);
+        Assert.Equal("PROP-OC-001", result.SelectedFloor.OcCertificateNo);
+        Assert.Equal(new DateTime(2023, 9, 1), result.SelectedFloor.ElectricBillDate);
+        Assert.Equal("WING-ELEC-001", result.SelectedFloor.ElectricBillNo);
+    }
+
+    #endregion
 }

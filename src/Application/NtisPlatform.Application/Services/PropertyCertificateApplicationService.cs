@@ -200,6 +200,40 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
     // ── Private helpers ─────────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Resolves the WingDetailId and parent SocietyDetailId for a given PropertyId.
+    /// </summary>
+    private async Task<(int? WingDetailId, int? SocietyDetailId)> ResolvePropertyWingAndSocietyIdsAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var properties = await _propertyRepository.GetAsync(
+            p => p.Id == propertyId && !p.MarkedForDeletion,
+            cancellationToken);
+        var targetProperty = properties?.FirstOrDefault();
+
+        int? wingDetailId = targetProperty?.WingDetailId;
+        int? societyDetailId = null;
+
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            var wings = await _wingDetailsMastRepository.GetAsync(
+                w => w.Id == wingDetailId.Value && w.IsActive && !w.MarkedForDeletion,
+                cancellationToken);
+            societyDetailId = wings?.FirstOrDefault()?.SocietyDetailsMastId;
+        }
+
+        if (!societyDetailId.HasValue)
+        {
+            var societies = await _societyRepository.GetAsync(
+                s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion,
+                cancellationToken);
+            societyDetailId = societies?.FirstOrDefault()?.Id;
+        }
+
+        return (wingDetailId, societyDetailId);
+    }
+
+    /// <summary>
     /// Gets the DepartmentId and ModuleId from the database dynamically.
     /// Finds the department that contains PropertyMast table and its primary module.
     /// No hardcoding - fully database-driven.
@@ -247,10 +281,75 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             .GroupBy(c => c.CertificateTypeId)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // Resolve wing and society details for fallback inheritance (property/unit scope only)
+        Dictionary<int, PropertyCertificateEntity> wingCertLookup = new();
+        Dictionary<int, PropertyCertificateEntity> societyCertLookup = new();
+        int? wingDetailId = null;
+        int? societyDetailId = null;
+
+        if (!propertyDetailsId.HasValue)
+        {
+            (wingDetailId, societyDetailId) = await ResolvePropertyWingAndSocietyIdsAsync(propertyId, cancellationToken);
+
+            // Fetch wing-wise certificates if wing exists
+            if (wingDetailId.HasValue && wingDetailId.Value > 0)
+            {
+                var wingCerts = await _propertyCertificateService.GetByWingDetailIdAsync(
+                    wingDetailId.Value,
+                    PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                    cancellationToken);
+
+                if (wingCerts != null)
+                {
+                    wingCertLookup = wingCerts
+                        .Where(c => c.IsActive && !c.MarkedForDeletion)
+                        .GroupBy(c => c.CertificateTypeId)
+                        .ToDictionary(g => g.Key, g => g.First());
+                }
+            }
+
+            // Fetch society-wise certificates if society exists
+            if (societyDetailId.HasValue && societyDetailId.Value > 0)
+            {
+                var societyCerts = await _propertyCertificateService.GetBySocietyDetailIdAsync(
+                    societyDetailId.Value,
+                    PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                    cancellationToken);
+
+                if (societyCerts != null)
+                {
+                    societyCertLookup = societyCerts
+                        .Where(c => c.IsActive && !c.MarkedForDeletion)
+                        .GroupBy(c => c.CertificateTypeId)
+                        .ToDictionary(g => g.Key, g => g.First());
+                }
+            }
+        }
+
         // Build result combining all types with their status
         var result = allTypes.OrderBy(t => t.DisplayOrder).Select(type =>
         {
-            var hasCertificate = certificateLookup.TryGetValue(type.Id, out var certificate);
+            var hasDirectCertificate = certificateLookup.TryGetValue(type.Id, out var directCertificate) && directCertificate != null;
+            var isInherited = false;
+            PropertyCertificateEntity? effectiveCert = null;
+
+            if (hasDirectCertificate)
+            {
+                effectiveCert = directCertificate;
+                isInherited = false;
+            }
+            else if (wingCertLookup.TryGetValue(type.Id, out var wingCert) && wingCert != null)
+            {
+                effectiveCert = wingCert;
+                isInherited = true;
+            }
+            else if (societyCertLookup.TryGetValue(type.Id, out var societyCert) && societyCert != null)
+            {
+                effectiveCert = societyCert;
+                isInherited = true;
+            }
+
+            var hasCertificate = effectiveCert != null;
 
             return new PropertyCertificateWithStatusDto
             {
@@ -261,12 +360,12 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 IsRequired = type.IsRequired,
                 DisplayOrder = type.DisplayOrder,
                 HasCertificate = hasCertificate,
-                PropertyCertificateId = hasCertificate && certificate != null ? certificate.Id : null,
-                IsActive = hasCertificate && certificate != null && certificate.IsActive,
-                CertificateNo = hasCertificate && certificate != null ? certificate.CertificateNo : null,
-                IssueDate = hasCertificate && certificate != null ? certificate.IssueDate : null,
-                DocumentGuid = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeDocumentGuid(certificate.DocumentBinding) : null,
-                FileName = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeFileName(certificate.DocumentBinding) : null,
+                PropertyCertificateId = hasCertificate && effectiveCert != null ? effectiveCert.Id : null,
+                IsActive = hasCertificate && effectiveCert != null && effectiveCert.IsActive,
+                CertificateNo = hasCertificate && effectiveCert != null ? effectiveCert.CertificateNo : null,
+                IssueDate = hasCertificate && effectiveCert != null ? effectiveCert.IssueDate : null,
+                DocumentGuid = hasCertificate && effectiveCert != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeDocumentGuid(effectiveCert.DocumentBinding) : null,
+                FileName = hasCertificate && effectiveCert != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeFileName(effectiveCert.DocumentBinding) : null,
                 // Always the requested scope, not just the existing certificate's own value:
                 // scopedCertificates is already filtered to c.PropertyDetailsId == propertyDetailsId
                 // (line 207), so the two are identical whenever hasCertificate is true; using the
@@ -274,9 +373,10 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 // row represents when hasCertificate is false (no certificate to read a value from
                 // yet), which the frontend needs to know where to attach a new certificate.
                 PropertyDetailsId = propertyDetailsId,
-                EntityType = hasCertificate && certificate != null ? certificate.EntityType : null,
-                SocietyDetailId = hasCertificate && certificate != null ? certificate.SocietyDetailId : null,
-                WingDetailId = hasCertificate && certificate != null ? certificate.WingDetailId : null
+                EntityType = hasCertificate && effectiveCert != null ? effectiveCert.EntityType : null,
+                SocietyDetailId = hasCertificate && effectiveCert != null ? (effectiveCert.SocietyDetailId ?? societyDetailId) : null,
+                WingDetailId = hasCertificate && effectiveCert != null ? (effectiveCert.WingDetailId ?? (isInherited && effectiveCert.EntityType == "W" ? wingDetailId : null)) : null,
+                IsInherited = isInherited
             };
         }).ToList();
 
@@ -954,13 +1054,38 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         var allCertificates = await _propertyCertificateService.GetByPropertyIdAsync(
             propertyId,
             PropertyCertificateIncludeOptions.CertificateType,
-            cancellationToken);
+            cancellationToken) ?? new List<PropertyCertificateEntity>();
 
         var propertyWiseCerts = allCertificates.Where(c => c.PropertyDetailsId == null).ToList();
         var floorWiseCerts = allCertificates
             .Where(c => c.PropertyDetailsId.HasValue)
             .GroupBy(c => c.PropertyDetailsId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Resolve wing and society details for fallback inheritance
+        var (wingDetailId, societyDetailId) = await ResolvePropertyWingAndSocietyIdsAsync(propertyId, cancellationToken);
+
+        List<PropertyCertificateEntity> wingWiseCerts = new();
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            var wingResult = await _propertyCertificateService.GetByWingDetailIdAsync(
+                wingDetailId.Value,
+                PropertyCertificateIncludeOptions.CertificateType,
+                cancellationToken);
+            if (wingResult != null)
+                wingWiseCerts = wingResult;
+        }
+
+        List<PropertyCertificateEntity> societyWiseCerts = new();
+        if (societyDetailId.HasValue && societyDetailId.Value > 0)
+        {
+            var societyResult = await _propertyCertificateService.GetBySocietyDetailIdAsync(
+                societyDetailId.Value,
+                PropertyCertificateIncludeOptions.CertificateType,
+                cancellationToken);
+            if (societyResult != null)
+                societyWiseCerts = societyResult;
+        }
 
         response.PropertyWiseCertificates = await GetCertificateTypesWithStatusAsync(
             propertyId, cancellationToken, propertyDetailsId: null);
@@ -973,12 +1098,15 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             certsForFloor ??= new List<PropertyCertificateEntity>();
 
             // Floor-wise certificate overrides property-wise for that specific floor/type;
-            // property-wise certificate is the fallback for types with no floor-wise row.
-            var effectiveCc = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, new[] { CertificateTypeCodes.CC }, "completion");
-            var effectiveOc = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, new[] { CertificateTypeCodes.OC }, "occupancy", "occupation");
-            var effectiveElectricBill = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, electricBillCodes, "electricity", "electric", "bill");
+            // property-wise certificate falls back to wing-wise then society-wise.
+            var effectiveCc = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, wingWiseCerts, societyWiseCerts, new[] { CertificateTypeCodes.CC }, "completion");
+            var effectiveOc = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, wingWiseCerts, societyWiseCerts, new[] { CertificateTypeCodes.OC }, "occupancy", "occupation");
+            var effectiveElectricBill = ResolveEffectiveDate(certsForFloor, propertyWiseCerts, wingWiseCerts, societyWiseCerts, electricBillCodes, "electricity", "electric", "bill");
 
-            var certificateApplicable = certsForFloor.Any(c => c.IsActive) || propertyWiseCerts.Any(c => c.IsActive);
+            var certificateApplicable = certsForFloor.Any(c => c.IsActive && !c.MarkedForDeletion)
+                || propertyWiseCerts.Any(c => c.IsActive && !c.MarkedForDeletion)
+                || wingWiseCerts.Any(c => c.IsActive && !c.MarkedForDeletion)
+                || societyWiseCerts.Any(c => c.IsActive && !c.MarkedForDeletion);
 
             return new FloorCertificateDto
             {
@@ -1036,21 +1164,27 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
 
     /// <summary>
     /// Resolves the effective certificate for a given certificate-type code set on one floor:
-    /// the floor-wise certificate if present (override), else the property-wise certificate
-    /// (fallback).
+    /// the floor-wise certificate if present (override), else property-wise, then wing-wise, then
+    /// society-wise (fallback).
     /// </summary>
     private static PropertyCertificateEntity? ResolveEffectiveDate(
         List<PropertyCertificateEntity> floorWiseCerts,
         List<PropertyCertificateEntity> propertyWiseCerts,
+        List<PropertyCertificateEntity> wingWiseCerts,
+        List<PropertyCertificateEntity> societyWiseCerts,
         IReadOnlyCollection<string> certificateTypeCodes,
         params string[] nameContains)
     {
         bool Matches(PropertyCertificateEntity c) =>
             c.IsActive &&
+            !c.MarkedForDeletion &&
             c.CertificateType != null &&
             MatchesCertificateType(c.CertificateType, certificateTypeCodes, nameContains);
 
-        return floorWiseCerts.FirstOrDefault(Matches) ?? propertyWiseCerts.FirstOrDefault(Matches);
+        return floorWiseCerts.FirstOrDefault(Matches)
+            ?? propertyWiseCerts.FirstOrDefault(Matches)
+            ?? wingWiseCerts.FirstOrDefault(Matches)
+            ?? societyWiseCerts.FirstOrDefault(Matches);
     }
 
     /// <summary>
@@ -1909,12 +2043,71 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
                 .ToListAsync(cancellationToken);
         }
+        else
+        {
+            certificates = await _propertyCertificateService.GetByPropertyIdAsync(
+                propertyId,
+                PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                cancellationToken);
+        }
 
         var certLookup = certificates
             .GroupBy(c => c.CertificateTypeId)
             .ToDictionary(g => g.Key, g => g.First());
 
-        var bindingIds = certificates
+        // Resolve wing and society details for fallback inheritance
+        var (wingDetailId, societyDetailId) = await ResolvePropertyWingAndSocietyIdsAsync(propertyId, cancellationToken);
+
+        List<PropertyCertificateEntity> wingCertificates = new();
+        if (wingDetailId.HasValue && wingDetailId.Value > 0)
+        {
+            if (certRepo != null)
+            {
+                wingCertificates = await certRepo.GetQueryable().AsNoTracking()
+                    .Where(x => x.EntityType == "W" && x.WingDetailId == wingDetailId.Value && x.IsActive && !x.MarkedForDeletion)
+                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                wingCertificates = await _propertyCertificateService.GetByWingDetailIdAsync(
+                    wingDetailId.Value,
+                    PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                    cancellationToken);
+            }
+        }
+
+        var wingCertLookup = wingCertificates
+            .GroupBy(c => c.CertificateTypeId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        List<PropertyCertificateEntity> societyCertificates = new();
+        if (societyDetailId.HasValue && societyDetailId.Value > 0)
+        {
+            if (certRepo != null)
+            {
+                societyCertificates = await certRepo.GetQueryable().AsNoTracking()
+                    .Where(x => x.EntityType == "S" && x.SocietyDetailId == societyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
+                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                societyCertificates = await _propertyCertificateService.GetBySocietyDetailIdAsync(
+                    societyDetailId.Value,
+                    PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+                    cancellationToken);
+            }
+        }
+
+        var societyCertLookup = societyCertificates
+            .GroupBy(c => c.CertificateTypeId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var allCandidateCerts = certificates
+            .Concat(wingCertificates)
+            .Concat(societyCertificates)
+            .ToList();
+
+        var bindingIds = allCandidateCerts
             .Where(c => c.DocumentBindingId.HasValue)
             .Select(c => c.DocumentBindingId!.Value)
             .Distinct()
@@ -1946,11 +2139,15 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
 
         foreach (var pctm in certTypes)
         {
-            var hasCert = certLookup.TryGetValue(pctm.Id, out var pc);
+            var pc = certLookup.GetValueOrDefault(pctm.Id)
+                     ?? wingCertLookup.GetValueOrDefault(pctm.Id)
+                     ?? societyCertLookup.GetValueOrDefault(pctm.Id);
+
+            var hasCert = pc != null;
             DocumentBindingEntity? db = null;
             DocumentEntity? d = null;
 
-            if (hasCert && pc?.DocumentBindingId.HasValue == true && docBindings.TryGetValue(pc.DocumentBindingId.Value, out var binding))
+            if (hasCert && pc!.DocumentBindingId.HasValue && docBindings.TryGetValue(pc.DocumentBindingId.Value, out var binding))
             {
                 db = binding;
                 docs.TryGetValue(binding.DocumentId, out d);
@@ -1960,8 +2157,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             {
                 Id = pc != null ? pc.Id : 0,
                 PropertyId = pc != null && pc.PropertyId.HasValue ? pc.PropertyId.Value : propertyId,
-                WingDetailId = pc?.WingDetailId,
-                SocietyDetailId = pc?.SocietyDetailId,
+                WingDetailId = pc != null ? (pc.WingDetailId ?? (pc.EntityType == "W" ? wingDetailId : null)) : null,
+                SocietyDetailId = pc != null ? (pc.SocietyDetailId ?? societyDetailId) : null,
                 CertificateTypeId = pctm.Id,
                 CertificateTypeName = pctm.CertificateTypeName,
                 CertificateTypeCode = pctm.CertificateTypeCode,
@@ -1970,8 +2167,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 PropertyDetailsId = pc?.PropertyDetailsId,
                 EntityType = pc?.EntityType ?? "P",
                 DocumentBindingId = pc?.DocumentBindingId,
-                DocumentId = db?.DocumentId,
-                DocumentGuid = d?.DocumentGuid
+                DocumentId = db?.DocumentId ?? (pc?.DocumentBinding?.DocumentId),
+                DocumentGuid = d?.DocumentGuid ?? (pc?.DocumentBinding?.Document?.DocumentGuid)
             });
         }
 
