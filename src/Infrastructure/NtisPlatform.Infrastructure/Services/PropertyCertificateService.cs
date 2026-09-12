@@ -303,6 +303,46 @@ public class PropertyCertificateService : IPropertyCertificateService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<PropertyCertificateEntity>> GetByWingDetailIdAsync(
+        int wingDetailId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.PropertyCertificates
+            .AsNoTracking();
+
+        if (includeOptions != PropertyCertificateIncludeOptions.None)
+        {
+            query = query.AsSplitQuery();
+        }
+
+        query = ApplyIncludes(query, includeOptions);
+
+        return await query
+            .Where(x => x.EntityType == "W" && x.WingDetailId == wingDetailId && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<PropertyCertificateEntity>> GetBySocietyDetailIdAsync(
+        int societyDetailId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.PropertyCertificates
+            .AsNoTracking();
+
+        if (includeOptions != PropertyCertificateIncludeOptions.None)
+        {
+            query = query.AsSplitQuery();
+        }
+
+        query = ApplyIncludes(query, includeOptions);
+
+        return await query
+            .Where(x => x.EntityType == "S" && x.SocietyDetailId == societyDetailId && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Applies Include statements to the query based on the specified options.
     /// Uses flags to provide flexible, composable loading strategies.
