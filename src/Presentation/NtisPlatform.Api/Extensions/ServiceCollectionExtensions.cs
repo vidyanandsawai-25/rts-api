@@ -511,6 +511,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDiscountService, PropertyDiscountService>();
         services.AddScoped<IPropertyOldDetailsService, PropertyOldDetailsService>();
         services.AddScoped<IPropertySearchService, PropertySearchService>();
+        services.AddScoped<IPropertyAmenityService, PropertyAmenityService>();
         services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<ApartmentQcTopSectionPerformanceCalculator>();

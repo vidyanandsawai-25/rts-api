@@ -77,9 +77,9 @@ public class PropertyMappingProfile : Profile
 
         // UpdateDto to Entity
         CreateMap<UpdatePropertyDto, PropertyEntity>()
-            .ForMember(dest => dest.Id, opt => opt.Ignore()) // Cannot change primary key
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore()) // Immutable - set on creation
-            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore()) // Updated by Repository
+            .ForMember(dest => dest.Id, opt => opt.Ignore()) 
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore()) 
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore()) 
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
 
         // UpdateAllPropertyDetailsDto to Entities
@@ -159,5 +159,88 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.TransMastArchive, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastLookup, opt => opt.Ignore())
             .ForMember(dest => dest.WorkflowHistory, opt => opt.Ignore());
+
+        // UpdateAmenityDto to UpdatePropertyDto (for PropertyMast fields)
+        CreateMap<UpdateAmenityDto, UpdatePropertyDto>()
+            .ForMember(dest => dest.WardId, opt => opt.Ignore()) // set from existing property
+            .ForMember(dest => dest.PropertyNo, opt => opt.Ignore()) // set from existing property
+            .ForMember(dest => dest.TaxZoneId, opt => opt.MapFrom(src => src.TaxZoneId))
+            .ForMember(dest => dest.PropertyTypeId, opt => opt.MapFrom(src => src.PropertyTypeId))
+            .ForMember(dest => dest.PartitionNo, opt => opt.MapFrom(src => src.PartitionNo))
+            .ForMember(dest => dest.CategoryId, opt => opt.MapFrom(src => src.CategoryId))
+            .ForMember(dest => dest.OpenPlot, opt => opt.MapFrom(src => src.OpenPlot))
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
+            .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
+
+        // UpdateAmenityDto to PropertyDetailsEntity (for PropertyDetails fields)
+        CreateMap<UpdateAmenityDto, PropertyDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.FloorId, opt => opt.MapFrom(src => src.FloorId))
+            .ForMember(dest => dest.SubFloorId, opt => opt.MapFrom(src => src.SubFloorId))
+            .ForMember(dest => dest.ConstructionTypeId, opt => opt.MapFrom(src => src.ConstructionTypeId))
+            .ForMember(dest => dest.TypeOfUseId, opt => opt.MapFrom(src => src.TypeOfUseId))
+            .ForMember(dest => dest.SubTypeOfUseId, opt => opt.MapFrom(src => src.SubTypeOfUseId))
+            .ForMember(dest => dest.NoOfRooms, opt => opt.MapFrom(src => src.NoOfRooms))
+            .ForMember(dest => dest.ConstructionYear, opt => opt.MapFrom(src => src.ConstructionYear))
+            .ForMember(dest => dest.AssessmentYear, opt => opt.MapFrom(src => src.AssessmentYear))
+            .ForMember(dest => dest.CarpetAreaSqMeter, opt => opt.MapFrom(src => src.CarpetAreaSqMeter != null ? Math.Round(src.CarpetAreaSqMeter.Value, 2) : (double?)null))
+            .ForMember(dest => dest.CarpetAreaSqFeet, opt => opt.MapFrom(src => src.CarpetAreaSqFeet != null ? Math.Round(src.CarpetAreaSqFeet.Value, 2) : (double?)null))
+            .ForMember(dest => dest.BuiltupAreaSqMeter, opt => opt.MapFrom(src => src.BuiltupAreaSqMeter != null ? Math.Round(src.BuiltupAreaSqMeter.Value, 2) : (double?)null))
+            .ForMember(dest => dest.BuiltupAreaSqFeet, opt => opt.MapFrom(src => src.BuiltupAreaSqFeet != null ? Math.Round(src.BuiltupAreaSqFeet.Value, 2) : (double?)null))
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
+
+        // PropertyEntity and PropertyDetailsEntity to AmenityPropertyDto (for response)
+        CreateMap<PropertyEntity, AmenityPropertyDto>()
+            .ForMember(dest => dest.PropertyDetailsId, opt => opt.Ignore())
+            .ForMember(dest => dest.FloorId, opt => opt.Ignore())
+            .ForMember(dest => dest.SubFloorId, opt => opt.Ignore())
+            .ForMember(dest => dest.ConstructionTypeId, opt => opt.Ignore())
+            .ForMember(dest => dest.TypeOfUseId, opt => opt.Ignore())
+            .ForMember(dest => dest.SubTypeOfUseId, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfRooms, opt => opt.Ignore())
+            .ForMember(dest => dest.ConstructionYear, opt => opt.Ignore())
+            .ForMember(dest => dest.AssessmentYear, opt => opt.Ignore())
+            .ForMember(dest => dest.CarpetAreaSqMeter, opt => opt.Ignore())
+            .ForMember(dest => dest.CarpetAreaSqFeet, opt => opt.Ignore())
+            .ForMember(dest => dest.BuiltupAreaSqMeter, opt => opt.Ignore())
+            .ForMember(dest => dest.BuiltupAreaSqFeet, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfFloorAttachToAmenity, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentType, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentBindingId, opt => opt.Ignore())
+            .ForMember(dest => dest.WorkflowStageId, opt => opt.Ignore())
+            .ForMember(dest => dest.Bhk, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentGuid, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfFlat, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfShop, opt => opt.Ignore())
+            .ForMember(dest => dest.IsVerified, opt => opt.Ignore())
+            .ForMember(dest => dest.IsMerged, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyFloorId, opt => opt.Ignore());
+
+        CreateMap<PropertyDetailsEntity, AmenityPropertyDto>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyNo, opt => opt.Ignore())
+            .ForMember(dest => dest.PartitionNo, opt => opt.Ignore())
+            .ForMember(dest => dest.SocietyDetailId, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
+            .ForMember(dest => dest.CategoryId, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyDetailsId, opt => opt.MapFrom(src => src.Id))
+            .ForMember(dest => dest.PropertyFloorId, opt => opt.MapFrom(src => src.FloorId))
+            .ForMember(dest => dest.NoOfFloorAttachToAmenity, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentType, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentBindingId, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTypeId, opt => opt.Ignore())
+            .ForMember(dest => dest.WorkflowStageId, opt => opt.Ignore())
+            .ForMember(dest => dest.Bhk, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentGuid, opt => opt.Ignore())
+            .ForMember(dest => dest.OpenPlot, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertySeqNo, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfFlat, opt => opt.Ignore())
+            .ForMember(dest => dest.NoOfShop, opt => opt.Ignore())
+            .ForMember(dest => dest.IsVerified, opt => opt.Ignore())
+            .ForMember(dest => dest.IsMerged, opt => opt.Ignore());
     }
 }
