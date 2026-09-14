@@ -119,7 +119,7 @@ public sealed class ApartmentQcSearchRepository : IApartmentQcSearchRepository
                 where unitWingIds.Contains(w.Id) && w.IsActive && !w.MarkedForDeletion
                 join s in _context.SocietyDetailsMast.AsNoTracking().Where(s => s.IsActive && !s.MarkedForDeletion)
                     on w.SocietyDetailsMastId equals s.Id
-                select new { WingId = w.Id, SocietyDetailId = s.Id, SocietyName = s.SocietyName }
+                select new { WingId = w.Id, SocietyDetailId = s.Id, SocietyName = (string?)s.SocietyName }
             ).ToDictionaryAsync(x => x.WingId, x => (x.SocietyDetailId, x.SocietyName), cancellationToken);
 
         // Batch-fetch every wing for every society found in this ward, in one query -- WingDetailsMast
@@ -147,6 +147,15 @@ public sealed class ApartmentQcSearchRepository : IApartmentQcSearchRepository
                         WingName = w.WingName
                     }).ToList());
 
+        // Create a lookup map of PropertyNo -> (SocietyDetailId, SocietyName) for all Society-category properties in this ward
+        var societyByPropertyNo = categorized
+            .Where(x => x.RepresentativeSocietyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo))
+            .GroupBy(x => x.PropertyNo!)
+            .ToDictionary(
+                g => g.Key,
+                g => (SocietyDetailId: g.First().RepresentativeSocietyDetailId!.Value, SocietyName: g.First().RepresentativeSocietyName)
+            );
+
         string CategoryLabel(ApartmentQcSearchCategory category) => category switch
         {
             ApartmentQcSearchCategory.Society => "apartment society property",
@@ -157,17 +166,23 @@ public sealed class ApartmentQcSearchRepository : IApartmentQcSearchRepository
 
         var rows = categorized.Select(x =>
         {
-            // Society and Amenity both resolve their society via the direct PropertyId match
-            // (RepresentativeSocietyDetailId) -- an Amenity property isn't tied to one specific
-            // wing the way a flat is. Unit falls back to the direct match too, then refines it via
-            // its own WingDetailId when the unit has one (the more precise linkage).
+            // Society, Unit, and Amenity resolve their society via:
+            // 1. Direct match on this property row (RepresentativeSocietyDetailId)
+            // 2. Wing linkage via WingDetailId (societyByWingId)
+            // 3. Fallback to matching by PropertyNo against the ward's representative society property (societyByPropertyNo)
             var societyDetailId = x.RepresentativeSocietyDetailId;
             var societyName = x.RepresentativeSocietyName;
-            if (x.Category == ApartmentQcSearchCategory.Unit && x.WingDetailId.HasValue
-                && societyByWingId.TryGetValue(x.WingDetailId.Value, out var owningSociety))
+
+            if (x.WingDetailId.HasValue && societyByWingId.TryGetValue(x.WingDetailId.Value, out var owningSocietyByWing))
             {
-                societyDetailId = owningSociety.SocietyDetailId;
-                societyName = owningSociety.SocietyName;
+                societyDetailId = owningSocietyByWing.SocietyDetailId;
+                societyName = owningSocietyByWing.SocietyName;
+            }
+
+            if (!societyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo) && societyByPropertyNo.TryGetValue(x.PropertyNo, out var owningSocietyByProp))
+            {
+                societyDetailId = owningSocietyByProp.SocietyDetailId;
+                societyName = owningSocietyByProp.SocietyName;
             }
 
             return new ApartmentQcSearchSuggestionDto

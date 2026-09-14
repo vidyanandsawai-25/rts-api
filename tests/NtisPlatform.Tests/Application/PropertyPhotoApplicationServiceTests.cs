@@ -71,11 +71,11 @@ public class PropertyPhotoApplicationServiceTests
     }
 
     private static (Mock<IRepository<PropertyEntity, int>> PropertyRepo, Mock<IRepository<PropertyCategoryEntity, int>> CategoryRepo) BuildPropertyWithCategory(
-        int propertyId, string? partitionNo, int? categoryId, string? categoryName)
+        int propertyId, string? partitionNo, int? categoryId, string? categoryName, string? flatOrShopNo = null)
     {
         var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
         propertyRepo.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PropertyEntity { Id = propertyId, PartitionNo = partitionNo, CategoryId = categoryId });
+            .ReturnsAsync(new PropertyEntity { Id = propertyId, PartitionNo = partitionNo, CategoryId = categoryId, FlatOrShopNo = flatOrShopNo ?? (partitionNo != null ? "101" : null) });
 
         var categoryRepo = new Mock<IRepository<PropertyCategoryEntity, int>>();
         if (categoryId.HasValue && categoryName != null)
@@ -152,11 +152,9 @@ public class PropertyPhotoApplicationServiceTests
     }
 
     [Fact]
-    public async Task GetPhotoTypesWithStatusAsync_ApartmentAmenity_IncludesPropertyPlanTypeAlongsideSocietyTypes()
+    public async Task GetPhotoTypesWithStatusAsync_ApartmentAmenity_ExcludesPropertyPlanTypeForSocietyScope()
     {
-        // An Amenity property (SocietyDetailsMast.PropertyId == its own id) resolves to SOCIETY
-        // scope -- but PROPERTY_PLAN is scoped PROPERTY, so it needs the same explicit allowance
-        // already given to WING types, or an Amenity would never see its own plan upload slot.
+        // Society scope properties show SOCIETY and WING scoped types, but exclude PROPERTY_PLAN per business rules.
         const int propertyId = 550725;
         var (propertyRepo, categoryRepo) = BuildPropertyWithCategory(propertyId, partitionNo: null, categoryId: 1, categoryName: "Apartment");
 
@@ -179,7 +177,35 @@ public class PropertyPhotoApplicationServiceTests
 
         Assert.Contains(result, t => t.PhotoTypeCode == "SOCIETY_PLACE");
         Assert.Contains(result, t => t.PhotoTypeCode == "WING_BUILDING");
-        Assert.Contains(result, t => t.PhotoTypeCode == "PROPERTY_PLAN");
+        Assert.DoesNotContain(result, t => t.PhotoTypeCode == "PROPERTY_PLAN");
+        Assert.DoesNotContain(result, t => t.PhotoTypeCode == "PROPERTY_FRONT");
+    }
+
+    [Fact]
+    public async Task GetPhotoTypesWithStatusAsync_WingProperty_ResolvesWingScopeExcludingPropertyTypes()
+    {
+        const int propertyId = 550726;
+        var propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+        propertyRepo.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyEntity { Id = propertyId, PartitionNo = "D", WingDetailId = 1530424, CategoryId = 1, FlatOrShopNo = null });
+
+        var categoryRepo = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        categoryRepo.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Apartment" });
+
+        var photoTypeRepo = BuildPhotoTypeRepo(PropertyType, SocietyType, WingType);
+
+        var photoService = new Mock<IPropertyPhotoService>();
+        photoService.Setup(s => s.GetLatestByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyPhotoEntity>());
+
+        var service = BuildService(photoService, photoTypeRepo, propertyRepo, categoryRepo);
+
+        var result = await service.GetPhotoTypesWithStatusAsync(propertyId);
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, t => t.PhotoTypeCode == "WING_BUILDING");
+        Assert.Contains(result, t => t.PhotoTypeCode == "SOCIETY_PLACE");
         Assert.DoesNotContain(result, t => t.PhotoTypeCode == "PROPERTY_FRONT");
     }
 

@@ -1,11 +1,15 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
 namespace NtisPlatform.Core.Entities.Master;
 
-[Table("OldWardMaster", Schema = "GSMS")]
+/// <summary>
+/// Represents the Old Ward Master entity.
+/// </summary>
 public class OldWardMasterEntity : BaseEntity
 {
-    public string? OldWardNo { get; set; }
+    public string OldWardNo { get; set; } = string.Empty;
 
-    public string? OldZoneName { get; set; }
-}
+    public string Description { get; set; } = string.Empty;
+
+    public int OldZoneId { get; set; }
+
+    public int? SequenceNo { get; set; }
+}

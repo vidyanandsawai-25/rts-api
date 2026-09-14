@@ -40,6 +40,15 @@ public class SocietyDetailsController : ControllerBase
     public Task<IActionResult> Update(int id, [FromBody] UpdateSocietyDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSocietySummary(
+        [FromQuery] SocietySummaryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _service.GetSocietySummaryAsync(request, cancellationToken);
+        return result == null ? NotFound() : Ok(result);
+    }
+
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)

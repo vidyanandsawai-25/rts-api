@@ -728,6 +728,23 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<OldWardMasterEntity>(entity =>
+        {
+            entity.ToTable("OldWardMaster", "PTIS");
+            entity.HasKey(x => x.Id).HasName("PK_OldWardMaster");
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
+            entity.Property(x => x.OldWardNo).IsRequired().HasMaxLength(20);
+            entity.Property(x => x.Description).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.OldZoneId).IsRequired();
+            entity.Property(x => x.SequenceNo);
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(x => x.OldWardNo).IsUnique().HasDatabaseName("UQ_OldWardMaster_OldWardNo");
+            entity.HasIndex(x => x.Description).IsUnique().HasDatabaseName("UQ_OldWardMaster_Description");
+        });
+
         // TaxZoningRange configuration
         modelBuilder.Entity<TaxZoningRangeEntity>(entity =>
         {

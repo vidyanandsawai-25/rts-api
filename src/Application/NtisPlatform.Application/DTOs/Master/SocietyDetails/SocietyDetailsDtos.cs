@@ -156,3 +156,33 @@ public class UpdateSocietyDetailsDto : UpdateBaseDtos
     [EmailAddress(ErrorMessage = "SocietyDetails_ManagerEmailId_Invalid")]
     public string? ManagerEmailId { get; set; }
 }
+
+public class SocietySummaryRequestDto
+{
+    [Required(ErrorMessage = "SocietySummary_WardNo_Required")]
+    public string WardNo { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "SocietySummary_PropertyNo_Required")]
+    public string PropertyNo { get; set; } = string.Empty;
+
+    public string? PartitionNo { get; set; }
+}
+
+public class SocietySummaryDto
+{
+    public string? SocietyName { get; set; }
+
+    public string? BuilderName { get; set; }
+
+    public string? SocietyAddress { get; set; }
+
+    public int TotalWingCount { get; set; }
+
+    public int NoOfFlat { get; set; }
+
+    public int NoOfShop { get; set; }
+
+    public int NoOfRowHouse { get; set; }
+
+    public int TotalAmenityCount { get; set; } = 0;
+}

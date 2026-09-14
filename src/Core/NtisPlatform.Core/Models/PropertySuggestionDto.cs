@@ -21,4 +21,10 @@ public class PropertySuggestionDto
     /// Human-readable label for the dropdown, e.g. "123" or "123-A9".
     /// </summary>
     public string DisplayLabel { get; set; } = string.Empty;
+
+    public int? Category { get; set; }
+    public string? CategoryLabel { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public string? SocietyName { get; set; }
+    public int? WingDetailId { get; set; }
 }

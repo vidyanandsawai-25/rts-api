@@ -302,10 +302,13 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
 
         var photoScope = await ResolvePhotoScopeAsync(propertyId, cancellationToken);
         var allTypesRaw = await _photoTypeRepository.GetAsync(
-            t => t.IsActive && (t.PhotoScope == photoScope
-                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoTypeCode == "PROPERTY_PLAN" || t.PhotoTypeCode == "PHOTO_PLAN"))
-                || (photoScope == "SOCIETY" && t.PhotoScope == "WING")
-                || (photoScope == "SOCIETY" && t.PhotoTypeCode == "PROPERTY_PLAN")),
+            t => t.IsActive && (
+                (photoScope == "WING" && (t.PhotoScope == "WING" || t.PhotoScope == "SOCIETY"))
+                || (photoScope == "SOCIETY" && (t.PhotoScope == "SOCIETY" || t.PhotoScope == "WING"))
+                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoScope == "SOCIETY" || t.PhotoScope == "WING"))
+                || (photoScope == "PROPERTY" && t.PhotoScope == "PROPERTY")
+                || (photoScope != "WING" && photoScope != "SOCIETY" && photoScope != "PROPERTY" && photoScope != "AMENITY" && t.PhotoScope == photoScope)
+            ),
             cancellationToken);
 
         var existingPhotos = await _propertyPhotoService.GetLatestByPropertyIdAsync(propertyId, cancellationToken);
@@ -352,11 +355,15 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
 
         var photoScope = await ResolvePhotoScopeAsync(propertyId, cancellationToken);
+
         var allTypesRaw = await _photoTypeRepository.GetAsync(
-            t => t.IsActive && (t.PhotoScope == photoScope
-                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoTypeCode == "PROPERTY_PLAN" || t.PhotoTypeCode == "PHOTO_PLAN"))
-                || (photoScope == "SOCIETY" && t.PhotoScope == "WING")
-                || (photoScope == "SOCIETY" && t.PhotoTypeCode == "PROPERTY_PLAN")),
+            t => t.IsActive && (
+                (photoScope == "WING" && (t.PhotoScope == "WING" || t.PhotoScope == "SOCIETY"))
+                || (photoScope == "SOCIETY" && (t.PhotoScope == "SOCIETY" || t.PhotoScope == "WING"))
+                || (photoScope == "AMENITY" && (t.PhotoScope == "AMENITY" || t.PhotoScope == "SOCIETY" || t.PhotoScope == "WING"))
+                || (photoScope == "PROPERTY" && t.PhotoScope == "PROPERTY")
+                || (photoScope != "WING" && photoScope != "SOCIETY" && photoScope != "PROPERTY" && photoScope != "AMENITY" && t.PhotoScope == photoScope)
+            ),
             cancellationToken);
 
         var existingPhotos = await _propertyPhotoService.GetLatestByPropertyIdAsync(propertyId, cancellationToken);
@@ -641,17 +648,33 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
 
     private async Task<string> ResolvePhotoScopeAsync(int propertyId, CancellationToken cancellationToken)
     {
+        var societyList = await _societyRepository.GetAsync(
+            s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion,
+            cancellationToken);
+        if (societyList.Any())
+        {
+            return "SOCIETY";
+        }
+
         var property = await _propertyRepository.GetByIdAsync(propertyId, cancellationToken);
         if (property != null)
         {
-            // PartitionNo (not FlatOrShopNo, which is just a display label) is the codebase-wide
-            // signal for "this property row is a unit" -- see PropertySearchRepository,
-            // PropertyRepository, and every ApartmentQC workflow-stage repository's
-            // structure-vs-unit split.
-            bool isUnit = !string.IsNullOrWhiteSpace(property.PartitionNo)
-                          && property.PartitionNo.Trim() != "-";
+            if (property.PropertyTypeId == 140)
+            {
+                return "AMENITY";
+            }
 
-            if (property.PropertyTypeId == 140 || (isUnit && property.PartitionNo?.Trim().StartsWith("AM", StringComparison.OrdinalIgnoreCase) == true))
+            bool hasFlatNo = !string.IsNullOrWhiteSpace(property.FlatOrShopNo) || !string.IsNullOrWhiteSpace(property.FlatOrShopNoEnglish);
+
+            if (property.WingDetailId.HasValue && !hasFlatNo)
+            {
+                return "WING";
+            }
+
+            bool isUnit = (!string.IsNullOrWhiteSpace(property.PartitionNo) && property.PartitionNo.Trim() != "-" && property.PartitionNo.Trim() != "0")
+                          || hasFlatNo;
+
+            if (isUnit && property.PartitionNo?.Trim().StartsWith("AM", StringComparison.OrdinalIgnoreCase) == true)
             {
                 return "AMENITY";
             }
@@ -667,11 +690,11 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
                 if (category != null && !string.IsNullOrEmpty(category.PropertyCategoryName))
                 {
                     var catName = category.PropertyCategoryName;
-                    if (catName.Contains("Society", StringComparison.OrdinalIgnoreCase))
+                    if (catName.Equals("Society", StringComparison.OrdinalIgnoreCase) || catName.StartsWith("Society ", StringComparison.OrdinalIgnoreCase))
                     {
                         return "SOCIETY";
                     }
-                    if (catName.Contains("Wing", StringComparison.OrdinalIgnoreCase))
+                    if (catName.Equals("Wing", StringComparison.OrdinalIgnoreCase) || catName.StartsWith("Wing ", StringComparison.OrdinalIgnoreCase))
                     {
                         return "WING";
                     }
@@ -684,11 +707,6 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
                         return "SOCIETY";
                     }
                 }
-            }
-
-            if (property.WingDetailId.HasValue)
-            {
-                return "WING";
             }
         }
         return "PROPERTY";

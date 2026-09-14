@@ -194,6 +194,20 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
                     .FirstOrDefaultAsync(t => t.PhotoTypeCode.ToLower() == docTypeLower && t.IsActive, cancellationToken);
             }
 
+            if (photoType == null && (
+                string.Equals(docType, "PHOTO_PLAN", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(docType, "PLAN", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(docType, "DRAW_PLAN", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(docType, "PROPERTY_PLAN", StringComparison.OrdinalIgnoreCase)))
+            {
+                photoType = await _context.PropertyPhotoTypes
+                    .FirstOrDefaultAsync(t => t.IsActive && (
+                        t.PhotoTypeCode.ToLower() == PropertyPlanPhotoTypeCode.ToLower() ||
+                        t.PhotoTypeCode.ToLower() == "photo_plan" ||
+                        t.PhotoTypeCode.ToLower().Contains("plan")
+                    ), cancellationToken);
+            }
+
             if (photoType == null)
             {
                 throw new InvalidOperationException($"Invalid or inactive photo type code/ID: '{docType}'");
