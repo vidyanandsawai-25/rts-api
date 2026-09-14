@@ -122,6 +122,32 @@ public class ApartmentQcSearchRepositoryTests
     }
 
     [Fact]
+    public async Task GetSuggestionsAsync_AmenityPropertyWithoutDirectSocietyLink_ResolvesSocietyViaRepresentativePropertySamePropertyNo()
+    {
+        // Amenity properties (PartitionNo = "AM2") carry no direct SocietyDetailsMast.PropertyId link
+        // on their own row. They resolve SocietyDetailId/SocietyName from the representative society
+        // property (PartitionNo = null) under the same PropertyNo in the ward.
+        using var context = CreateContext();
+        context.WardMaster.Add(new WardEntity { Id = 77, WardNo = "77", Description = "Ward 77", ZoneId = 1, IsActive = true });
+        SeedApartmentCategory(context);
+        context.PropertyTypeMasters.Add(new PropertyTypeMasterEntity { Id = 140, PropertyDescription = "Amenity", PartType = "Amenity", IsActive = true, CreatedDate = DateTime.Now });
+        context.PropertyMast.AddRange(
+            CreateProperty(1, 77, "9", null, categoryId: ApartmentCategoryId), // representative society property
+            CreateProperty(2, 77, "9", "AM2", categoryId: ApartmentCategoryId, propertyTypeId: 140) // amenity property
+        );
+        context.SocietyDetailsMast.Add(new SocietyDetailsEntity { Id = 1509001, PropertyId = 1, SocietyName = "Gokul CHS", IsActive = true, CreatedDate = DateTime.Now });
+        await context.SaveChangesAsync();
+
+        var repository = new ApartmentQcSearchRepository(context, new MemoryCache(new MemoryCacheOptions()));
+        var result = await repository.GetSuggestionsAsync(wardId: 77, propertyNo: "9", partitionNo: "AM2", maxResults: 20);
+
+        var amenity = Assert.Single(result, r => r.PartitionNo == "AM2");
+        Assert.Equal(ApartmentQcSearchCategory.Amenity, amenity.Category);
+        Assert.Equal(1509001, amenity.SocietyDetailId);
+        Assert.Equal("Gokul CHS", amenity.SocietyName);
+    }
+
+    [Fact]
     public async Task GetSuggestionsAsync_UnitWithOwnStraySocietyRow_StillResolvesUnitNotSociety()
     {
         // Real production data: the "Save Society Details" screen creates a SocietyDetailsMast row

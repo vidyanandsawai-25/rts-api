@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
@@ -1434,27 +1435,111 @@ public class PropertySearchRepository : IPropertySearchRepository
             .Select(w => new { w.WardNo, w.ZoneId, ZoneNo = w.Zone != null ? w.Zone.ZoneNo : null })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Ward-scoped: WardId is the leading column of the UQ_Property_Ward_Property_Partition
-        // index, so this equality predicate can still use it for a seek even though that index is
-        // filtered/unique - confirm with a DBA if this ever shows up as a scan in practice, since
-        // this repo's schema is managed outside EF migrations (see ApplicationDbContext remarks).
-        var rows = await _context.PropertyMast.AsNoTracking()
-            .Where(p => p.WardId == wardId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new PropertySuggestionDto
+        var joined = await (
+            from p in _context.PropertyMast.AsNoTracking()
+            where p.WardId == wardId && p.IsActive && !p.MarkedForDeletion
+            join cat in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals cat.Id into catJoin
+            from category in catJoin.DefaultIfEmpty()
+            join ptm in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals (int?)ptm.Id into ptmJoin
+            from propertyType in ptmJoin.DefaultIfEmpty()
+            join s in _context.SocietyDetailsMast.AsNoTracking().Where(s => s.IsActive && !s.MarkedForDeletion)
+                on p.Id equals s.PropertyId into societyJoin
+            from society in societyJoin.DefaultIfEmpty()
+            select new
             {
-                PropertyId = p.Id,
+                p.Id,
+                p.PropertyNo,
+                p.PartitionNo,
+                p.UPICId,
+                p.WingDetailId,
+                CategoryName = category != null ? category.PropertyCategoryName : null,
+                PropertyTypePartType = propertyType != null ? propertyType.PartType : null,
+                RepresentativeSocietyDetailId = society != null ? (int?)society.Id : null,
+                RepresentativeSocietyName = society != null ? society.SocietyName : null
+            }
+        ).ToListAsync(cancellationToken);
+
+        bool IsApartmentCategory(string? categoryName) =>
+            categoryName != null && PropertyCategoryConstants.ApartmentCategoryNames.Contains(categoryName);
+
+        var unitWingIds = joined
+            .Where(x => x.WingDetailId.HasValue)
+            .Select(x => x.WingDetailId!.Value)
+            .Distinct()
+            .ToList();
+
+        var societyByWingId = unitWingIds.Count == 0
+            ? new Dictionary<int, (int SocietyDetailId, string? SocietyName)>()
+            : await (
+                from w in _context.WingDetailsMast.AsNoTracking()
+                where unitWingIds.Contains(w.Id) && w.IsActive && !w.MarkedForDeletion
+                join s in _context.SocietyDetailsMast.AsNoTracking().Where(s => s.IsActive && !s.MarkedForDeletion)
+                    on w.SocietyDetailsMastId equals s.Id
+                select new { WingId = w.Id, SocietyDetailId = s.Id, SocietyName = (string?)s.SocietyName }
+            ).ToDictionaryAsync(x => x.WingId, x => (x.SocietyDetailId, x.SocietyName), cancellationToken);
+
+        var societyByPropertyNo = joined
+            .Where(x => x.RepresentativeSocietyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo))
+            .GroupBy(x => x.PropertyNo!)
+            .ToDictionary(
+                g => g.Key,
+                g => (SocietyDetailId: g.First().RepresentativeSocietyDetailId!.Value, SocietyName: g.First().RepresentativeSocietyName)
+            );
+
+        var rows = joined.Select(x =>
+        {
+            var isApartment = IsApartmentCategory(x.CategoryName);
+            int? catVal = !isApartment
+                ? 2
+                : string.IsNullOrWhiteSpace(x.PartitionNo)
+                    ? 0
+                    : string.Equals(x.PropertyTypePartType, "Amenity", StringComparison.OrdinalIgnoreCase)
+                        ? 3
+                        : 1;
+
+            string catLabel = catVal switch
+            {
+                0 => "apartment society property",
+                1 => "apartment society unit property",
+                3 => "apartment society amenity property",
+                _ => "individual property"
+            };
+
+            var societyDetailId = x.RepresentativeSocietyDetailId;
+            var societyName = x.RepresentativeSocietyName;
+
+            if (x.WingDetailId.HasValue && societyByWingId.TryGetValue(x.WingDetailId.Value, out var owningSocietyByWing))
+            {
+                societyDetailId = owningSocietyByWing.SocietyDetailId;
+                societyName = owningSocietyByWing.SocietyName;
+            }
+
+            if (!societyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo) && societyByPropertyNo.TryGetValue(x.PropertyNo, out var owningSocietyByProp))
+            {
+                societyDetailId = owningSocietyByProp.SocietyDetailId;
+                societyName = owningSocietyByProp.SocietyName;
+            }
+
+            return new PropertySuggestionDto
+            {
+                PropertyId = x.Id,
                 ZoneId = ward != null ? ward.ZoneId : 0,
                 ZoneNo = ward != null ? ward.ZoneNo : null,
-                WardId = p.WardId,
+                WardId = wardId,
                 WardNo = ward != null ? ward.WardNo : null,
-                PropertyNo = p.PropertyNo,
-                PartitionNo = p.PartitionNo,
-                UpicId = p.UPICId,
-                DisplayLabel = p.PartitionNo == null || p.PartitionNo == string.Empty
-                    ? (p.PropertyNo ?? string.Empty)
-                    : $"{p.PropertyNo}-{p.PartitionNo}"
-            })
-            .ToListAsync(cancellationToken);
+                PropertyNo = x.PropertyNo,
+                PartitionNo = x.PartitionNo,
+                UpicId = x.UPICId,
+                DisplayLabel = string.IsNullOrEmpty(x.PartitionNo)
+                    ? (x.PropertyNo ?? string.Empty)
+                    : $"{x.PropertyNo}-{x.PartitionNo}",
+                Category = catVal,
+                CategoryLabel = catLabel,
+                SocietyDetailId = catVal == 2 ? null : societyDetailId,
+                SocietyName = catVal == 2 ? null : societyName,
+                WingDetailId = (catVal == 1 || catVal == 3) ? x.WingDetailId : null
+            };
+        }).ToList();
 
         _cache.Set(cacheKey, rows, new MemoryCacheEntryOptions
         {
