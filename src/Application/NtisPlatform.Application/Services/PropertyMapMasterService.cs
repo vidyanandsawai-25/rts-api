@@ -257,10 +257,16 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         MappedNewPropertyQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
-        var oldPropertyId = queryParams.OldPropertyId ?? queryParams.PropertyId;
+        var oldPropertyId = queryParams.OldPropertyId;
+        var wingDetailsId = queryParams.WingDetailsId;
 
         var pmQuery = _propertyRepository.GetQueryable().AsNoTracking()
             .Where(pm => pm.IsActive && !pm.MarkedForDeletion);
+
+        if (wingDetailsId.HasValue)
+        {
+            pmQuery = pmQuery.Where(pm => pm.WingDetailId == wingDetailsId.Value);
+        }
 
         var pmdQuery = from pmd in _propertyMapDetailRepository.GetQueryable().AsNoTracking()
                        where pmd.IsActive && pmd.PropertyIdNew.HasValue && pmd.PropertyIdOld.HasValue
