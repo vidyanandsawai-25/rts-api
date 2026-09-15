@@ -250,4 +250,123 @@ public class UlbConfigServiceTests
         Assert.NotNull(result);
         Assert.Equal($"/api/UlbImageMaster/{doc.DocumentGuid}/view", result.UlbBackground);
     }
+
+    [Fact]
+    public async Task GetUlbConfigAsync_ActiveUlbAndLogoExists_ReturnsDtoWithLogo()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        // Add active ULB with fallback logo
+        context.ULBMasters.Add(new ULBMasterEntity
+        {
+            Id = 1,
+            UlbCode = "ULB001",
+            UlbName = "Test ULB",
+            UlbLogo = "fallback_logo.png",
+            IsActive = true
+        });
+
+        // Add active logo document
+        var doc = DocumentEntity.Create(
+            uploadedByUserId: 1,
+            fileName: "logo.png",
+            originalFileName: "logo.png",
+            fileExtension: ".png",
+            mimeType: "image/png",
+            fileSizeBytes: 2000,
+            storagePath: "uploads/logo.png",
+            documentType: "Logo"
+        );
+        context.Documents.Add(doc);
+        await context.SaveChangesAsync();
+
+        // Add UlbImageMaster pointing to that Logo Document
+        context.UlbImageMasters.Add(new UlbImageMasterEntity
+        {
+            Id = 1,
+            ImageType = "Logo",
+            ImageId = doc.Id,
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
+        mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
+
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
+        var result = await service.GetUlbConfigAsync();
+
+        Assert.NotNull(result);
+        Assert.Equal($"/api/UlbImageMaster/{doc.DocumentGuid}/view", result.UlbLogo);
+    }
+
+    [Fact]
+    public async Task GetUlbConfigAsync_InactiveOrDeletedLogo_FallsBackToUlbLogo()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        // Add active ULB with fallback logo
+        context.ULBMasters.Add(new ULBMasterEntity
+        {
+            Id = 1,
+            UlbCode = "ULB001",
+            UlbName = "Test ULB",
+            UlbLogo = "fallback_logo.png",
+            IsActive = true
+        });
+
+        // Add inactive logo document
+        var doc = DocumentEntity.Create(
+            uploadedByUserId: 1,
+            fileName: "logo.png",
+            originalFileName: "logo.png",
+            fileExtension: ".png",
+            mimeType: "image/png",
+            fileSizeBytes: 2000,
+            storagePath: "uploads/logo.png",
+            documentType: "Logo"
+        );
+        doc.IsActive = false;
+        context.Documents.Add(doc);
+        await context.SaveChangesAsync();
+
+        // Add UlbImageMaster for the inactive logo
+        context.UlbImageMasters.Add(new UlbImageMasterEntity
+        {
+            Id = 1,
+            ImageType = "Logo",
+            ImageId = doc.Id,
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
+        mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
+
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
+        var result = await service.GetUlbConfigAsync();
+
+        Assert.NotNull(result);
+        Assert.Equal("fallback_logo.png", result.UlbLogo);
+    }
 }
