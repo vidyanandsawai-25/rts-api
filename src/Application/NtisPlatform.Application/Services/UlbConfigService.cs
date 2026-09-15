@@ -63,13 +63,28 @@ public class UlbConfigService : IUlbConfigService
         }
         catch { }
 
+        var logoImageGuid = await (
+            from img in _ulbImageMasterRepository.GetQueryable()
+            where img.ImageType == "Logo" && img.IsActive
+            join doc in _documentRepository.GetQueryable() on img.ImageId equals doc.Id
+            where doc.IsActive && !doc.MarkedForDeletion
+            orderby img.Id descending
+            select doc.DocumentGuid
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        string? ulbLogo = !string.IsNullOrWhiteSpace(ulb.UlbLogo) ? ulb.UlbLogo : null;
+        if (logoImageGuid != Guid.Empty)
+        {
+            ulbLogo = $"/api/UlbImageMaster/{logoImageGuid}/view";
+        }
+
         return new UlbConfigDto
         {
             UlbId = ulb.Id,
             UlbCode = ulb.UlbCode,
             UlbName = ulb.UlbName,
             UlbNameLocal = ulb.UlbNameLocal,
-            UlbLogo = ulb.UlbLogo,
+            UlbLogo = ulbLogo,
             EmailId = ulb.EmailId,
             MobileNo = ulb.MobileNo,
             WebsiteUrl = ulb.WebsiteUrl,

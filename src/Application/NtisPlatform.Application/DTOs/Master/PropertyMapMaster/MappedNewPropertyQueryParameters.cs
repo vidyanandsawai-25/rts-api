@@ -13,8 +13,7 @@ public class MappedNewPropertyQueryParameters : BaseQueryParameters
     public int? OldPropertyId { get; set; }
 
     /// <summary>
-    /// Backward-compatible alias for OldPropertyId (PropertyMastOld.Id).
+    /// Wing Details ID (PTIS.WingDetailsMast.Id)
     /// </summary>
-    [Obsolete("Use OldPropertyId instead.")]
-    public int? PropertyId { get; set; }
+    public int? WingDetailsId { get; set; }
 }

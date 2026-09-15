@@ -2218,73 +2218,6 @@ public class PropertyMapMasterServiceTests
     }
 
     [Fact]
-    public async Task GetMappedNewPropertiesAsync_WithPropertyIdAlias_ReturnsMappedNewProperties()
-    {
-        // Arrange
-        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
-        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
-        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
-        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
-        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
-        var mockUow = new Mock<IUnitOfWork>();
-        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
-
-        var pmmList = new List<PropertyMapMasterEntity>
-        {
-            new() { Id = 1, MappingCategory = "SPLIT", IsActive = true }
-        }.BuildMock();
-
-        var pmdList = new List<PropertyMapDetailEntity>
-        {
-            new() { Id = 1, PropertyMapId = 1, PropertyIdOld = 50, PropertyIdNew = 101, IsActive = true }
-        }.BuildMock();
-
-        var pmList = new List<PropertyEntity>
-        {
-            new() { Id = 101, PropertyNo = "NEW-101", PartitionNo = "PART-101", OwnerName = "New Owner 1", IsActive = true }
-        }.BuildMock();
-
-        var pmoList = new List<PropertyMastOldEntity>
-        {
-            new() { Id = 50, OldPropertyNo = "OLD-50", OldPartitionNo = "OLD-PART-50", OldOwnerName = "Old Owner 50", IsActive = true }
-        }.BuildMock();
-
-        var pdoList = new List<PropertyDetailsOldEntity>().BuildMock();
-
-        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
-        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
-        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
-        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
-        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
-
-        var service = new PropertyMapMasterService(
-            mockPmmRepo.Object,
-            mockUow.Object,
-            mapper,
-            mockPmdRepo.Object,
-            mockPmRepo.Object,
-            mockPmoRepo.Object,
-            mockPdoRepo.Object
-        );
-
-#pragma warning disable CS0618 // Type or member is obsolete
-        var q = new MappedNewPropertyQueryParameters
-        {
-            PropertyId = 50 // legacy alias
-        };
-#pragma warning restore CS0618
-
-        // Act
-        var result = await service.GetMappedNewPropertiesAsync(q, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
-        Assert.Equal(101, result.Items.First().Id);
-    }
-
-    [Fact]
     public async Task GetMappedNewPropertiesAsync_UnmappedOldProperty_ReturnsEmpty()
     {
         // Arrange
@@ -2335,6 +2268,74 @@ public class PropertyMapMasterServiceTests
         Assert.NotNull(result);
         Assert.Empty(result.Items);
         Assert.Equal(0, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetMappedNewPropertiesAsync_WithWingDetailsId_ReturnsFilteredMappedNewProperties()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>
+        {
+            new() { Id = 1, MappingCategory = "SPLIT", IsActive = true }
+        }.BuildMock();
+
+        var pmdList = new List<PropertyMapDetailEntity>
+        {
+            new() { Id = 1, PropertyMapId = 1, PropertyIdOld = 50, PropertyIdNew = 101, IsActive = true },
+            new() { Id = 2, PropertyMapId = 1, PropertyIdOld = 50, PropertyIdNew = 102, IsActive = true }
+        }.BuildMock();
+
+        var pmList = new List<PropertyEntity>
+        {
+            new() { Id = 101, PropertyNo = "NEW-101", PartitionNo = "PART-101", OwnerName = "New Owner 1", WingDetailId = 10, IsActive = true },
+            new() { Id = 102, PropertyNo = "NEW-102", PartitionNo = "PART-102", OwnerName = "New Owner 2", WingDetailId = 20, IsActive = true }
+        }.BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new() { Id = 50, OldPropertyNo = "OLD-50", OldPartitionNo = "OLD-PART-50", OldOwnerName = "Old Owner 50", IsActive = true }
+        }.BuildMock();
+
+        var pdoList = new List<PropertyDetailsOldEntity>().BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object,
+            mockPdoRepo.Object
+        );
+
+        var q = new MappedNewPropertyQueryParameters
+        {
+            OldPropertyId = 50,
+            WingDetailsId = 10
+        };
+
+        // Act
+        var result = await service.GetMappedNewPropertiesAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Contains(result.Items, x => x.Id == 101 && x.WingDetailId == 10);
     }
 
     [Fact]

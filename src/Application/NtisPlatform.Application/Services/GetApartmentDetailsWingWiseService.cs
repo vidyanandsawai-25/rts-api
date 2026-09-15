@@ -409,40 +409,6 @@ public class GetApartmentDetailsWingWiseService : IGetApartmentDetailsWingWiseSe
             rvTaxLookup.TryAdd(r.PropertyId, r.RateableValue);
         }
 
-        // Resolve Current Finance Year Id from YearMaster
-        var today = DateTime.Today;
-        var currentFinanceYearId = await _yearMasterRepository.GetQueryable().AsNoTracking()
-            .Where(y => y.IsActive)
-            .OrderByDescending(y => y.Year)
-            .Select(y => (int?)y.Id)
-            .FirstOrDefaultAsync(cancellationToken)
-            ?? await _yearMasterRepository.GetQueryable().AsNoTracking()
-                .Where(y => y.StartDate <= today && y.EndDate >= today)
-                .Select(y => (int?)y.Id)
-                .FirstOrDefaultAsync(cancellationToken);
-
-        // Fetch Current Demand (TaxAmount where TaxCode='TAXTOTAL' and FinanceYearId=currentFinanceYearId) per PropertyId from TransMast
-        // SELECT TM.[TaxAmount] AS [CurrentDemand] FROM [PTIS].[TransMast] TM
-        // INNER JOIN [PTIS].[TaxMaster] TX ON TX.[Id] = TM.[TaxId]
-        // WHERE TM.[PropertyId] IN (@propertyIds) AND TM.[FinanceYearId] = @CurrentFinanceYearId AND TX.[TaxCode] = 'TAXTOTAL' AND TM.[IsActive] = 1 AND TM.[MarkedForDeletion] = 0;
-        var currentDemandLookup = currentFinanceYearId.HasValue
-            ? await (
-                from tm in _transMastRepository.GetQueryable().AsNoTracking()
-                join tx in _taxMasterRepository.GetQueryable().AsNoTracking() on tm.TaxId equals tx.Id
-                where propertyIds.Contains(tm.PropertyId)
-                   && tm.FinanceYearId == currentFinanceYearId.Value
-                   && tx.TaxCode == "TAXTOTAL" && tx.IsActive
-                   && tm.IsActive && !tm.MarkedForDeletion
-                   && tm.CalculationType == retroCalculationType
-                group tm by tm.PropertyId into g
-                select new
-                {
-                    PropertyId = g.Key,
-                    CurrentDemand = g.Sum(x => (decimal?)x.TaxAmount) ?? 0m
-                }
-            ).ToDictionaryAsync(x => x.PropertyId, x => x.CurrentDemand, cancellationToken)
-            : new Dictionary<int, decimal>();
-
         // If TaxCalculationMethod is 'RV', CV is not checked; otherwise CV details (CalculationValue / Capital Value) are retrieved where IsCurrent is true
         var cvTaxLookup = new Dictionary<int, decimal?>();
         if (!isRvOnly)
@@ -455,6 +421,120 @@ public class GetApartmentDetailsWingWiseService : IGetApartmentDetailsWingWiseSe
             foreach (var r in cvTaxRows)
             {
                 cvTaxLookup.TryAdd(r.PropertyId, r.CapitalValue);
+            }
+        }
+
+        // Fetch Current Demand from PolicyTaxDetails (for RV) or PolicyTaxDetailsCV (for CV) where IsCurrent = 1, IsActive = 1, TaxCode = 'TAXTOTAL'
+        // Uses single-row selection with policy precedence (certificate/occupation policies over NETTAX, non-retro) to avoid double-counting.
+        var currentDemandLookup = new Dictionary<int, decimal>();
+        if (isRvOnly)
+        {
+            var rvDemandList = await (
+                from ptd in _policyTaxDetailsRepository.GetQueryable().AsNoTracking()
+                join tx in _taxMasterRepository.GetQueryable().AsNoTracking() on ptd.TaxId equals tx.Id
+                join pcm in _policyCodeMasterRepository.GetQueryable().AsNoTracking() on ptd.PolicyCodeId equals pcm.Id
+                where propertyIds.Contains(ptd.PropertyId)
+                   && (tx.TaxCode == "TAXTOTAL" || tx.TaxCode == "TaxTotal") && tx.IsActive
+                   && ptd.IsCurrent && ptd.IsActive && !ptd.MarkedForDeletion
+                   && !pcm.IsRetroDemand && pcm.IsActive
+                select new
+                {
+                    ptd.PropertyId,
+                    ptd.TaxAmount,
+                    pcm.PolicyCode,
+                    pcm.DisplayOrder,
+                    ptd.Id
+                }
+            ).ToListAsync(cancellationToken);
+
+            var rvDemandByProperty = rvDemandList
+                .GroupBy(x => x.PropertyId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(x => x.PolicyCode != PolicyCodes.NetTax)
+                          .ThenByDescending(x => x.DisplayOrder)
+                          .ThenByDescending(x => x.Id)
+                          .Select(x => x.TaxAmount ?? 0m)
+                          .FirstOrDefault()
+                );
+
+            foreach (var kvp in rvDemandByProperty)
+            {
+                currentDemandLookup[kvp.Key] = kvp.Value;
+            }
+        }
+        else
+        {
+            var cvDemandList = await (
+                from ptd in _policyTaxDetailsCVRepository.GetQueryable().AsNoTracking()
+                join tx in _taxMasterRepository.GetQueryable().AsNoTracking() on ptd.TaxId equals tx.Id
+                join pcm in _policyCodeMasterRepository.GetQueryable().AsNoTracking() on ptd.PolicyCodeId equals pcm.Id
+                where propertyIds.Contains(ptd.PropertyId)
+                   && (tx.TaxCode == "TAXTOTAL" || tx.TaxCode == "TaxTotal") && tx.IsActive
+                   && ptd.IsCurrent && ptd.IsActive && !ptd.MarkedForDeletion
+                   && !pcm.IsRetroDemand && pcm.IsActive
+                select new
+                {
+                    ptd.PropertyId,
+                    ptd.TaxAmount,
+                    pcm.PolicyCode,
+                    pcm.DisplayOrder,
+                    ptd.Id
+                }
+            ).ToListAsync(cancellationToken);
+
+            var cvDemandByProperty = cvDemandList
+                .GroupBy(x => x.PropertyId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(x => x.PolicyCode != PolicyCodes.NetTax)
+                          .ThenByDescending(x => x.DisplayOrder)
+                          .ThenByDescending(x => x.Id)
+                          .Select(x => x.TaxAmount ?? 0m)
+                          .FirstOrDefault()
+                );
+
+            foreach (var kvp in cvDemandByProperty)
+            {
+                currentDemandLookup[kvp.Key] = kvp.Value;
+            }
+
+            var missingPropIds = propertyIds.Where(id => !currentDemandLookup.ContainsKey(id)).ToList();
+            if (missingPropIds.Count > 0)
+            {
+                var fallbackDemandList = await (
+                    from ptd in _policyTaxDetailsRepository.GetQueryable().AsNoTracking()
+                    join tx in _taxMasterRepository.GetQueryable().AsNoTracking() on ptd.TaxId equals tx.Id
+                    join pcm in _policyCodeMasterRepository.GetQueryable().AsNoTracking() on ptd.PolicyCodeId equals pcm.Id
+                    where missingPropIds.Contains(ptd.PropertyId)
+                       && (tx.TaxCode == "TAXTOTAL" || tx.TaxCode == "TaxTotal") && tx.IsActive
+                       && ptd.IsCurrent && ptd.IsActive && !ptd.MarkedForDeletion
+                       && !pcm.IsRetroDemand && pcm.IsActive
+                    select new
+                    {
+                        ptd.PropertyId,
+                        ptd.TaxAmount,
+                        pcm.PolicyCode,
+                        pcm.DisplayOrder,
+                        ptd.Id
+                    }
+                ).ToListAsync(cancellationToken);
+
+                var fallbackByProperty = fallbackDemandList
+                    .GroupBy(x => x.PropertyId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.OrderByDescending(x => x.PolicyCode != PolicyCodes.NetTax)
+                              .ThenByDescending(x => x.DisplayOrder)
+                              .ThenByDescending(x => x.Id)
+                              .Select(x => x.TaxAmount ?? 0m)
+                              .FirstOrDefault()
+                    );
+
+                foreach (var kvp in fallbackByProperty)
+                {
+                    currentDemandLookup.TryAdd(kvp.Key, kvp.Value);
+                }
             }
         }
 
