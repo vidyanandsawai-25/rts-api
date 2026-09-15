@@ -81,4 +81,9 @@ public interface IPropertyService
     Task<List<GetPropertiesItemDto>> GetPropertiesAsync(
         GetPropertiesQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all mapped old properties for a merged property.
+    /// </summary>
+    Task<PagedResult<MappedOldPropertyMastDto>?> GetMappedOldPropertyDetailsAsync(MappedOldPropertyQueryParameters queryParameters, CancellationToken cancellationToken = default);
 }

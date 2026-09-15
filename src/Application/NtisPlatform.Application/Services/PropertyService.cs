@@ -65,6 +65,7 @@ public partial class PropertyService
     private readonly IServiceProvider? _serviceProvider;
     private readonly IPropertyWorkflowDetailsRepository? _workflowDetailsRepository;
     private readonly IRepository<PropertySurveyVisitEntity, int>? _propertySurveyVisitRepository;
+    private readonly IRepository<PropertyDetailsOldEntity, int>? _propertyDetailsOldRepository;
 
 
     public PropertyService(
@@ -100,7 +101,8 @@ public partial class PropertyService
         IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null,
         IServiceProvider? serviceProvider = null,
         IPropertyWorkflowDetailsRepository? workflowDetailsRepository = null,
-        IRepository<PropertySurveyVisitEntity, int>? propertySurveyVisitRepository = null)
+        IRepository<PropertySurveyVisitEntity, int>? propertySurveyVisitRepository = null,
+        IRepository<PropertyDetailsOldEntity, int>? propertyDetailsOldRepository = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -133,6 +135,7 @@ public partial class PropertyService
         _serviceProvider = serviceProvider;
         _workflowDetailsRepository = workflowDetailsRepository;
         _propertySurveyVisitRepository = propertySurveyVisitRepository;
+        _propertyDetailsOldRepository = propertyDetailsOldRepository;
     }
 
 
