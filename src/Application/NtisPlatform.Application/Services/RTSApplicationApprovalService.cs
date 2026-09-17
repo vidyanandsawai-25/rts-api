@@ -106,8 +106,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         var query = _repository.GetQueryable()
          .Where(x => !x.MarkedForDeletion && x.IsActive)
-         .OrderBy(x => x.UpdatedDate ?? x.CreatedDate)
-         .ThenBy(x => x.Id)
          .AsQueryable();
 
         if (queryParameters.DepartmentId > 0)
@@ -116,22 +114,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
+        if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
+            query = query.Where(x => x.UserId == queryParameters.UserId.Value);
+
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
-         !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
-         !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
-         !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
-        {
-            query = query.Where(x => x.ApplicationStatus == queryParameters.ApplicationStatus);
-        }
-
-        else if (string.Equals( queryParameters.ApplicationStatus,ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(queryParameters.ApplicationStatus, ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x => x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted);
         }
-        else if (string.Equals( queryParameters.ApplicationStatus, "Overdue Applications",StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -145,7 +138,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     )
                 ) < today);
         }
-
         else if (string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
@@ -166,12 +158,30 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.CreatedDate.HasValue &&
                 x.CreatedDate.Value.Date == today.Date);
         }
+        else if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus))
+        {
+            query = query.Where(x => x.ApplicationStatus == queryParameters.ApplicationStatus);
+        }
 
         query = query.ApplySearch<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
 
         // RemainingDays is a computed field (not on entity), so skip entity-level sort when sorting by it
         var isSortByRemainingDays = string.Equals(queryParameters.SortBy, "RemainingDays", StringComparison.OrdinalIgnoreCase);
-        if (!isSortByRemainingDays)
+        if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
+        {
+            // Pending/active applications first, then closed (Approved, Rejected, Reverted); within each group, FIFO (CreatedDate ASC, Id ASC)
+            query = query
+                .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                .ThenBy(x => x.CreatedDate)
+                .ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "CreatedDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.CreatedDate).ThenBy(x => x.Id);
+        }
+        else if (!isSortByRemainingDays)
         {
             query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
         }
@@ -389,6 +399,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 Remark = x.Remark,
                 IsCertificateRequired = x.Service != null && x.Service.IsCertificateRequired,
                 CertificateType = x.Service != null ? (byte)x.Service.CertificateType : (byte)0,
+                IssuedCertificateGuid = x.IssuedCertificateGuid,
                 Documents = x.FieldValueData
                     .Where(fv =>
                         !fv.MarkedForDeletion &&

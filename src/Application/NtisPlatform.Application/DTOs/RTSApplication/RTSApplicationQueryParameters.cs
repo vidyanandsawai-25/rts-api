@@ -32,4 +32,9 @@ public class RTSApplicationQueryParameters:BaseQueryParameters
     [Sortable]
     public DateTime? UpdatedDate { get; set; }
 
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? UserId { get; set; }
+
+    public bool? IsFifo { get; set; }
 }

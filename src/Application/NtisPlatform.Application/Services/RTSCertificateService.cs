@@ -551,6 +551,18 @@ public class RTSCertificateService : IRTSCertificateService
             {
                 app.Remark = request.ActionRemark;
             }
+            app.IssuedCertificateGuid = isManual && request.DocumentGuid.HasValue
+                ? request.DocumentGuid.Value
+                : certGuid;
+            app.UpdatedBy = userId;
+            app.UpdatedDate = DateTime.UtcNow;
+            await _applicationRepository.UpdateAsync(app, ct);
+        }
+        else if (request.DocumentGuid.HasValue || certGuid != Guid.Empty)
+        {
+            app.IssuedCertificateGuid = isManual && request.DocumentGuid.HasValue
+                ? request.DocumentGuid.Value
+                : certGuid;
             app.UpdatedBy = userId;
             app.UpdatedDate = DateTime.UtcNow;
             await _applicationRepository.UpdateAsync(app, ct);
