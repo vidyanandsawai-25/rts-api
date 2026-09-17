@@ -817,10 +817,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 "Current stage history record was not found.");
 
-        //if Second Stage Is Last Satge
-        if (currentStage.IsFinalStage)
-        {
+        var nextStage = await _approvalFlowStageRepository
+           .GetQueryable()
+           .AsNoTracking()
+           .Where(stage =>
+               stage.ApprovalFlowId == application.ApprovalFlowId &&
+               stage.StageOrder > application.CurrentStageOrder)
+           .OrderBy(stage => stage.StageOrder)
+           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
+           .FirstOrDefaultAsync(cancellationToken);
 
+        // Finalize approval only if current stage is final and there are no subsequent stages
+        if (currentStage.IsFinalStage && nextStage == null)
+        {
             application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
             {
                 ApprovalFlowId = application.ApprovalFlowId,
@@ -870,16 +879,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 Remark = application.Remark
             };
         }
-
-        var nextStage = await _approvalFlowStageRepository  //PENDING AT
-           .GetQueryable()
-           .AsNoTracking()
-           .Where(stage =>
-               stage.ApprovalFlowId == application.ApprovalFlowId &&
-               stage.StageOrder > application.CurrentStageOrder)
-           .OrderBy(stage => stage.StageOrder)
-           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
-           .FirstOrDefaultAsync(cancellationToken);
 
         if (nextStage == null)
             throw new InvalidOperationException("Next approval stage is not configured.");
