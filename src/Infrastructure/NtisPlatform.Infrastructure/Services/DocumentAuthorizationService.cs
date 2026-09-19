@@ -74,11 +74,11 @@ public class DocumentAuthorizationService : IDocumentAuthorizationService
             return false;
         }
 
-        // Unbound documents: deny for authenticated non-uploader if no handlers exist
+        // Unbound documents: allow access since unbound active documents are accessible via AllowAnonymous endpoints
         if (docWithBindings.DocumentBindings.Count == 0)
         {
-            _logger.LogWarning("Document {DocumentGuid} has no active bindings for authorization check", documentGuid);
-            return false;
+            _logger.LogInformation("Document {DocumentGuid} access granted to user {UserId} (unbound active document)", documentGuid, userId);
+            return true;
         }
 
         // Check each binding with appropriate handler
