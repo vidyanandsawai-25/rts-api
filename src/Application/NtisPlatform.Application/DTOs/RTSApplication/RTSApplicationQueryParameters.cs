@@ -36,5 +36,7 @@ public class RTSApplicationQueryParameters:BaseQueryParameters
     [Sortable]
     public int? UserId { get; set; }
 
+    public int? CurrentUserId { get; set; }
+
     public bool? IsFifo { get; set; }
 }

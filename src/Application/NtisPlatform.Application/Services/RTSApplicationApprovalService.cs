@@ -210,11 +210,28 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         }
         else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
         {
-            // Strict FIFO mode: Pending/active applications first, then closed (Approved, Rejected, Reverted); within each group, earliest CreatedDate first (CreatedDate ASC, Id ASC)
-            query = query
-                .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
-                .ThenBy(x => x.CreatedDate)
-                .ThenBy(x => x.Id);
+            // Strict FIFO mode:
+            // 1. Pending/active applications first, then closed (Approved, Rejected, Reverted)
+            // 2. Pending applications assigned to the logged-in officer (CurrentUserId) on top
+            // 3. Earliest CreatedDate first (FIFO)
+            // 4. Id ASC
+            var currentUserId = queryParameters.CurrentUserId;
+            if (currentUserId.HasValue && currentUserId.Value > 0)
+            {
+                var targetUserId = currentUserId.Value;
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.UserId == targetUserId ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
+            else
+            {
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
         }
         else if (!isSortByRemainingDays)
         {
