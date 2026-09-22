@@ -561,7 +561,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return null;
         }
 
-        var isCertificateIssued = await _issuedCertificateRepository
+        var isCertificateIssued = await _issuedCertificateRepository   //checks the applications Certficate is issued or not
          .GetQueryable()
          .AsNoTracking()
          .AnyAsync(
@@ -569,14 +569,13 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
          x.ApplicationId == applicationId &&
          x.IsActive &&
          !x.MarkedForDeletion,
-     cancellationToken);
+            cancellationToken);
 
         // Application workflow is already completed.
-        if (result.ApplicationStatus == ApplicationStatus.Approved || result.ApplicationStatus == ApplicationStatus.Rejected)
+        if (result.ApplicationStatus == ApplicationStatus.Approved && isCertificateIssued)
         {
             return null;
         }
-
         if (result.ApprovalFlowId == 0 || result.CurrentApprovalFlowStageId == 0)
         {
             throw new InvalidOperationException(
