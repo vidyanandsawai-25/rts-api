@@ -4,7 +4,6 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
-using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -217,9 +216,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
+                OfficerFirstName = x.User.FirstName,
+                OfficerLastName = x.User.LastName,
                 CreatedDate = x.CreatedDate,
-                UpdatedDate = x.UpdatedDate
-
+                UpdatedDate = x.UpdatedDate,
             }).ToListAsync(cancellationToken);
 
         foreach (var item in items)
@@ -1448,3 +1448,4 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
 
 }
+
