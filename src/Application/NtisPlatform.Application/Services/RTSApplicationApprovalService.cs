@@ -116,8 +116,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
             query = query.Where(x => x.UserId == queryParameters.UserId.Value);
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
-            query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
+        var search = (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm)
+            ? queryParameters.SearchTerm
+            : queryParameters.ApplicationNo)?.Trim().ToLower();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(x =>
+                (x.ApplicationNo != null && x.ApplicationNo.ToLower().Contains(search)) ||
+                (x.ApplicantName != null && x.ApplicantName.ToLower().Contains(search)) ||
+                (x.ApplicantMobileNo != null && x.ApplicantMobileNo.ToLower().Contains(search)) ||
+                (x.CitizenSession != null && x.CitizenSession.PropertyNo != null && x.CitizenSession.PropertyNo.ToLower().Contains(search)) ||
+                (x.CitizenSession != null && x.CitizenSession.Upic != null && x.CitizenSession.Upic.ToLower().Contains(search)));
+        }
 
         if (string.Equals(queryParameters.ApplicationStatus, ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
         {
@@ -150,7 +161,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))
                 ).Date == today.Date);
         }
-        else if (string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(queryParameters.ApplicationStatus, "Todays Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.IsActive &&
@@ -159,26 +171,66 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         }
         else if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus))
         {
-            query = query.Where(x => x.ApplicationStatus == queryParameters.ApplicationStatus);
+            var targetStatus = queryParameters.ApplicationStatus.Trim().ToLower();
+            query = query.Where(x => x.ApplicationStatus != null && x.ApplicationStatus.ToLower() == targetStatus);
         }
-
-        query = query.ApplySearch<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
 
         // RemainingDays is a computed field (not on entity), so skip entity-level sort when sorting by it
         var isSortByRemainingDays = string.Equals(queryParameters.SortBy, "RemainingDays", StringComparison.OrdinalIgnoreCase);
-        if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
-        {
-            // Pending/active applications first, then closed (Approved, Rejected, Reverted); within each group, FIFO (CreatedDate ASC, Id ASC)
-            query = query
-                .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
-                .ThenBy(x => x.CreatedDate)
-                .ThenBy(x => x.Id);
-        }
-        else if (string.Equals(queryParameters.SortBy, "CreatedDate", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(queryParameters.SortBy, "CreatedDate", StringComparison.OrdinalIgnoreCase))
         {
             query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
                 ? query.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.Id)
                 : query.OrderBy(x => x.CreatedDate).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "applicationNo", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicationNo).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicationNo).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "ApplicantName", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicantName).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicantName).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "ApplicationStatus", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicationStatus).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicationStatus).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "UpdatedDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.UpdatedDate ?? x.CreatedDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.UpdatedDate ?? x.CreatedDate).ThenBy(x => x.Id);
+        }
+        else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
+        {
+            // Strict FIFO mode:
+            // 1. Pending/active applications first, then closed (Approved, Rejected, Reverted)
+            // 2. Pending applications assigned to the logged-in officer (CurrentUserId) on top
+            // 3. Earliest CreatedDate first (FIFO)
+            // 4. Id ASC
+            var currentUserId = queryParameters.CurrentUserId;
+            if (currentUserId.HasValue && currentUserId.Value > 0)
+            {
+                var targetUserId = currentUserId.Value;
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.UserId == targetUserId ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
+            else
+            {
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
         }
         else if (!isSortByRemainingDays)
         {
