@@ -6266,6 +6266,13 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.CanUploadManualCertificate)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.CanViewCertificate)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.Property(e => e.CanViewNoteSheet)
                 .IsRequired()
                 .HasDefaultValue(false);

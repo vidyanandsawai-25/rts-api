@@ -517,7 +517,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
 
     // <summary>
-    // Get the current approval officer for a given application. and it Access and Name Role and Email and Stage Details
+    // Get the current approval officer for a given application. and it Access and Name Role and Email and Stage Details 
     // <summary>
 
     public async Task<CurrentApprovalOfficerDto?> GetCurrentApprovalOfficerAsync(
@@ -594,6 +594,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanViewNoteSheet,
                 stage.CanEditCertificate,
                 stage.CanIssueCertificate,
+                stage.CanViewCertificate,
+                stage.CanUploadManualCertificate,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -662,6 +664,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
             CanIssueCertificate = currentStage.CanIssueCertificate,
             CanEditCertificate = currentStage.CanEditCertificate,
+            CanViewCertificate=currentStage.CanViewCertificate,
+            CanUploadManualCertificate=currentStage.CanUploadManualCertificate,
             IsManualCertificate = result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
 
             ServiceId = result.ServiceId,
