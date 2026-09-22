@@ -21,6 +21,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<RTSPaymentTransactionEntity, long> _paymentRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
+    private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
 
     public RTSApplicationApprovalService(
@@ -31,6 +32,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<RTSFieldValueEntity, int> fieldValueRepository,
           IRepository<RTSPaymentTransactionEntity, long> paymentRepository,
           IRepository<RTSServiceEntity, int> serviceRepository,
+          IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
           IRTSSmsNotificationService smsNotificationService,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
@@ -42,6 +44,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _paymentRepository = paymentRepository;
         _serviceRepository = serviceRepository;
         _smsNotificationService = smsNotificationService;
+        _issuedCertificateRepository = issuedCertificateRepository;
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -558,9 +561,18 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return null;
         }
 
+        var isCertificateIssued = await _issuedCertificateRepository
+         .GetQueryable()
+         .AsNoTracking()
+         .AnyAsync(
+         x =>
+         x.ApplicationId == applicationId &&
+         x.IsActive &&
+         !x.MarkedForDeletion,
+     cancellationToken);
+
         // Application workflow is already completed.
-        if (result.ApplicationStatus == ApplicationStatus.Approved ||
-            result.ApplicationStatus == ApplicationStatus.Rejected)
+        if (result.ApplicationStatus == ApplicationStatus.Approved || result.ApplicationStatus == ApplicationStatus.Rejected)
         {
             return null;
         }
