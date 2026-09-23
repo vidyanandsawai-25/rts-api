@@ -268,6 +268,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceNameLocal = x.Service.ServiceNameLocal,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
+
                 ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
@@ -603,10 +604,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanPay,
                 stage.CanEdit,
                 stage.CanViewNoteSheet,
-                stage.CanEditCertificate,
                 stage.CanIssueCertificate,
                 stage.CanViewCertificate,
-                stage.CanUploadManualCertificate,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -674,9 +673,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanEdit = currentStage.CanEdit,
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
             CanIssueCertificate = currentStage.CanIssueCertificate,
-            CanEditCertificate = currentStage.CanEditCertificate,
             CanViewCertificate=currentStage.CanViewCertificate,
-            CanUploadManualCertificate=currentStage.CanUploadManualCertificate,
             IsManualCertificate = result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
 
             ServiceId = result.ServiceId,

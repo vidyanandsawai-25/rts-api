@@ -1,30 +1,21 @@
 namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
-public class RTSApplicationVerificationDto
-{
-}
-
-
 public class CurrentApprovalOfficerDto
 {
     public int ApplicationId { get; set; }
     public string? ApplicationNo { get; set; }
     public string? ApplicationStatus { get; set; }
-
     public int? ApprovalFlowId { get; set; }
-
     public int StageId { get; set; }
     public string? StageName { get; set; }
     public int StageOrder { get; set; }
     public int SLADays { get; set; }
     public bool IsFinalStage { get; set; }
-
     public int? OfficerId { get; set; }
     public string? OfficerName { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? OfficerEmail { get; set; }
-
     public bool IsAssignedOfficer { get; set; }
 
     public bool CanVerifyDocument { get; set; }
@@ -35,10 +26,8 @@ public class CurrentApprovalOfficerDto
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
     public bool CanIssueCertificate { get; set; }
-    public bool CanEditCertificate { get; set; }
     public bool IsManualCertificate { get; set; }
-    public bool CanUploadManualCertificate { get; set; }  //
-    public bool CanViewCertificate { get; set; }//
+    public bool CanViewCertificate { get; set; }
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }

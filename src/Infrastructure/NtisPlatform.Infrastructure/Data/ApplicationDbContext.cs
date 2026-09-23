@@ -6266,9 +6266,7 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            entity.Property(e => e.CanUploadManualCertificate)
-                .IsRequired()
-                .HasDefaultValue(false);
+           
             entity.Property(e => e.CanViewCertificate)
                 .IsRequired()
                 .HasDefaultValue(false);
@@ -6282,10 +6280,6 @@ public class ApplicationDbContext : DbContext
                 .HasDefaultValue(false);
 
             entity.Property(e => e.CanIssueCertificate)
-                .IsRequired()
-                .HasDefaultValue(false);
-
-            entity.Property(e => e.CanEditCertificate)
                 .IsRequired()
                 .HasDefaultValue(false);
 
