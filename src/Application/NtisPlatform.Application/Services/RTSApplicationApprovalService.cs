@@ -119,6 +119,27 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
             query = query.Where(x => x.UserId == queryParameters.UserId.Value);
 
+        // ADD DATE FILTER HERE
+        if (queryParameters.FromDate.HasValue)
+        {
+            var fromDate = queryParameters.FromDate.Value.Date;
+
+            query = query.Where(x =>
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value >= fromDate);
+        }
+
+        if (queryParameters.ToDate.HasValue)
+        {
+            var toDate = queryParameters.ToDate.Value.Date.AddDays(1);
+
+            query = query.Where(x =>
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value < toDate);
+        }
+
+
+
         var search = (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm)
             ? queryParameters.SearchTerm
             : queryParameters.ApplicationNo)?.Trim().ToLower();
