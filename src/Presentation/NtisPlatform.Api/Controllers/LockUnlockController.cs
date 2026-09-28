@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Application.DTOs.LockUnlock;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using System.Security.Claims;
@@ -18,15 +20,21 @@ namespace NtisPlatform.Api.Controllers;
 public class LockUnlockController : ControllerBase
 {
     private readonly ILockUnlockService _service;
+    private readonly IPropertyLockExcelService _propertyLockExcelService;
+    private readonly FileValidationHelper _fileValidationHelper;
     private readonly ILogger<LockUnlockController> _logger;
     private readonly IWebHostEnvironment _environment;
 
     public LockUnlockController(
         ILockUnlockService service,
+        IPropertyLockExcelService propertyLockExcelService,
+        FileValidationHelper fileValidationHelper,
         ILogger<LockUnlockController> logger,
         IWebHostEnvironment environment)
     {
         _service = service;
+        _propertyLockExcelService = propertyLockExcelService;
+        _fileValidationHelper = fileValidationHelper;
         _logger = logger;
         _environment = environment;
     }
@@ -155,6 +163,42 @@ public class LockUnlockController : ControllerBase
                 Message = _environment.IsDevelopment() ? $"An error occurred: {ex.Message}" : "An error occurred",
                 CorrelationId = correlationId
             });
+        }
+    }
+    // POST api/LockUnlock/properties/search-by-excel
+    [HttpPost("properties/search-by-excel")]
+    [Consumes("multipart/form-data")]
+    [EnableRateLimiting("fileupload")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyLockExcelPagedResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetPropertiesByExcel([FromForm] SearchByExcelFileRequestDto request, CancellationToken ct)
+    {
+        if (request?.File is null || request.File.Length == 0)
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+        if (!_fileValidationHelper.IsValidFileType(request.File.ContentType, request.File.FileName))
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = _fileValidationHelper.GetInvalidFileTypeMessage()
+            });
+
+        try
+        {
+            await using var stream = request.File.OpenReadStream();
+            var result = await _propertyLockExcelService.GetPropertyLocksByExcelFileAsync(
+                stream, request.PageNumber, request.PageSize, request.SearchTerm, ct);
+
+            return Ok(new ApiResponse<PropertyLockExcelPagedResultDto>
+            {
+                Success = true,
+                Message = $"{result.TotalCount} properties found",
+                Items = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
         }
     }
 

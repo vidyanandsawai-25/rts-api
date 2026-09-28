@@ -24,6 +24,7 @@ public class RTSCertificateTemplateDto
     public string? HeaderContent { get; set; }
     public string BodyContent { get; set; } = string.Empty;
     public string? FooterContent { get; set; }
+    public string? DesignJson { get; set; }
     public string? DefaultConditionsJson { get; set; }
     public string? OfficerFieldsConfigJson { get; set; }
     public bool IsActive { get; set; }
@@ -36,12 +37,27 @@ public class RTSCertificateTemplateDto
 
 public class CreateRTSCertificateTemplateDto
 {
+    private string? _designJson;
+
     public int ServiceId { get; set; }
     public string TemplateName { get; set; } = string.Empty;
     public string TemplateCode { get; set; } = string.Empty;
     public string? HeaderContent { get; set; }
     public string BodyContent { get; set; } = string.Empty;
     public string? FooterContent { get; set; }
+    public string? DesignJson
+    {
+        get => _designJson;
+        set
+        {
+            _designJson = value;
+            DesignJsonSpecified = true;
+        }
+    }
+
+    [JsonIgnore]
+    public bool DesignJsonSpecified { get; private set; }
+
     public string? DefaultConditionsJson { get; set; }
     public string? OfficerFieldsConfigJson { get; set; }
     public bool IsActive { get; set; } = true;
@@ -69,6 +85,7 @@ public class CertificatePreviewResponseDto
     public List<OfficerFieldConfigDto> RequiredOfficerFields { get; set; } = new();
     public List<string> DefaultConditions { get; set; } = new();
     public string? SampleCertificateNo { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.None;
 }
 
 public class IssueCertificateRequestDto
@@ -78,6 +95,8 @@ public class IssueCertificateRequestDto
     public string? CustomConditions { get; set; }
     public string? ActionRemark { get; set; }
     public bool SignAndApprove { get; set; } = true;
+    public NtisPlatform.Core.Enums.RTSCertificateType? CertificateType { get; set; }
+    public Guid? DocumentGuid { get; set; }
 }
 
 public class RTSIssuedCertificateDto
@@ -92,6 +111,7 @@ public class RTSIssuedCertificateDto
     public string DepartmentName { get; set; } = string.Empty;
     public string ApplicantName { get; set; } = string.Empty;
     public string ApplicantMobile { get; set; } = string.Empty;
+    public Dictionary<string, string> OfficerInputs { get; set; } = new();
     public string MergedHtmlContent { get; set; } = string.Empty;
     public string? QrCodePayload { get; set; }
     public int IssuedByUserId { get; set; }
@@ -100,6 +120,10 @@ public class RTSIssuedCertificateDto
     public DateTime IssuedAt { get; set; }
     public bool IsDigitallySigned { get; set; }
     public string? DigitalSignatureInfo { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.Digital;
+    public Guid? DocumentGuid { get; set; }
+    public string? DocumentDownloadUrl { get; set; }
+    public string? DepartmentCollectionNotice { get; set; }
 }
 
 public class CertificateVerificationResponseDto
@@ -112,7 +136,9 @@ public class CertificateVerificationResponseDto
     public string? ServiceName { get; set; }
     public string? DepartmentName { get; set; }
     public string? ApplicantName { get; set; }
-    public string? UlbName { get; set; }
+    public string UlbName { get; set; }
+    public string? UlbLogo { get; set; }
+    public string? UlbAddress { get; set; }
     public DateTime? IssuedAt { get; set; }
     public string? IssuedByOfficer { get; set; }
     public string? OfficerDesignation { get; set; }
@@ -124,6 +150,10 @@ public class CertificateVerificationResponseDto
     public string? DscThumbprint { get; set; }
     public DateTime? DscValidUntil { get; set; }
     public string? MergedHtmlContent { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.Digital;
+    public Guid? DocumentGuid { get; set; }
+    public string? DocumentDownloadUrl { get; set; }
+    public string? DepartmentCollectionNotice { get; set; }
 }
 
 public class CertificateAvailableTagDto

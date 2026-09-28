@@ -19,6 +19,7 @@ public class RTSServiceEntity : BaseEntity
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public NtisPlatform.Core.Enums.RTSCertificateType CertificateType { get; set; } = NtisPlatform.Core.Enums.RTSCertificateType.None;
     public bool IsCertificateRequired { get; set; } = true;
     public bool IsSmsEnabled { get; set; } = true;
     public string? ServiceCode { get; set; }

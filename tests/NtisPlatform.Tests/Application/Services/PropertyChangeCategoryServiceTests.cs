@@ -17,6 +17,7 @@ public class PropertyChangeCategoryServiceTests
     private readonly Mock<ILogger<PropertyChangeCategoryService>> _mockLogger;
     private readonly Mock<IRepository<PropertyEntity, int>> _mockPropertyRepository;
     private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
+    private readonly Mock<IRepository<SocietyDetailsEntity, int>> _mockSocietyRepository;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertyChangeCategoryService _service;
 
@@ -27,6 +28,7 @@ public class PropertyChangeCategoryServiceTests
         _mockLogger = new Mock<ILogger<PropertyChangeCategoryService>>();
         _mockPropertyRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        _mockSocietyRepository = new Mock<IRepository<SocietyDetailsEntity, int>>();
         _mockMapper = new Mock<IMapper>();
 
         _service = new PropertyChangeCategoryService(
@@ -35,6 +37,7 @@ public class PropertyChangeCategoryServiceTests
             _mockLogger.Object,
             _mockPropertyRepository.Object,
             _mockCategoryRepository.Object,
+            _mockSocietyRepository.Object,
             _mockMapper.Object);
     }
 

@@ -69,5 +69,18 @@ namespace NtisPlatform.Api.Controllers
             var result = await _service.GetPropertyFinanceYearTypeOfUseAsync(propertyId, ct);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Gets tax applicability calculation summary based on Rateable Value & special tax percentages
+        /// </summary>
+        /// <param name="propertyId">Property ID</param>
+        /// <param name="ct">Cancellation token</param>
+        /// <returns>List of tax calculation details</returns>
+        [HttpGet("calculation/{propertyId}")]
+        public async Task<IActionResult> GetTaxApplicabilityCalculation(int propertyId, [FromQuery] int? assessmentYearRangeId = null, CancellationToken ct = default)
+        {
+            var result = await _service.GetTaxApplicabilityCalculationAsync(propertyId, assessmentYearRangeId, ct);
+            return Ok(result);
+        }
     }
 }

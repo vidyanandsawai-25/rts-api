@@ -71,32 +71,29 @@ public partial class PropertyService
             _logger.LogInformation("Retrieved category {CategoryName} for PropertyId={PropertyId}",
                 category?.PropertyCategoryName, propertyId);
 
-            SocietyDetailsEntity? newSociety = null;
-
             if (category != null && category.PropertyCategoryName.Contains(PropertyConstants.Categories.Apartment, StringComparison.OrdinalIgnoreCase))
             {
-                if (property.SocietyDetailId.HasValue && property.SocietyDetailId.Value > 0)
+                var existingSociety = await _societyRepository.GetQueryable()
+                    .FirstOrDefaultAsync(s => s.PropertyId == property.Id && s.IsActive && !s.MarkedForDeletion, ct);
+
+                if (existingSociety != null)
                 {
                     // Update existing society
-                    var society = await _societyRepository.GetByIdAsync(property.SocietyDetailId.Value, ct);
-                    if (society != null)
-                    {
-                        _logger.LogInformation("Updating existing SocietyDetailsEntity Id={SocietyId} for PropertyId={PropertyId}",
-                            society.Id, propertyId);
+                    _logger.LogInformation("Updating existing SocietyDetailsEntity Id={SocietyId} for PropertyId={PropertyId}",
+                        existingSociety.Id, propertyId);
 
-                        society = _mapper.Map(dto, society);
-                        society.UpdatedBy = dto.UpdatedBy;
-                        society.UpdatedDate = DateTime.Now;
+                    var society = _mapper.Map(dto, existingSociety);
+                    society.UpdatedBy = dto.UpdatedBy;
+                    society.UpdatedDate = DateTime.Now;
 
-                        await _societyRepository.UpdateAsync(society, ct);
-                    }
+                    await _societyRepository.UpdateAsync(society, ct);
                 }
                 else
                 {
                     // Create new society and link to property
                     _logger.LogInformation("Creating new SocietyDetailsEntity for PropertyId={PropertyId}", propertyId);
 
-                    newSociety = _mapper.Map<SocietyDetailsEntity>(dto);
+                    var newSociety = _mapper.Map<SocietyDetailsEntity>(dto);
                     newSociety.PropertyId = property.Id;
                     newSociety.IsActive = true;
                     newSociety.MarkedForDeletion = false;
@@ -104,7 +101,6 @@ public partial class PropertyService
                     newSociety.CreatedDate = DateTime.Now;
 
                     await _societyRepository.AddAsync(newSociety, ct);
-                    // link (property.SocietyDetailId = newSociety.Id) will be set after the first SaveChangesAsync
                 }
             }
 
@@ -213,17 +209,6 @@ public partial class PropertyService
 
             // ============ STEP 6: Execute primary SaveChanges ============
             await _unitOfWork.SaveChangesAsync(ct);
-
-            // ============ STEP 7: Link missing IDs that EF Core couldn't map automatically ============
-            if (newSociety != null)
-            {
-                property.SocietyDetailId = newSociety.Id;
-                await _repository.UpdateAsync(property, ct);
-                await _unitOfWork.SaveChangesAsync(ct);
-                
-                _logger.LogInformation("Linked new SocietyDetailsEntity Id={SocietyId} to PropertyId={PropertyId}",
-                    newSociety.Id, propertyId);
-            }
 
             // ============ STEP 8: Commit transaction ============
             await _unitOfWork.CommitTransactionAsync(ct);

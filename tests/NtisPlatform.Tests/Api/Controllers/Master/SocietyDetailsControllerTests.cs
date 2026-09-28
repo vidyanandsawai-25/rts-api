@@ -128,4 +128,62 @@ public class SocietyDetailsControllerTests
 
         Assert.IsType<OkObjectResult>(result);
     }
+
+    #region GetSocietySummary Tests
+
+    [Fact]
+    public async Task GetSocietySummary_WhenServiceReturnsNull_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-01",
+            PropertyNo = "P-100"
+        };
+
+        _serviceMock.Setup(s => s.GetSocietySummaryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SocietySummaryDto?)null);
+
+        // Act
+        var result = await _controller.GetSocietySummary(request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task GetSocietySummary_WhenSuccessful_ReturnsOkWithData()
+    {
+        // Arrange
+        var request = new SocietySummaryRequestDto
+        {
+            WardNo = "W-01",
+            PropertyNo = "P-100",
+            PartitionNo = "0"
+        };
+
+        var expectedSummary = new SocietySummaryDto
+        {
+            SocietyName = "Gokuldham Society",
+            BuilderName = "ABC Builders",
+            SocietyAddress = "Main Road",
+            TotalWingCount = 3,
+            NoOfFlat = 12,
+            NoOfShop = 4,
+            NoOfRowHouse = 2,
+            TotalAmenityCount = 1
+        };
+
+        _serviceMock.Setup(s => s.GetSocietySummaryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedSummary);
+
+        // Act
+        var result = await _controller.GetSocietySummary(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(expectedSummary, okResult.Value);
+    }
+
+    #endregion
 }

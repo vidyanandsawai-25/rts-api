@@ -27,7 +27,7 @@ public interface IPropertyVisitTrackerService
         int loggedInUserId,
         CancellationToken cancellationToken = default);
 
-    Task<bool> UnverifyPropertySurveyVisitAsync(
+    Task<UnverifyPropertySurveyVisitResponseDto> UnverifyPropertySurveyVisitAsync(
         UnverifyPropertySurveyVisitDto request,
         int loggedInUserId,
         CancellationToken cancellationToken = default);

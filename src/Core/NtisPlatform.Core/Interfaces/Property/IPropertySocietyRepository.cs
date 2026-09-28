@@ -40,4 +40,10 @@ public interface IPropertySocietyRepository : IPropertyAggregateRepository
 
     /// <summary>Stages a new society row for insertion (persisted later via the unit of work).</summary>
     void AddSociety(SocietyDetailsEntity society);
+
+    /// <summary>Loads the active WingDetailsMast row for a society as a tracked entity, or null when not found.</summary>
+    Task<WingDetailsMastEntity?> GetWingDetailsMastBySocietyIdAsync(int societyId, CancellationToken cancellationToken = default);
+
+    /// <summary>Stages a new WingDetailsMast row for insertion.</summary>
+    void AddWingDetailsMast(WingDetailsMastEntity wingDetailsMast);
 }

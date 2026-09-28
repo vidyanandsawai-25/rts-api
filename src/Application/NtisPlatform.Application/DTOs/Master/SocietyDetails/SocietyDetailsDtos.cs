@@ -32,8 +32,7 @@ public class CreateSocietyDetailsDto : CreateBaseDtos
     [Required(ErrorMessage = "SocietyDetails_PropertyId_Required")]
     public int PropertyId { get; set; }
 
-    [Required(ErrorMessage = "SocietyDetails_WingId_Required")]
-    public int WingId { get; set; }
+    public int? WingId { get; set; }
 
     [StringLength(30, ErrorMessage = "SocietyDetails_WingName_MaxLen_30")]
     public string? WingName { get; set; }
@@ -98,8 +97,7 @@ public class UpdateSocietyDetailsDto : UpdateBaseDtos
     [Required(ErrorMessage = "SocietyDetails_PropertyId_Required")]
     public int PropertyId { get; set; }
 
-    [Required(ErrorMessage = "SocietyDetails_WingId_Required")]
-    public int WingId { get; set; }
+    public int? WingId { get; set; }
 
     [StringLength(30, ErrorMessage = "SocietyDetails_WingName_MaxLen_30")]
     public string? WingName { get; set; }
@@ -157,4 +155,34 @@ public class UpdateSocietyDetailsDto : UpdateBaseDtos
     [StringLength(100, ErrorMessage = "SocietyDetails_ManagerEmailId_MaxLen_100")]
     [EmailAddress(ErrorMessage = "SocietyDetails_ManagerEmailId_Invalid")]
     public string? ManagerEmailId { get; set; }
+}
+
+public class SocietySummaryRequestDto
+{
+    [Required(ErrorMessage = "SocietySummary_WardNo_Required")]
+    public string WardNo { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "SocietySummary_PropertyNo_Required")]
+    public string PropertyNo { get; set; } = string.Empty;
+
+    public string? PartitionNo { get; set; }
+}
+
+public class SocietySummaryDto
+{
+    public string? SocietyName { get; set; }
+
+    public string? BuilderName { get; set; }
+
+    public string? SocietyAddress { get; set; }
+
+    public int TotalWingCount { get; set; }
+
+    public int NoOfFlat { get; set; }
+
+    public int NoOfShop { get; set; }
+
+    public int NoOfRowHouse { get; set; }
+
+    public int TotalAmenityCount { get; set; } = 0;
 }

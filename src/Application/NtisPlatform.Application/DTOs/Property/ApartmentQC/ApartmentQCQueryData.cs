@@ -28,6 +28,7 @@ public sealed class ApartmentQCPropertyData
     public string? PropertyTypeName      { get; init; }
     public string? BHK                  { get; init; }
     public string? Wing                 { get; init; }
+    public int?    WingDetailId         { get; init; }
     public string? ApartmentType        { get; init; }
 }
 

@@ -1,3 +1,5 @@
+using ClosedXML.Excel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -5,6 +7,7 @@ using Moq;
 using NtisPlatform.Application.DTOs.LockUnlock;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -21,6 +24,7 @@ public class LockUnlockServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly Mock<ILogger<LockUnlockService>> _mockLogger;
     private readonly Mock<IPropertySearchService> _mockPropertySearchService;
+    private readonly Mock<IPropertyLockExcelService> _mockPropertyLockExcelService;
     private readonly LockUnlockService _service;
 
     public LockUnlockServiceTests()
@@ -37,7 +41,8 @@ public class LockUnlockServiceTests : IDisposable
         _context = new ApplicationDbContext(options);
         _mockLogger = new Mock<ILogger<LockUnlockService>>();
         _mockPropertySearchService = new Mock<IPropertySearchService>();
-        _service = new LockUnlockService(_context, _mockLogger.Object, _mockPropertySearchService.Object);
+        _mockPropertyLockExcelService = new Mock<IPropertyLockExcelService>();
+        _service = new LockUnlockService(_context, _mockLogger.Object, _mockPropertySearchService.Object, _mockPropertyLockExcelService.Object);
 
         SeedTestData();
     }
@@ -63,8 +68,12 @@ public class LockUnlockServiceTests : IDisposable
         };
         _context.ScreenMaster.AddRange(screens);
 
+        // Seed Zone data
+        var zone = new ZoneEntity { Id = 1, ZoneNo = "Z001", Description = "Zone 1", IsActive = true };
+        _context.ZoneMaster.Add(zone);
+
         // Seed Ward data
-        var ward = new WardEntity { Id = 1, WardNo = "W001", Description = "Ward 1", IsActive = true };
+        var ward = new WardEntity { Id = 1, WardNo = "W001", ZoneId = 1, Description = "Ward 1", IsActive = true };
         _context.WardMaster.Add(ward);
 
         // Seed PropertyMast data
@@ -1166,4 +1175,163 @@ public class LockUnlockServiceTests : IDisposable
     }
 
     #endregion
+
+    #region SearchPropertiesByExcelFileAsync Tests
+
+    private IFormFile CreateMockExcelFile(List<(string? zone, string? ward, string? propertyNo, string? partitionNo)> rows)
+    {
+        var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Sheet1");
+
+        worksheet.Cell(1, 1).Value = "ZoneNo";
+        worksheet.Cell(1, 2).Value = "WardNo";
+        worksheet.Cell(1, 3).Value = "PropertyNo";
+        worksheet.Cell(1, 4).Value = "PartitionNo";
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            worksheet.Cell(i + 2, 1).Value = rows[i].zone ?? string.Empty;
+            worksheet.Cell(i + 2, 2).Value = rows[i].ward ?? string.Empty;
+            worksheet.Cell(i + 2, 3).Value = rows[i].propertyNo ?? string.Empty;
+            worksheet.Cell(i + 2, 4).Value = rows[i].partitionNo ?? string.Empty;
+        }
+
+        var memoryStream = new MemoryStream();
+        workbook.SaveAs(memoryStream);
+        memoryStream.Position = 0;
+
+        return new FormFile(memoryStream, 0, memoryStream.Length, "file", "test.xlsx")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        };
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByExcelFileAsync_ThrowsArgumentException_WhenFileIsNull()
+    {
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.GetPropertyLocksByExcelFileAsync(null!, 1, 10, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByExcelFileAsync_ReturnsEmptyResult_WhenExcelHasNoDataRows()
+    {
+        // Arrange
+        var file = CreateMockExcelFile(new List<(string?, string?, string?, string?)>());
+        _mockPropertyLockExcelService.Setup(s => s.GetPropertyLocksByExcelFileAsync(It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyLockExcelPagedResultDto(new List<PropertyLockRowDto>(), 0, 1, 10, 0));
+
+        // Act
+        var result = await _service.GetPropertyLocksByExcelFileAsync(file, 1, 10, null, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.TotalCount);
+        Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByExcelFileAsync_ReturnsMatchedProperties_WhenValidExcelProvided()
+    {
+        // Arrange
+        var rows = new List<(string?, string?, string?, string?)>
+        {
+            ("Z001", "W001", "P001", "A"),
+            ("Z001", "W001", "P002", "B")
+        };
+        var file = CreateMockExcelFile(rows);
+
+        var expectedResult = new PropertyLockExcelPagedResultDto(
+            new List<PropertyLockRowDto>
+            {
+                new() { PropertyNo = "P001", PartitionNo = "A" },
+                new() { PropertyNo = "P002", PartitionNo = "B" }
+            }, 2, 1, 10, 0);
+
+        _mockPropertyLockExcelService.Setup(s => s.GetPropertyLocksByExcelFileAsync(It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act
+        var result = await _service.GetPropertyLocksByExcelFileAsync(file, 1, 10, null, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.Items.Count());
+        Assert.Contains(result.Items, p => p.PropertyNo == "P001" && p.PartitionNo == "A");
+        Assert.Contains(result.Items, p => p.PropertyNo == "P002" && p.PartitionNo == "B");
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByExcelFileAsync_FiltersBySearchTerm_Correctly()
+    {
+        // Arrange
+        var rows = new List<(string?, string?, string?, string?)>
+        {
+            ("Z001", "W001", "P001", "A"),
+            ("Z001", "W001", "P002", "B")
+        };
+        var file = CreateMockExcelFile(rows);
+
+        var expectedResult = new PropertyLockExcelPagedResultDto(
+            new List<PropertyLockRowDto>
+            {
+                new() { PropertyNo = "P001", PartitionNo = "A" }
+            }, 1, 1, 10, 0);
+
+        _mockPropertyLockExcelService.Setup(s => s.GetPropertyLocksByExcelFileAsync(It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<int>(), "P001", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act - Search by "P001"
+        var result = await _service.GetPropertyLocksByExcelFileAsync(file, 1, 10, "P001", CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("P001", result.Items.First().PropertyNo);
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByExcelAsync_WithDuplicateRows_ReturnsDistinctItemsAndCorrectDuplicateCount()
+    {
+        // Arrange: 4 rows total with 3 duplicates of P001-A and 1 of P002-B
+        var request = new SearchByExcelRequestDto
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Rows = new List<ExcelPropertyRow>
+            {
+                new() { ZoneNo = "Z001", WardNo = "W001", PropertyNo = "P001", PartitionNo = "A" },
+                new() { ZoneNo = "Z001", WardNo = "W001", PropertyNo = "P001", PartitionNo = "A" },
+                new() { ZoneNo = "Z001", WardNo = "W001", PropertyNo = "P001", PartitionNo = "A" },
+                new() { ZoneNo = "Z001", WardNo = "W001", PropertyNo = "P002", PartitionNo = "B" }
+            }
+        };
+
+        var expectedResult = new PropertyLockExcelPagedResultDto(
+            new List<PropertyLockRowDto>
+            {
+                new() { PropertyNo = "P001", PartitionNo = "A" },
+                new() { PropertyNo = "P002", PartitionNo = "B" }
+            }, 2, 1, 10, 2);
+
+        _mockPropertyLockExcelService.Setup(s => s.GetPropertyLocksByExcelRowsAsync(It.IsAny<SearchByExcelRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act
+        var result = await _service.GetPropertyLocksByExcelAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount); 
+        Assert.Equal(2, result.Items.Count()); 
+        Assert.Equal(2, result.DublicateCount);
+    }
+
+    #endregion
 }
+
+

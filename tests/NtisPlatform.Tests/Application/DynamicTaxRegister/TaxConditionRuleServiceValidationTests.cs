@@ -237,7 +237,7 @@ public class TaxConditionRuleServiceValidationTests
     // ── per-mode value ceilings ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("PERCENT", 100)]   // a percentage cannot exceed 100
+    [InlineData("PERCENT", 999.99)]   // a percentage cannot exceed 999.99
     [InlineData("FIXED", 999)]
     [InlineData("PER_UNIT", 99999)] // a per-unit RATE is a currency amount, so it needs headroom
     public async Task ResultValue_AtTheCeiling_IsAccepted(string resultMode, decimal atCeiling)
@@ -250,7 +250,7 @@ public class TaxConditionRuleServiceValidationTests
     }
 
     [Theory]
-    [InlineData("PERCENT", 101)]
+    [InlineData("PERCENT", 1000)]
     [InlineData("FIXED", 1000)]
     [InlineData("PER_UNIT", 100000)]
     public async Task ResultValue_AboveTheCeiling_IsRejected(string resultMode, decimal aboveCeiling)

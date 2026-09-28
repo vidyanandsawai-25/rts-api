@@ -40,7 +40,6 @@ using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.FieldConfiguration;
 using NtisPlatform.Application.Services.TaxEngine;
-using NtisPlatform.Application.Services.TaxEngine.OccupationTax;
 using NtisPlatform.Application.Services.PropertyTaxOperations;
 using NtisPlatform.Application.Services.CapitalValue;
 using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
@@ -118,8 +117,12 @@ public static class ServiceCollectionExtensions
         // Report queue DB (separate database; schema owned by the ntis DB project mapping only)
         services.AddPooledDbContextFactory<ReportingDbContext>(options =>
         {
-            var reportingConnection = configuration.GetConnectionString("ReportingConnection")
-                ?? throw new InvalidOperationException("ConnectionStrings:ReportingConnection is not configured.");
+            var reportingConnection = configuration.GetConnectionString("ReportingConnection");
+            if (string.IsNullOrWhiteSpace(reportingConnection))
+            {
+                reportingConnection = configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+            }
             options.UseSqlServer(reportingConnection);
         });
         services.AddScoped(sp =>
@@ -220,6 +223,7 @@ public static class ServiceCollectionExtensions
         // Read-only data repository bound to ReportDataDbContext (report data replica)
         services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IUserAccessRepository, UserAccessRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<ITwoFactorRecoveryCodeRepository, TwoFactorRecoveryCodeRepository>();
         services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();
@@ -240,6 +244,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyWorkflowDetailsRepository, PropertyWorkflowDetailsRepository>();
         services.AddScoped<IRuleFieldsRepository, RuleFieldsRepository>();
         services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
+        services.AddScoped<IApartmentQcTopSectionRepository, ApartmentQcTopSectionRepository>();
+        services.AddScoped<IApartmentTaxDetailsRepository, ApartmentTaxDetailsRepository>();
+        services.AddScoped<IApartmentQcTopSectionBelowFlexRepository, ApartmentQcTopSectionBelowFlexRepository>();
+        services.AddScoped<IApartmentQcCertificateGridRepository, ApartmentQcCertificateGridRepository>();
+        services.AddScoped<IApartmentQcSearchRepository, ApartmentQcSearchRepository>();
 
         // Automation Dashboard Repositories (separate per stage)
         services.AddScoped<IAutomationDashboardRepository, AutomationDashboardRepository>();
@@ -276,6 +285,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IModuleLookupService, ModuleLookupService>();
+
+        // Wing details services
+        services.AddScoped<IWingDetailsMastService, WingDetailsMastService>();
 
         // Document Authorization Handlers (per-department entity-level authorization)
         // Register handlers for document access based on parent entity (Property, WaterConnection, etc.)
@@ -338,6 +350,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
+        services.AddScoped<IPropertyLockExcelService, PropertyLockExcelService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
         services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
         services.AddScoped<IInventoryDocumentApplicationService, InventoryDocumentApplicationService>();
@@ -387,15 +400,22 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVPersistenceService,
                            NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationSignatureService,
+                           NtisPlatform.Application.Services.TaxEngine.RVCalculationSignatureService>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<NtisPlatform.Application.Interfaces.IFinanceYearProvider, NtisPlatform.Application.Services.SystemFinanceYearProvider>();
         services.AddScoped<NtisPlatform.Application.Interfaces.IPolicyCodeLookupService, NtisPlatform.Application.Services.PolicyCodeLookupService>();
 
+        // In-process fire-and-forget queue -- lets PropertyCertificateChangedEventHandler enqueue
+        // the RV-refresh-then-Retrospective-Tax-Engine pipeline instead of running it inline within
+        // the certificate-save HTTP request. Singleton queue (one Channel for the whole process) +
+        // one long-running hosted service draining it in its own DI scope per item.
+        services.AddSingleton<NtisPlatform.Application.Interfaces.IBackgroundTaskQueue, NtisPlatform.Api.BackgroundTasks.BackgroundTaskQueue>();
+        services.AddHostedService<NtisPlatform.Api.BackgroundTasks.QueuedHostedService>();
+
         // MediatR for event publishing pipeline
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<PropertyCertificateChangedEvent>());
 
-        services.AddScoped<IOccupationTaxEngine, OccupationTaxEngine>();
-        services.AddScoped<IOccupationTaxService, OccupationTaxApplicationService>();
         // PropertyCertificateChangedEventHandler is registered via AddMediatR assembly scanning.
         // RateableValueApiClient delegates directly to IRateableValueService (no HTTP call), so it
         // must be a plain scoped registration, not AddHttpClient (which requires a constructor
@@ -430,6 +450,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IOldWardMasterService, OldWardMasterService>();
+        services.AddScoped<IPropertyDashboardService, PropertyDashboardService>();
 
         // GIS Engine Master Services
         services.AddScoped<IGisCorporationConfigService, GisCorporationConfigService>();
@@ -455,10 +476,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRetrospectiveTaxCalculationDetailService, RetrospectiveTaxCalculationDetailService>();
         services.AddScoped<IRetrospectiveRuleAuditLogService, RetrospectiveRuleAuditLogService>();
         services.AddScoped<IRuleLibraryService, RuleLibraryService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.RetrospectiveTax.IRetrospectiveTaxCalculationEngineService, NtisPlatform.Application.Services.RetrospectiveTax.RetrospectiveTaxCalculationEngineService>();
         services.AddScoped<ITaxZoningRangeService, TaxZoningRangeService>();
         services.AddScoped<IULBDocumentService, ULBDocumentService>();
         services.AddScoped<IULBDocumentQueryService, ULBDocumentQueryService>();
         services.AddScoped<IULBDocumentTypeService, ULBDocumentTypeService>();
+        services.AddScoped<IAliasMasterService, AliasMasterService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
         services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
         services.AddScoped<IPropertyRuleEvaluationMasterService, PropertyRuleEvaluationMasterService>();
@@ -482,6 +505,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyMutationInvariantPolicy, PropertyMutationInvariantPolicy>();
         services.AddScoped<PropertyApiExceptionFilter>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IBuilding3DViewService, Building3DViewService>();
         services.AddScoped<IPropertySurveyService, PropertySurveyService>();
         services.AddScoped<IPropertyVisitTrackerService, PropertySurveyService>();
         services.AddScoped<IPropertyBasicDetailsService, PropertyBasicDetailsService>();
@@ -490,8 +514,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDiscountService, PropertyDiscountService>();
         services.AddScoped<IPropertyOldDetailsService, PropertyOldDetailsService>();
         services.AddScoped<IPropertySearchService, PropertySearchService>();
+        services.AddScoped<IPropertyAmenityService, PropertyAmenityService>();
         services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
+        services.AddScoped<ApartmentQcTopSectionPerformanceCalculator>();
+        services.AddScoped<IApartmentQcTopSectionService, ApartmentQcTopSectionService>();
+        services.AddScoped<IApartmentTaxDetailsService, ApartmentTaxDetailsService>();
+        services.AddScoped<IApartmentQcTopSectionBelowFlexService, ApartmentQcTopSectionBelowFlexService>();
+        services.AddScoped<IApartmentQcCertificateGridService, ApartmentQcCertificateGridService>();
+        services.AddScoped<IApartmentQcSearchService, ApartmentQcSearchService>();
+        services.AddScoped<IGetApartmentDetailsWingWiseService, GetApartmentDetailsWingWiseService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         services.AddScoped<IOwnerTitleService, OwnerTitleService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
@@ -501,6 +533,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInternalSurveyStageService, InternalSurveyStageService>();
         services.AddScoped<IDataEntryStageService, DataEntryStageService>();
         services.AddScoped<IAssessmentStageService, AssessmentStageService>();
+        services.AddScoped<IWingWiseDetailsService, WingWiseDetailsService>();
 
         // Property Sign-off Module
         services.AddScoped<IPropertySignatureService, PropertySignatureService>();
@@ -571,8 +604,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IPropertyAssessmentStatusService, PropertyAssessmentStatusService>();
-        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.ICertificateTaxGuidelineReaderService, NtisPlatform.Application.Services.TaxEngine.CertificateTaxGuidelineReaderService>();
-        services.AddScoped<ICertificateTaxGuidelineService, CertificateTaxGuidelineService>();
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
         services.AddScoped<IAssetTypeService, AssetTypeService>();
@@ -663,6 +694,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSCertificateService, RTSCertificateService>();
         services.AddScoped<IRTSAppealService, RTSAppealService>();
         services.AddScoped<IRtsAppealService>(sp => (IRtsAppealService)sp.GetRequiredService<IRTSAppealService>());
+        services.AddScoped<IRTSCertificateTemplateLibraryService, RTSCertificateTemplateLibraryService>();
+        services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
 
 
 
@@ -715,12 +748,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, TypeWiseSurveyFormDataProvider>();
+        services.AddScoped<IReportDataProvider, SurveyFormDataProvider>();
         services.AddScoped<IPropertyMappingService, PropertyMappingService>();
         services.AddScoped<IPropertyMergeService, PropertyMergeService>();
         services.AddScoped<IPropertyMergeSingleService, PropertyMergeSingleService>();
         services.AddScoped<IPropertySplitService, PropertySplitService>();
         services.AddScoped<IPropertyBulkMergeService, PropertyBulkMergeService>();
         services.AddScoped<IPropertyChangeCategoryService, PropertyChangeCategoryService>();
+        services.AddScoped<IPropertyNumberDetailsService, PropertyNumberDetailsService>();
+        services.AddScoped<IApartmentDashboardService, ApartmentDashboardService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

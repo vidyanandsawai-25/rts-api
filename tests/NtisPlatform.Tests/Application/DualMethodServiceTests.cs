@@ -19,6 +19,7 @@ public class DualMethodServiceTests
     private readonly Mock<IRepository<PolicyTaxDetailsEntity, int>> _rvRepo = new();
     private readonly Mock<IRepository<TransMastOldEntity, int>> _oldTaxRepo = new();
     private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepo = new();
+    private readonly Mock<IRepository<PropertyMapDetailEntity, int>> _propertyMapDetailRepo = new();
     private readonly IMapper _mapper;
     private readonly ILogger<DualMethodService> _logger;
 
@@ -36,10 +37,17 @@ public class DualMethodServiceTests
 
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, PropertyMastOldId = 1, IsActive = true },
-            new() { Id = 999, PropertyMastOldId = 999, IsActive = true }
+            new() { Id = 1, IsActive = true },
+            new() { Id = 999, IsActive = true }
         };
         _propertyRepo.Setup(x => x.GetQueryable()).Returns(properties.BuildMock());
+
+        var propertyMapDetails = new List<PropertyMapDetailEntity>
+        {
+            new() { Id = 1, PropertyMapId = 1, PropertyIdNew = 1, PropertyIdOld = 1, IsActive = true },
+            new() { Id = 2, PropertyMapId = 1, PropertyIdNew = 999, PropertyIdOld = 999, IsActive = true }
+        };
+        _propertyMapDetailRepo.Setup(x => x.GetQueryable()).Returns(propertyMapDetails.BuildMock());
     }
 
     private DualMethodService GetService()
@@ -49,6 +57,7 @@ public class DualMethodServiceTests
             _rvRepo.Object,
             _oldTaxRepo.Object,
             _propertyRepo.Object,
+            _propertyMapDetailRepo.Object,
             _mapper,
             _logger
         );

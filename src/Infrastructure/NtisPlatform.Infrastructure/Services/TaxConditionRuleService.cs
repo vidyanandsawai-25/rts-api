@@ -26,13 +26,14 @@ public class TaxConditionRuleService : ITaxConditionRuleService
     private static readonly HashSet<string> ValidResultModes = new() { "FIXED", "PERCENT", "PER_UNIT" };
     private static readonly HashSet<string> ValidResultBases = new() { "NONE", "RV", "ALV", "OTHER_TAX" };
 
-    /// <summary>Per-mode ceilings for ResultValue. PERCENT and FIXED share the long-standing
-    /// 3-digit limit; PER_UNIT is a RATE that gets multiplied by a count, so it needs headroom for
-    /// real currency amounts. The DTO's [Range] is only an absolute backstop; these are the real
-    /// rules.</summary>
+    /// <summary>Per-mode ceilings for ResultValue. FIXED keeps the long-standing 3-digit limit;
+    /// PERCENT allows up to 999.99 (a condition rule can legitimately apply a multi-hundred-percent
+    /// surcharge, e.g. against a small reference tax); PER_UNIT is a RATE that gets multiplied by a
+    /// count, so it needs headroom for real currency amounts. The DTO's [Range] is only an absolute
+    /// backstop; these are the real rules.</summary>
     private static decimal MaxResultValueFor(string resultMode) => resultMode switch
     {
-        "PERCENT" => 100m,
+        "PERCENT" => 999.99m,
         "PER_UNIT" => 99999m,
         _ => 999m,
     };

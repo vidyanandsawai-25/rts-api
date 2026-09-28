@@ -51,4 +51,12 @@ public interface IRVPersistenceService
         List<RuleApplicationTraceEntry> appliedRules,
         string category,
         DateTime appliedAt);
+
+    /// <summary>
+    /// Loads the currently active RV results/tax-detail/policy rows for a property, unchanged --
+    /// used by the RV calculation fast path when the input signature is unchanged since the last
+    /// run, so the previously persisted results can be returned without recalculating.
+    /// </summary>
+    Task<(List<RVCalculationResultsEntity> ResultsRows, List<RVCalculationTaxDetailsEntity> TaxDetailRows, List<PolicyTaxDetailsEntity> PolicyRows)>
+        GetExistingActiveResultsAsync(int propertyId);
 }

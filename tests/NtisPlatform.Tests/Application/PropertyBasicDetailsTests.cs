@@ -10,6 +10,7 @@ using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Services.Property;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -298,12 +299,18 @@ public class PropertyBasicDetailsTests
                 MarkedForDeletion = false
             };
 
-            // Row 1: IsOpenPlot = true (Plot record)
+            // Open-plot is now identified via TypeOfUseCategoryMaster.TypeOfUseCategoryCode ==
+            // TypeOfUseConstants.Op (PropertyDetailsEntity no longer has its own IsOpenPlot column).
+            var openPlotCategory = new TypeOfUseCategoryEntity { Id = 90, TypeOfUseCategoryCode = TypeOfUseConstants.Op };
+            var openPlotTypeOfUse = new TypeOfUseEntity { Id = 501, Description = "Open Plot", TypeOfUseCategoryId = 90 };
+            var buildingTypeOfUse = new TypeOfUseEntity { Id = 502, Description = "Residential" };
+
+            // Row 1: Open Plot type of use (Plot record)
             var plotDetail = new PropertyDetailsEntity
             {
                 Id = 1,
                 PropertyId = 549357,
-                IsOpenPlot = true,
+                TypeOfUseId = openPlotTypeOfUse.Id,
                 CarpetAreaSqFeet = 10764,
                 CarpetAreaSqMeter = 1000,
                 BuiltupAreaSqFeet = 10764,
@@ -312,12 +319,12 @@ public class PropertyBasicDetailsTests
                 MarkedForDeletion = false
             };
 
-            // Row 2: IsOpenPlot = false (Building record)
+            // Row 2: Non-open-plot type of use (Building record)
             var buildingDetail1 = new PropertyDetailsEntity
             {
                 Id = 2,
                 PropertyId = 549357,
-                IsOpenPlot = false,
+                TypeOfUseId = buildingTypeOfUse.Id,
                 CarpetAreaSqFeet = 4434.77,
                 CarpetAreaSqMeter = 412,
                 BuiltupAreaSqFeet = 4434.77,
@@ -326,12 +333,12 @@ public class PropertyBasicDetailsTests
                 MarkedForDeletion = false
             };
 
-            // Row 3: IsOpenPlot = null (defaults/rest of records - should be treated as non-open plot)
+            // Row 3: Non-open-plot type of use (should be treated as non-open plot)
             var buildingDetail2 = new PropertyDetailsEntity
             {
                 Id = 3,
                 PropertyId = 549357,
-                IsOpenPlot = null,
+                TypeOfUseId = buildingTypeOfUse.Id,
                 CarpetAreaSqFeet = 1076.4,
                 CarpetAreaSqMeter = 100,
                 BuiltupAreaSqFeet = 1076.4,
@@ -343,6 +350,8 @@ public class PropertyBasicDetailsTests
             context.WardMaster.Add(ward);
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyMast.Add(property);
+            context.TypeOfUseCategory.Add(openPlotCategory);
+            context.TypeOfUse.AddRange(openPlotTypeOfUse, buildingTypeOfUse);
             context.PropertyDetails.AddRange(plotDetail, buildingDetail1, buildingDetail2);
             await context.SaveChangesAsync();
 
@@ -515,7 +524,6 @@ public class PropertyBasicDetailsTests
             // Verify Society was created and linked to WingEntity
             var society = await context.SocietyDetailsMast.FirstOrDefaultAsync(s => s.PropertyId == 549357);
             Assert.NotNull(society);
-            Assert.Equal(1, society.WingId);
         }
 
         [Fact]

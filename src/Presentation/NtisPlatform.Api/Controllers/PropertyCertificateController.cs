@@ -77,6 +77,116 @@ public class PropertyCertificateController : ControllerBase
     }
 
     /// <summary>
+    /// GET - Load all certificate types with their current status for a Society or Wing.
+    /// Filtered by either societyDetailId (EntityType = 'S') or wingDetailId (EntityType = 'W').
+    /// Shows which certificates exist (with data) and which are empty.
+    /// </summary>
+    [HttpGet("society-wing-types-with-status")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertyCertificateWithStatusDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetSocietyWingCertificateTypesWithStatus(
+        [FromQuery] int? societyDetailId,
+        [FromQuery] int? wingDetailId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!societyDetailId.HasValue && !wingDetailId.HasValue)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Either societyDetailId or wingDetailId must be provided" });
+
+            var result = await _service.GetSocietyOrWingCertificateTypesWithStatusAsync(societyDetailId, wingDetailId, cancellationToken);
+
+            return Ok(new ApiResponse<List<PropertyCertificateWithStatusDto>>
+            {
+                Success = true,
+                Message = "Certificate types retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error getting certificate types for SocietyDetailId={SocietyDetailId}, WingDetailId={WingDetailId}. CorrelationId: {CorrelationId}",
+                societyDetailId, wingDetailId, correlationId);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while retrieving certificate types",
+                CorrelationId = correlationId
+            });
+        }
+    }
+
+    [HttpGet("type-master")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCertificateTypeMaster(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _service.GetCertificateTypeMasterAsync(cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Certificate types master retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting certificate type master.");
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    [HttpGet("wings/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetWingsByProperty(int propertyId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _service.GetWingsByPropertyAsync(propertyId, cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Wings retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting wings for PropertyId={PropertyId}", propertyId);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    [HttpGet("units/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<object>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUnitsByProperty(
+        int propertyId,
+        [FromQuery] int? wingDetailId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var (items, totalCount) = await _service.GetUnitsByPropertyPagedAsync(propertyId, wingDetailId, pageNumber, pageSize, cancellationToken);
+            return Ok(new ApiResponse<List<object>>
+            {
+                Success = true,
+                Message = "Units retrieved successfully",
+                Items = items,
+                TotalCount = totalCount
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting units for PropertyId={PropertyId}, WingDetailId={WingDetailId}, Page={Page}", propertyId, wingDetailId, pageNumber);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred" });
+        }
+    }
+
+    /// <summary>
     /// 4. POST - Save all certificate changes with a single button.
     /// Called when user clicks the "Save Changes" button at the bottom of the page.
     /// Saves all metadata for all certificates at once:
@@ -403,7 +513,10 @@ public class PropertyCertificateController : ControllerBase
                 request.NewCertificateNo,
                 request.NewIssueDate,
                 GetUserId(),
-                cancellationToken);
+                cancellationToken,
+                entityType: request.EntityType ?? "P",
+                societyDetailId: request.SocietyDetailId,
+                wingDetailId: request.WingDetailId);
 
             return Ok(new ApiResponse<ReplaceCertificateResponseDto>
             {
@@ -449,6 +562,152 @@ public class PropertyCertificateController : ControllerBase
                 Message = "An error occurred while replacing the certificate",
                 CorrelationId = correlationId
             });
+        }
+    }
+
+    /// <summary>
+    /// Get PropertyCertificates by PropertyId
+    /// </summary>
+    [HttpGet("by-property/{propertyId}")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertyCertificateDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetByPropertyId(int propertyId, CancellationToken cancellationToken)
+    {
+        var result = await _service.GetByPropertyIdAsync(propertyId, cancellationToken);
+        return Ok(new ApiResponse<List<PropertyCertificateDto>> { Success = true, Items = result });
+    }
+
+    /// <summary>
+    /// Replace document for PropertyCertificate
+    /// </summary>
+    [HttpPut("replace-document/{propertyCertificateId:int}")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyCertificateUploadResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReplaceDocument(
+        int propertyCertificateId,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+        using var stream = file.OpenReadStream();
+        var result = await _service.ReplaceDocumentAsync(
+            propertyCertificateId,
+            stream,
+            file.FileName,
+            file.ContentType,
+            file.Length,
+            GetUserId(),
+            cancellationToken);
+
+        return Ok(new ApiResponse<PropertyCertificateUploadResponseDto>
+        {
+            Success = true,
+            Message = "Document replaced successfully",
+            Items = result
+        });
+    }
+
+    /// <summary>
+    /// Soft deletes the PropertyCertificate, DocumentBinding,
+    /// and Document using DocumentId.
+    /// </summary>
+    [HttpDelete("by-document/{documentId:int}")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeleteByDocumentId(
+        [FromRoute] int documentId,
+        CancellationToken cancellationToken)
+    {
+        if (documentId <= 0)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "A valid DocumentId is required"
+            });
+        }
+
+        try
+        {
+            var deleted = await _service.DeleteByDocumentIdAsync(
+                documentId,
+                GetUserId(),
+                cancellationToken);
+
+            if (!deleted)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Active PropertyCertificate document was not found"
+                });
+            }
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "PropertyCertificate document deleted successfully"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogWarning(
+                ex,
+                "Unauthorized PropertyCertificate deletion attempt. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogWarning(
+                ex,
+                "Validation error while deleting PropertyCertificate. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+
+            _logger.LogError(
+                ex,
+                "Error deleting PropertyCertificate document. CorrelationId: {CorrelationId}, DocumentId: {DocumentId}",
+                correlationId,
+                documentId);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = _environment.IsDevelopment()
+                        ? $"An error occurred: {ex.Message}"
+                        : "An error occurred while deleting the PropertyCertificate document",
+                    CorrelationId = correlationId
+                });
         }
     }
 

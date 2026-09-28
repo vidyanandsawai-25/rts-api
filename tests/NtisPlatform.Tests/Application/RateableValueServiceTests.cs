@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable.Moq;
@@ -46,6 +47,7 @@ public class RateableValueServiceTests
     private readonly Mock<IPolicyConfigurationService> _policyConfigurationService;
     private readonly Mock<NtisPlatform.Application.Interfaces.IFinanceYearProvider> _financeYearProvider;
     private readonly Mock<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationCleanupService> _cleanupService;
+    private readonly Mock<IRVCalculationSignatureService> _signatureService;
 
     public RateableValueServiceTests()
     {
@@ -66,6 +68,14 @@ public class RateableValueServiceTests
         _policyConfigurationService = new Mock<IPolicyConfigurationService>();
         _financeYearProvider = new Mock<NtisPlatform.Application.Interfaces.IFinanceYearProvider>();
         _cleanupService = new Mock<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationCleanupService>();
+        _signatureService = new Mock<IRVCalculationSignatureService>();
+
+        // Default: no stored signature, so every test keeps exercising the full recalculation
+        // path unless a test explicitly sets one up to exercise the fast path.
+        _signatureService.Setup(s => s.GetAsync(It.IsAny<int>()))
+            .ReturnsAsync((RVCalculationSignatureEntity?)null);
+        _signatureService.Setup(s => s.UpsertAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<DateTime>()))
+            .Returns(Task.CompletedTask);
 
         // Setup policy configuration service with default values
         _policyConfigurationService
@@ -222,6 +232,8 @@ public class RateableValueServiceTests
             actualRuleApplier,
             TimeProvider.System,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance,
+            _signatureService.Object,
+            _propertySocialDetailsRepo.Object,
             new Mock<IRepository<PropertyRuleEvaluationMasterEntity, int>>().Object
         };
 
@@ -1105,6 +1117,216 @@ public class RateableValueServiceTests
         Assert.NotNull(result.Details);
         Assert.NotEmpty(result.Details);
     }
+    #endregion
+
+    #region Fast Path (Input Signature) Tests
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_WhenInputSignatureUnchanged_ReturnsCachedResultsWithoutRecalculating()
+    {
+        // Arrange
+        var propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupBasicMasterData();
+
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) =>
+                new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
+
+        string? capturedSignature = null;
+        _signatureService
+            .Setup(s => s.UpsertAsync(propertyId, It.IsAny<string>(), It.IsAny<DateTime>()))
+            .Callback<int, string, DateTime>((_, hash, _) => capturedSignature = hash)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService(ruleApplierMock.Object);
+
+        // Act 1: first call has no stored signature (default setup), so it recalculates in full
+        // and records the signature it was run with.
+        var firstResult = await service.CalculateAndSaveAsync(propertyId);
+
+        Assert.NotNull(capturedSignature);
+
+        // Stop tracking calls made during the first (real) calculation so the assertions below
+        // only reflect what happens on the second call.
+        ruleApplierMock.Invocations.Clear();
+        _taxResultsRepo.Invocations.Clear();
+        _taxDetailsRepo.Invocations.Clear();
+        _policyTaxRepo.Invocations.Clear();
+
+        // Arrange 2: pretend the first run's signature is now on file (nothing about the property,
+        // details, or any master/policy data changed), and hand-craft the rows a previous run would
+        // have already persisted, for the fast path to read back.
+        _signatureService.Setup(s => s.GetAsync(propertyId)).ReturnsAsync(new RVCalculationSignatureEntity
+        {
+            PropertyId = propertyId,
+            SignatureHash = capturedSignature!,
+            IsActive = true,
+            CalculatedAt = DateTime.Now
+        });
+
+        var existingResultsRow = new RVCalculationResultsEntity
+        {
+            Id = 500,
+            PropertyId = propertyId,
+            PropertyDetailsId = 10,
+            RateableValue = 999m,
+            AnnualRentalValue = 1000d,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _taxResultsRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<RVCalculationResultsEntity> { existingResultsRow }.BuildMockDbSet().Object);
+
+        var existingTaxDetailRow = new RVCalculationTaxDetailsEntity
+        {
+            Id = 700,
+            RVCalculationResultsId = 500,
+            TaxId = 1,
+            TaxAmount = 99m,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _taxDetailsRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<RVCalculationTaxDetailsEntity> { existingTaxDetailRow }.BuildMockDbSet().Object);
+
+        _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<PolicyTaxDetailsEntity>().BuildMockDbSet().Object);
+
+        // Act 2: identical inputs -> should take the fast path this time.
+        var secondResult = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert: no recalculation happened -- neither the rule engine nor any write path ran.
+        ruleApplierMock.Verify(
+            r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _taxResultsRepo.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<RVCalculationResultsEntity>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _policyTaxRepo.Verify(
+            r => r.AddRangeAsync(It.IsAny<IEnumerable<PolicyTaxDetailsEntity>>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        // Assert: the response reflects the pre-existing persisted data, not a fresh calculation.
+        Assert.NotNull(secondResult);
+        Assert.Equal(999m, secondResult.TotalRateableValue);
+    }
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_WhenInputSignatureDiffers_RecalculatesNormally()
+    {
+        // Arrange
+        var propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupBasicMasterData();
+
+        // A stored signature that cannot possibly match anything this run computes.
+        _signatureService.Setup(s => s.GetAsync(propertyId)).ReturnsAsync(new RVCalculationSignatureEntity
+        {
+            PropertyId = propertyId,
+            SignatureHash = "stale-signature-from-before-a-relevant-change",
+            IsActive = true,
+            CalculatedAt = DateTime.Now.AddDays(-1)
+        });
+
+        List<RVCalculationResultsEntity>? capturedResults = null;
+        _taxResultsRepo.Setup(r => r.AddRangeAsync(
+                It.IsAny<IEnumerable<RVCalculationResultsEntity>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<RVCalculationResultsEntity>, CancellationToken>((rows, _) => capturedResults = rows.ToList())
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert: the mismatched signature forced a full recalculation and a fresh persistence write.
+        Assert.NotNull(capturedResults);
+        Assert.NotEmpty(capturedResults);
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Details);
+        _signatureService.Verify(
+            s => s.UpsertAsync(propertyId, It.IsAny<string>(), It.IsAny<DateTime>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_ForceRecalculate_BypassesFastPathEvenWhenSignatureMatches()
+    {
+        // Arrange
+        var propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupBasicMasterData();
+
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) =>
+                new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
+
+        string? capturedSignature = null;
+        _signatureService
+            .Setup(s => s.UpsertAsync(propertyId, It.IsAny<string>(), It.IsAny<DateTime>()))
+            .Callback<int, string, DateTime>((_, hash, _) => capturedSignature = hash)
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService(ruleApplierMock.Object);
+
+        // First call establishes a stored signature that matches this exact input state.
+        await service.CalculateAndSaveAsync(propertyId);
+        Assert.NotNull(capturedSignature);
+
+        _signatureService.Setup(s => s.GetAsync(propertyId)).ReturnsAsync(new RVCalculationSignatureEntity
+        {
+            PropertyId = propertyId,
+            SignatureHash = capturedSignature!,
+            IsActive = true,
+            CalculatedAt = DateTime.Now
+        });
+
+        ruleApplierMock.Invocations.Clear();
+
+        // Act: forceRecalculate=true should ignore the matching stored signature.
+        await service.CalculateAndSaveAsync(propertyId, forceRecalculate: true);
+
+        // Assert: the rule engine ran again despite the unchanged, matching signature.
+        ruleApplierMock.Verify(
+            r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_SignatureUpsertRacesOnUniqueConstraint_StillReturnsSuccessfulResult()
+    {
+        // RVCalculationSignature has a unique index on PropertyId, and UpsertAsync does a plain
+        // read-then-write -- two concurrent recalculations for the same property can both see no
+        // row and both try to insert, so this can legitimately throw a DbUpdateException. That must
+        // not roll back or fail the RV calculation itself, since its results were already computed
+        // correctly and committed before the signature bookkeeping runs.
+        var propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupBasicMasterData();
+
+        _signatureService
+            .Setup(s => s.UpsertAsync(propertyId, It.IsAny<string>(), It.IsAny<DateTime>()))
+            .ThrowsAsync(new DbUpdateException("Violation of unique constraint 'UQ_RVCalculationSignature_PropertyId'."));
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert: the RV calculation still succeeds and returns the freshly computed result.
+        Assert.NotNull(result);
+        Assert.NotEmpty(result.Details);
+        _unitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _unitOfWork.Verify(u => u.DiscardChanges(), Times.Once);
+    }
+
     #endregion
 
     #region Helper Methods

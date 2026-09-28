@@ -693,7 +693,7 @@ public class AssessmentStageService : IAssessmentStageService
         var normalizedTypes = types?.Select(x => x?.Trim().ToUpperInvariant()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new();
         var normalizedDescriptions = descriptions?.Select(x => x?.Trim().ToUpperInvariant()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? new();
 
-        if (propertyOpenPlot || detailOpenPlot || normalizedDescriptions.Any(x => x!.Contains("OPEN")))
+        if (propertyOpenPlot || detailOpenPlot)
             return PropertyTypeOpenPlots;
         if (normalizedTypes.Contains("I") || normalizedDescriptions.Any(x => x!.Contains("INDUSTRIAL")))
             return PropertyTypeIndustrial;

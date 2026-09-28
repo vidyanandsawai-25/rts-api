@@ -45,6 +45,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         // private readonly IReportDataRepository<TransMastEntity> _transRepository; // Unnecessary duplicate of _transmastRepository
         private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
         private readonly IReportDataRepository<PropertyTypeMasterEntity> _propertyTypeRepository;
+        private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
         public KarakarniDataProvider(
             IReportDataRepository<PropertyEntity> propertyRepository,
@@ -61,12 +62,14 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             IReportDataRepository<YearMasterEntity> yearRepository,
             // IReportDataRepository<TransMastEntity> transRepository, // Unnecessary duplicate of transmastRepository
             IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
-            IReportDataRepository<PropertyTypeMasterEntity> propertyTypeRepository
+            IReportDataRepository<PropertyTypeMasterEntity> propertyTypeRepository,
+            IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null
             )
         {
             _propertyRepository = propertyRepository;
             _wardRepository = wardRepository;
             _societyRepository = societyRepository;
+            _wingDetailsRepository = wingDetailsRepository;
             _typeOfUseRepository = typeOfUseRepository;
             _propertyDetailsRepository = propertyDetailsRepository;
             _floorRepository = floorRepository;
@@ -307,18 +310,21 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             if (!properties.Any())
                 return new List<object>();
 
-            // 1b. Society details (batch load for all property IDs)
-            var societyDetails = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value))
-                .Select(sd => new
+            var wingQuery = _wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var societyDetails = await (
+                from sd in _societyRepository.GetQueryable()
+                where sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value)
+                join wdm in wingQuery on sd.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
                     PropertyId = sd.PropertyId!.Value,
-                    sd.WingId,
-                    sd.WingName,
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null,
                     sd.SocietyName,
                     sd.SocietyAddress,
-                })
-                .ToListAsync(ct);
+                }
+            ).ToListAsync(ct);
 
             var societyMap = societyDetails
                 .GroupBy(sd => sd.PropertyId)

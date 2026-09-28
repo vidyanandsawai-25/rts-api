@@ -19,10 +19,12 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public bool IsReverted { get; set; }
     public string ApplicationStatus { get; set; } = string.Empty;
     public string? Remark { get; set; }
+    public Guid? IssuedCertificateGuid { get; set; }
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
     public virtual RTSDepartmentEntity Department { get; set; } = null!;
     public virtual RTSServiceEntity Service { get; set; } = null!;
+    public virtual RTSCitizenSessionEntity CitizenSession { get; set; } = null!;
     public virtual UserEntity User { get; set; } = null!;
     public virtual List<RTSFieldValueEntity> FieldValueData { get; set; } = new List<RTSFieldValueEntity>();
     public virtual List<TrackApplicationHistoryEntity> TrackApplicationHistory { get; set; } = new List<TrackApplicationHistoryEntity>();

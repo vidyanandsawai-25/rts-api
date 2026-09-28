@@ -80,6 +80,47 @@ public class AuthControllerTests
         Assert.Equal("testuser", returnedResponse.Username);
     }
 
+    [Fact]
+    public async Task LoginV2_WithValidCredentials_ReturnsOkWithTokenAndAccessDetails()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "adminuser",
+            Password = "ValidPassword123"
+        };
+
+        var response = new LoginV2ResponseDto
+        {
+            Success = true,
+            Token = "mock-jwt-token-v2",
+            UserId = 1,
+            UserCode = "ADM",
+            Username = "adminuser",
+            Roles = new List<string> { "Admin" },
+            IsAdmin = true,
+            CanAllocateWards = true,
+            Message = "Login successful",
+            ExpiresAt = DateTime.Now.AddMinutes(60)
+        };
+
+        _authServiceMock.Setup(x => x.LoginV2Async(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        // Act
+        var result = await _controller.LoginV2(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResponse = Assert.IsType<LoginV2ResponseDto>(okResult.Value);
+        Assert.True(returnedResponse.Success);
+        Assert.Equal("mock-jwt-token-v2", returnedResponse.Token);
+        Assert.Equal("ADM", returnedResponse.UserCode);
+        Assert.True(returnedResponse.IsAdmin);
+        Assert.True(returnedResponse.CanAllocateWards);
+        Assert.Contains("Admin", returnedResponse.Roles);
+    }
+
     #endregion
 
     #region Login Endpoint Tests - Invalid Credentials

@@ -56,7 +56,7 @@ public class OldWardMasterControllerTests
     public async Task GetById_CallsService_AndReturnsOkObjectResult()
     {
         // Arrange
-        var dto = new OldWardMasterDto { Id = 1, OldZoneName = "MM", OldWardNo = "MM11" };
+        var dto = new OldWardMasterDto { Id = 1, OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11" };
         _mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
@@ -72,8 +72,8 @@ public class OldWardMasterControllerTests
     public async Task Create_CallsService_AndReturnsOkObjectResult()
     {
         // Arrange
-        var createDto = new CreateOldWardMasterDto { OldZoneName = "MM", OldWardNo = "MM11" };
-        var resultDto = new OldWardMasterDto { Id = 1, OldZoneName = "MM", OldWardNo = "MM11" };
+        var createDto = new CreateOldWardMasterDto { OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11" };
+        var resultDto = new OldWardMasterDto { Id = 1, OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11" };
 
         _mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(resultDto);
@@ -90,8 +90,8 @@ public class OldWardMasterControllerTests
     public async Task Update_CallsService_AndReturnsOkObjectResult()
     {
         // Arrange
-        var updateDto = new UpdateOldWardMasterDto { OldZoneName = "MM", OldWardNo = "MM11_Updated" };
-        var resultDto = new OldWardMasterDto { Id = 1, OldZoneName = "MM", OldWardNo = "MM11_Updated" };
+        var updateDto = new UpdateOldWardMasterDto { OldZoneId = 1, Description = "Ward 11 Updated", OldWardNo = "MM11_Updated" };
+        var resultDto = new OldWardMasterDto { Id = 1, OldZoneId = 1, Description = "Ward 11 Updated", OldWardNo = "MM11_Updated" };
 
         _mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(resultDto);
@@ -125,14 +125,14 @@ public class OldWardMasterControllerTests
         // Arrange
         var items = new[]
         {
-            new CreateOldWardMasterDto { OldZoneName = "MM", OldWardNo = "MM11" },
-            new CreateOldWardMasterDto { OldZoneName = "MM", OldWardNo = "MM12" }
+            new CreateOldWardMasterDto { OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11" },
+            new CreateOldWardMasterDto { OldZoneId = 1, Description = "Ward 12", OldWardNo = "MM12" }
         };
 
         var bulkResult = new BulkResult<OldWardMasterDto>(2, 0, new List<OldWardMasterDto>
         {
-            new() { Id = 1, OldZoneName = "MM", OldWardNo = "MM11" },
-            new() { Id = 2, OldZoneName = "MM", OldWardNo = "MM12" }
+            new() { Id = 1, OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11" },
+            new() { Id = 2, OldZoneId = 1, Description = "Ward 12", OldWardNo = "MM12" }
         });
 
         _mockService.Setup(s => s.BulkCreateAsync(items, It.IsAny<CancellationToken>()))

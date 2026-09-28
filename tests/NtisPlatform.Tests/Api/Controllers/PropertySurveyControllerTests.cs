@@ -36,8 +36,10 @@ public class PropertySurveyControllerTests
 
         var dto = new UserPropertyPageDto
         {
-            Items = new List<CreatedByUserPropertyResponseDto>(),
-            PageItemCount = 0,
+            Status = true,
+            Message = "No properties found.",
+            Data = new List<CreatedByUserPropertyResponseDto>(),
+            Count = 0,
             TotalCount = 0,
             PageNumber = 1,
             PageSize = 10,
@@ -61,13 +63,13 @@ public class PropertySurveyControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
 
         var response =
-            Assert.IsType<ApiResponse<UserPropertyPageDto>>(
+            Assert.IsType<UserPropertyPageDto>(
                 okResult.Value);
 
-        Assert.True(response.Success);
+        Assert.True(response.Status);
         Assert.Equal("No properties found.", response.Message);
-        Assert.NotNull(response.Items);
-        Assert.Empty(response.Items!.Items);
+        Assert.NotNull(response.Data);
+        Assert.Empty(response.Data);
 
         mockService.Verify(
             service => service.SearchNewlyCreatedPropertiesAsync(
@@ -96,11 +98,13 @@ public class PropertySurveyControllerTests
 
         var dto = new UserPropertyPageDto
         {
-            Items = new List<CreatedByUserPropertyResponseDto>
+            Status = true,
+            Message = "Properties fetched successfully.",
+            Data = new List<CreatedByUserPropertyResponseDto>
             {
                 new CreatedByUserPropertyResponseDto { Id = 101, PropertyNo = "001" }
             },
-            PageItemCount = 1,
+            Count = 1,
             TotalCount = 1,
             PageNumber = 1,
             PageSize = 10,
@@ -116,13 +120,13 @@ public class PropertySurveyControllerTests
 
         // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<UserPropertyPageDto>>(ok.Value);
-        Assert.True(response.Success);
+        var response = Assert.IsType<UserPropertyPageDto>(ok.Value);
+        Assert.True(response.Status);
         Assert.Equal("Properties fetched successfully.", response.Message);
-        Assert.NotNull(response.Items);
-        Assert.Equal(1, response.Items!.TotalCount);
-        Assert.Equal(dto.TotalCount, response.Items.TotalCount);
-        Assert.Same(dto, response.Items);
+        Assert.NotNull(response.Data);
+        Assert.Equal(1, response.TotalCount);
+        Assert.Equal(dto.TotalCount, response.TotalCount);
+        Assert.Same(dto, response);
 
         mockService.Verify(s => s.SearchNewlyCreatedPropertiesAsync(It.IsAny<CreatedByUserPropertySearchRequestDto>(), It.IsAny<CancellationToken>()), Times.Once);
     }

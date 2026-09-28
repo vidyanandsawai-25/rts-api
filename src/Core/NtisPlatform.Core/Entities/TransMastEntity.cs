@@ -53,13 +53,16 @@ public class TransMastEntity : BaseEntity, IHardDeletable
     /// <summary>
     /// Foreign key to TaxMaster (type of tax)
     /// </summary>
-
     public int TaxId { get; set; }
+
+    /// <summary>
+    /// Foreign key to PolicyCodeMaster
+    /// </summary>
+    public int PolicyCodeId { get; set; } = 1;
 
     /// <summary>
     /// Calculated tax amount for this property, year, and tax type
     /// </summary>
-
     public decimal TaxAmount { get; set; }
 
     // Navigation Properties
@@ -81,6 +84,12 @@ public class TransMastEntity : BaseEntity, IHardDeletable
     /// </summary>
     [ForeignKey(nameof(TaxId))]
     public virtual TaxMasterEntity? Tax { get; set; }
+
+    /// <summary>
+    /// Navigation property to the Policy Code Master
+    /// </summary>
+    [ForeignKey(nameof(PolicyCodeId))]
+    public virtual PolicyCodeMasterEntity? PolicyCodeMaster { get; set; }
 
     public bool MarkedForDeletion { get; set; } = false;
 

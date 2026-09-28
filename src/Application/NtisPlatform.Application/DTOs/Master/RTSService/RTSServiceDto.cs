@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NtisPlatform.Core.Enums;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
 
@@ -19,6 +20,10 @@ public class RTSServiceDto : BaseDtos
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
+    public bool IsCertificateRequired { get; set; } = true;
+    public bool IsSmsEnabled { get; set; } = true;
+    public string? ServiceCode { get; set; }
 }
 
 public class CreateRTSServiceDto : CreateBaseDtos
@@ -49,6 +54,12 @@ public class CreateRTSServiceDto : CreateBaseDtos
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
+    public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
+    public bool IsSmsEnabled { get; set; } = true;
+
+    [StringLength(50, ErrorMessage = "Service_ServiceCode_MaxLengthExceeded_50")]
+    public string? ServiceCode { get; set; }
 }
 
 public class UpdateRTSServiceDto : UpdateBaseDtos
@@ -80,4 +91,10 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
+    public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
+    public bool IsSmsEnabled { get; set; } = true;
+
+    [StringLength(50, ErrorMessage = "Service_ServiceCode_MaxLengthExceeded_50")]
+    public string? ServiceCode { get; set; }
 }

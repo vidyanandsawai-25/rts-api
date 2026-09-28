@@ -18,4 +18,7 @@ public class PropertyPhotoTypeEntity : BaseEntity
     public string? Description { get; set; }
 
     public int? DisplayOrder { get; set; }
+
+    [Column(TypeName = "varchar(50)")]
+    public string? PhotoScope { get; set; }
 }

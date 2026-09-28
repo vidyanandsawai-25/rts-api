@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Constants;
@@ -24,9 +24,10 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
     private readonly IRepository<WingEntity, int> _wingMasterRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
+    private readonly IRepository<WingDetailsMastEntity, int> _wingDetailsMastRepository;
     private readonly new IUnitOfWork _unitOfWork;
     private readonly ILogger<PropertyMergeSingleService> _logger;
-    private readonly IMapper _mapper;
+    private readonly new IMapper _mapper;
 
     public PropertyMergeSingleService(
         IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
@@ -39,6 +40,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
         IRepository<WingEntity, int> wingMasterRepository,
         IRepository<PropertyAssessmentEntity, int> assessmentRepository,
+        IRepository<WingDetailsMastEntity, int> wingDetailsMastRepository,
         IUnitOfWork unitOfWork,
         ILogger<PropertyMergeSingleService> logger,
         IMapper mapper) : base(propertyMapDetailRepository, unitOfWork, mapper)
@@ -53,6 +55,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         _propertyTypeRepository = propertyTypeRepository;
         _wingMasterRepository = wingMasterRepository;
         _assessmentRepository = assessmentRepository;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _mapper = mapper;
@@ -100,7 +103,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             var propertyMast = await (
                 from pm in _repository.GetQueryable().AsNoTracking()
                 join wd in _wardRepository.GetQueryable().AsNoTracking() on pm.WardId equals wd.Id
-                join society in _societyRepository.GetQueryable().AsNoTracking() on pm.SocietyDetailId equals society.Id into societyGroup
+                join society in _societyRepository.GetQueryable().AsNoTracking() on pm.Id equals society.PropertyId into societyGroup
                 from sd in societyGroup.DefaultIfEmpty()
                 where pm.Id == propertyId && pm.IsActive && !pm.MarkedForDeletion
                 select new
@@ -224,7 +227,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                        .SetProperty(x => x.UpdatedDate, now),
                        cancellationToken);
             }
-           
+
 
             //  Create PropertyMapDetail
             var propertyMapDetailSource = new PropertyMapDetailEntity
@@ -276,7 +279,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         catch (Exception ex)
         {
             _logger.LogError(ex, "Merge failed Old:{OldId} New:{NewId}", dto.PropertyOldId, dto.PropertyId);
-             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
@@ -288,7 +291,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         {
             var PropertyId = dto.PropertyId;
             var PropertyOldId = dto.PropertyOldId;
-                
+
             var validationQuery =
                 await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
                 .Where(pmd =>
@@ -320,10 +323,10 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         !x.MarkedForDeletion,
                         cancellationToken);
 
-                throw new ValidationException("Property", propertyExists? "No merge details found to demerge": "Property not found", OperationType.Update);
+                throw new ValidationException("Property", propertyExists ? "No merge details found to demerge" : "Property not found", OperationType.Update);
             }
 
-           // Get MergeDetails Snapshot
+            // Get MergeDetails Snapshot
             var propertyMapDetailIds = validationQuery.Select(x => x.Id).ToList();
 
             var mergeDetails = await _mergeDetailRepository.GetQueryable().AsNoTracking()
@@ -347,7 +350,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                     x.OwnerNameEnglish,
                     x.OccupierName,
                     x.OccupierNameEnglish,
-                    x.SocietyDetailId
+                    x.Id
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -385,7 +388,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         pm.IsActive && !pm.MarkedForDeletion)
                     .ExecuteUpdateAsync(
                         setters => setters
-                        .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "The Holder" : updatedOwnerName)
+                        .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "धारक" : updatedOwnerName)
                         .SetProperty(pm => pm.OwnerNameEnglish, string.IsNullOrWhiteSpace(updatedOwnerNameEnglish) ? "The Holder" : updatedOwnerNameEnglish)
                         .SetProperty(pm => pm.OccupierName, updatedOccupierName)
                         .SetProperty(pm => pm.OccupierNameEnglish, updatedOccupierNameEnglish)
@@ -400,10 +403,10 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         .SetProperty(pm => pm.UpdatedDate, UpdatedDate),
                         cancellationToken);
 
-                if (currentProperty.SocietyDetailId.HasValue)
+                if (currentProperty.Id != 0)
                 {
                     await _societyRepository.GetQueryable()
-                        .Where(s => s.Id == currentProperty.SocietyDetailId.Value && s.IsActive)
+                        .Where(s => s.PropertyId == currentProperty.Id && s.IsActive)
                         .ExecuteUpdateAsync(
                             setters => setters
                                 .SetProperty(s => s.BuilderName, restoreData.BuilderName)
@@ -420,7 +423,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         pm.IsActive && !pm.MarkedForDeletion)
                     .ExecuteUpdateAsync(
                         setters => setters
-                        .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "The Holder" : updatedOwnerName)
+                        .SetProperty(pm => pm.OwnerName, string.IsNullOrWhiteSpace(updatedOwnerName) ? "धारक" : updatedOwnerName)
                         .SetProperty(pm => pm.OwnerNameEnglish, string.IsNullOrWhiteSpace(updatedOwnerNameEnglish) ? "The Holder" : updatedOwnerNameEnglish)
                         .SetProperty(pm => pm.OccupierName, updatedOccupierName)
                         .SetProperty(pm => pm.OccupierNameEnglish, updatedOccupierNameEnglish)
@@ -428,7 +431,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         .SetProperty(pm => pm.UpdatedDate, UpdatedDate),
                         cancellationToken);
             }
-            
+
 
             var cancelledPropertyMapDetailIds = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
                             .Where(pmd =>
@@ -467,7 +470,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                     pmd.Status == PropertyMapStatus.Active)
                 .ExecuteUpdateAsync(
                     setters => setters
-                    .SetProperty(pmd => pmd.Status,PropertyMapStatus.Cancelled)
+                    .SetProperty(pmd => pmd.Status, PropertyMapStatus.Cancelled)
                     .SetProperty(pmd => pmd.IsActive, false)
                     .SetProperty(pmd => pmd.UpdatedBy, dto.UpdatedBy)
                     .SetProperty(pmd => pmd.UpdatedDate, UpdatedDate),
@@ -509,7 +512,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                         pmd.IsActive &&
                         pmd.Status == PropertyMapStatus.Active)
                     .ExecuteUpdateAsync(
-                        setters => setters.SetProperty(pmd => pmd.PropertyMapId,oneToOnePropertyMapId),
+                        setters => setters.SetProperty(pmd => pmd.PropertyMapId, oneToOnePropertyMapId),
                         cancellationToken);
             }
 
@@ -526,7 +529,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             var oldPropertyNos = validationQuery.Select(x => x.PropertyNoOld).Distinct().ToList();
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-           
+
 
             return new PropertyMergeSingleDto
             {
@@ -538,7 +541,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
         catch (Exception ex)
         {
             _logger.LogError(ex, "Demerge failed NewProperty:{PropertyId}", dto.PropertyId);
-             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
@@ -550,7 +553,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
             var propertyKey = await (
            from pm in _repository.GetQueryable().AsNoTracking()
            join societyTemp in _societyRepository.GetQueryable().AsNoTracking()
-               on pm.SocietyDetailId equals societyTemp.Id
+               on pm.Id equals societyTemp.PropertyId
                into societyGroup
            from propertySociety in societyGroup.DefaultIfEmpty()
            where pm.Id == queryParams.PropertyId && pm.IsActive && !pm.MarkedForDeletion
@@ -572,16 +575,16 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                 from pm in _repository.GetQueryable().AsNoTracking()
                 join ward in _wardRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
                     on pm.WardId equals ward.Id
-                join societyTemp in _societyRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
-                    on pm.SocietyDetailId equals societyTemp.Id
-                    into societyGroup
-                from society in societyGroup.DefaultIfEmpty()
+                join WingDetailsTemp in _wingDetailsMastRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
+                    on pm.WingDetailId equals WingDetailsTemp.Id
+                    into WingDetailsGroup
+                from wingDetails in WingDetailsGroup.DefaultIfEmpty()
                 join propertyTypeTemp in _propertyTypeRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
                     on pm.PropertyTypeId equals propertyTypeTemp.Id
                     into propertyTypeGroup
                 from propertyType in propertyTypeGroup.DefaultIfEmpty()
                 join wingTemp in _wingMasterRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive)
-                    on society.WingId equals wingTemp.Id
+                    on wingDetails.WingMasterId equals wingTemp.Id
                     into wingGroup
                 from wing in wingGroup.DefaultIfEmpty()
                 where
@@ -592,7 +595,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                     pm.PartitionNo != string.Empty &&
                     (wing == null || pm.PartitionNo != wing.WingNo) &&
                     (propertyType == null || propertyType.PartType != "Amenity") &&
-                    (string.IsNullOrWhiteSpace(queryParams.WingName) || (society.WingName ?? string.Empty).Trim() == queryParams.WingName.Trim()) &&
+                    (string.IsNullOrWhiteSpace(queryParams.WingName) || (wingDetails.WingName ?? string.Empty).Trim() == queryParams.WingName.Trim()) &&
                     !_propertyMapDetailRepository.GetQueryable()
                         .Any(map => map.PropertyIdNew == pm.Id && map.IsActive && map.Status == PropertyMapStatus.Active)
 
@@ -608,7 +611,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                     MobileNo = pm.MobileNo,
                     Type = pm.Type,
                     SocietyName = propertyKey.SocietyName,
-                    WingName = society != null ? society.WingName : null,
+                    WingName = wingDetails != null ? wingDetails.WingName : null,
                     FlatOrShopName = pm.FlatOrShopName,
                     FlatOrShopNo = pm.FlatOrShopNo,
                     PropertyTypeDescription = propertyType != null ? propertyType.PropertyDescription : null,
@@ -658,7 +661,7 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
     {
         return string.Join("-", propertyNumberParts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
     }
-    
+
     private static string? BuildMergedPersonName(string? newPropertyName, string? oldPropertyName)
     {
         var names = new List<string>();
@@ -677,7 +680,8 @@ public class PropertyMergeSingleService : BaseCommonCrudService<PropertyMapDetai
                     continue;
                 }
                 // Remove placeholder value
-                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(name, "धारक", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

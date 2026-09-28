@@ -658,6 +658,7 @@ public class RetrospectiveRuleMasterServiceTests
 
         Assert.Equal("EVIDENCE_DATE", existingAction.TaxStartMode);
         Assert.Equal(2m, existingAction.TaxMultiplier);
+        Assert.Equal("YEAR_WISE", existingAction.RateMode);
         _mockActionRepository.Verify(r => r.AddAsync(It.IsAny<RetrospectiveRuleActionEntity>(), It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("ACT_PENALTY", existingPenalty.PenaltyMode);
@@ -919,6 +920,15 @@ public class RetrospectiveRuleMasterServiceTests
     {
         var request = BuildSaveRequest();
         request.Action.TaxCalculationMode = "NOT_A_REAL_CALC_MODE";
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task SaveAsync_InvalidActionRateMode_ThrowsValidationException()
+    {
+        var request = BuildSaveRequest();
+        request.Action.RateMode = "NOT_A_REAL_RATE_MODE";
 
         await Assert.ThrowsAsync<ValidationException>(() => _service.SaveAsync(request, CancellationToken.None));
     }

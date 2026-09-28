@@ -78,27 +78,20 @@ public class PropertyKycCommonServiceTest
     private readonly Mock<IRepository<CommunicationDetailsEntity, int>>
         _communicationRepositoryMock;
 
-    private readonly Mock<IRepository<PropertyPhotoEntity, int>>
-        _propertyPhotoRepositoryMock;
-
-    private readonly Mock<IRepository<DocumentBindingEntity, int>>
-        _documentBindingRepositoryMock;
-
-    private readonly Mock<IRepository<DocumentEntity, int>>
-        _documentRepositoryMock;
-
-    private readonly Mock<IRepository<PropertyPhotoTypeEntity, int>>
-        _propertyPhotoTypeRepositoryMock;
-
     private readonly Mock<IRepository<OwnerTypeMasterEntity, int>>
         _ownerTypeRepositoryMock;
 
     private readonly Mock<IRepository<WingEntity, int>>
         _wingRepositoryMock;
 
+    private readonly Mock<IRepository<WingDetailsMastEntity, int>>
+        _wingDetailsMastRepositoryMock;
+
+    private readonly Mock<IRepository<VirtualPropertyTransferHistoryEntity, int>>
+        _virtualPropertyTransferHistoryRepositoryMock;
 
     private readonly Mock<IRepository<WingEntity, int>>
-    _wingMasterRepositoryMock;
+        _wingMasterRepositoryMock;
 
     private readonly Mock<IPropertyRuleApplicationLogService>
         _ruleLogServiceMock;
@@ -164,23 +157,17 @@ public class PropertyKycCommonServiceTest
         _communicationRepositoryMock =
             new Mock<IRepository<CommunicationDetailsEntity, int>>();
 
-        _propertyPhotoRepositoryMock =
-            new Mock<IRepository<PropertyPhotoEntity, int>>();
-
-        _documentBindingRepositoryMock =
-            new Mock<IRepository<DocumentBindingEntity, int>>();
-
-        _documentRepositoryMock =
-            new Mock<IRepository<DocumentEntity, int>>();
-
-        _propertyPhotoTypeRepositoryMock =
-            new Mock<IRepository<PropertyPhotoTypeEntity, int>>();
+        _virtualPropertyTransferHistoryRepositoryMock =
+            new Mock<IRepository<VirtualPropertyTransferHistoryEntity, int>>();
 
         _ownerTypeRepositoryMock =
             new Mock<IRepository<OwnerTypeMasterEntity, int>>();
 
         _wingRepositoryMock =
             new Mock<IRepository<WingEntity, int>>();
+
+        _wingDetailsMastRepositoryMock =
+            new Mock<IRepository<WingDetailsMastEntity, int>>();
 
 
         _wingMasterRepositoryMock =
@@ -211,7 +198,10 @@ public class PropertyKycCommonServiceTest
             _communicationRepositoryMock.Object,
             _propertyMapDetailRepositoryMock.Object,
             _oldPropertyRepositoryMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _wingDetailsMastRepositoryMock.Object,
+            _propertyDetailsRepositoryMock.Object,
+            _virtualPropertyTransferHistoryRepositoryMock.Object);
     }
 
     private void SetupEmptyRepositories()
@@ -236,6 +226,10 @@ public class PropertyKycCommonServiceTest
             .Setup(x => x.GetQueryable())
             .Returns(new List<WingEntity>().BuildMock());
 
+        _wingDetailsMastRepositoryMock
+            .Setup(x => x.GetQueryable())
+            .Returns(new List<WingDetailsMastEntity>().BuildMock());
+
         _roomWiseRepositoryMock
             .Setup(x => x.GetQueryable())
             .Returns(new List<RoomWiseSubmissionDetailsEntity>().BuildMock());
@@ -252,21 +246,13 @@ public class PropertyKycCommonServiceTest
             .Setup(x => x.GetQueryable())
             .Returns(new List<PropertyMastOldEntity>().BuildMock());
 
-        _propertyPhotoRepositoryMock
+        _propertyDetailsRepositoryMock
             .Setup(x => x.GetQueryable())
-            .Returns(new List<PropertyPhotoEntity>().BuildMock());
+            .Returns(new List<PropertyDetailsEntity>().BuildMock());
 
-        _documentBindingRepositoryMock
+        _virtualPropertyTransferHistoryRepositoryMock
             .Setup(x => x.GetQueryable())
-            .Returns(new List<DocumentBindingEntity>().BuildMock());
-
-        _documentRepositoryMock
-            .Setup(x => x.GetQueryable())
-            .Returns(new List<DocumentEntity>().BuildMock());
-
-        _propertyPhotoTypeRepositoryMock
-            .Setup(x => x.GetQueryable())
-            .Returns(new List<PropertyPhotoTypeEntity>().BuildMock());
+            .Returns(new List<VirtualPropertyTransferHistoryEntity>().BuildMock());
     }
 
     [Fact]
@@ -480,7 +466,6 @@ public class PropertyKycCommonServiceTest
             PropertyNo = "10",
             PartitionNo = null,
             OwnerName = "Main Owner",
-            SocietyDetailId = 50,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -507,10 +492,9 @@ public class PropertyKycCommonServiceTest
         var society = new SocietyDetailsEntity
         {
             Id = 50,
+            PropertyId = propertyId,
             SocietyName = "Green Society",
             SocietyAddress = "Pune",
-            WingId = 7,
-            WingName = "Wing A",
             ManagerName = "Manager One",
             SecretaryName = "Secretary One",
             BuilderName = "Builder One",
@@ -534,6 +518,38 @@ public class PropertyKycCommonServiceTest
             TotalAreaSqMtr = 200,
             IsActive = true,
             MarkedForDeletion = false
+        };
+
+        var propertyDetails = new PropertyDetailsEntity
+        {
+            Id = 20,
+            PropertyId = propertyId,
+            TypeOfUseId = 15,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var mapDetail = new PropertyMapDetailEntity
+        {
+            Id = 30,
+            PropertyIdNew = propertyId,
+            PropertyIdOld = 999,
+            Status = "ACTIVE",
+            IsActive = true,
+            IsCurrent = true
+        };
+
+        var transferHistory = new VirtualPropertyTransferHistoryEntity
+        {
+            Id = 40,
+            PropertyId = propertyId,
+            WardId = 89,
+            PropertyNo = "10",
+            PartitionNo = null,
+            TransferredWardId = 90,
+            TransferredPropertyNo = "TP-101",
+            IsActive = true,
+            CreatedDate = DateTime.UtcNow
         };
 
         _propertyRepositoryMock
@@ -578,6 +594,27 @@ public class PropertyKycCommonServiceTest
                 roomWiseDetails
             }.BuildMock());
 
+        _propertyDetailsRepositoryMock
+            .Setup(x => x.GetQueryable())
+            .Returns(new List<PropertyDetailsEntity>
+            {
+                propertyDetails
+            }.BuildMock());
+
+        _propertyMapDetailRepositoryMock
+            .Setup(x => x.GetQueryable())
+            .Returns(new List<PropertyMapDetailEntity>
+            {
+                mapDetail
+            }.BuildMock());
+
+        _virtualPropertyTransferHistoryRepositoryMock
+            .Setup(x => x.GetQueryable())
+            .Returns(new List<VirtualPropertyTransferHistoryEntity>
+            {
+                transferHistory
+            }.BuildMock());
+
         var request = new PropertyKycDetailsQueryParameters
         {
             WardId = 89,
@@ -592,6 +629,9 @@ public class PropertyKycCommonServiceTest
         // Assert
         Assert.NotNull(result);
         Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal("10", result.PropertyNo);
+        Assert.Null(result.PartitionNo);
+        Assert.Equal(15, result.TypeOfUseId);
 
         Assert.Equal(3, result.OwnerTypeId);
         Assert.Equal("Owner", result.OwnerType);
@@ -603,9 +643,11 @@ public class PropertyKycCommonServiceTest
         Assert.Equal("Green Society", result.SocietyName);
         Assert.Equal("Pune", result.SocietyAddress);
 
-        Assert.Equal(7, result.WingId);
-        Assert.Equal("A", result.WingNo);
-        Assert.Equal("Wing A", result.WingName);
+        // No WingDetailsMast row links this society to a wing, so wing fields correctly stay
+        // null -- they must never fall back to an arbitrary "first active wing" in the master.
+        Assert.Null(result.WingId);
+        Assert.Null(result.WingNo);
+        Assert.Null(result.WingName);
 
         Assert.Equal("Manager One", result.ManagerName);
         Assert.Equal("Secretary One", result.SecretaryName);
@@ -614,5 +656,12 @@ public class PropertyKycCommonServiceTest
         Assert.Equal(10d, result.PlotLength);
         Assert.Equal(20d, result.PlotWidth);
         Assert.Equal(200d, result.TotalArea);
+
+        Assert.Equal(999, result.PropertyIdOld);
+        Assert.Equal(1, result.MapCount);
+
+        Assert.Single(result.VirtualPropertyTransferHistory);
+        Assert.Equal(40, result.VirtualPropertyTransferHistory[0].Id);
+        Assert.Equal("TP-101", result.VirtualPropertyTransferHistory[0].TransferredPropertyNo);
     }
 }

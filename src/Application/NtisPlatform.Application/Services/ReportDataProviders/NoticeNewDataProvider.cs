@@ -39,6 +39,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
     private readonly IReportDataRepository<UserEntity> _userRepository;
     private readonly IReportDataRepository<PropertyMapMasterEntity> _PropertyMapRepository;
     private readonly IReportDataRepository<PropertyMapDetailEntity> _PropertyMapDetailRepository;
+    private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
     public NoticeNewDataProvider(
         IReportDataRepository<PropertyEntity> propertyRepository,
@@ -58,13 +59,15 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
         IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
         IReportDataRepository<UserEntity> userRepository,
         IReportDataRepository<PropertyMapMasterEntity> PropertyMapRepository,
-        IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository)
+        IReportDataRepository<PropertyMapDetailEntity> PropertyMapDetailRepository,
+        IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null)
     {
         _propertyRepository = propertyRepository;
         _propertyImagesRepository = propertyImagesRepository;
         _zoneRepository = zoneRepository;
         _wardRepository = wardRepository;
         _societyRepository = societyRepository;
+        _wingDetailsRepository = wingDetailsRepository;
         _wingRepository = wingRepository;
         _propertyOldRepository = propertyOldRepository;
         _transRepository = transRepository;
@@ -300,7 +303,10 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
             join sdm in _societyRepository.GetQueryable() on pm.Id equals sdm.PropertyId into sdmj
             from sdm in sdmj.DefaultIfEmpty()
 
-            join w in _wingRepository.GetQueryable() on sdm.WingId equals w.Id into wingj
+            join wdm in (_wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(w => w.IsActive && !w.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable()) on (sdm != null ? (int?)sdm.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmj
+            from wdm in wdmj.DefaultIfEmpty()
+
+            join w in _wingRepository.GetQueryable() on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)w.Id into wingj
             from w in wingj.DefaultIfEmpty()
 
             join pt in _PropertyTypeMasterRepository.GetQueryable() on pm.PropertyTypeId equals pt.Id into ptj

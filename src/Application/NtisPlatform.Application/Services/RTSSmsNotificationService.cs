@@ -194,6 +194,13 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", mobileNo, null, placeholders, ct);
     }
 
+    private static string SanitizeDltVar(string? text, int maxLen = 30)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var trimmed = text.Trim();
+        return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen);
+    }
+
     /// <summary>
     /// 2. Unified Dynamic Application Status Template (TemplateName: RTS_APP_STATUS_UPDATE)
     /// </summary>
@@ -210,14 +217,18 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         var baseUrl = await GetPortalBaseUrlAsync(ct);
         var trackingUrl = customUrl ?? $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
 
+        // DLT Rule: Each variable must be under 30 characters to prevent DLT rejection
+        var cleanServiceName = SanitizeDltVar(serviceName, 30);
+        var cleanStatus = SanitizeDltVar(status, 30);
+
         var placeholders = new Dictionary<string, string>
         {
             { "CitizenName", "Citizen" },
             { "ApplicantName", "Citizen" },
             { "UserName", "Citizen" },
             { "ApplicationNo", applicationNo },
-            { "ServiceName", serviceName },
-            { "Status", status },
+            { "ServiceName", cleanServiceName },
+            { "Status", cleanStatus },
             { "TrackingUrl", trackingUrl },
             { "TrackingParam", applicationNo }
         };
@@ -238,10 +249,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         CancellationToken ct = default)
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
-        var status = fees > 0
-            ? "SUBMITTED (Fee Pending)"
-            : "SUBMITTED";
-
+        var status = fees > 0 ? "FEE PENDING" : "SUBMITTED";
         var url = fees > 0
             ? $"{baseUrl}?pay={Uri.EscapeDataString(applicationNo)}"
             : $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
@@ -263,7 +271,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string? remark = null,
         CancellationToken ct = default)
     {
-        var displayStatus = $"IN PROGRESS ({stageName})";
+        var displayStatus = "IN PROGRESS";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
 
@@ -296,7 +304,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
         var certUrl = $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
-        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED (Certificate Issued)", certUrl, ct);
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "CERTIFICATE ISSUED", certUrl, ct);
     }
 
     /// <summary>
@@ -311,10 +319,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string? remark = null,
         CancellationToken ct = default)
     {
-        var displayStatus = string.IsNullOrWhiteSpace(remark)
-            ? "REJECTED"
-            : $"REJECTED ({remark})";
-
+        var displayStatus = "REJECTED";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
 
@@ -330,10 +335,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string? remark = null,
         CancellationToken ct = default)
     {
-        var displayStatus = string.IsNullOrWhiteSpace(remark)
-            ? "REVERTED"
-            : $"REVERTED ({remark})";
-
+        // Keep status strictly as 'REVERTED' (under 30 chars) so DLT gateway accepts the SMS.
+        // The citizen clicks the Track link in the SMS to view the detailed officer remarks.
+        var displayStatus = "REVERTED";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, displayStatus, null, ct);
     }
 

@@ -235,19 +235,11 @@ public partial class PropertyService
         if (category != null && category.PropertyCategoryName.Contains(CreatePropertiesFromRange.CategoryNames.Apartment, CreatePropertiesFromRange.ComparisonOptions.CategoryNameComparison))
         {
             var society = _mapper.Map<SocietyDetailsEntity>(dto);
-
-            society.WingName = "Main Society";
             society.PropertyId = property.Id;
 
             await _societyRepository.AddAsync(society, ct);
             await _unitOfWork.SaveChangesAsync(ct);
             _logger.LogInformation("SocietyDetailsEntity created with Id={SocietyId} for property {PropertyNo}", society.Id, propertyNo);
-
-            // Link society to property
-            property.SocietyDetailId = society.Id;
-            await _repository.UpdateAsync(property, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
-
 
             if (dto.LengthMtr != null && dto.WidthMtr != null && dto.TotalAreaSqMtr!=null) 
             {
@@ -309,6 +301,22 @@ public partial class PropertyService
                 await _roomWiseRepository.AddAsync(roomWiseDetails, ct);
                 await _unitOfWork.SaveChangesAsync(ct);
                 _logger.LogInformation("RoomWiseSubmissionDetailsEntity created with Id={RoomWiseId} for property {PropertyNo}", roomWiseDetails.Id, propertyNo);
+            }
+        }
+
+        // STEP 7: Entry in Workflow Details Table using AutoMapper
+        if (dto.WorkflowStageId.HasValue && dto.WorkflowStageId.Value > 0)
+        {
+            if (_workflowDetailsRepository != null)
+            {
+                await _workflowDetailsRepository.ResetCurrentStatusAsync(property.Id, ct);
+
+                var workflowDetails = _mapper.Map<PropertyWorkflowDetailsEntity>(dto);
+                workflowDetails.PropertyId = property.Id;
+
+                await _workflowDetailsRepository.AddAsync(workflowDetails, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+                _logger.LogInformation("PropertyWorkflowDetailsEntity created with Id={WorkflowDetailsId} for property {PropertyNo} and WorkflowStageId={WorkflowStageId}", workflowDetails.Id, propertyNo, dto.WorkflowStageId.Value);
             }
         }
 

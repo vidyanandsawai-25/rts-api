@@ -34,5 +34,8 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
     Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync(int applicationId, UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
     Task<RTSApplicationApprovalResponseDto> RejectApplicationByOfficerAsync (int applicationId, UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);
 
-
+    // <summary>
+    // Complete ERP & Digital Signature Audit Trail History
+    // </summary>
+    Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(int applicationId, CancellationToken cancellationToken = default);
 }

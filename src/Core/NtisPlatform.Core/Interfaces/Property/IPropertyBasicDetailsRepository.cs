@@ -56,4 +56,10 @@ public interface IPropertyBasicDetailsRepository : IPropertyAggregateRepository
 
     /// <summary>Resolves an active wing by its <c>WingNo</c>, or null when not found.</summary>
     Task<WingEntity?> GetActiveWingByNoAsync(string wingNo, CancellationToken cancellationToken = default);
+
+    /// <summary>Loads the active WingDetailsMast row for a society as a tracked entity, or null when not found.</summary>
+    Task<WingDetailsMastEntity?> GetWingDetailsMastBySocietyIdAsync(int societyId, CancellationToken cancellationToken = default);
+
+    /// <summary>Stages a new WingDetailsMast row for insertion.</summary>
+    void AddWingDetailsMast(WingDetailsMastEntity wingDetailsMast);
 }

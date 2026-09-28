@@ -230,7 +230,6 @@ public class PropertyRepositoryComprehensiveTests
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
-            SocietyDetailId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -239,7 +238,6 @@ public class PropertyRepositoryComprehensiveTests
         {
             Id = 1,
             PropertyId = 549357,
-            WingId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -259,6 +257,7 @@ public class PropertyRepositoryComprehensiveTests
         context.Set<WingEntity>().Add(wing);
         context.PropertyMast.Add(property);
         context.SocietyDetailsMast.Add(society);
+        context.Set<WingDetailsMastEntity>().Add(new WingDetailsMastEntity { SocietyDetailsMastId = 1, WingMasterId = 1, WingName = "AssessmentWing", IsActive = true });
         context.PropertyMastDetails.Add(assessment);
         await context.SaveChangesAsync();
 
@@ -349,7 +348,6 @@ public class PropertyRepositoryComprehensiveTests
 
         var society = await context.SocietyDetailsMast.FirstOrDefaultAsync(s => s.PropertyId == 549357);
         Assert.NotNull(society);
-        Assert.Equal(1, society.WingId);
     }
 
     [Fact]
@@ -372,7 +370,6 @@ public class PropertyRepositoryComprehensiveTests
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
-            SocietyDetailId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -381,7 +378,6 @@ public class PropertyRepositoryComprehensiveTests
         {
             Id = 1,
             PropertyId = 549357,
-            WingId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -409,7 +405,6 @@ public class PropertyRepositoryComprehensiveTests
 
         var updatedSociety = await context.SocietyDetailsMast.FindAsync(1);
         Assert.NotNull(updatedSociety);
-        Assert.Equal(2, updatedSociety.WingId);
     }
 
     [Fact]
@@ -436,7 +431,6 @@ public class PropertyRepositoryComprehensiveTests
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
-            SocietyDetailId = 100,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -477,7 +471,6 @@ public class PropertyRepositoryComprehensiveTests
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
-            SocietyDetailId = 100,
             IsActive = true,
             MarkedForDeletion = false
         };

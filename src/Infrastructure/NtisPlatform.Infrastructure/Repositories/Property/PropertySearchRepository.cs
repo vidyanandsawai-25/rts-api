@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
@@ -138,10 +139,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
                     from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                    from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                    join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                     from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                     from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                     select new
@@ -781,9 +784,12 @@ public class PropertySearchRepository : IPropertySearchRepository
 .FirstOrDefaultAsync(o => o.OldPropertyNo != null && o.OldPropertyNo == searchRequest.OldPropertyNo!.Trim() && o.IsActive && !o.MarkedForDeletion, cancellationToken);
                 if (oldProp != null)
                 {
-                    parentProperty = await _context.PropertyMast
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.PropertyMastOldId == oldProp.Id && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+                    parentProperty = await (
+                        from p in _context.PropertyMast.AsNoTracking()
+                        join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
+                        where pmd.PropertyIdOld == oldProp.Id && pmd.IsActive && p.IsActive && !p.MarkedForDeletion
+                        select p
+                    ).FirstOrDefaultAsync(cancellationToken);
                 }
             }
         }
@@ -817,10 +823,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
                     from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                    from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                    join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                     from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                     from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                     select new
@@ -1427,27 +1435,111 @@ public class PropertySearchRepository : IPropertySearchRepository
             .Select(w => new { w.WardNo, w.ZoneId, ZoneNo = w.Zone != null ? w.Zone.ZoneNo : null })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Ward-scoped: WardId is the leading column of the UQ_Property_Ward_Property_Partition
-        // index, so this equality predicate can still use it for a seek even though that index is
-        // filtered/unique - confirm with a DBA if this ever shows up as a scan in practice, since
-        // this repo's schema is managed outside EF migrations (see ApplicationDbContext remarks).
-        var rows = await _context.PropertyMast.AsNoTracking()
-            .Where(p => p.WardId == wardId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new PropertySuggestionDto
+        var joined = await (
+            from p in _context.PropertyMast.AsNoTracking()
+            where p.WardId == wardId && p.IsActive && !p.MarkedForDeletion
+            join cat in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals cat.Id into catJoin
+            from category in catJoin.DefaultIfEmpty()
+            join ptm in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals (int?)ptm.Id into ptmJoin
+            from propertyType in ptmJoin.DefaultIfEmpty()
+            join s in _context.SocietyDetailsMast.AsNoTracking().Where(s => s.IsActive && !s.MarkedForDeletion)
+                on p.Id equals s.PropertyId into societyJoin
+            from society in societyJoin.DefaultIfEmpty()
+            select new
             {
-                PropertyId = p.Id,
+                p.Id,
+                p.PropertyNo,
+                p.PartitionNo,
+                p.UPICId,
+                p.WingDetailId,
+                CategoryName = category != null ? category.PropertyCategoryName : null,
+                PropertyTypePartType = propertyType != null ? propertyType.PartType : null,
+                RepresentativeSocietyDetailId = society != null ? (int?)society.Id : null,
+                RepresentativeSocietyName = society != null ? society.SocietyName : null
+            }
+        ).ToListAsync(cancellationToken);
+
+        bool IsApartmentCategory(string? categoryName) =>
+            categoryName != null && PropertyCategoryConstants.ApartmentCategoryNames.Contains(categoryName);
+
+        var unitWingIds = joined
+            .Where(x => x.WingDetailId.HasValue)
+            .Select(x => x.WingDetailId!.Value)
+            .Distinct()
+            .ToList();
+
+        var societyByWingId = unitWingIds.Count == 0
+            ? new Dictionary<int, (int SocietyDetailId, string? SocietyName)>()
+            : await (
+                from w in _context.WingDetailsMast.AsNoTracking()
+                where unitWingIds.Contains(w.Id) && w.IsActive && !w.MarkedForDeletion
+                join s in _context.SocietyDetailsMast.AsNoTracking().Where(s => s.IsActive && !s.MarkedForDeletion)
+                    on w.SocietyDetailsMastId equals s.Id
+                select new { WingId = w.Id, SocietyDetailId = s.Id, SocietyName = (string?)s.SocietyName }
+            ).ToDictionaryAsync(x => x.WingId, x => (x.SocietyDetailId, x.SocietyName), cancellationToken);
+
+        var societyByPropertyNo = joined
+            .Where(x => x.RepresentativeSocietyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo))
+            .GroupBy(x => x.PropertyNo!)
+            .ToDictionary(
+                g => g.Key,
+                g => (SocietyDetailId: g.First().RepresentativeSocietyDetailId!.Value, SocietyName: g.First().RepresentativeSocietyName)
+            );
+
+        var rows = joined.Select(x =>
+        {
+            var isApartment = IsApartmentCategory(x.CategoryName);
+            int? catVal = !isApartment
+                ? 2
+                : string.IsNullOrWhiteSpace(x.PartitionNo)
+                    ? 0
+                    : string.Equals(x.PropertyTypePartType, "Amenity", StringComparison.OrdinalIgnoreCase)
+                        ? 3
+                        : 1;
+
+            string catLabel = catVal switch
+            {
+                0 => "apartment society property",
+                1 => "apartment society unit property",
+                3 => "apartment society amenity property",
+                _ => "individual property"
+            };
+
+            var societyDetailId = x.RepresentativeSocietyDetailId;
+            var societyName = x.RepresentativeSocietyName;
+
+            if (x.WingDetailId.HasValue && societyByWingId.TryGetValue(x.WingDetailId.Value, out var owningSocietyByWing))
+            {
+                societyDetailId = owningSocietyByWing.SocietyDetailId;
+                societyName = owningSocietyByWing.SocietyName;
+            }
+
+            if (!societyDetailId.HasValue && !string.IsNullOrWhiteSpace(x.PropertyNo) && societyByPropertyNo.TryGetValue(x.PropertyNo, out var owningSocietyByProp))
+            {
+                societyDetailId = owningSocietyByProp.SocietyDetailId;
+                societyName = owningSocietyByProp.SocietyName;
+            }
+
+            return new PropertySuggestionDto
+            {
+                PropertyId = x.Id,
                 ZoneId = ward != null ? ward.ZoneId : 0,
                 ZoneNo = ward != null ? ward.ZoneNo : null,
-                WardId = p.WardId,
+                WardId = wardId,
                 WardNo = ward != null ? ward.WardNo : null,
-                PropertyNo = p.PropertyNo,
-                PartitionNo = p.PartitionNo,
-                UpicId = p.UPICId,
-                DisplayLabel = p.PartitionNo == null || p.PartitionNo == string.Empty
-                    ? (p.PropertyNo ?? string.Empty)
-                    : $"{p.PropertyNo}-{p.PartitionNo}"
-            })
-            .ToListAsync(cancellationToken);
+                PropertyNo = x.PropertyNo,
+                PartitionNo = x.PartitionNo,
+                UpicId = x.UPICId,
+                DisplayLabel = string.IsNullOrEmpty(x.PartitionNo)
+                    ? (x.PropertyNo ?? string.Empty)
+                    : $"{x.PropertyNo}-{x.PartitionNo}",
+                Category = catVal,
+                CategoryLabel = catLabel,
+                SocietyDetailId = catVal == 2 ? null : societyDetailId,
+                SocietyName = catVal == 2 ? null : societyName,
+                WingDetailId = (catVal == 1 || catVal == 3) ? x.WingDetailId : null
+            };
+        }).ToList();
 
         _cache.Set(cacheKey, rows, new MemoryCacheEntryOptions
         {
@@ -1727,22 +1819,16 @@ public class PropertySearchRepository : IPropertySearchRepository
 
     /// <summary>
     /// Sum of TaxTotal demand from PTIS.TransMastOld + PTIS.TaxMaster (or fallback PropertyMastOld.OldTotalTax)
-    /// for properties that are mapped via PropertyMapDetail or PropertyMastOldId.
+    /// for properties that are mapped via PropertyMapDetail.
     /// </summary>
     private async Task<decimal> GetOldTaxTotalDemandAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var oldPropertyIdsFromPmd = from p in query
-                                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
-                                    where pmd.IsActive && pmd.PropertyIdOld != null
-                                    select pmd.PropertyIdOld!.Value;
-
-        var oldPropertyIdsFromMast = query
-            .Where(p => p.PropertyMastOldId != null)
-            .Select(p => p.PropertyMastOldId!.Value);
-
-        var oldPropertyIdsQuery = oldPropertyIdsFromPmd.Union(oldPropertyIdsFromMast);
+        var oldPropertyIdsQuery = from p in query
+                                 join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
+                                 where pmd.IsActive && pmd.PropertyIdOld != null
+                                 select pmd.PropertyIdOld!.Value;
 
         var transSum = await (
             from tmo in _context.TransMastOld.AsNoTracking()
@@ -1770,14 +1856,13 @@ public class PropertySearchRepository : IPropertySearchRepository
     // ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail or PropertyMastOldId.
+    /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail.
     /// </summary>
     private async Task<(int PropertyCount, int StructureCount, int UnitCount, decimal Demand)> CalculatePreviouslyRegisteredAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
         var prevQuery = query.Where(p =>
-            p.PropertyMastOldId != null ||
             _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
         );
 
@@ -1826,7 +1911,6 @@ public class PropertySearchRepository : IPropertySearchRepository
         CancellationToken cancellationToken)
     {
         var revenueQuery = query.Where(p =>
-            p.PropertyMastOldId != null ||
             _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
         );
 
@@ -1904,10 +1988,12 @@ public class PropertySearchRepository : IPropertySearchRepository
         var searchBase = from p in _context.PropertyMast.AsNoTracking()
                          where p.IsActive && !p.MarkedForDeletion
 
-                         join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                         join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+                         from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                         join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
                          from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                         join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                         join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
                          from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                          select new
@@ -1994,10 +2080,12 @@ public class PropertySearchRepository : IPropertySearchRepository
             join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
             from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+            join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.Where(x => x.IsActive).DefaultIfEmpty()
+            join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldJoin
             from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-            join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+            join sd in _context.SocietyDetailsMast.AsNoTracking() on p.Id equals sd.PropertyId into societyJoin
             from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
             select new

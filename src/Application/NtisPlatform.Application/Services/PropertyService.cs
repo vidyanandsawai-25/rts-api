@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using NtisPlatform.Application.DTOs.Building3DView;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
@@ -58,7 +59,13 @@ public partial class PropertyService
     private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
     private readonly IRepository<OwnerTypeMasterEntity, int> _ownerTypeRepository;
     private readonly IRepository<WingEntity, int> _wingRepository;
+    private readonly IRepository<SocietyWingDetailsEntity, int> _societyWingRepository;
     private readonly IRepository<OldWardMasterEntity,int> _oldWardMasterRepository;
+    private readonly IRepository<WingDetailsMastEntity, int>? _wingDetailsMastRepository;
+    private readonly IServiceProvider? _serviceProvider;
+    private readonly IPropertyWorkflowDetailsRepository? _workflowDetailsRepository;
+    private readonly IRepository<PropertySurveyVisitEntity, int>? _propertySurveyVisitRepository;
+    private readonly IRepository<PropertyDetailsOldEntity, int>? _propertyDetailsOldRepository;
 
 
     public PropertyService(
@@ -89,7 +96,13 @@ public partial class PropertyService
         IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
         IRepository<OwnerTypeMasterEntity, int> ownerTypeRepository,
         IRepository<WingEntity, int> wingRepository,
-        IPropertyRuleApplicationLogService? ruleLogService = null)
+        IRepository<SocietyWingDetailsEntity, int> societyWingRepository,
+        IPropertyRuleApplicationLogService? ruleLogService = null,
+        IRepository<WingDetailsMastEntity, int>? wingDetailsMastRepository = null,
+        IServiceProvider? serviceProvider = null,
+        IPropertyWorkflowDetailsRepository? workflowDetailsRepository = null,
+        IRepository<PropertySurveyVisitEntity, int>? propertySurveyVisitRepository = null,
+        IRepository<PropertyDetailsOldEntity, int>? propertyDetailsOldRepository = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -115,8 +128,14 @@ public partial class PropertyService
         _ownerTypeRepository = ownerTypeRepository;
         _communicationRepository = communicationRepository;
         _wingRepository = wingRepository;
+        _societyWingRepository = societyWingRepository;
         _wingMasterRepository = wingMasterRepository;
         _oldWardMasterRepository = oldWardMasterRepository;
+        _wingDetailsMastRepository = wingDetailsMastRepository;
+        _serviceProvider = serviceProvider;
+        _workflowDetailsRepository = workflowDetailsRepository;
+        _propertySurveyVisitRepository = propertySurveyVisitRepository;
+        _propertyDetailsOldRepository = propertyDetailsOldRepository;
     }
 
 
@@ -266,13 +285,13 @@ public partial class PropertyService
         PropertyEntity entity,
         CancellationToken cancellationToken)
     {
-        // Get all active properties with the same WardId, PropertyNo, and SocietyDetailId (wing) that have partition numbers
+        // Get all active properties with the same WardId, PropertyNo, and WingDetailId (wing) that have partition numbers
         // Exclude properties already marked for deletion to handle bulk delete scenarios
         var relatedPropertiesRaw = await _repository.GetQueryable()
             .AsNoTracking()
             .Where(p => p.WardId == entity.WardId &&
                        p.PropertyNo == entity.PropertyNo &&
-                       p.SocietyDetailId == entity.SocietyDetailId &&
+                       p.WingDetailId == entity.WingDetailId &&
                        p.IsActive == true &&
                        p.MarkedForDeletion == false &&
                        !string.IsNullOrWhiteSpace(p.PartitionNo))
@@ -322,20 +341,20 @@ public partial class PropertyService
         List<PropertyEntity> entities,
         CancellationToken cancellationToken)
     {
-        // Group properties by WardId, PropertyNo, and SocietyDetailId (wing) to validate each group separately
+        // Group properties by WardId, PropertyNo, and WingDetailId (wing) to validate each group separately
         var groupedByProperty = entities
             .Where(e => !string.IsNullOrWhiteSpace(e.PartitionNo))
-            .GroupBy(e => new { e.WardId, e.PropertyNo, e.SocietyDetailId });
+            .GroupBy(e => new { e.WardId, e.PropertyNo, e.WingDetailId });
 
         foreach (var group in groupedByProperty)
         {
-            // Get all active properties for this WardId/PropertyNo/SocietyDetailId combination
+            // Get all active properties for this WardId/PropertyNo/WingDetailId combination
             // Exclude properties already marked for deletion to handle sequential bulk delete
             var allActivePropertiesRaw = await _repository.GetQueryable()
                 .AsNoTracking()
                 .Where(p => p.WardId == group.Key.WardId &&
                            p.PropertyNo == group.Key.PropertyNo &&
-                           p.SocietyDetailId == group.Key.SocietyDetailId &&
+                           p.WingDetailId == group.Key.WingDetailId &&
                            p.IsActive == true &&
                            p.MarkedForDeletion == false &&
                            !string.IsNullOrWhiteSpace(p.PartitionNo))
@@ -364,14 +383,14 @@ public partial class PropertyService
             {
                 _logger.LogWarning(
                     "Bulk deletion validation failed: Attempted to delete starting from PropertyId={FirstId} (partition '{FirstPartition}'), " +
-                    "but highest partition is '{HighestPartition}' (PropertyId={HighestId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                    "but highest partition is '{HighestPartition}' (PropertyId={HighestId}) for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                     propertiesToDelete.First().Id,
                     propertiesToDelete.First().PartitionNo,
                     highestActiveProperty.PartitionNo,
                     highestActiveProperty.Id,
                     group.Key.WardId,
                     group.Key.PropertyNo,
-                    group.Key.SocietyDetailId);
+                    group.Key.WingDetailId);
 
                 return ValidationResult.Failure(
                     $"Bulk deletion must start from the highest partition. " +
@@ -389,12 +408,12 @@ public partial class PropertyService
                 {
                     _logger.LogWarning(
                         "Bulk deletion validation failed: Property {PropertyId} (partition '{PartitionNo}') is already marked for deletion " +
-                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                        "or does not exist in active properties for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                         propertiesToDelete[i].Id,
                         propertiesToDelete[i].PartitionNo,
                         group.Key.WardId,
                         group.Key.PropertyNo,
-                        group.Key.SocietyDetailId);
+                        group.Key.WingDetailId);
 
                     return ValidationResult.Failure(
                         $"Partition '{propertiesToDelete[i].PartitionNo}' is already marked for deletion or is not an active property. " +
@@ -407,7 +426,7 @@ public partial class PropertyService
                     _logger.LogWarning(
                         "Bulk deletion validation failed: Gap detected in PartitionNo sequence. " +
                         "Expected partition '{ExpectedPartition}' (PropertyId={ExpectedId}) at position {Position}, " +
-                        "but found partition '{ActualPartition}' (PropertyId={ActualId}) for Ward={WardId}, PropertyNo={PropertyNo}, SocietyDetailId={SocietyDetailId}",
+                        "but found partition '{ActualPartition}' (PropertyId={ActualId}) for Ward={WardId}, PropertyNo={PropertyNo}, WingDetailId={WingDetailId}",
                         expectedProperty.PartitionNo,
                         expectedProperty.Id,
                         i,
@@ -415,7 +434,7 @@ public partial class PropertyService
                         propertiesToDelete[i].Id,
                         group.Key.WardId,
                         group.Key.PropertyNo,
-                        group.Key.SocietyDetailId);
+                        group.Key.WingDetailId);
 
                     var validSequence = string.Join(" → ", allActiveProperties.Take(propertiesToDelete.Count)
                         .Select(p => p.PartitionNo));
@@ -689,6 +708,18 @@ public partial class PropertyService
             errors.Count > 0 ? errors : null);
     }
 
+    /// <summary>
+    /// Creates multiple properties in bulk within a single transaction.
+    /// Performs the following validations before creation:
+    /// 1. Building existence check
+    /// 2. Category validation
+    /// 3. Society wing details check (for apartment categories)
+    /// 4. Duplicate property partition check
+    /// 5. Duplicate flat/shop number check
+    /// </summary>
+    /// <param name="items">Array of bulk property creation DTOs</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Bulk result containing success/failure counts and created property details</returns>
     public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
     {
         if (items.Length == 0)
@@ -697,44 +728,23 @@ public partial class PropertyService
         }
 
         var results = new List<CreateBulkPropertyResponseDto>();
-        var errors = new List<string>();
-
 
 
         var buildingResult = await _propertyRepository.CheckBuildingIfExists(items[0], ct);
 
         if (buildingResult == null)
-        {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-            0,
-            items.Length,
-            [],
-            ["Building Not Found"]
-        );
-        }
-
+            throw new ValidationException("Building not found.", OperationType.Create);
 
         var category = await _propertyRepository.GetBuildingCategory(items[0].CategoryId, ct);
         if (category == null)
-        {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                0,
-                items.Length,
-                [],
-                ["Invalid CategoryId - category not found."]
-            );
-        }
+            throw new ValidationException("Category not found.", OperationType.Create);
 
         if (category.PropertyCategoryName != null &&
-            category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (items[0].SocietyDetailId == null || items[0].SocietyDetailId == 0))
+            category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (items[0].WingDetailId == null || items[0].WingDetailId == 0))
         {
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-               0,
-               items.Length,
-               [],
-               ["Society Wing Details is not Found"]
-           );
+            throw new ValidationException("Society wing details not found.", OperationType.Create);
         }
+
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -773,30 +783,26 @@ public partial class PropertyService
             }
             if (strPropertyExistsMessage.Length > 0)
             {
-                strPropertyExistsMessage.Append(" this property partition already exists in this wing");
+                strPropertyExistsMessage.Append(" - this property partition already exists in this wing");
             }
             if (strPropertyFlatExistsMessage.Length > 0)
             {
-                strPropertyFlatExistsMessage.Append(" this property flat already exists in this wing");
+                strPropertyFlatExistsMessage.Append(" - this property flat already exists in this wing");
             }
-           
 
             var errorParts = new List<string>(capacity: 2);
-            errorParts.Add(strPropertyExistsMessage.ToString());
+
+            if (strPropertyExistsMessage.Length > 0)
+                errorParts.Add(strPropertyExistsMessage.ToString());
 
             if (strPropertyFlatExistsMessage.Length > 0)
                 errorParts.Add(strPropertyFlatExistsMessage.ToString());
 
-            var strErrorMsg = string.Join(", ", errorParts);
-            if (strErrorMsg.Length > 0)
+            if (errorParts.Count > 0)
             {
+                var strErrorMsg = string.Join(", ", errorParts);
                 await _unitOfWork.RollbackTransactionAsync(ct);
-                return new BulkResult<CreateBulkPropertyResponseDto>(
-                 0,
-                 items.Length,
-                 [],
-                 [strErrorMsg.ToString()]
-             );
+                return new BulkResult<CreateBulkPropertyResponseDto>(0, items.Length, [], [strErrorMsg]);
             }
 
             var amenityPropertyTypeResult = await _propertyRepository.GetAmenityPropertyType(ct);
@@ -808,11 +814,11 @@ public partial class PropertyService
                     item.OpenPlot = true;
                 }
 
-                item.Address = buildingResult?.Address;
-                item.AddressEnglish = buildingResult?.AddressEnglish;
-                item.Location = buildingResult?.Location;
-                item.LocationEnglish = buildingResult?.LocationEnglish;
-                item.PropertySeqNo = buildingResult?.PropertySeqNo;
+                item.Address = buildingResult.Address;
+                item.AddressEnglish = buildingResult.AddressEnglish;
+                item.Location = buildingResult.Location;
+                item.LocationEnglish = buildingResult.LocationEnglish;
+                item.PropertySeqNo = buildingResult.PropertySeqNo;
                 item.OwnerName = "धारक";
                 item.OwnerNameEnglish = "The Holder";
                 if (amenityPropertyTypeResult != null && item.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
@@ -825,15 +831,9 @@ public partial class PropertyService
                 }
 
                 var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
-                if (res == null || !res.Success )
+                if (res == null || !res.Success)
                 {
-                    await _unitOfWork.RollbackTransactionAsync(ct);
-                    return new BulkResult<CreateBulkPropertyResponseDto>(
-                        0,
-                        items.Length,
-                        [],
-                        [$"{i}: {res?.Message ?? "Unknown error"}"]
-                    );
+                    throw new ValidationException($"Failed to create property at row {i + 1}: {res?.Message ?? "Unknown error"}", OperationType.Create);
                 }
 
                 results.Add(res);
@@ -842,25 +842,87 @@ public partial class PropertyService
 
             await _unitOfWork.CommitTransactionAsync(ct);
 
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                results.Count,
-                0,
-                results,
-                null
-            );
+            //── Refresh wing statistics after successful commit ─────────────────────
+            try
+            {
+                await SyncWingStatisticsAsync(items, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error refreshing wing statistics after BulkCreateAsync commit");
+                // Do NOT rethrow — the properties were committed successfully
+            }
+
+            return new BulkResult<CreateBulkPropertyResponseDto>(results.Count, 0, results, null);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             await _unitOfWork.RollbackTransactionAsync(ct);
-            return new BulkResult<CreateBulkPropertyResponseDto>(
-                0,
-                items.Length,
-                [],
-                [$"Transaction failed: {ex.Message}"]
-            );
+            throw;
         }
     }
+    /// <summary>
+    /// Aggregates flat/shop counts per wing from committed property data and synchronizes
+    /// them to the corresponding SocietyWingDetails records.
+    /// </summary>
+    private record WingAggregation(int WingDetailId, int NoOfFlat, int NoOfShop);
 
+    private async Task SyncWingStatisticsAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
+    {
+        var item = items.FirstOrDefault();
+        if (item == null || string.IsNullOrWhiteSpace(item.PropertyNo))
+            return;
 
-   
+        var queryable = _propertyRepository.GetQueryable();
+        if (queryable == null)
+            return;
+
+        var groupData = await queryable
+            .Where(x =>
+                x.WardId == item.WardId &&
+                x.PropertyNo == item.PropertyNo &&
+                x.WingDetailId.HasValue &&
+                x.IsActive &&
+                !x.MarkedForDeletion)
+            .GroupBy(x => x.WingDetailId)
+            .Select(g => new WingAggregation(
+                g.Key!.Value,
+                g.Count(x => x.PropertyTypeMaster!.Type == "R"),
+                g.Count(x => x.PropertyTypeMaster!.Type == "C")))
+            .ToListAsync(ct);
+
+        if (groupData.Count == 0)
+            return;
+
+        var groupDataMap = groupData.ToDictionary(x => x.WingDetailId);
+
+        if (_societyWingRepository == null)
+            return;
+
+        var societyWingQueryable = _societyWingRepository.GetQueryable();
+        if (societyWingQueryable == null)
+            return;
+
+        var wingDetails = await societyWingQueryable
+            .Where(x =>
+                x.WingDetailsMastId.HasValue &&
+                groupDataMap.Keys.Contains(x.WingDetailsMastId.Value))
+            .ToListAsync(ct);
+
+        foreach (var wing in wingDetails)
+        {
+            if (wing.WingDetailsMastId.HasValue &&
+                groupDataMap.TryGetValue(wing.WingDetailsMastId.Value, out var data))
+            {
+                wing.NoOfFlat = data.NoOfFlat;
+                wing.NoOfShop = data.NoOfShop;
+            }
+        }
+
+        if (wingDetails.Count > 0)
+        {
+            await _societyWingRepository.UpdateRangeAsync(wingDetails, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+    }
 }

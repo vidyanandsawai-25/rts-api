@@ -12,6 +12,7 @@ public class RetrospectiveRuleDateConditionDto : BaseDtos
     public DateTime? CompareDate { get; set; }
     public DateTime? CompareDateTo { get; set; }
     public int? CompareYears { get; set; }
+    public string? CompareGapUnit { get; set; }
 }
 
 public class CreateRetrospectiveRuleDateConditionDto : CreateBaseDtos
@@ -35,6 +36,9 @@ public class CreateRetrospectiveRuleDateConditionDto : CreateBaseDtos
     public DateTime? CompareDate { get; set; }
     public DateTime? CompareDateTo { get; set; }
     public int? CompareYears { get; set; }
+
+    [StringLength(10, ErrorMessage = "RetrospectiveRuleDateCondition_CompareGapUnit_MaxLen_10")]
+    public string? CompareGapUnit { get; set; }
 }
 
 public class UpdateRetrospectiveRuleDateConditionDto : UpdateBaseDtos
@@ -58,4 +62,7 @@ public class UpdateRetrospectiveRuleDateConditionDto : UpdateBaseDtos
     public DateTime? CompareDate { get; set; }
     public DateTime? CompareDateTo { get; set; }
     public int? CompareYears { get; set; }
+
+    [StringLength(10, ErrorMessage = "RetrospectiveRuleDateCondition_CompareGapUnit_MaxLen_10")]
+    public string? CompareGapUnit { get; set; }
 }

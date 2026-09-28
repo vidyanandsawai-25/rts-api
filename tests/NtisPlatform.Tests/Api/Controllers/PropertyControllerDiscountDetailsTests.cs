@@ -48,7 +48,9 @@ public class PropertyControllerDiscountDetailsTests
             _mockLogger.Object,
             mockEnvironment.Object,
             fileValidationHelper,
-            new Mock<IPropertyWorkflowDetailsService>().Object);
+            new Mock<IPropertyWorkflowDetailsService>().Object,
+            new Mock<IBuilding3DViewService>().Object,
+            new Mock<IPropertyNumberDetailsService>().Object);
 
         // Set up HttpContext with authenticated user
         var httpContext = new DefaultHttpContext();

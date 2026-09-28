@@ -77,18 +77,11 @@ public class PropertySocietyService : IPropertySocietyService
         try
         {
             // ── Locate the existing society child row ────────────────────────────────
-            // Step 1: try the FK stored on the parent.
-            SocietyDetailsEntity? society = null;
-            if (property.SocietyDetailId.HasValue)
-                society = await _repository.GetSocietyByIdAsync(property.SocietyDetailId.Value, cancellationToken);
+            // Looked up by PropertyId (the reverse FK) — PropertyMast no longer carries a
+            // forward SocietyDetailId FK, so this is the only lookup path.
+            var society = await _repository.GetSocietyByPropertyIdAsync(propertyId, cancellationToken);
 
-            // Step 2: FK was null or pointed at a deleted/stale row — fall back to a
-            //         lookup by PropertyId so we never create a duplicate child in legacy
-            //         or partially-migrated data where the parent FK was never set.
-            if (society == null)
-                society = await _repository.GetSocietyByPropertyIdAsync(propertyId, cancellationToken);
-
-            // Step 3: still nothing → create a new row.
+            // Still nothing → create a new row.
             bool isNew = society == null;
             if (isNew)
             {
@@ -105,17 +98,34 @@ public class PropertySocietyService : IPropertySocietyService
             // society is guaranteed non-null here: either it was found above or we just created it.
             ApplySocietyFields(society!, dto, now);
 
-            // ── First save: flushes the insert (assigns DB-generated PK) and updates ─
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            // ── Second save: link the parent's FK to the newly created child ──────────
-            // Both saves are inside the same transaction, so a failure in either rolls
-            // back the entire operation — no orphaned child rows.
-            if (isNew || property.SocietyDetailId != society!.Id)
+            if (dto.WingId.HasValue || !string.IsNullOrWhiteSpace(dto.WingName))
             {
-                property.SocietyDetailId = society!.Id;
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                var wingMast = await _repository.GetWingDetailsMastBySocietyIdAsync(society!.Id, cancellationToken);
+                if (wingMast != null)
+                {
+                    if (dto.WingId.HasValue) wingMast.WingMasterId = dto.WingId.Value;
+                    if (!string.IsNullOrWhiteSpace(dto.WingName)) wingMast.WingName = dto.WingName;
+                    wingMast.UpdatedDate = now;
+                }
+                else if (dto.WingId.HasValue)
+                {
+                    // WingMasterId is a required FK -- only create a new row when we actually
+                    // have a valid master id. WingName-only with no existing row has nothing
+                    // sensible to link to, so it's a no-op rather than writing WingMasterId=0.
+                    wingMast = new WingDetailsMastEntity
+                    {
+                        SocietyDetailsMastId = society!.Id,
+                        WingMasterId = dto.WingId.Value,
+                        WingName = dto.WingName,
+                        IsActive = true,
+                        CreatedDate = now
+                    };
+                    _repository.AddWingDetailsMast(wingMast);
+                }
             }
+
+            // ── Save: flushes the insert (assigns DB-generated PK) and updates ───────
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
         }
@@ -142,8 +152,6 @@ public class PropertySocietyService : IPropertySocietyService
         UpdatePropertySocietyDetailsDto dto,
         DateTime now)
     {
-        society.WingId = dto.WingId;
-        society.WingName = dto.WingName;
         society.SocietyName = dto.SocietyName;
         society.SocietyAddress = dto.SocietyAddress;
         society.SecretaryName = dto.SecretaryName;

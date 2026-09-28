@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
@@ -7,11 +9,13 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyMapDetailEntity : BaseEntity
 {
     public int PropertyMapId { get; set; }
+    [NotMapped]
     public string PropertySide { get; set; } = string.Empty; // OLD or NEW
     public int? PropertyIdNew { get; set; }
     public int? PropertyIdOld { get; set; }
     public string PropertyNoOld { get; set; } = string.Empty;
     public string PropertyNoNew { get; set; } = string.Empty;
+    [NotMapped]
     public string PropertyNo { get; set; } = string.Empty;
     public decimal? TaxSharePercent { get; set; }
     public decimal? AreaSharePercent { get; set; }

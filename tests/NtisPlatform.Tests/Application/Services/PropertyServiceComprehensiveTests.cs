@@ -55,13 +55,14 @@ public class PropertyServiceComprehensiveTests
             new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
-            new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
+            new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
 
     // Society, KYC and Basic Details flows now live with their per-tab services
     // (PropertySocietyService / PropertyKycService / PropertyBasicDetailsService and their dedicated tests).
 }
+
 
 
 

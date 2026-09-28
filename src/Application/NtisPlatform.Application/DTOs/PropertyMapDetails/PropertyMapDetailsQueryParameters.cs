@@ -12,5 +12,5 @@ public class PropertyMapDetailsQueryParameters : BaseQueryParameters
     [Required(ErrorMessage = "PropertyMapDetails_PropertyId_required")]
     [Range(1, int.MaxValue, ErrorMessage = "PropertyMapDetails_PropertyId_invalid")]
     public int PropertyId { get; set; }
-    public int? SocietyId { get; set; }
+    public int? WingId { get; set; }
 }

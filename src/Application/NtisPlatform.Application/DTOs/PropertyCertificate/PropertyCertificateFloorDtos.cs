@@ -9,7 +9,9 @@ namespace NtisPlatform.Application.DTOs.PropertyCertificate;
 public enum CertificateScope
 {
     Property = 0,
-    Floor = 1
+    Floor = 1,
+    Society = 2,
+    Wing = 3
 }
 
 /// <summary>
@@ -77,9 +79,9 @@ public class FloorCertificatesResponseDto
 /// </summary>
 public class SaveCertificateRequestDto
 {
-    [Required]
+    /// <summary>Required when the resolved scope is Property or Floor; must be null/omitted for Society or Wing.</summary>
     [Range(1, int.MaxValue, ErrorMessage = "PropertyId must be greater than 0")]
-    public int PropertyId { get; set; }
+    public int? PropertyId { get; set; }
 
     /// <summary>Required when CertificateScope = Floor; must be null when CertificateScope = Property.</summary>
     public int? PropertyDetailsId { get; set; }
@@ -95,6 +97,10 @@ public class SaveCertificateRequestDto
     public string? CertificateNo { get; set; }
 
     public DateTime? CertificateIssueDate { get; set; }
+
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>
@@ -114,6 +120,36 @@ public class SaveCertificateResponseDto
 
     /// <summary>True when this certificate type is taxable (IsTaxable=1) and Occupation Tax recalculation was triggered. Distinct from IsProtected, which only gates delete-protection and does not affect tax recalculation.</summary>
     public bool TaxRecalculationTriggered { get; set; }
+
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
+
+    /// <summary>
+    /// Populated only for Society/Wing scope, where one save recalculates every member property.
+    /// Null for Property/Floor scope (a single property has nothing to count).
+    /// </summary>
+    public PropertyTaxRecalculationSummaryDto? RecalculationSummary { get; set; }
+}
+
+/// <summary>
+/// How many properties under a Society/Wing-scoped certificate save had their tax successfully
+/// recalculated versus failed, with a plain-language reason per failure.
+/// </summary>
+public class PropertyTaxRecalculationSummaryDto
+{
+    public int TotalProperties { get; set; }
+    public int SucceededCount { get; set; }
+    public int FailedCount { get; set; }
+    public List<PropertyTaxRecalculationFailureDto> Failures { get; set; } = new();
+}
+
+public class PropertyTaxRecalculationFailureDto
+{
+    public int PropertyId { get; set; }
+
+    /// <summary>User-facing explanation, not a raw exception message.</summary>
+    public string Reason { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -141,6 +177,10 @@ public class ReplaceCertificateRequestDto
 
     public string? NewCertificateNo { get; set; }
     public DateTime? NewIssueDate { get; set; }
+
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>

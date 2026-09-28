@@ -95,7 +95,6 @@ public partial class PropertyController
         CancellationToken ct)
     {
         var result = await _propertyKycService.GetKycDetailsCommon(queryParameters, ct);
-
         if (result == null)
         {
             return NotFound(new ApiResponse<PropertyKycDetailsCommonDto>

@@ -27,16 +27,15 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
     public async Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // Step 1: Get property if it exists
-        var property = await _context.PropertyMast
+        var propertyExists = await _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
-        if (property == null)
+        if (!propertyExists)
             return null;
 
-        // Step 2: Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
+        // Step 2: Resolve all mapped old property IDs via PropertyMapDetail. PropertyEntity.PropertyMastOldId
+        // is [NotMapped] (DB column dropped) so there is no longer a legacy-FK fallback to fall back to.
         var mappedOldPropertyIds = await _context.PropertyMapDetails
             .AsNoTracking()
             .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
@@ -49,11 +48,6 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
             .Where(id => id.HasValue)
             .Select(id => id!.Value)
             .ToList();
-
-        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
-        {
-            oldPropertyIds.Add(property.PropertyMastOldId.Value);
-        }
 
         if (!oldPropertyIds.Any())
             return new PropertyOldDetailsDto { PropertyId = propertyId };
@@ -140,13 +134,23 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
 
     public async Task<PropertyTabHeaderInfoDto?> GetTabHeaderInfoAsync(int propertyId, CancellationToken cancellationToken = default)
     {
+        // PropertyEntity.PropertyMastOldId is [NotMapped] (DB column dropped) - resolve the mapped
+        // old property via PropertyMapDetail instead (most-recent active mapping, matching the old
+        // scalar-FK semantics of "at most one").
+        var mappedOldPropertyId = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(m => m.PropertyIdNew == propertyId && m.IsActive && m.IsCurrent && m.Status == "ACTIVE" && m.PropertyIdOld != null)
+            .OrderByDescending(m => m.CreatedDate)
+            .Select(m => m.PropertyIdOld)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var result = await (from p in _context.PropertyMast.AsNoTracking()
                             where p.Id == propertyId && p.IsActive && !p.MarkedForDeletion
 
                             join pas in _context.PropertyAssessmentStatuses.AsNoTracking() on p.PropertyAssessmentStatusId equals pas.Id into pasJoin
                             from pas in pasJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into pmoJoin
+                            join pmo in _context.PropertyMastOld.AsNoTracking() on mappedOldPropertyId equals (int?)pmo.Id into pmoJoin
                             from pmo in pmoJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
                             join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin

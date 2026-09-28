@@ -905,35 +905,6 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             // 4. Calculate total row (sum of all filtered zoneData list)
             result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
 
-            // 5. Calculate grand total row (all zones in the municipality)
-            if (searchRequest?.ZoneId.HasValue == true)
-            {
-                var allZones = await _context.ZoneMaster
-                    .AsNoTracking()
-                    .Where(z => z.IsActive)
-                    .OrderBy(z => z.SequenceNo ?? 0)
-                    .ThenBy(z => z.ZoneNo)
-                    .ToListAsync(cancellationToken);
-
-                var allZoneData = new List<SignAuthorityZoneDataDto>();
-                foreach (var zone in allZones)
-                {
-                    var zoneData = await GetZoneSignAuthorityDataAsync(
-                        zone.Id,
-                        zone.Description ?? zone.ZoneNo,
-                        zone.ZoneNo,
-                        authorities,
-                        null,
-                        cancellationToken);
-                    allZoneData.Add(zoneData);
-                }
-                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
-            }
-            else
-            {
-                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", result.ZoneData, authorities);
-            }
-
             return result;
         }
         catch (Exception ex)
@@ -943,15 +914,18 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         }
     }
 
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
+    public async Task<SignAuthorityWardGridResponseDto> GetSignAuthorityWardGridDataAsync(
         int zoneId,
+        int pageNumber,
+        int pageSize,
         CancellationToken cancellationToken = default)
     {
         try
         {
             _logger.LogDebug("Fetching ward-wise grid data for ZoneId={ZoneId}", zoneId);
 
-            var result = new SignAuthorityGridResponseDto();
+            var paging = NormalizePaging(pageNumber, pageSize);
+            var result = new SignAuthorityWardGridResponseDto();
 
             // 1. Get all active signing authorities in SequenceOrder
             var authorities = await _context.SignAuthorityMaster
@@ -967,6 +941,10 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
             if (zone == null)
             {
+                result.PageNumber = paging.PageSize == -1 ? 1 : paging.PageNumber;
+                result.PageSize = paging.PageSize == -1 ? 0 : paging.PageSize;
+                result.TotalCount = 0;
+                result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
                 return result;
             }
 
@@ -974,12 +952,24 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             var zoneNo = zone.ZoneNo;
 
             // 3. Get active wards for this zone
-            var wards = await _context.WardMaster
+            IQueryable<WardEntity> wardsQuery = _context.WardMaster
                 .AsNoTracking()
                 .Where(w => w.IsActive && w.ZoneId == zoneId)
                 .OrderBy(w => w.SequenceNo ?? 0)
-                .ThenBy(w => w.WardNo)
-                .ToListAsync(cancellationToken);
+                .ThenBy(w => w.WardNo);
+
+            result.TotalCount = await wardsQuery.CountAsync(cancellationToken);
+            result.PageNumber = paging.PageSize == -1 ? 1 : paging.PageNumber;
+            result.PageSize = paging.PageSize == -1 ? result.TotalCount : paging.PageSize;
+
+            if (paging.PageSize != -1)
+            {
+                wardsQuery = wardsQuery
+                    .Skip((paging.PageNumber - 1) * paging.PageSize)
+                    .Take(paging.PageSize);
+            }
+
+            var wards = await wardsQuery.ToListAsync(cancellationToken);
 
             // 4. Populate per-ward data (N+1 issue - needs optimization in future)
             foreach (var ward in wards)
@@ -995,30 +985,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 result.ZoneData.Add(wardData);
             }
 
-            // 5. Calculate total row (sum of all wards in this zone)
             result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
-
-            // 6. Calculate grand total row (all zones in the municipality)
-            var allZones = await _context.ZoneMaster
-                .AsNoTracking()
-                .Where(z => z.IsActive)
-                .OrderBy(z => z.SequenceNo ?? 0)
-                .ThenBy(z => z.ZoneNo)
-                .ToListAsync(cancellationToken);
-
-            var allZoneData = new List<SignAuthorityZoneDataDto>();
-            foreach (var z in allZones)
-            {
-                var zData = await GetZoneSignAuthorityDataAsync(
-                    z.Id,
-                    z.Description ?? z.ZoneNo,
-                    z.ZoneNo,
-                    authorities,
-                    null,
-                    cancellationToken);
-                allZoneData.Add(zData);
-            }
-            result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
 
             return result;
         }
@@ -1198,8 +1165,8 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             classification.OldDemand = await (
                 from propertyId in approvedPropertyIds
                 join p in _context.PropertyMast.AsNoTracking() on propertyId equals p.Id
-                where p.PropertyMastOldId != null
-                join tmo in _context.TransMastOld.AsNoTracking() on p.PropertyMastOldId equals tmo.PropertyMastOldId
+                join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE" && x.PropertyIdOld != null) on p.Id equals pmd.PropertyIdNew
+                join tmo in _context.TransMastOld.AsNoTracking() on pmd.PropertyIdOld equals tmo.PropertyMastOldId
                 join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
                 where tmo.IsActive
                       && !tmo.MarkedForDeletion
@@ -1211,14 +1178,15 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
             classification.RetroDemand = await (
                 from propertyId in approvedPropertyIds
-                join tr in _context.TaxPendingDetailsRetro.AsNoTracking() on propertyId equals tr.PropertyId
+                join tr in _context.TransMast.AsNoTracking() on propertyId equals tr.PropertyId
                 join tax in _context.TaxMaster.AsNoTracking() on tr.TaxId equals tax.Id
                 where tr.IsActive
                       && !tr.MarkedForDeletion
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
-                select tr.PendingAmount
+                      && tr.PolicyCodeMaster!.IsRetroDemand
+                select (decimal?)tr.TaxAmount
             ).SumAsync(cancellationToken) ?? 0m;
 
             classification.Unit = signedUnit;
@@ -1488,9 +1456,13 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             from status in statusJoin.DefaultIfEmpty()
             join society in _context.SocietyDetailsMast.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on p.Id equals society.PropertyId into societyJoin
             from society in societyJoin.DefaultIfEmpty()
-            join wing in _context.WingEntity.AsNoTracking().Where(x => x.IsActive) on society.WingId equals wing.Id into wingJoin
+            join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on (society != null ? (int?)society.Id : null) equals (int?)wdm.SocietyDetailsMastId into wdmJoin
+            from wdm in wdmJoin.DefaultIfEmpty()
+            join wing in _context.WingEntity.AsNoTracking().Where(x => x.IsActive) on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wing.Id into wingJoin
             from wing in wingJoin.DefaultIfEmpty()
-            join oldProperty in _context.PropertyMastOld.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on p.PropertyMastOldId equals oldProperty.Id into oldJoin
+            join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE") on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.DefaultIfEmpty()
+            join oldProperty in _context.PropertyMastOld.AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on pmd.PropertyIdOld equals oldProperty.Id into oldJoin
             from oldProperty in oldJoin.DefaultIfEmpty()
             where p.IsActive
                   && !p.MarkedForDeletion
@@ -1510,7 +1482,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 p.Address,
                 p.FlatOrShopNo,
                 p.FlatOrShopName,
-                p.PropertyMastOldId,
+                PropertyMastOldId = (int?)(oldProperty != null ? oldProperty.Id : null),
                 p.UPICId,
                 Description = pc != null ? pc.PropertyCategoryName : "",
                 PropertyType = status != null ? status.StatusName : "",

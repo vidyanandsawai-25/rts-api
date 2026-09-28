@@ -667,4 +667,113 @@ public class ApartmentQCServiceTests
         Assert.Equal(BasicDetailsPatchOutcome.Success, result);
         _uow.Verify(u => u.SaveChangesAsync(default), Times.Once);
     }
+
+    // ──────────────────────── GetPlanTypesAsync / GetNextPlanTypeAsync ─────────
+
+    [Fact]
+    public async Task GetPlanTypesAsync_DelegatesToRepository()
+    {
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(1, default))
+             .ReturnsAsync(new List<string> { "1", "2" });
+
+        var result = await _service.GetPlanTypesAsync(1, default);
+
+        Assert.Equal(new[] { "1", "2" }, result);
+    }
+
+    [Fact]
+    public async Task GetNextPlanTypeAsync_DelegatesToRepository()
+    {
+        _repo.Setup(r => r.GetNextPlanTypeAsync(1, default)).ReturnsAsync(7);
+
+        var result = await _service.GetNextPlanTypeAsync(1, default);
+
+        Assert.Equal(7, result);
+    }
+
+    // ──────────────────────────── SavePlanTypeAsync ────────────────────────────
+
+    [Fact]
+    public async Task SavePlanTypeAsync_EmptyType_ReturnsInvalidType_WithoutQueryingRepo()
+    {
+        var result = await _service.SavePlanTypeAsync(1, "   ", updatedBy: 1, default);
+
+        Assert.Equal(SavePlanTypeOutcome.InvalidType, result);
+        _repo.Verify(r => r.GetDistinctPlanTypesAsync(It.IsAny<int>(), default), Times.Never);
+    }
+
+    [Fact]
+    public async Task SavePlanTypeAsync_ExistingType_SavesAndReturnsSuccess()
+    {
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(1, default))
+             .ReturnsAsync(new List<string> { "1", "2", "3" });
+        _repo.Setup(r => r.PreparePlanTypeSaveAsync(1, "2", 9, default)).ReturnsAsync(true);
+        _uow.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        var result = await _service.SavePlanTypeAsync(1, "2", updatedBy: 9, default);
+
+        Assert.Equal(SavePlanTypeOutcome.Success, result);
+        _repo.Verify(r => r.PreparePlanTypeSaveAsync(1, "2", 9, default), Times.Once);
+        _uow.Verify(u => u.SaveChangesAsync(default), Times.Once);
+    }
+
+    [Fact]
+    public async Task SavePlanTypeAsync_NextType_SavesAndReturnsSuccess()
+    {
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(1, default))
+             .ReturnsAsync(new List<string> { "1", "2", "3" });
+        _repo.Setup(r => r.PreparePlanTypeSaveAsync(1, "4", 9, default)).ReturnsAsync(true);
+        _uow.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        var result = await _service.SavePlanTypeAsync(1, "4", updatedBy: 9, default);
+
+        Assert.Equal(SavePlanTypeOutcome.Success, result);
+        _repo.Verify(r => r.PreparePlanTypeSaveAsync(1, "4", 9, default), Times.Once);
+    }
+
+    [Fact]
+    public async Task SavePlanTypeAsync_DoesNotCallGetNextPlanTypeAsync_ComputesLocallyInstead()
+    {
+        // Regression guard: SavePlanTypeAsync must derive nextType from the already-loaded
+        // existingTypes snapshot rather than re-querying via GetNextPlanTypeAsync
+        // (which would internally re-run GetDistinctPlanTypesAsync a second time).
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(1, default))
+             .ReturnsAsync(new List<string> { "1", "2", "3" });
+        _repo.Setup(r => r.PreparePlanTypeSaveAsync(1, "4", 9, default)).ReturnsAsync(true);
+        _uow.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
+
+        await _service.SavePlanTypeAsync(1, "4", updatedBy: 9, default);
+
+        _repo.Verify(r => r.GetDistinctPlanTypesAsync(1, default), Times.Once);
+        _repo.Verify(r => r.GetNextPlanTypeAsync(It.IsAny<int>(), default), Times.Never);
+    }
+
+    [Fact]
+    public async Task SavePlanTypeAsync_InvalidType_ReturnsInvalidType_WithoutSaving()
+    {
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(1, default))
+             .ReturnsAsync(new List<string> { "1", "2", "3" });
+
+        // Neither an existing type (1,2,3) nor the next available type (4).
+        var result = await _service.SavePlanTypeAsync(1, "9", updatedBy: 1, default);
+
+        Assert.Equal(SavePlanTypeOutcome.InvalidType, result);
+        _repo.Verify(r => r.PreparePlanTypeSaveAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>(), default), Times.Never);
+        _uow.Verify(u => u.SaveChangesAsync(default), Times.Never);
+    }
+
+    [Fact]
+    public async Task SavePlanTypeAsync_PropertyNotFound_ReturnsPropertyNotFound()
+    {
+        // No existing types (property has none / doesn't exist) -> nextType is 1, so "1" passes
+        // validation but the actual save fails because the property no longer exists.
+        _repo.Setup(r => r.GetDistinctPlanTypesAsync(99, default))
+             .ReturnsAsync(Array.Empty<string>());
+        _repo.Setup(r => r.PreparePlanTypeSaveAsync(99, "1", 1, default)).ReturnsAsync(false);
+
+        var result = await _service.SavePlanTypeAsync(99, "1", updatedBy: 1, default);
+
+        Assert.Equal(SavePlanTypeOutcome.PropertyNotFound, result);
+        _uow.Verify(u => u.SaveChangesAsync(default), Times.Never);
+    }
 }

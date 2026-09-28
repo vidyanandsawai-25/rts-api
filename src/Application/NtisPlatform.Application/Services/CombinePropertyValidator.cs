@@ -318,8 +318,8 @@ public class CombinePropertyValidator : ICombinePropertyValidator
         if (hasPartitions)
         {
             // Multi-unit apartment validation (has wings)
-            // Validate source property has SocietyDetailId for wing validation
-            if (!isMainPropertyAmenity && !mainProperty.SocietyDetailId.HasValue)
+            // Validate source property has WingDetailId for wing validation
+            if (!isMainPropertyAmenity && !mainProperty.WingDetailId.HasValue)
             {
                 return (false, "Source property's society details not found.");
             }
@@ -335,9 +335,9 @@ public class CombinePropertyValidator : ICombinePropertyValidator
                     return (false, "All properties must be of Apartment category to combine.");
                 }
 
-                // Wing validation: Properties with same SocietyDetailId are from the same wing
+                // Wing validation: Properties with same WingDetailId are from the same wing
                 // This is the ONLY requirement for apartment combining - partition format doesn't matter
-                if (!isMainPropertyAmenity && property.SocietyDetailId != mainProperty.SocietyDetailId)
+                if (!isMainPropertyAmenity && property.WingDetailId != mainProperty.WingDetailId)
                 {
                     return (false, "All properties must be from the same Wing.");
                 }

@@ -9,10 +9,15 @@ public class OldWardMasterQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
-    public string? OldZoneName { get; set; }
+    public string? OldWardNo { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
-    public string? OldWardNo { get; set; }
+    public string? Description { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? OldZoneId { get; set; }
 }
+

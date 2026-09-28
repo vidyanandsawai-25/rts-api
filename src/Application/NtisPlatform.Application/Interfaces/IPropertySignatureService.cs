@@ -79,8 +79,8 @@ public interface IPropertySignatureService
     /// <summary>
     /// Gets ward-wise grid statistics for a specific zone for the Sign-off workflow stages.
     /// </summary>
-    Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
-        int zoneId,
+    Task<SignAuthorityWardGridResponseDto> GetSignAuthorityWardGridDataAsync(
+        PropertySignatureWardGridQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>

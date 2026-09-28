@@ -1,5 +1,7 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Constants;
@@ -7,13 +9,16 @@ using NtisPlatform.Application.DTOs.RTSCertificate;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
 public class RTSCertificateService : IRTSCertificateService
 {
-    private readonly IRepository<RTSCertificateTemplateMasterEntity, int> _templateRepository;
+    private const int MaxDesignJsonLength = 5 * 1024 * 1024;
+
+    private readonly IRepository<RTSServiceCertificateMasterEntity, int> _templateRepository;
     private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertRepository;
     private readonly IRepository<RTSApplicationDetailsEntity, int> _applicationRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
@@ -26,11 +31,12 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _stageRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IRTSDigitalSignatureService _digitalSignatureService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RTSCertificateService> _logger;
 
     public RTSCertificateService(
-        IRepository<RTSCertificateTemplateMasterEntity, int> templateRepository,
+        IRepository<RTSServiceCertificateMasterEntity, int> templateRepository,
         IRepository<RTSIssuedCertificateEntity, int> issuedCertRepository,
         IRepository<RTSApplicationDetailsEntity, int> applicationRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
@@ -43,6 +49,7 @@ public class RTSCertificateService : IRTSCertificateService
         IRepository<RTSApprovalFlowStageMasterEntity, int> stageRepository,
         IRTSSmsNotificationService smsNotificationService,
         IRTSDigitalSignatureService digitalSignatureService,
+        IHttpContextAccessor httpContextAccessor,
         IUnitOfWork unitOfWork,
         ILogger<RTSCertificateService> logger)
     {
@@ -59,6 +66,7 @@ public class RTSCertificateService : IRTSCertificateService
         _stageRepository = stageRepository;
         _smsNotificationService = smsNotificationService;
         _digitalSignatureService = digitalSignatureService;
+        _httpContextAccessor = httpContextAccessor;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -131,6 +139,11 @@ public class RTSCertificateService : IRTSCertificateService
             new() { TagKey = "{{ApplicantName}}", TagLabelMarathi = "अर्जदाराचे पूर्ण नाव", TagLabelEnglish = "Applicant Full Name", SourceType = "Citizen" },
             new() { TagKey = "{{ApplicantMobile}}", TagLabelMarathi = "अर्जदाराचा मोबाईल", TagLabelEnglish = "Applicant Mobile", SourceType = "Citizen" },
             new() { TagKey = "{{AppliedDate}}", TagLabelMarathi = "अर्जाचा दिनांक", TagLabelEnglish = "Applied Date", SourceType = "Citizen" },
+            new() { TagKey = "{{currentData}}", TagLabelMarathi = "चालू दिनांक", TagLabelEnglish = "Current Date", SourceType = "System" },
+            new() { TagKey = "{{currentDataMinusOne}}", TagLabelMarathi = "चालू दिनांकाच्या एक दिवस आधी", TagLabelEnglish = "Current Date Minus One Day", SourceType = "System" },
+            new() { TagKey = "{{currentDataMinusTwo}}", TagLabelMarathi = "चालू दिनांकाच्या दोन दिवस आधी", TagLabelEnglish = "Current Date Minus Two Days", SourceType = "System" },
+            new() { TagKey = "{{currentDataPlusOne}}", TagLabelMarathi = "चालू दिनांकानंतर एक दिवस", TagLabelEnglish = "Current Date Plus One Day", SourceType = "System" },
+            new() { TagKey = "{{currentDataPlusTwo}}", TagLabelMarathi = "चालू दिनांकानंतर दोन दिवस", TagLabelEnglish = "Current Date Plus Two Days", SourceType = "System" },
             new() { TagKey = "{{ServiceName}}", TagLabelMarathi = "सेवेचे नाव", TagLabelEnglish = "Service Name", SourceType = "System" },
             new() { TagKey = "{{ServiceNameMarathi}}", TagLabelMarathi = "सेवेचे स्थानिक नाव", TagLabelEnglish = "Service Local Name", SourceType = "System" },
             new() { TagKey = "{{DepartmentName}}", TagLabelMarathi = "विभागाचे नाव", TagLabelEnglish = "Department Name", SourceType = "System" },
@@ -140,6 +153,7 @@ public class RTSCertificateService : IRTSCertificateService
             new() { TagKey = "{{CertificateNo}}", TagLabelMarathi = "प्रमाणपत्र / दाखला क्रमांक", TagLabelEnglish = "Certificate Number", SourceType = "System" },
             new() { TagKey = "{{ApprovedByOfficer}}", TagLabelMarathi = "मंजुरी अधिकाऱ्याचे नाव", TagLabelEnglish = "Approving Officer Name", SourceType = "System" },
             new() { TagKey = "{{OfficerDesignation}}", TagLabelMarathi = "अधिकाऱ्याचे पदनाम", TagLabelEnglish = "Officer Designation", SourceType = "System" },
+            new() { TagKey = "{{OfficerRemark}}", TagLabelMarathi = "अधिकाऱ्याचा शेरा", TagLabelEnglish = "Officer Remark", SourceType = "Officer" },
             new() { TagKey = "{{QRCode}}", TagLabelMarathi = "सत्यता पडताळणी QR कोड", TagLabelEnglish = "Verification QR Code", SourceType = "System" },
             new() { TagKey = "{{DigitalSignature}}", TagLabelMarathi = "डिजिटल स्वाक्षरी सील", TagLabelEnglish = "Digital Signature Seal", SourceType = "System" },
             new() { TagKey = "[[OrderNo]]", TagLabelMarathi = "जावक / आदेश क्रमांक (अधिकाऱ्याने भरावयाचा)", TagLabelEnglish = "Outward/Order No (Officer Input)", SourceType = "Officer" },
@@ -177,6 +191,8 @@ public class RTSCertificateService : IRTSCertificateService
 
     public async Task<RTSCertificateTemplateDto> CreateTemplateAsync(CreateRTSCertificateTemplateDto dto, int userId, CancellationToken ct)
     {
+        ValidateDesignJson(dto.DesignJson);
+
         var existing = await _templateRepository.GetQueryable()
             .FirstOrDefaultAsync(t => t.ServiceId == dto.ServiceId && !t.MarkedForDeletion, ct);
 
@@ -185,7 +201,7 @@ public class RTSCertificateService : IRTSCertificateService
             throw new InvalidOperationException($"A certificate template already exists for ServiceId {dto.ServiceId}. Please update the existing template.");
         }
 
-        var entity = new RTSCertificateTemplateMasterEntity
+        var entity = new RTSServiceCertificateMasterEntity
         {
             ServiceId = dto.ServiceId,
             TemplateName = dto.TemplateName.Trim(),
@@ -193,6 +209,7 @@ public class RTSCertificateService : IRTSCertificateService
             HeaderContent = dto.HeaderContent,
             BodyContent = dto.BodyContent,
             FooterContent = dto.FooterContent,
+            DesignJson = dto.DesignJson,
             DefaultConditionsJson = dto.DefaultConditionsJson,
             OfficerFieldsConfigJson = dto.OfficerFieldsConfigJson,
             IsActive = dto.IsActive,
@@ -208,6 +225,11 @@ public class RTSCertificateService : IRTSCertificateService
 
     public async Task<RTSCertificateTemplateDto> UpdateTemplateAsync(UpdateRTSCertificateTemplateDto dto, int userId, CancellationToken ct)
     {
+        if (dto.DesignJsonSpecified)
+        {
+            ValidateDesignJson(dto.DesignJson);
+        }
+
         var entity = await _templateRepository.GetQueryable()
             .FirstOrDefaultAsync(t => t.Id == dto.Id && !t.MarkedForDeletion, ct);
 
@@ -220,6 +242,10 @@ public class RTSCertificateService : IRTSCertificateService
         entity.HeaderContent = dto.HeaderContent;
         entity.BodyContent = dto.BodyContent;
         entity.FooterContent = dto.FooterContent;
+        if (dto.DesignJsonSpecified)
+        {
+            entity.DesignJson = dto.DesignJson;
+        }
         entity.DefaultConditionsJson = dto.DefaultConditionsJson;
         entity.OfficerFieldsConfigJson = dto.OfficerFieldsConfigJson;
         entity.IsActive = dto.IsActive;
@@ -262,11 +288,8 @@ public class RTSCertificateService : IRTSCertificateService
         if (app == null)
             throw new KeyNotFoundException($"Application with ID {request.ApplicationId} not found.");
 
-        var template = await _templateRepository.GetQueryable()
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
-
-        if (app.Service != null && !app.Service.IsCertificateRequired)
+        var certType = await ResolveCertificateTypeAsync(app, ct);
+        if (certType == RTSCertificateType.None)
         {
             return new CertificatePreviewResponseDto
             {
@@ -274,9 +297,17 @@ public class RTSCertificateService : IRTSCertificateService
                 TemplateId = 0,
                 TemplateName = "No Certificate Required",
                 SampleCertificateNo = string.Empty,
-                MergedHtml = "<div class='p-4 text-center text-slate-500 font-semibold'>या सेवेसाठी कोणतेही प्रमाणपत्र जारी करण्याची आवश्यकता नाही (IsCertificateRequired=false).</div>"
+                MergedHtml = "<div class='p-4 text-center text-slate-500 font-semibold'>या सेवेसाठी कोणतेही प्रमाणपत्र जारी करण्याची आवश्यकता नाही (CertificateType=None).</div>",
+                CertificateType = RTSCertificateType.None
             };
         }
+
+        bool isManual = certType == RTSCertificateType.Manual;
+        var template = isManual
+            ? null
+            : await _templateRepository.GetQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
         string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
             ? app.Department.DepartmentCode.Trim()
@@ -288,13 +319,14 @@ public class RTSCertificateService : IRTSCertificateService
 
         var response = new CertificatePreviewResponseDto
         {
-            HasTemplate = template != null,
+            HasTemplate = isManual || template != null,
             TemplateId = template?.Id ?? 0,
-            TemplateName = template?.TemplateName ?? "Default Certificate Template",
-            SampleCertificateNo = $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}"
+            TemplateName = isManual ? "मॅन्युअल प्रमाणपत्र (Manual Upload Certificate)" : (template?.TemplateName ?? "Default Certificate Template"),
+            SampleCertificateNo = $"CERT/{deptCode}/{DateTime.UtcNow:yyyy}/{app.Id:D6}",
+            CertificateType = certType
         };
 
-        if (template != null)
+        if (!isManual && template != null)
         {
             var templateDto = MapToTemplateDto(template);
             response.RequiredOfficerFields = templateDto.OfficerFields;
@@ -303,15 +335,45 @@ public class RTSCertificateService : IRTSCertificateService
 
         // Build Citizen Auto Values dictionary
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
+
+        // Resolve designated approving officer details dynamically
+        var (previewOfficerName, previewOfficerDesignation) = await ResolveOfficerDetailsAsync(app.Id, app.ServiceId, null, ct);
+        if (!string.IsNullOrWhiteSpace(previewOfficerName))
+        {
+            autoValues["OfficerName"] = previewOfficerName;
+            autoValues["ApprovedByOfficer"] = previewOfficerName;
+        }
+        if (!string.IsNullOrWhiteSpace(previewOfficerDesignation))
+        {
+            autoValues["OfficerDesignation"] = previewOfficerDesignation;
+        }
+
         response.CitizenAutoValues = autoValues;
 
         // Perform merge
-        string rawHtml = BuildFullCertificateHtml(template, app);
-        string previewOfficerName = !string.IsNullOrWhiteSpace(app.User?.FirstName)
-            ? $"{app.User.FirstName} {app.User.LastName}".Trim()
-            : "सक्षम प्राधिकारी";
+        if (isManual)
+        {
+            response.MergedHtml = "<div class='p-6 text-center text-slate-700 bg-amber-50/70 border border-amber-300 rounded-xl space-y-3'><div class='inline-flex p-3 bg-amber-100 rounded-full text-amber-700'>📋</div><h3 class='text-sm font-bold text-amber-900'>मॅन्युअल प्रमाणपत्र सेवा (Manual Certificate Service)</h3><p class='text-xs text-slate-600 max-w-md mx-auto'>सदर सेवेसाठी महानगरपालिकेमार्फत मॅन्युअली तयार केलेले प्रमाणपत्र (PDF किंवा स्कॅन प्रत) अपलोड केले जाते. डाव्या बाजूला फाईल निवडून अपलोड करा.</p><div class='p-3 bg-white border border-amber-200 rounded-lg text-[11px] font-semibold text-amber-800 inline-block'>⚠️ सूचना: नागरिकाने मूळ प्रमाणपत्र संबंधित विभागातून प्राप्त करून घेणे आवश्यक आहे.</div></div>";
+            return response;
+        }
 
-        response.MergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, response.SampleCertificateNo, previewOfficerName, isLiveSigned: false);
+        string rawHtml = BuildFullCertificateHtml(template, app);
+
+        var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
+        string previewQrPayload = $"{verificationBaseUrl}/{app.ApplicationNo}";
+
+        response.MergedHtml = MergeTemplatePlaceholders(
+            rawHtml,
+            autoValues,
+            request.OfficerInputs,
+            request.CustomConditions,
+            response.SampleCertificateNo,
+            previewOfficerName,
+            isLiveSigned: false,
+            certGuid: null,
+            qrPayload: previewQrPayload,
+            officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
+            defaultConditionsJson: template?.DefaultConditionsJson);
 
         return response;
     }
@@ -328,9 +390,17 @@ public class RTSCertificateService : IRTSCertificateService
         if (app == null)
             throw new KeyNotFoundException($"Application with ID {request.ApplicationId} not found.");
 
-        if (app.Service != null && !app.Service.IsCertificateRequired)
+        var certType = request.CertificateType ?? await ResolveCertificateTypeAsync(app, ct);
+
+        if (certType == RTSCertificateType.None)
         {
-            throw new InvalidOperationException($"Service '{app.Service.ServiceName}' is configured with IsCertificateRequired=false (No certificate issuance required).");
+            throw new InvalidOperationException($"Service '{app.Service?.ServiceName}' is configured with CertificateType=None (No certificate issuance required).");
+        }
+
+        bool isManual = certType == RTSCertificateType.Manual;
+        if (isManual && (!request.DocumentGuid.HasValue || request.DocumentGuid.Value == Guid.Empty))
+        {
+            throw new InvalidOperationException("मॅन्युअल प्रमाणपत्रासाठी फाईल (PDF/Image) अपलोड करणे बंधनकारक आहे.");
         }
 
         var user = await _userRepository.GetQueryable()
@@ -359,54 +429,65 @@ public class RTSCertificateService : IRTSCertificateService
         int issuedCertId = existingCert?.Id ?? 0;
 
         var autoValues = await BuildAutoValuesDictionaryAsync(app, ct);
-        string officerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "सक्षम प्राधिकारी";
-        string officerDesignation = autoValues.GetValueOrDefault("OfficerDesignation") ?? "";
-        if (string.IsNullOrWhiteSpace(officerDesignation) || officerDesignation == "सक्षम प्राधिकारी")
+        var (officerName, officerDesignation) = await ResolveOfficerDetailsAsync(app.Id, app.ServiceId, userId, ct);
+        if (!string.IsNullOrWhiteSpace(officerName))
         {
-            if (user != null)
-            {
-                var userRole = await _userRoleAllocationRepository.GetQueryable()
-                    .AsNoTracking()
-                    .Include(r => r.UserRole)
-                    .FirstOrDefaultAsync(r => r.UserId == user.Id && r.IsActive, ct);
-                if (!string.IsNullOrWhiteSpace(userRole?.UserRole?.UserRoleName))
-                {
-                    officerDesignation = userRole.UserRole.UserRoleName;
-                }
-                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentNameLocal))
-                {
-                    officerDesignation = $"{app.Department.DepartmentNameLocal} - सक्षम अधिकारी";
-                }
-                else if (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName))
-                {
-                    officerDesignation = $"{app.Department.DepartmentName} - Competent Authority";
-                }
-            }
+            autoValues["OfficerName"] = officerName;
+            autoValues["ApprovedByOfficer"] = officerName;
         }
-        if (string.IsNullOrWhiteSpace(officerDesignation))
+        if (!string.IsNullOrWhiteSpace(officerDesignation))
         {
-            officerDesignation = "सक्षम प्राधिकारी";
+            autoValues["OfficerDesignation"] = officerDesignation;
         }
 
-        string rawHtml = BuildFullCertificateHtml(template, app);
+        string rawHtml = isManual
+            ? $@"<div class=""manual-certificate-view w-full max-w-4xl mx-auto bg-white p-6 rounded-xl border border-slate-300 shadow-sm"">
+  <div class=""bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-lg mb-4 text-xs font-semibold"">
+    ⚠️ <strong>महत्त्वाची सूचना:</strong> सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे.
+  </div>
+  <div class=""text-center my-4"">
+    <p class=""text-sm font-bold text-slate-800 mb-2"">महानगरपालिकेकडून मॅन्युअली जारी केलेले अधिकृत प्रमाणपत्र</p>
+    <a href=""/api/rts/documents/{request.DocumentGuid!.Value}/download"" target=""_blank"" class=""inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition"">
+      📄 मॅन्युअल प्रमाणपत्र पहा / डाऊनलोड करा
+    </a>
+  </div>
+</div>"
+            : BuildFullCertificateHtml(template, app);
 
-        var signatureResult = _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml);
-
-        string mergedHtml = MergeTemplatePlaceholders(rawHtml, autoValues, request.OfficerInputs, request.CustomConditions, certNo, officerName, isLiveSigned: true, certGuid: certGuid);
+        var signatureResult = !isManual
+            ? _digitalSignatureService.SignCertificate(certNo, officerName, officerDesignation, rawHtml)
+            : new CertificateSignatureResultDto { IsSigned = false, SignatureInfo = "मॅन्युअल प्रमाणपत्र (स्वाक्षरी लागू नाही)", SignatureHash = string.Empty };
 
         var verificationBaseUrl = await GetVerificationBaseUrlAsync(ct);
         string qrPayload = $"{verificationBaseUrl}/{certGuid}";
 
+        string mergedHtml = isManual
+            ? rawHtml
+            : MergeTemplatePlaceholders(
+                rawHtml,
+                autoValues,
+                request.OfficerInputs,
+                request.CustomConditions,
+                certNo,
+                officerName,
+                isLiveSigned: true,
+                certGuid: certGuid,
+                qrPayload: qrPayload,
+                officerFieldsConfigJson: template?.OfficerFieldsConfigJson,
+                defaultConditionsJson: template?.DefaultConditionsJson);
+
         if (existingCert != null)
         {
-            existingCert.TemplateId = template?.Id ?? 0;
+            existingCert.CertificateServiceId = template?.Id;
             existingCert.OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null;
             existingCert.MergedHtmlContent = mergedHtml;
             existingCert.QrCodePayload = qrPayload;
             existingCert.IssuedByUserId = userId;
             existingCert.IssuedAt = DateTime.UtcNow;
-            existingCert.IsDigitallySigned = true;
-            existingCert.DigitalSignatureInfo = signatureResult.SignatureInfo;
+            existingCert.IsDigitallySigned = !isManual;
+            existingCert.DigitalSignatureInfo = isManual ? null : signatureResult.SignatureInfo;
+            existingCert.CertificateType = certType;
+            existingCert.DocumentGuid = request.DocumentGuid;
             existingCert.UpdatedBy = userId;
             existingCert.UpdatedDate = DateTime.UtcNow;
 
@@ -420,14 +501,16 @@ public class RTSCertificateService : IRTSCertificateService
                 CertificateNo = certNo,
                 ApplicationId = app.Id,
                 ServiceId = app.ServiceId,
-                TemplateId = template?.Id ?? 0,
+                CertificateServiceId = template?.Id,
                 OfficerInputsJson = request.OfficerInputs != null && request.OfficerInputs.Count > 0 ? JsonSerializer.Serialize(request.OfficerInputs) : null,
                 MergedHtmlContent = mergedHtml,
                 QrCodePayload = qrPayload,
                 IssuedByUserId = userId,
                 IssuedAt = DateTime.UtcNow,
-                IsDigitallySigned = true,
-                DigitalSignatureInfo = signatureResult.SignatureInfo,
+                IsDigitallySigned = !isManual,
+                DigitalSignatureInfo = isManual ? null : signatureResult.SignatureInfo,
+                CertificateType = certType,
+                DocumentGuid = request.DocumentGuid,
                 IsActive = true,
                 CreatedBy = userId,
                 CreatedDate = DateTime.UtcNow
@@ -445,10 +528,12 @@ public class RTSCertificateService : IRTSCertificateService
             ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
             ActionByUserId = userId,
             Status = ApplicationStatus.Approved,
-            Action = "IssueCertificateAndDigitalSign",
+            Action = isManual ? "IssueManualCertificateAndApprove" : "IssueCertificateAndDigitalSign",
             Remark = !string.IsNullOrWhiteSpace(request.ActionRemark)
                 ? request.ActionRemark
-                : $"प्रमाणपत्र क्र. {certNo} डिजिटल स्वाक्षरीने अधिकृतरीत्या जारी केले. (DSC Hash: {signatureResult.SignatureHash[..Math.Min(16, signatureResult.SignatureHash.Length)]}...)",
+                : (isManual
+                    ? $"मॅन्युअल प्रमाणपत्र क्र. {certNo} अधिकृतरीत्या अपलोड व जारी केले. (टीप: मूळ प्रमाणपत्र संबंधित विभागातून प्राप्त करून घेणे आवश्यक आहे)"
+                    : $"प्रमाणपत्र क्र. {certNo} डिजिटल स्वाक्षरीने अधिकृतरीत्या जारी केले. (DSC Hash: {signatureResult.SignatureHash[..Math.Min(16, signatureResult.SignatureHash.Length)]}...)"),
             IsReverted = false,
             CreatedBy = userId,
             CreatedDate = DateTime.UtcNow
@@ -466,6 +551,18 @@ public class RTSCertificateService : IRTSCertificateService
             {
                 app.Remark = request.ActionRemark;
             }
+            app.IssuedCertificateGuid = isManual && request.DocumentGuid.HasValue
+                ? request.DocumentGuid.Value
+                : certGuid;
+            app.UpdatedBy = userId;
+            app.UpdatedDate = DateTime.UtcNow;
+            await _applicationRepository.UpdateAsync(app, ct);
+        }
+        else if (request.DocumentGuid.HasValue || certGuid != Guid.Empty)
+        {
+            app.IssuedCertificateGuid = isManual && request.DocumentGuid.HasValue
+                ? request.DocumentGuid.Value
+                : certGuid;
             app.UpdatedBy = userId;
             app.UpdatedDate = DateTime.UtcNow;
             await _applicationRepository.UpdateAsync(app, ct);
@@ -518,6 +615,7 @@ public class RTSCertificateService : IRTSCertificateService
                 ApplicationNo = app.ApplicationNo ?? $"RTS{app.Id:D8}",
                 ServiceName = app.Service?.ServiceName ?? "",
                 ApplicantName = app.ApplicantName ?? "",
+                OfficerInputs = request.OfficerInputs ?? new Dictionary<string, string>(),
                 MergedHtmlContent = mergedHtml,
                 QrCodePayload = qrPayload,
                 IssuedByUserId = userId,
@@ -589,27 +687,104 @@ public class RTSCertificateService : IRTSCertificateService
         return dto;
     }
 
-    public async Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(Guid certificateGuid, CancellationToken ct)
+    public async Task<CertificateVerificationResponseDto> VerifyCertificatePublicAsync(string identifier, CancellationToken ct)
     {
-        var cert = await _issuedCertRepository.GetQueryable()
-            .AsNoTracking()
-            .Include(c => c.Application)
-            .Include(c => c.Service)
-            .Include(c => c.IssuedByUser)
-            .FirstOrDefaultAsync(c => c.CertificateGuid == certificateGuid && !c.MarkedForDeletion, ct);
-
-        if (cert == null)
+        if (string.IsNullOrWhiteSpace(identifier))
         {
             return new CertificateVerificationResponseDto
             {
                 IsValid = false,
-                CertificateGuid = certificateGuid,
                 Message = "सदर क्यूआर कोड किंवा प्रमाणपत्र क्रमांक अवैध आहे. (Invalid or Unverified Certificate)"
             };
         }
 
-        var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
-        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "नागरी स्थानिक संस्था (ULB)";
+        var trimmed = identifier.Trim();
+        bool isGuid = Guid.TryParse(trimmed, out var parsedGuid);
+        int parsedAppId = 0;
+        if (trimmed.StartsWith("RTS", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = int.TryParse(trimmed.Substring(3).TrimStart('0'), out parsedAppId);
+        }
+        else
+        {
+            _ = int.TryParse(trimmed, out parsedAppId);
+        }
+
+        var query = _issuedCertRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(c => c.Application)
+            .Include(c => c.Service)
+            .Include(c => c.IssuedByUser)
+            .Where(c => !c.MarkedForDeletion);
+
+        var cert = isGuid
+            ? await query.FirstOrDefaultAsync(c => c.CertificateGuid == parsedGuid, ct)
+            : await query.FirstOrDefaultAsync(c =>
+                c.CertificateNo == trimmed ||
+                (c.Application != null && c.Application.ApplicationNo == trimmed) ||
+                (parsedAppId > 0 && c.ApplicationId == parsedAppId), ct);
+
+        if (cert == null && !isGuid)
+        {
+            // fallback attempt by guid if string was a formatted guid
+            if (Guid.TryParse(trimmed, out var fallbackGuid))
+            {
+                cert = await query.FirstOrDefaultAsync(c => c.CertificateGuid == fallbackGuid, ct);
+            }
+        }
+
+        if (cert == null)
+        {
+            var app = await _applicationRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(a => a.Service)
+                .FirstOrDefaultAsync(a =>
+                    a.ApplicationNo == trimmed ||
+                    (parsedAppId > 0 && a.Id == parsedAppId), ct);
+
+            if (app != null)
+            {
+                var ulbObj = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct)
+                          ?? await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+                string ulbTitle = ulbObj?.UlbNameLocal ?? ulbObj?.UlbName ?? "";
+                string ulbLogoPath = ulbObj?.UlbLogo ?? "";
+                string ulbAddr = ulbObj?.UlbAddress ?? "";
+
+                string deptTitle = "";
+                if (app.Service != null)
+                {
+                    var d = await _departmentRepository.GetByIdAsync(app.Service.DepartmentId, ct);
+                    deptTitle = d?.DepartmentNameLocal ?? d?.DepartmentName ?? "";
+                }
+
+                return new CertificateVerificationResponseDto
+                {
+                    IsValid = false,
+                    CertificateGuid = Guid.Empty,
+                    ApplicationNo = app.ApplicationNo,
+                    ServiceName = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "",
+                    DepartmentName = deptTitle,
+                    ApplicantName = app.ApplicantName ?? "",
+                    UlbName = ulbTitle,
+                    UlbLogo = ulbLogoPath,
+                    UlbAddress = ulbAddr,
+                    Message = $"सदर अर्ज क्र. {app.ApplicationNo} प्रणालीमध्ये अधिकृतरीत्या नोंदणीकृत असून सध्या प्रक्रियेत ({app.ApplicationStatus}) आहे. सक्षम प्राधिकाऱ्यांच्या अंतिम मंजुरीनंतर अधिकृत डिजिटल स्वाक्षरीसह प्रमाणपत्र उपलब्ध होईल."
+                };
+            }
+
+            return new CertificateVerificationResponseDto
+            {
+                IsValid = false,
+                CertificateGuid = isGuid ? parsedGuid : Guid.Empty,
+                Message = "सदर क्यूआर कोड किंवा प्रमाणपत्र क्रमांक अवैध आहे. (Invalid or Unverified Certificate)"
+            };
+        }
+
+        var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct)
+               ?? await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
+        string ulbName = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "";
+        string ulbLogo = ulb?.UlbLogo ?? "";
+        string ulbAddress = ulb?.UlbAddress ?? "";
 
         string deptName = "";
         if (cert.Service != null)
@@ -618,8 +793,12 @@ public class RTSCertificateService : IRTSCertificateService
             deptName = dept?.DepartmentNameLocal ?? dept?.DepartmentName ?? "";
         }
 
-        string officerName = cert.IssuedByUser != null ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim() : "सक्षम प्राधिकारी";
-        string officerDesignation = "सक्षम प्राधिकारी";
+        string officerName = cert.IssuedByUser != null
+            ? (!string.IsNullOrWhiteSpace(cert.IssuedByUser.FirstName) || !string.IsNullOrWhiteSpace(cert.IssuedByUser.LastName)
+                ? $"{cert.IssuedByUser.FirstName} {cert.IssuedByUser.LastName}".Trim()
+                : cert.IssuedByUser.UserName)
+            : "";
+        string officerDesignation = "";
 
         if (cert.IssuedByUser != null)
         {
@@ -634,7 +813,7 @@ public class RTSCertificateService : IRTSCertificateService
             }
             else if (!string.IsNullOrWhiteSpace(deptName))
             {
-                officerDesignation = $"{deptName} - सक्षम अधिकारी";
+                officerDesignation = deptName;
             }
         }
 
@@ -650,18 +829,30 @@ public class RTSCertificateService : IRTSCertificateService
             DepartmentName = deptName,
             ApplicantName = cert.Application?.ApplicantName ?? "",
             UlbName = ulbName,
+            UlbLogo = ulbLogo,
+            UlbAddress = ulbAddress,
             IssuedAt = cert.IssuedAt,
             IssuedByOfficer = officerName,
             OfficerDesignation = officerDesignation,
             IsDigitallySigned = cert.IsDigitallySigned,
             DigitalSignatureInfo = cert.DigitalSignatureInfo,
-            DscSignerName = dscMetadata?.SignerName ?? "Authorized Document Signer",
-            DscIssuer = dscMetadata?.Issuer ?? "Certifying Authority",
+            DscSignerName = dscMetadata?.SignerName ?? ulbName,
+            DscIssuer = dscMetadata?.Issuer ?? "",
             DscSerialNumber = dscMetadata?.SerialNumber ?? "",
             DscThumbprint = dscMetadata?.Thumbprint ?? "",
             DscValidUntil = dscMetadata?.ValidTo,
             MergedHtmlContent = cert.MergedHtmlContent,
-            Message = "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
+            CertificateType = cert.CertificateType,
+            DocumentGuid = cert.DocumentGuid,
+            DocumentDownloadUrl = cert.DocumentGuid.HasValue && cert.DocumentGuid.Value != Guid.Empty
+                ? $"/api/rts/documents/{cert.DocumentGuid.Value}/download"
+                : null,
+            DepartmentCollectionNotice = cert.CertificateType == RTSCertificateType.Manual
+                ? "सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे."
+                : null,
+            Message = cert.CertificateType == RTSCertificateType.Manual
+                ? "✅ हे मॅन्युअल प्रमाणपत्र अधिकृतरीत्या पडताळलेले आहे. (सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा करून घ्यावे.)"
+                : "✅ हे प्रमाणपत्र अधिकृतरीत्या पडताळलेले व अस्सल आहे. (Officially Verified & Authentic Certificate)"
         };
     }
 
@@ -670,7 +861,7 @@ public class RTSCertificateService : IRTSCertificateService
         try
         {
             var ulb = await _ulbRepository.GetQueryable().FirstOrDefaultAsync(u => u.IsActive, ct);
-            if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl))
+            if (!string.IsNullOrWhiteSpace(ulb?.WebsiteUrl) && !ulb.WebsiteUrl.Trim().Equals("-"))
             {
                 var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
                 if (!cleanUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !cleanUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -686,28 +877,55 @@ public class RTSCertificateService : IRTSCertificateService
         }
         catch { }
 
+        try
+        {
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext != null)
+            {
+                var origin = httpContext.Request.Headers["Origin"].FirstOrDefault()
+                          ?? httpContext.Request.Headers["Referer"].FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(origin) && Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return $"{uri.Scheme}://{uri.Authority}/service/verify-certificate";
+                }
+
+                if (httpContext.Request.Host.HasValue)
+                {
+                    return $"{httpContext.Request.Scheme}://{httpContext.Request.Host.Value}/service/verify-certificate";
+                }
+            }
+        }
+        catch { }
+
         return "/service/verify-certificate";
     }
+
+    private static readonly JsonSerializerOptions JsonCaseInsensitiveOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     // Helper Methods
     private async Task<Dictionary<string, string>> BuildAutoValuesDictionaryAsync(RTSApplicationDetailsEntity app, CancellationToken ct)
     {
         var ulb = await _ulbRepository.GetQueryable().AsNoTracking().FirstOrDefaultAsync(ct);
 
-        string appDate = (app.CreatedDate ?? DateTime.UtcNow).ToString("dd/MM/yyyy");
-        string issueDate = DateTime.UtcNow.ToString("dd/MM/yyyy");
-        string srvNameMarathi = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "लोकसेवा";
-        string srvNameEng = app.Service?.ServiceName ?? "RTS Service";
-        string deptNameMarathi = app.Department?.DepartmentNameLocal ?? app.Department?.DepartmentName ?? "महानगरपालिका विभाग";
-        string ulbNameMarathi = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "महानगरपालिका";
-        string ulbNameEng = ulb?.UlbName ?? "Municipal Corporation";
-        string ulbAddress = !string.IsNullOrWhiteSpace(ulb?.UlbAddress) ? ulb.UlbAddress : "महानगरपालिका मुख्य कार्यालय";
-        string ulbMobile = !string.IsNullOrWhiteSpace(ulb?.MobileNo) ? ulb.MobileNo : "-";
-        string ulbEmail = !string.IsNullOrWhiteSpace(ulb?.EmailId) ? ulb.EmailId : "-";
-        string ulbWebsite = !string.IsNullOrWhiteSpace(ulb?.WebsiteUrl) ? ulb.WebsiteUrl : "-";
+        var currentDate = DateTime.UtcNow.Date;
+        string appDate = (app.CreatedDate ?? currentDate).ToString("dd/MM/yyyy");
+        string issueDate = currentDate.ToString("dd/MM/yyyy");
+        string srvNameMarathi = app.Service?.ServiceNameLocal ?? app.Service?.ServiceName ?? "";
+        string srvNameEng = app.Service?.ServiceName ?? "";
+        string deptNameMarathi = app.Department?.DepartmentNameLocal ?? app.Department?.DepartmentName ?? "";
+        string ulbNameMarathi = ulb?.UlbNameLocal ?? ulb?.UlbName ?? "";
+        string ulbNameEng = ulb?.UlbName ?? "";
+        string ulbAddress = ulb?.UlbAddress ?? "";
+        string ulbMobile = ulb?.MobileNo ?? "";
+        string ulbEmail = ulb?.EmailId ?? "";
+        string ulbWebsite = ulb?.WebsiteUrl ?? "";
 
-        string ulbCode = !string.IsNullOrWhiteSpace(ulb?.UlbCode) ? ulb.UlbCode : "RTS";
-        string ulbShortCode = !string.IsNullOrWhiteSpace(ulb?.UlbNameLocal) ? ulb.UlbNameLocal.Split(' ').FirstOrDefault() ?? "मनपा" : "मनपा";
+        string ulbCode = ulb?.UlbCode ?? "";
+        string ulbShortCode = !string.IsNullOrWhiteSpace(ulb?.UlbNameLocal) ? ulb.UlbNameLocal.Split(' ').FirstOrDefault() ?? "" : "";
         string currentYear = DateTime.UtcNow.Year.ToString();
 
         string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
@@ -716,24 +934,32 @@ public class RTSCertificateService : IRTSCertificateService
                 ? app.Service.Department.DepartmentCode.Trim()
                 : (!string.IsNullOrWhiteSpace(app.Department?.DepartmentName) && app.Department.DepartmentName.Length >= 2
                     ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
-                    : "SRV"));
+                    : ""));
 
         string serviceCode = !string.IsNullOrWhiteSpace(app.Service?.ServiceCode)
             ? app.Service.ServiceCode.Trim()
             : $"SRV{app.ServiceId:D3}";
 
-        string standardOutwardNo = $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}";
+        string standardOutwardNo = !string.IsNullOrWhiteSpace(ulbShortCode) && !string.IsNullOrWhiteSpace(deptCode)
+            ? $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}"
+            : $"{app.Id:D6}";
 
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["ApplicationNo"] = app.ApplicationNo ?? $"RTS{app.Id:D8}",
-            ["ApplicantName"] = app.ApplicantName ?? "सन्माननीय नागरिक",
-            ["ApplicantMobile"] = app.ApplicantMobileNo ?? "-",
-            ["ApplicantAddress"] = !string.IsNullOrWhiteSpace(ulb?.District) ? $"{ulb.District}, महाराष्ट्र" : "महाराष्ट्र",
+            ["ApplicantName"] = app.ApplicantName ?? "",
+            ["ApplicantMobile"] = app.ApplicantMobileNo ?? "",
+            ["ApplicantAddress"] = "",
+            ["ULBLogo"] = ulb?.UlbLogo ?? "",
             ["AppliedDate"] = appDate,
             ["ApplicationDate"] = appDate,
             ["ApprovalDate"] = issueDate,
             ["IssueDate"] = issueDate,
+            ["currentData"] = currentDate.ToString("dd/MM/yyyy"),
+            ["currentDataMinusOne"] = currentDate.AddDays(-1).ToString("dd/MM/yyyy"),
+            ["currentDataMinusTwo"] = currentDate.AddDays(-2).ToString("dd/MM/yyyy"),
+            ["currentDataPlusOne"] = currentDate.AddDays(1).ToString("dd/MM/yyyy"),
+            ["currentDataPlusTwo"] = currentDate.AddDays(2).ToString("dd/MM/yyyy"),
             ["ServiceTitle"] = srvNameMarathi,
             ["ServiceName"] = srvNameEng,
             ["ServiceNameMarathi"] = srvNameMarathi,
@@ -770,7 +996,56 @@ public class RTSCertificateService : IRTSCertificateService
                     dict[$"Field:{code}"] = val;
                     dict[code] = val;
 
-                    // Common synonyms
+                    // Common synonyms for Education, Student, School Leaving
+                    if (code.Contains("Mother", StringComparison.OrdinalIgnoreCase) || code.Contains("आई", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["MotherName"] = val;
+                    }
+                    if (code.Contains("Father", StringComparison.OrdinalIgnoreCase) || code.Contains("वडील", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["FatherName"] = val;
+                    }
+                    if (code.Contains("Student", StringComparison.OrdinalIgnoreCase) || code.Contains("विद्यार्थी", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["StudentName"] = val;
+                        if (string.IsNullOrWhiteSpace(app.ApplicantName) || app.ApplicantName == "सन्माननीय नागरिक")
+                            dict["ApplicantName"] = val;
+                    }
+                    if (code.Equals("dateOfBirth", StringComparison.OrdinalIgnoreCase) || code.Contains("DOB", StringComparison.OrdinalIgnoreCase) || code.Contains("जन्म", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["DOB"] = val;
+                        dict["DateOfBirth"] = val;
+                    }
+                    if (code.Contains("Caste", StringComparison.OrdinalIgnoreCase) || code.Contains("जात", StringComparison.OrdinalIgnoreCase) || code.Contains("प्रवर्ग", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["CasteCategory"] = val;
+                        dict["Caste"] = val;
+                    }
+                    if (code.Contains("BirthPlace", StringComparison.OrdinalIgnoreCase) || code.Contains("जन्मस्थान", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["BirthPlace"] = val;
+                    }
+                    if (code.Contains("School", StringComparison.OrdinalIgnoreCase) || code.Contains("शाळा", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["SchoolName"] = val;
+                    }
+                    if (code.Contains("Standard", StringComparison.OrdinalIgnoreCase) || code.Contains("इयत्ता", StringComparison.OrdinalIgnoreCase) || code.Contains("Class", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["StandardStudied"] = val;
+                        dict["LastStandardStudied"] = val;
+                    }
+                    if (code.Contains("Reason", StringComparison.OrdinalIgnoreCase) || code.Contains("कारण", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["ReasonForLeaving"] = val;
+                        dict["LeavingReason"] = val;
+                    }
+                    if (code.Contains("YearOfLeaving", StringComparison.OrdinalIgnoreCase) || code.Contains("LeavingYear", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dict["LeavingDate"] = val;
+                        dict["LeavingYear"] = val;
+                    }
+
+                    // Common Property, Zone, Ward, Address synonyms
                     if (code.Contains("Address", StringComparison.OrdinalIgnoreCase) || code.Contains("Patt", StringComparison.OrdinalIgnoreCase) || code.Contains("Addr", StringComparison.OrdinalIgnoreCase))
                     {
                         dict["ApplicantAddress"] = val;
@@ -807,6 +1082,120 @@ public class RTSCertificateService : IRTSCertificateService
         return dict;
     }
 
+    private async Task<(string OfficerName, string OfficerDesignation)> ResolveOfficerDetailsAsync(int applicationId, int? serviceId, int? userId, CancellationToken ct)
+    {
+        string officerName = string.Empty;
+        string officerDesignation = string.Empty;
+
+        // 1. If explicit userId provided (e.g. from issuing officer or logged in user)
+        if (userId.HasValue && userId.Value > 0)
+        {
+            var u = await _userRepository.GetByIdAsync(userId.Value, ct);
+            if (u != null)
+            {
+                officerName = !string.IsNullOrWhiteSpace(u.FirstName) || !string.IsNullOrWhiteSpace(u.LastName)
+                    ? $"{u.FirstName} {u.LastName}".Trim()
+                    : (u.UserName ?? string.Empty);
+
+                var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Include(r => r.UserRole)
+                    .FirstOrDefaultAsync(r => r.UserId == u.Id && r.IsActive, ct);
+
+                if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                {
+                    officerDesignation = roleAlloc.UserRole.UserRoleName;
+                }
+            }
+        }
+
+        // 2. If not resolved, check ApprovalFlowStageMaster for this service's final or certificate issuance stage
+        if (string.IsNullOrWhiteSpace(officerName) && serviceId.HasValue && serviceId.Value > 0)
+        {
+            var designatedStage = await _stageRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(s => s.ApprovalFlow)
+                .Where(s => s.ApprovalFlow.ServiceId == serviceId.Value && (s.IsFinalStage || s.CanIssueCertificate) && s.UserId > 0)
+                .OrderByDescending(s => s.IsFinalStage)
+                .ThenByDescending(s => s.CanIssueCertificate)
+                .FirstOrDefaultAsync(ct);
+
+            if (designatedStage != null && designatedStage.UserId > 0)
+            {
+                var designatedUser = await _userRepository.GetByIdAsync(designatedStage.UserId, ct);
+                if (designatedUser != null)
+                {
+                    officerName = !string.IsNullOrWhiteSpace(designatedUser.FirstName) || !string.IsNullOrWhiteSpace(designatedUser.LastName)
+                        ? $"{designatedUser.FirstName} {designatedUser.LastName}".Trim()
+                        : (designatedUser.UserName ?? string.Empty);
+
+                    officerDesignation = !string.IsNullOrWhiteSpace(designatedStage.StageName)
+                        ? designatedStage.StageName
+                        : string.Empty;
+
+                    if (string.IsNullOrWhiteSpace(officerDesignation))
+                    {
+                        var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                            .AsNoTracking()
+                            .Include(r => r.UserRole)
+                            .FirstOrDefaultAsync(r => r.UserId == designatedUser.Id && r.IsActive, ct);
+                        if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                        {
+                            officerDesignation = roleAlloc.UserRole.UserRoleName;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. If still not resolved, check TrackApplicationHistory for this application
+        if (string.IsNullOrWhiteSpace(officerName) && applicationId > 0)
+        {
+            var lastAction = await _historyRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(h => h.ApplicationId == applicationId && h.ActionByUserId > 0)
+                .OrderByDescending(h => h.CreatedDate)
+                .FirstOrDefaultAsync(ct);
+
+            if (lastAction != null && lastAction.ActionByUserId.HasValue && lastAction.ActionByUserId.Value > 0)
+            {
+                var historyUser = await _userRepository.GetByIdAsync(lastAction.ActionByUserId.Value, ct);
+                if (historyUser != null)
+                {
+                    officerName = !string.IsNullOrWhiteSpace(historyUser.FirstName) || !string.IsNullOrWhiteSpace(historyUser.LastName)
+                        ? $"{historyUser.FirstName} {historyUser.LastName}".Trim()
+                        : (historyUser.UserName ?? string.Empty);
+
+                    var roleAlloc = await _userRoleAllocationRepository.GetQueryable()
+                        .AsNoTracking()
+                        .Include(r => r.UserRole)
+                        .FirstOrDefaultAsync(r => r.UserId == historyUser.Id && r.IsActive, ct);
+                    if (!string.IsNullOrWhiteSpace(roleAlloc?.UserRole?.UserRoleName))
+                    {
+                        officerDesignation = roleAlloc.UserRole.UserRoleName;
+                    }
+                }
+            }
+        }
+
+        // 4. Default dynamic fallback
+        if (string.IsNullOrWhiteSpace(officerName))
+        {
+            var adminUser = await _userRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(u => u.IsActive && !u.MarkedForDeletion)
+                .OrderBy(u => u.Id)
+                .FirstOrDefaultAsync(ct);
+            if (adminUser != null)
+            {
+                officerName = $"{adminUser.FirstName} {adminUser.LastName}".Trim();
+                officerDesignation = "विभाग प्रमुख";
+            }
+        }
+
+        return (officerName, officerDesignation);
+    }
+
     private string MergeTemplatePlaceholders(
         string rawTemplateHtml,
         Dictionary<string, string> citizenValues,
@@ -815,21 +1204,84 @@ public class RTSCertificateService : IRTSCertificateService
         string? sampleCertNo,
         string? officerName,
         bool isLiveSigned,
-        Guid? certGuid = null)
+        Guid? certGuid = null,
+        string? qrPayload = null,
+        string? officerFieldsConfigJson = null,
+        string? defaultConditionsJson = null)
     {
         string html = rawTemplateHtml;
 
-        // 1. Replace Citizen dynamic fields {{TagName}}
+        // Extract friendly labels for officer fields if available
+        Dictionary<string, string> fieldLabels = new(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(officerFieldsConfigJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(officerFieldsConfigJson);
+                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var el in doc.RootElement.EnumerateArray())
+                    {
+                        string key = "";
+                        if (el.TryGetProperty("fieldKey", out var fk) || el.TryGetProperty("FieldKey", out fk))
+                            key = fk.GetString() ?? "";
+
+                        string label = "";
+                        if (el.TryGetProperty("fieldLabelMarathi", out var flm) || el.TryGetProperty("FieldLabelMarathi", out flm))
+                            label = flm.GetString() ?? "";
+                        if (string.IsNullOrWhiteSpace(label) && (el.TryGetProperty("fieldLabelEnglish", out var fle) || el.TryGetProperty("FieldLabelEnglish", out fle)))
+                            label = fle.GetString() ?? "";
+
+                        if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(label))
+                        {
+                            fieldLabels[key] = label;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // 1. Replace Citizen dynamic fields {{TagName}} AND [[TagName]]
         foreach (var (k, v) in citizenValues)
         {
-            html = html.Replace($"{{{{{k}}}}}", v ?? "", StringComparison.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(v))
+            {
+                html = html.Replace($"{{{{{k}}}}}", v, StringComparison.OrdinalIgnoreCase);
+                html = html.Replace($"[[{k}]]", v, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         // Common system tags
         html = html.Replace("{{CertificateNo}}", sampleCertNo ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CertificateNo]]", sampleCertNo ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{OfficerName}}", officerName ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerName]]", officerName ?? "", StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{ApprovedByOfficer}}", officerName ?? "", StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{OfficerDesignation}}", citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "", StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{ApprovalDate}}", DateTime.UtcNow.ToString("dd/MM/yyyy"), StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[ApprovedByOfficer]]", officerName ?? "", StringComparison.OrdinalIgnoreCase);
+        string dynamicDesignation = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
+        html = html.Replace("{{OfficerDesignation}}", dynamicDesignation, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerDesignation]]", dynamicDesignation, StringComparison.OrdinalIgnoreCase);
+        string todayFormatted = DateTime.UtcNow.ToString("dd/MM/yyyy");
+        html = html.Replace("{{ApprovalDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[ApprovalDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{IssueDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[IssueDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{CurrentDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CurrentDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{DocumentDate}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[DocumentDate]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{Today}}", todayFormatted, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[Today]]", todayFormatted, StringComparison.OrdinalIgnoreCase);
+
+        var officerRemark = officerInputs?
+            .FirstOrDefault(input => string.Equals(input.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase))
+            .Value ?? string.Empty;
+        var officerRemarkHtml = WebUtility.HtmlEncode(officerRemark)
+            .Replace("\r\n", "<br />", StringComparison.Ordinal)
+            .Replace("\n", "<br />", StringComparison.Ordinal);
+        html = html.Replace("{{OfficerRemark}}", officerRemarkHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerRemark]]", officerRemarkHtml, StringComparison.OrdinalIgnoreCase);
 
         // 2. Replace Officer Inputs [[FieldKey]]
         if (officerInputs != null)
@@ -839,6 +1291,7 @@ public class RTSCertificateService : IRTSCertificateService
                 if (!string.IsNullOrWhiteSpace(v))
                 {
                     html = html.Replace($"[[{k}]]", v, StringComparison.OrdinalIgnoreCase);
+                    html = html.Replace($"{{{{{k}}}}}", v, StringComparison.OrdinalIgnoreCase);
                 }
             }
         }
@@ -850,58 +1303,52 @@ public class RTSCertificateService : IRTSCertificateService
         html = html.Replace("{{OutwardNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
         html = html.Replace("{{OrderNo}}", fallbackOutward, StringComparison.OrdinalIgnoreCase);
 
-        // Check if [[SpecialConditions]] exists; replace with customConditions if provided
+        // Check if customConditions provided, or fallback to default conditions from template
+        string conditionListHtml = "";
         if (!string.IsNullOrWhiteSpace(customConditions))
         {
-            if (html.Contains("[[SpecialConditions]]", StringComparison.OrdinalIgnoreCase))
-            {
-                html = html.Replace("[[SpecialConditions]]", customConditions, StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                // If template does not have [[SpecialConditions]] tag, append custom conditions seamlessly before terms & conditions or signatures
-                var conditionLines = customConditions.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                var formattedConditions = string.Join("", conditionLines.Select(c => $"<li>{c.Trim()}</li>"));
-
-                if (html.Contains("</ol>", StringComparison.OrdinalIgnoreCase))
-                {
-                    html = html.Replace("</ol>", $"{formattedConditions}</ol>", StringComparison.OrdinalIgnoreCase);
-                }
-                else if (html.Contains("</ul>", StringComparison.OrdinalIgnoreCase))
-                {
-                    html = html.Replace("</ul>", $"{formattedConditions}</ul>", StringComparison.OrdinalIgnoreCase);
-                }
-                else
-                {
-                    string extraConditionBox = $@"
-                    <div class='extra-conditions-box my-2 p-2.5 bg-amber-50/60 border border-amber-300 rounded text-xs text-slate-800'>
-                        <div class='font-bold text-amber-900 mb-1'>विशेष अटी व शर्ती (Special Conditions):</div>
-                        <ul class='list-disc pl-5 space-y-0.5'>{formattedConditions}</ul>
-                    </div>";
-
-                    if (html.Contains("{{DigitalSignature}}", StringComparison.OrdinalIgnoreCase))
-                    {
-                        html = html.Replace("{{DigitalSignature}}", $"{extraConditionBox}\n{{{{DigitalSignature}}}}", StringComparison.OrdinalIgnoreCase);
-                    }
-                    else
-                    {
-                        html += extraConditionBox;
-                    }
-                }
-            }
+            var conditionLines = customConditions.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var formattedConditions = string.Join("", conditionLines.Select(c => $"<li>{c.Trim()}</li>"));
+            conditionListHtml = $"<ol class='list-decimal pl-6 text-xs text-slate-900 space-y-1.5 leading-normal'>{formattedConditions}</ol>";
         }
+        else if (!string.IsNullOrWhiteSpace(defaultConditionsJson))
+        {
+            try
+            {
+                var defConditions = JsonSerializer.Deserialize<List<string>>(defaultConditionsJson);
+                if (defConditions != null && defConditions.Count > 0)
+                {
+                    var formattedConditions = string.Join("", defConditions.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => $"<li>{c.Trim()}</li>"));
+                    conditionListHtml = $"<ol class='list-decimal pl-6 text-xs text-slate-900 space-y-1.5 leading-normal'>{formattedConditions}</ol>";
+                }
+            }
+            catch { }
+        }
+
+        html = html.Replace("{{CustomConditionsList}}", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[CustomConditionsList]]", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{DefaultConditionsList}}", conditionListHtml, StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[SpecialConditions]]", customConditions ?? "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("{{SpecialConditions}}", customConditions ?? "", StringComparison.OrdinalIgnoreCase);
 
         // Dynamically build and inject {{OfficerFieldsBlock}} if present or if officer inputs exist
         if (officerInputs != null && officerInputs.Count > 0)
         {
-            var filledInputs = officerInputs.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)).ToList();
+            var filledInputs = officerInputs
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+                .ToList();
             if (filledInputs.Count > 0)
             {
-                var officerBlockRows = string.Join("", filledInputs.Select(kv => $@"
+                var officerBlockRows = string.Join("", filledInputs.Select(kv => {
+                    string label = string.Equals(kv.Key, "OfficerRemark", StringComparison.OrdinalIgnoreCase) || string.Equals(kv.Key, "OfficerRemarks", StringComparison.OrdinalIgnoreCase)
+                        ? "अधिकाऱ्याचा शेरा (Officer Remark)"
+                        : (fieldLabels.GetValueOrDefault(kv.Key) ?? kv.Key);
+                    return $@"
                     <tr class='border-b border-slate-200'>
-                        <td class='p-2 font-bold text-slate-700 w-1/3 bg-slate-50 border-r border-slate-200'>{kv.Key}:</td>
+                        <td class='p-2 font-bold text-slate-700 w-1/3 bg-slate-50 border-r border-slate-200'>{label}:</td>
                         <td class='p-2 text-slate-900 font-semibold'>{kv.Value}</td>
-                    </tr>"));
+                    </tr>";
+                }));
 
                 string dynamicOfficerBlock = $@"
                 <div class='officer-inputs-table my-3 border border-slate-300 rounded-lg overflow-hidden text-xs'>
@@ -915,52 +1362,109 @@ public class RTSCertificateService : IRTSCertificateService
                 {
                     html = html.Replace("{{OfficerFieldsBlock}}", dynamicOfficerBlock, StringComparison.OrdinalIgnoreCase);
                 }
-                else if (html.Contains("{{DigitalSignature}}", StringComparison.OrdinalIgnoreCase))
+                else if (html.Contains("[[OfficerFieldsBlock]]", StringComparison.OrdinalIgnoreCase))
                 {
-                    html = html.Replace("{{DigitalSignature}}", $"{dynamicOfficerBlock}\n{{{{DigitalSignature}}}}", StringComparison.OrdinalIgnoreCase);
-                }
-                else
-                {
-                    html += dynamicOfficerBlock;
+                    html = html.Replace("[[OfficerFieldsBlock]]", dynamicOfficerBlock, StringComparison.OrdinalIgnoreCase);
                 }
             }
         }
 
-        // Clean any remaining unreplaced {{OfficerFieldsBlock}} or [[OfficerField]] tags
         html = html.Replace("{{OfficerFieldsBlock}}", "", StringComparison.OrdinalIgnoreCase);
+        html = html.Replace("[[OfficerFieldsBlock]]", "", StringComparison.OrdinalIgnoreCase);
         html = Regex.Replace(html, @"\[\[\w+\]\]", "");
 
         // 3. Inject Dynamic Official Seal Stamp, QR Code and Digital Signature Blocks
-        string sealStampHtml = @"
+        string ulbLogoUrl = citizenValues.GetValueOrDefault("ULBLogo") ?? "";
+        string sealStampHtml = !string.IsNullOrWhiteSpace(ulbLogoUrl) ? $@"
         <div class='official-seal-stamp inline-block text-center'>
-            <img src='/images/ulb-seal.png' alt='' class='w-28 h-28 object-contain transform -rotate-6 filter drop-shadow-xs inline-block' onerror=""this.style.display='none'"" />
-        </div>";
+            <img src='{WebUtility.HtmlEncode(ulbLogoUrl)}' alt='' class='w-28 h-28 object-contain transform -rotate-6 filter drop-shadow-xs inline-block' onerror=""this.style.display='none'"" />
+        </div>" : "";
 
-        string qrCodeHtml = $@"
-        <div class='inline-flex flex-col items-center justify-center p-2 bg-white border border-slate-300 rounded shadow-xs text-center'>
-            <div class='w-20 h-20 bg-slate-100 flex items-center justify-center border border-slate-200 text-xs font-mono text-slate-700'>
-                <svg class='w-16 h-16 text-slate-800' viewBox='0 0 24 24' fill='currentColor'>
-                    <path d='M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v2h-3v-2zm-5 0h2v3h-2v-3zm2 3h3v2h-3v-2zm3 2h3v3h-3v-3zm-5 1h2v2h-2v-2zm2 0h1v2h-1v-2z'/>
-                </svg>
+        string actualQr = !string.IsNullOrWhiteSpace(qrPayload)
+            ? qrPayload
+            : (certGuid.HasValue && certGuid.Value != Guid.Empty
+                ? $"/service/verify-certificate/{certGuid.Value}"
+                : (!string.IsNullOrWhiteSpace(sampleCertNo) ? $"/service/verify-certificate/{Uri.EscapeDataString(sampleCertNo)}" : ""));
+
+        string qrCodeHtml = !string.IsNullOrWhiteSpace(actualQr) ? $@"
+        <div class='inline-flex flex-col items-center justify-center p-1.5 bg-white border border-slate-300 rounded shadow-xs text-center' style='width: 80px;' title='{WebUtility.HtmlEncode(actualQr)}'>
+            <div style='width: 64px; height: 64px;' class='flex items-center justify-center bg-white'>
+                <img src='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={Uri.EscapeDataString(actualQr)}' alt='Scan to Verify' class='w-full h-full object-contain' />
             </div>
-            <span class='text-[10px] text-slate-500 mt-1 font-semibold'>Scan to Verify</span>
-        </div>";
+            <span class='text-slate-700 mt-0.5 font-bold' style='font-size: 8px;'>Scan to Verify</span>
+        </div>" : "";
 
         string officerDesignationDynamic = citizenValues.GetValueOrDefault("OfficerDesignation") ?? citizenValues.GetValueOrDefault("DepartmentName") ?? "";
         string signatureHtml = _digitalSignatureService.GenerateSignatureHtml(officerName, officerDesignationDynamic, DateTime.UtcNow, sampleCertNo ?? "");
 
-        html = html.Replace("{{OfficialSealStamp}}", sealStampHtml, StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{QRCode}}", qrCodeHtml, StringComparison.OrdinalIgnoreCase);
-        html = html.Replace("{{DigitalSignature}}", signatureHtml, StringComparison.OrdinalIgnoreCase);
+        // Seal stamp replacement
+        var sealRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:OfficialSealStamp|SealStamp|ULBSeal|Stamp)\s*(?:\}\}|\s*\}|\]\])");
+        html = sealRegex.Replace(html, sealStampHtml);
+
+        // QR Code replacement
+        var qrRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:QRCode(?:Text)?|QR_Code|VerifyQR)\s*(?:\}\}|\s*\}|\]\])");
+        html = qrRegex.Replace(html, qrCodeHtml);
+
+        // 1. Replace all variations of {{DigitalSignature}} and [[DigitalSignature]]
+        var sigTagRegex = new Regex(@"(?i)(?:\{\{|\{\s*|\[\[)\s*(?:DigitalSignature(?:Text)?|Digital_Signature|digitalSignature|OfficerSignature|Signature|DSC)\s*(?:\}\}|\s*\}|\]\])");
+        bool signaturePlaced = false;
+        if (sigTagRegex.IsMatch(html))
+        {
+            html = sigTagRegex.Replace(html, signatureHtml);
+            signaturePlaced = true;
+        }
+
+        // 2. Replace any mockup/old .digital-signature-card inside template HTML ONLY if not placed via tag
+        if (!signaturePlaced)
+        {
+            var mockCardRegex = new Regex(@"(?i)<div[^>]*class=['""][^'""]*digital-signature-card[^'""]*['""][^>]*>[\s\S]*?<\/div>(?:\s*<\/div>)*");
+            if (mockCardRegex.IsMatch(html))
+            {
+                html = mockCardRegex.Replace(html, signatureHtml);
+                signaturePlaced = true;
+            }
+        }
+
+        // 3. If template has .right-digital-sign block, ensure dynamic signature is placed inside
+        if (!signaturePlaced)
+        {
+            var rightSignRegex = new Regex(@"(?i)(<div[^>]*class=['""][^'""]*right-digital-sign[^'""]*['""][^>]*>)([\s\S]*?)(<\/div>)");
+            if (rightSignRegex.IsMatch(html))
+            {
+                html = rightSignRegex.Replace(html, $"$1\n{signatureHtml}\n$3");
+                signaturePlaced = true;
+            }
+        }
+
+        // 4. Fallback: If still not placed anywhere, append cleanly before closing body or at end
+        if (!signaturePlaced)
+        {
+            if (html.Contains("</body>", StringComparison.OrdinalIgnoreCase))
+            {
+                html = html.Replace("</body>", $"<div class='text-right mt-4'>{signatureHtml}</div></body>", StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                html += $"<div class='text-right mt-4'>{signatureHtml}</div>";
+            }
+        }
 
         return html;
     }
 
-    private string BuildFullCertificateHtml(RTSCertificateTemplateMasterEntity? template, RTSApplicationDetailsEntity app)
+    private string BuildFullCertificateHtml(RTSServiceCertificateMasterEntity? template, RTSApplicationDetailsEntity app)
     {
-        // 100% Dynamic Template Loaded Directly from Database Table (RTS.CertificateTemplateMaster)
+        // Dynamic service certificate loaded directly from RTS.ServiceCertificateMaster.
         if (template != null && !string.IsNullOrWhiteSpace(template.BodyContent))
         {
+            // New canvas documents compile every page as a complete print surface and
+            // repeat shared header/footer layers inside BodyContent. Keep the separate
+            // fields for editing/reuse, but do not prepend/append them at runtime.
+            if (template.BodyContent.Contains("data-certificate-multipage=\"true\"", StringComparison.OrdinalIgnoreCase))
+            {
+                return template.BodyContent;
+            }
+
             if (!string.IsNullOrWhiteSpace(template.HeaderContent) && !string.IsNullOrWhiteSpace(template.FooterContent))
             {
                 return $"{template.HeaderContent}\n{template.BodyContent}\n{template.FooterContent}";
@@ -971,7 +1475,36 @@ public class RTSCertificateService : IRTSCertificateService
         return string.Empty;
     }
 
-    private static RTSCertificateTemplateDto MapToTemplateDto(RTSCertificateTemplateMasterEntity entity)
+    private static void ValidateDesignJson(string? designJson)
+    {
+        if (designJson is null)
+        {
+            return;
+        }
+
+        if (designJson.Length > MaxDesignJsonLength)
+        {
+            throw new ArgumentException(
+                $"DesignJson cannot exceed {MaxDesignJsonLength} characters.",
+                nameof(designJson));
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(designJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                throw new ArgumentException("DesignJson root value must be a JSON object.", nameof(designJson));
+            }
+
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException("DesignJson must contain valid JSON.", nameof(designJson), exception);
+        }
+    }
+
+    private static RTSCertificateTemplateDto MapToTemplateDto(RTSServiceCertificateMasterEntity entity)
     {
         var dto = new RTSCertificateTemplateDto
         {
@@ -984,6 +1517,7 @@ public class RTSCertificateService : IRTSCertificateService
             HeaderContent = entity.HeaderContent,
             BodyContent = entity.BodyContent,
             FooterContent = entity.FooterContent,
+            DesignJson = entity.DesignJson,
             DefaultConditionsJson = entity.DefaultConditionsJson,
             OfficerFieldsConfigJson = entity.OfficerFieldsConfigJson,
             IsActive = entity.IsActive,
@@ -995,7 +1529,16 @@ public class RTSCertificateService : IRTSCertificateService
         {
             try
             {
-                dto.OfficerFields = JsonSerializer.Deserialize<List<OfficerFieldConfigDto>>(entity.OfficerFieldsConfigJson) ?? new();
+                string json = entity.OfficerFieldsConfigJson.Trim();
+                if (json.StartsWith("\"") && json.EndsWith("\""))
+                {
+                    try { json = JsonSerializer.Deserialize<string>(json) ?? json; } catch {}
+                }
+                if (json.Contains("\\\""))
+                {
+                    json = json.Replace("\\\"", "\"");
+                }
+                dto.OfficerFields = JsonSerializer.Deserialize<List<OfficerFieldConfigDto>>(json, JsonCaseInsensitiveOptions) ?? new();
             }
             catch {}
         }
@@ -1004,7 +1547,16 @@ public class RTSCertificateService : IRTSCertificateService
         {
             try
             {
-                dto.DefaultConditions = JsonSerializer.Deserialize<List<string>>(entity.DefaultConditionsJson) ?? new();
+                string json = entity.DefaultConditionsJson.Trim();
+                if (json.StartsWith("\"") && json.EndsWith("\""))
+                {
+                    try { json = JsonSerializer.Deserialize<string>(json) ?? json; } catch {}
+                }
+                if (json.Contains("\\\""))
+                {
+                    json = json.Replace("\\\"", "\"");
+                }
+                dto.DefaultConditions = JsonSerializer.Deserialize<List<string>>(json, JsonCaseInsensitiveOptions) ?? new();
             }
             catch {}
         }
@@ -1026,6 +1578,7 @@ public class RTSCertificateService : IRTSCertificateService
             DepartmentName = cert.Application?.Department?.DepartmentNameLocal ?? cert.Application?.Department?.DepartmentName ?? "",
             ApplicantName = cert.Application?.ApplicantName ?? "",
             ApplicantMobile = cert.Application?.ApplicantMobileNo ?? "",
+            OfficerInputs = DeserializeOfficerInputs(cert.OfficerInputsJson),
             MergedHtmlContent = cert.MergedHtmlContent,
             QrCodePayload = cert.QrCodePayload,
             IssuedByUserId = cert.IssuedByUserId,
@@ -1033,7 +1586,39 @@ public class RTSCertificateService : IRTSCertificateService
             IssuedByOfficerDesignation = cert.Application?.Department?.DepartmentNameLocal ?? cert.Application?.Department?.DepartmentName ?? "",
             IssuedAt = cert.IssuedAt,
             IsDigitallySigned = cert.IsDigitallySigned,
-            DigitalSignatureInfo = cert.DigitalSignatureInfo
+            DigitalSignatureInfo = cert.DigitalSignatureInfo,
+            CertificateType = cert.CertificateType,
+            DocumentGuid = cert.DocumentGuid,
+            DocumentDownloadUrl = cert.DocumentGuid.HasValue && cert.DocumentGuid.Value != Guid.Empty
+                ? $"/api/rts/documents/{cert.DocumentGuid.Value}/download"
+                : null,
+            DepartmentCollectionNotice = cert.CertificateType == RTSCertificateType.Manual
+                ? "सदर मूळ अधिकृत प्रमाणपत्र संबंधित विभागामधून जमा (collect) करून घ्यावे."
+                : null
         };
+    }
+
+    private static Dictionary<string, string> DeserializeOfficerInputs(string? officerInputsJson)
+    {
+        if (string.IsNullOrWhiteSpace(officerInputsJson))
+        {
+            return new Dictionary<string, string>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(officerInputsJson)
+                ?? new Dictionary<string, string>();
+        }
+        catch (JsonException)
+        {
+            return new Dictionary<string, string>();
+        }
+    }
+
+    private static Task<RTSCertificateType> ResolveCertificateTypeAsync(RTSApplicationDetailsEntity app, CancellationToken ct)
+    {
+        if (app.Service == null) return Task.FromResult(RTSCertificateType.None);
+        return Task.FromResult(app.Service.CertificateType);
     }
 }

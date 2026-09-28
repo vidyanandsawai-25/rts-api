@@ -10,7 +10,8 @@ namespace NtisPlatform.Application.Services;
 /// <summary>
 /// Re-implements the legacy "Retrospective Tax Details" dynamic-PIVOT SQL script in application code.
 /// Read-only: resolves the property from Ward + PropertyNo (+ optional PartitionNo), then builds one
-/// row per finance year with pending amounts per active tax head from PTIS.TaxPendingDetailsRetro.
+/// row per finance year with pending amounts per active tax head from PTIS.TransMast rows flagged
+/// PolicyCodeMaster.IsRetroDemand = 1.
 ///
 /// Per the repo convention (see PropertyReassessmentService), everything is EF Core LINQ over
 /// <see cref="IRepository{T,TKey}"/> — no raw SQL. The dynamic PIVOT is replaced by an in-memory
@@ -20,20 +21,20 @@ public class RetrospectiveTaxService : IRetrospectiveTaxService
 {
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepository;
-    private readonly IRepository<TaxPendingDetailsRetroEntity, int> _retroRepository;
+    private readonly IRepository<TransMastEntity, int> _transMastRepository;
     private readonly IRepository<TaxMasterEntity, int> _taxMasterRepository;
     private readonly IRepository<YearMasterEntity, int> _yearMasterRepository;
 
     public RetrospectiveTaxService(
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepository,
-        IRepository<TaxPendingDetailsRetroEntity, int> retroRepository,
+        IRepository<TransMastEntity, int> transMastRepository,
         IRepository<TaxMasterEntity, int> taxMasterRepository,
         IRepository<YearMasterEntity, int> yearMasterRepository)
     {
         _propertyRepository = propertyRepository;
         _propertyAssessmentRepository = propertyAssessmentRepository;
-        _retroRepository = retroRepository;
+        _transMastRepository = transMastRepository;
         _taxMasterRepository = taxMasterRepository;
         _yearMasterRepository = yearMasterRepository;
     }
@@ -59,12 +60,13 @@ public class RetrospectiveTaxService : IRetrospectiveTaxService
 
         var taxIds = activeTaxes.Select(t => t.Id).ToList();
 
-        var retroRows = await _retroRepository.GetQueryable()
+        var retroRows = await _transMastRepository.GetQueryable()
             .Where(r => r.PropertyId == propertyId
                         && r.IsActive
                         && !r.MarkedForDeletion
-                        && taxIds.Contains(r.TaxId))
-            .Select(r => new { r.PendingYearId, r.TaxId, r.PendingAmount })
+                        && taxIds.Contains(r.TaxId)
+                        && r.PolicyCodeMaster != null && r.PolicyCodeMaster.IsRetroDemand)
+            .Select(r => new { PendingYearId = r.FinanceYearId, r.TaxId, PendingAmount = r.TaxAmount })
             .ToListAsync(cancellationToken);
 
         if (retroRows.Count == 0)
@@ -90,7 +92,7 @@ public class RetrospectiveTaxService : IRetrospectiveTaxService
 
         var amountsByYear = retroRows
             .GroupBy(r => r.PendingYearId)
-            .ToDictionary(g => g.Key, g => g.ToDictionary(r => r.TaxId, r => r.PendingAmount ?? 0m));
+            .ToDictionary(g => g.Key, g => g.ToDictionary(r => r.TaxId, r => r.PendingAmount));
 
         var earliestYearId = years.Count > 0 ? years[0].Id : (int?)null;
 

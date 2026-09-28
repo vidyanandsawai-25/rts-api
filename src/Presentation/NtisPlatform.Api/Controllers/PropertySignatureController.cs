@@ -75,7 +75,7 @@ public class PropertySignatureController : ControllerBase
     /// <summary>
     /// Returns zone-wise / division-wise sign-off grid data.
     /// Shows Clerk, Tax Inspector, Assistant Commissioner, and Additional Commissioner
-    /// signed property counts (structure & unit) and total demands.
+    /// signed property counts (structure and unit) and total demands.
     /// </summary>
     [HttpGet("dashboard/sign-grid")]
     public async Task<ActionResult<PropertySignatureItemsResponse<IReadOnlyList<SignAuthorityGridResponseDto>>>> GetSignAuthorityGrid(
@@ -102,22 +102,22 @@ public class PropertySignatureController : ControllerBase
     /// <summary>
     /// Returns ward-wise sign-off grid data for a specific zone.
     /// Shows Clerk, Tax Inspector, Assistant Commissioner, and Additional Commissioner
-    /// signed property counts (structure & unit) and total demands for each ward in the zone.
+    /// signed property counts (structure and unit) and total demands for each ward in the zone.
     /// </summary>
-    [HttpGet("dashboard/sign-grid/zone/{zoneId}")]
-    public async Task<ActionResult<PropertySignatureItemsResponse<IReadOnlyList<SignAuthorityGridResponseDto>>>> GetSignAuthorityWardGrid(
-        int zoneId,
+    [HttpGet("dashboard/ward-wise-summary/zone")]
+    public async Task<ActionResult<PropertySignatureItemsResponse<IReadOnlyList<SignAuthorityWardGridResponseDto>>>> GetSignAuthorityWardGrid(
+        [FromQuery] PropertySignatureWardGridQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _signatureService.GetSignAuthorityWardGridDataAsync(zoneId, cancellationToken);
+            var result = await _signatureService.GetSignAuthorityWardGridDataAsync(queryParameters, cancellationToken);
 
             return OkItem(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving ward-wise sign-off grid for ZoneId={ZoneId}", zoneId);
+            _logger.LogError(ex, "Error retrieving ward-wise sign-off grid for ZoneId={ZoneId}", queryParameters.ZoneId);
             throw;
         }
     }

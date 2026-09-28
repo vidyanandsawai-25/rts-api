@@ -73,6 +73,12 @@ public partial class PropertyService
             // Fetch Ward for UPIC generation
             var ward = await _wardRepository.GetByIdAsync(mainProperty.WardId, ct);
 
+            // Resolve the main property's mapped old-property id (if any) via PropertyMapDetail.
+            var mainPropertyOldId = await _propertyMapDetailRepository.GetQueryable()
+                .Where(pmd => pmd.PropertyIdNew == mainProperty.Id && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE" && pmd.PropertyIdOld != null)
+                .Select(pmd => (int?)pmd.PropertyIdOld!.Value)
+                .FirstOrDefaultAsync(ct);
+
             var newProperties = new List<PropertyEntity>();
             var skippedList = new List<PropertySpiltResponseDto>();
             var createdList = new List<PropertySpiltResponseDto>();
@@ -348,9 +354,8 @@ public partial class PropertyService
                 var propertyMapDetail = new PropertyMapDetailEntity
                 {
                     PropertyMapId = propertyMapId,
-                    PropertySide = mainProperty.PropertyMastOldId.HasValue ? "OLD" : "NEW",
                     PropertyIdNew = newProperties[i].Id,
-                    PropertyIdOld = mainProperty.PropertyMastOldId,
+                    PropertyIdOld = mainPropertyOldId,
                     PropertyNoNew = $"New-{newProperties[i].PropertyNo}",
                     Status = "MODIFIED",
                     Remark = $"SPLIT: property {mainProperty.PropertyNo} mapped to new property {newProperties[i].PropertyNo}{(string.IsNullOrEmpty(newProperties[i].PartitionNo) ? "" : $"-{newProperties[i].PartitionNo}")}",

@@ -44,19 +44,38 @@ public class UlbConfigService : IUlbConfigService
             return null;
         }
 
-        var backgroundImageGuid = await (
+        string? ulbBackground = null;
+        try
+        {
+            var backgroundImageGuid = await (
+                from img in _ulbImageMasterRepository.GetQueryable()
+                where img.ImageType == "Background" && img.IsActive
+                join doc in _documentRepository.GetQueryable() on img.ImageId equals doc.Id
+                where doc.IsActive && !doc.MarkedForDeletion
+                orderby img.Id descending
+                select doc.DocumentGuid
+            ).FirstOrDefaultAsync(cancellationToken);
+
+            if (backgroundImageGuid != Guid.Empty)
+            {
+                ulbBackground = $"/api/UlbImageMaster/{backgroundImageGuid}/view";
+            }
+        }
+        catch { }
+
+        var logoImageGuid = await (
             from img in _ulbImageMasterRepository.GetQueryable()
-            where img.ImageType == "Background" && img.IsActive
+            where img.ImageType == "Logo" && img.IsActive
             join doc in _documentRepository.GetQueryable() on img.ImageId equals doc.Id
             where doc.IsActive && !doc.MarkedForDeletion
             orderby img.Id descending
             select doc.DocumentGuid
         ).FirstOrDefaultAsync(cancellationToken);
 
-        string? ulbBackground = null;
-        if (backgroundImageGuid != Guid.Empty)
+        string? ulbLogo = !string.IsNullOrWhiteSpace(ulb.UlbLogo) ? ulb.UlbLogo : null;
+        if (logoImageGuid != Guid.Empty)
         {
-            ulbBackground = $"/api/UlbImageMaster/{backgroundImageGuid}/view";
+            ulbLogo = $"/api/UlbImageMaster/{logoImageGuid}/view";
         }
 
         return new UlbConfigDto
@@ -65,7 +84,7 @@ public class UlbConfigService : IUlbConfigService
             UlbCode = ulb.UlbCode,
             UlbName = ulb.UlbName,
             UlbNameLocal = ulb.UlbNameLocal,
-            UlbLogo = ulb.UlbLogo,
+            UlbLogo = ulbLogo,
             EmailId = ulb.EmailId,
             MobileNo = ulb.MobileNo,
             WebsiteUrl = ulb.WebsiteUrl,

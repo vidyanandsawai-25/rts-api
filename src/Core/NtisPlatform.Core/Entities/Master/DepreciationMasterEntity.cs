@@ -1,5 +1,6 @@
 using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -13,7 +14,5 @@ public class DepreciationMasterEntity : BaseEntity
     public int MinYear { get; set; }
     public int MaxYear { get; set; }
     public decimal Rate { get; set; }
-    public int YearRangeRVId { get; set; }
     public virtual ConstructionTypeEntity? ConstructionType { get; set; }
-    public virtual AssessmentYearRangeEntity? AssessmentYearRange { get; set; }
 }

@@ -37,12 +37,27 @@ public static class RetrospectiveRuleActionOptions
 
     /// <summary>
     /// Options for the "Tax calculation" dropdown (TaxCalculationMode) — one flat multiplier for
-    /// the whole retrospective period, or a multiplier that changes partway through (e.g. x1.5
-    /// from CC date to OC date, then x1 after OC date).
+    /// the whole retrospective period, a multiplier that changes at a date within the SAME year's
+    /// multiplier (SPLIT), or a full CC-then-OC merge where the switch date can move which YEARS
+    /// are even chargeable, not just the multiplier (CC_THEN_OC_MERGE).
     /// </summary>
     public static IReadOnlyList<RetrospectiveRuleActionOptionDto> TaxCalculationModes { get; } = new[]
     {
         new RetrospectiveRuleActionOptionDto { Code = "SINGLE", Label = "One multiplier for entire period", RequiredInput = "SINGLE_MULTIPLIER" },
         new RetrospectiveRuleActionOptionDto { Code = "SPLIT", Label = "Different multiplier between two dates", RequiredInput = "SPLIT_MULTIPLIER" },
+        new RetrospectiveRuleActionOptionDto { Code = "CC_THEN_OC_MERGE", Label = "CC governs until OC, then OC governs (day-split boundary year)", RequiredInput = "SPLIT_MULTIPLIER" },
+    };
+
+    /// <summary>
+    /// Options for the "Rate basis" dropdown (RateMode) — which rate/tax% the retrospective
+    /// calculation uses for each retrospective year: that year's own historical rate (from the
+    /// same year-range-keyed Rate/TaxPercentage master data the Rateable Value engine already
+    /// uses), or the current assessment year's rate applied flatly across every retrospective
+    /// year.
+    /// </summary>
+    public static IReadOnlyList<RetrospectiveRuleActionOptionDto> RateModes { get; } = new[]
+    {
+        new RetrospectiveRuleActionOptionDto { Code = "YEAR_WISE", Label = "Each retrospective year's own historical rate & tax %", RequiredInput = "NONE" },
+        new RetrospectiveRuleActionOptionDto { Code = "CURRENT_YEAR", Label = "Current assessment year's rate & tax % for every retrospective year", RequiredInput = "NONE" },
     };
 }

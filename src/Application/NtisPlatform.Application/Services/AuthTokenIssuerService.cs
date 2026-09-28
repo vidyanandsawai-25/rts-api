@@ -16,17 +16,20 @@ public class AuthTokenIssuerService : IAuthTokenIssuerService
     private readonly ITokenService _tokenService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IUserAccessRepository _userAccessRepository;
     private readonly IConfiguration _configuration;
 
     public AuthTokenIssuerService(
         ITokenService tokenService,
         IPasswordHasher passwordHasher,
         IRefreshTokenRepository refreshTokenRepository,
+        IUserAccessRepository userAccessRepository,
         IConfiguration configuration)
     {
         _tokenService = tokenService;
         _passwordHasher = passwordHasher;
         _refreshTokenRepository = refreshTokenRepository;
+        _userAccessRepository = userAccessRepository;
         _configuration = configuration;
     }
 
@@ -72,6 +75,36 @@ public class AuthTokenIssuerService : IAuthTokenIssuerService
             Message = "Login successful",
             ExpiresAt = now.AddMinutes(expiresInMinutes),
             RequiresTwoFactorSetup = user.TwoFactorRequired && !user.TwoFactorEnabled
+        };
+    }
+
+    public async Task<LoginV2ResponseDto> IssueV2Async(UserEntity user, string authenticationMethod, CancellationToken cancellationToken = default)
+    {
+        var baseResponse = await IssueAsync(user, authenticationMethod, cancellationToken);
+
+        var roles = await _userAccessRepository.GetUserRolesAsync(user.Id, cancellationToken);
+        var isAdmin = await _userAccessRepository.IsAdminAsync(user.Id, cancellationToken);
+        var permissions = await _userAccessRepository.GetUserPermissionsAsync(user.Id, isAdmin, cancellationToken);
+        var canAllocateWards = await _userAccessRepository.CanAllocateWardsAsync(user.Id, isAdmin, cancellationToken);
+
+        return new LoginV2ResponseDto
+        {
+            Success = baseResponse.Success,
+            Token = baseResponse.Token,
+            RefreshToken = baseResponse.RefreshToken,
+            UserId = baseResponse.UserId,
+            UserCode = user.UserCode,
+            Username = baseResponse.Username,
+            FirstName = baseResponse.FirstName,
+            MiddleName = baseResponse.MiddleName,
+            LastName = baseResponse.LastName,
+            Message = baseResponse.Message,
+            ExpiresAt = baseResponse.ExpiresAt,
+            RequiresTwoFactorSetup = baseResponse.RequiresTwoFactorSetup,
+            Roles = roles,
+            Permissions = permissions,
+            IsAdmin = isAdmin,
+            CanAllocateWards = canAllocateWards
         };
     }
 }

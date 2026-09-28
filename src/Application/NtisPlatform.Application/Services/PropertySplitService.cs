@@ -13,7 +13,7 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntity, PropertySplitDto, CreatePropertySplitDto, UpdatePropertySplitDto, PropertySplitQueryParameters, int>, IPropertySplitService  
+public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntity, PropertySplitDto, CreatePropertySplitDto, UpdatePropertySplitDto, PropertySplitQueryParameters, int>, IPropertySplitService
 {
     private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
@@ -50,7 +50,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
         _mapper = mapper;
     }
 
-    public override async Task<PropertySplitDto> CreateAsync(CreatePropertySplitDto dto,CancellationToken cancellationToken = default)
+    public override async Task<PropertySplitDto> CreateAsync(CreatePropertySplitDto dto, CancellationToken cancellationToken = default)
     {
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -74,7 +74,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             // VALIDATE DUPLICATE NEW PROPERTIES
             if (propertyIds.Count != dto.PropertyIds.Count)
             {
-                throw new ValidationException("New Property","Duplicate new property found",OperationType.Create);
+                throw new ValidationException("New Property", "Duplicate new property found", OperationType.Create);
             }
 
             //  LOAD OLD PROPERTY
@@ -102,20 +102,20 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (propertyMastOld == null)
             {
-                throw new ValidationException("Old Property","Old Property not found",OperationType.Create);
+                throw new ValidationException("Old Property", "Old Property not found", OperationType.Create);
             }
-            
-            //  BUILD OLD PROPERTY NUMBER
-            var oldPropertyNo = BuildPropertyNumber(propertyMastOld.OldWardNo,propertyMastOld.OldPropertyNo,propertyMastOld.OldPartitionNo);
 
-           
+            //  BUILD OLD PROPERTY NUMBER
+            var oldPropertyNo = BuildPropertyNumber(propertyMastOld.OldWardNo, propertyMastOld.OldPropertyNo, propertyMastOld.OldPartitionNo);
+
+
             // LOAD NEW PROPERTIES + WARD + SOCIETY
             var propertyMastList = await (
                 from pm in _repository.GetQueryable().AsNoTracking()
                 join wd in _wardRepository.GetQueryable().AsNoTracking()
                     on pm.WardId equals wd.Id
                 join society in _societyRepository.GetQueryable().AsNoTracking()
-                    on pm.SocietyDetailId equals society.Id
+                    on pm.Id equals society.PropertyId
                     into societyGroup
                 from sd in societyGroup.DefaultIfEmpty()
                 where
@@ -150,7 +150,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 var foundPropertyIds = propertyMastList.Select(x => x.Id).ToHashSet();
                 var missingPropertyIds = propertyIds.Where(x => !foundPropertyIds.Contains(x)).ToList();
 
-                throw new ValidationException("New Property",$"New property not found or inactive for id(s): {string.Join(", ", missingPropertyIds)}",OperationType.Create);
+                throw new ValidationException("New Property", $"New property not found or inactive for id(s): {string.Join(", ", missingPropertyIds)}", OperationType.Create);
             }
 
             //  CHECK EXISTING ACTIVE NEW PROPERTY MAPPINGS
@@ -170,11 +170,11 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                     .FirstOrDefaultAsync(cancellationToken);
 
 
-            
+
             //  IF ANY NEW PROPERTY ALREADY MERGED, STOP
             if (existingNewPropertyMapping != null)
             {
-                throw new ValidationException("New Property",$"New property no {existingNewPropertyMapping.PropertyNoNew} is already merged with old property no {existingNewPropertyMapping.PropertyNoOld}",OperationType.Create);
+                throw new ValidationException("New Property", $"New property no {existingNewPropertyMapping.PropertyNoNew} is already merged with old property no {existingNewPropertyMapping.PropertyNoOld}", OperationType.Create);
             }
 
             //  LOAD ALL PROPERTY MASTER ROWS TO UPDATE
@@ -190,7 +190,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             {
                 var foundIds = propertiesToUpdate.Select(x => x.Id).ToHashSet();
                 var missingIds = propertyIds.Where(x => !foundIds.Contains(x)).ToList();
-                throw new ValidationException("New Property",$"Unable to update new property id(s): {string.Join(", ", missingIds)}",OperationType.Create);
+                throw new ValidationException("New Property", $"Unable to update new property id(s): {string.Join(", ", missingIds)}", OperationType.Create);
             }
 
             //  CREATE O(1) LOOKUP
@@ -205,17 +205,17 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             foreach (var propertyMast in propertyMastList)
             {
                 var propertyId = propertyMast.Id;
-               
+
                 // BUILD NEW PROPERTY NUMBER
-                var newPropertyNo = BuildPropertyNumber(propertyMast.WardNo,propertyMast.PropertyNo,propertyMast.PartitionNo);
+                var newPropertyNo = BuildPropertyNumber(propertyMast.WardNo, propertyMast.PropertyNo, propertyMast.PartitionNo);
                 mergedNewPropertyNumbers.Add(newPropertyNo);
 
-               
+
                 // BUILD FINAL MERGED OWNER/OCCUPIER VALUES
-                var ownerName = BuildMergedPersonName(propertyMast.OwnerName,propertyMastOld.OldOwnerName);
-                var ownerNameEnglish = BuildMergedPersonName(propertyMast.OwnerNameEnglish,propertyMastOld.OldOwnerNameEnglish);
-                var occupierName = BuildMergedPersonName(propertyMast.OccupierName,propertyMastOld.OldOccupierName);
-                var occupierNameEnglish = BuildMergedPersonName(propertyMast.OccupierNameEnglish,propertyMastOld.OldOccupierNameEnglish);
+                var ownerName = BuildMergedPersonName(propertyMast.OwnerName, propertyMastOld.OldOwnerName);
+                var ownerNameEnglish = BuildMergedPersonName(propertyMast.OwnerNameEnglish, propertyMastOld.OldOwnerNameEnglish);
+                var occupierName = BuildMergedPersonName(propertyMast.OccupierName, propertyMastOld.OldOccupierName);
+                var occupierNameEnglish = BuildMergedPersonName(propertyMast.OccupierNameEnglish, propertyMastOld.OldOccupierNameEnglish);
 
                 // GET TRACKED PROPERTY MASTER
                 var propertyEntity = propertyUpdateLookup[propertyId];
@@ -263,41 +263,41 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
                 propertyEntity.UpdatedBy = dto.CreatedBy;
                 propertyEntity.UpdatedDate = now;
-               
+
                 // CREATE PROPERTY MAP DETAIL IN MEMORY
                 var propertyMapDetail = new PropertyMapDetailEntity
-                    {
-                        PropertyMapId = propertyMapId,
-                        PropertyIdNew = propertyId,
-                        PropertyIdOld = propertyOldId,
-                        PropertyNoNew = newPropertyNo,
-                        PropertyNoOld = oldPropertyNo,
-                        Status = PropertyMapStatus.Active,
-                        Remark = "Property Merged - Single Old Property Into Multiple New Properties",
-                        Latitude = latitude,
-                        Longitude = longitude,
-                        Location = dto.Location,
-                        CreatedBy = dto.CreatedBy,
+                {
+                    PropertyMapId = propertyMapId,
+                    PropertyIdNew = propertyId,
+                    PropertyIdOld = propertyOldId,
+                    PropertyNoNew = newPropertyNo,
+                    PropertyNoOld = oldPropertyNo,
+                    Status = PropertyMapStatus.Active,
+                    Remark = "Property Merged - Single Old Property Into Multiple New Properties",
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    Location = dto.Location,
+                    CreatedBy = dto.CreatedBy,
 
-                        // ORIGINAL NEW PROPERTY SNAPSHOT
-                        MergeDetail = new MergeDetailEntity
-                        {
-                            OwnerName = propertyMast.OwnerName,
-                            OwnerNameEnglish = propertyMast.OwnerNameEnglish,
-                            OccupierName = propertyMast.OccupierName,
-                            OccupierNameEnglish = propertyMast.OccupierNameEnglish,
-                            MobileNo = propertyMast.MobileNo,
-                            Address = propertyMast.Address,
-                            AddressEnglish = propertyMast.AddressEnglish,
-                            FlatOrShopNo = propertyMast.FlatOrShopNo,
-                            FlatOrShopNoEnglish = propertyMast.FlatOrShopNoEnglish,
-                            FlatOrShopName = propertyMast.FlatOrShopName,
-                            FlatOrShopNameEnglish = propertyMast.FlatOrShopNameEnglish,
-                            BuilderName = propertyMast.BuilderName,
-                            BuilderNameEnglish = propertyMast.BuilderNameEnglish,
-                            CreatedBy = dto.CreatedBy
-                        }
-                    };
+                    // ORIGINAL NEW PROPERTY SNAPSHOT
+                    MergeDetail = new MergeDetailEntity
+                    {
+                        OwnerName = propertyMast.OwnerName,
+                        OwnerNameEnglish = propertyMast.OwnerNameEnglish,
+                        OccupierName = propertyMast.OccupierName,
+                        OccupierNameEnglish = propertyMast.OccupierNameEnglish,
+                        MobileNo = propertyMast.MobileNo,
+                        Address = propertyMast.Address,
+                        AddressEnglish = propertyMast.AddressEnglish,
+                        FlatOrShopNo = propertyMast.FlatOrShopNo,
+                        FlatOrShopNoEnglish = propertyMast.FlatOrShopNoEnglish,
+                        FlatOrShopName = propertyMast.FlatOrShopName,
+                        FlatOrShopNameEnglish = propertyMast.FlatOrShopNameEnglish,
+                        BuilderName = propertyMast.BuilderName,
+                        BuilderNameEnglish = propertyMast.BuilderNameEnglish,
+                        CreatedBy = dto.CreatedBy
+                    }
+                };
                 propertyMapDetails.Add(propertyMapDetail);
             }
 
@@ -308,14 +308,14 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                     x.Status == PropertyMapStatus.Active && x.PropertyMapId != propertyMapId)
                 .ExecuteUpdateAsync(
                     setters => setters
-                        .SetProperty(x => x.PropertyMapId,propertyMapId)
-                        .SetProperty(x => x.UpdatedBy,dto.CreatedBy)
-                        .SetProperty(x => x.UpdatedDate,now),
+                        .SetProperty(x => x.PropertyMapId, propertyMapId)
+                        .SetProperty(x => x.UpdatedBy, dto.CreatedBy)
+                        .SetProperty(x => x.UpdatedDate, now),
                     cancellationToken);
 
 
             // ADD ALL PROPERTY MAP + MERGE DETAIL RECORDS
-            await _propertyMapDetailRepository.AddRangeAsync(propertyMapDetails,cancellationToken);
+            await _propertyMapDetailRepository.AddRangeAsync(propertyMapDetails, cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
@@ -323,19 +323,19 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
             return new PropertySplitDto
             {
                 Success = true,
-                Message =$"Old property no {oldPropertyNo} successfully merged into {mergedNewPropertyNumbers.Count} new properties: {string.Join(", ", mergedNewPropertyNumbers)}",
+                Message = $"Old property no {oldPropertyNo} successfully merged into {mergedNewPropertyNumbers.Count} new properties: {string.Join(", ", mergedNewPropertyNumbers)}",
                 Data = null
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,"Multiple property merge failed. Old:{OldId} New:{NewIds}",dto.PropertyOldId, dto.PropertyIds != null ? string.Join(",", dto.PropertyIds) : string.Empty);
+            _logger.LogError(ex, "Multiple property merge failed. Old:{OldId} New:{NewIds}", dto.PropertyOldId, dto.PropertyIds != null ? string.Join(",", dto.PropertyIds) : string.Empty);
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
-   
-    public override async Task<PropertySplitDto?> UpdateAsync(int id,UpdatePropertySplitDto dto,CancellationToken cancellationToken = default)
+
+    public override async Task<PropertySplitDto?> UpdateAsync(int id, UpdatePropertySplitDto dto, CancellationToken cancellationToken = default)
     {
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -345,7 +345,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (newPropertyIds.Count < 2)
             {
-                throw new ValidationException("Property","Multiple demerge requires at least two new properties", OperationType.Update);
+                throw new ValidationException("Property", "Multiple demerge requires at least two new properties", OperationType.Update);
             }
 
             //  LOAD SELECTED ACTIVE MERGE MAPPINGS
@@ -376,7 +376,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                             x.IsActive && !x.MarkedForDeletion,
                         cancellationToken);
 
-                throw new ValidationException("Old Property",oldPropertyExists ? "No merge details found to demerge" : "Old property not found", OperationType.Update);
+                throw new ValidationException("Old Property", oldPropertyExists ? "No merge details found to demerge" : "Old property not found", OperationType.Update);
             }
 
             //  ALL REQUESTED PROPERTIES MUST HAVE ACTIVE MAPPING
@@ -387,7 +387,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (invalidNewPropertyIds.Count > 0)
             {
-                throw new ValidationException("Property",$"Active merge mapping not found for new property Id(s): {string.Join(", ", invalidNewPropertyIds)}",OperationType.Update);
+                throw new ValidationException("Property", $"Active merge mapping not found for new property Id(s): {string.Join(", ", invalidNewPropertyIds)}", OperationType.Update);
             }
 
             var propertyMapDetailIds = validationQuery.Select(x => x.Id).ToList();
@@ -401,7 +401,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (mergeDetails.Count == 0)
             {
-                throw new ValidationException("Merge Details","Original property data not found",OperationType.Update);
+                throw new ValidationException("Merge Details", "Original property data not found", OperationType.Update);
             }
 
             //  EVERY MAPPING MUST HAVE SNAPSHOT
@@ -410,7 +410,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (mappingsWithoutSnapshot.Count > 0)
             {
-                throw new ValidationException("Merge Details","Merge snapshot not found for one or more selected properties",OperationType.Update);
+                throw new ValidationException("Merge Details", "Merge snapshot not found for one or more selected properties", OperationType.Update);
             }
 
             // LOAD CURRENT PROPERTY MASTER ENTITIES
@@ -426,7 +426,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 var foundPropertyIds = currentProperties.Select(x => x.Id).ToHashSet();
                 var missingPropertyIds = newPropertyIds.Where(x => !foundPropertyIds.Contains(x)).ToList();
 
-                throw new ValidationException("Property",$"Property not found for Id(s): {string.Join(", ", missingPropertyIds)}",OperationType.Update);
+                throw new ValidationException("Property", $"Property not found for Id(s): {string.Join(", ", missingPropertyIds)}", OperationType.Update);
             }
 
             //  LOAD OLD PROPERTY
@@ -446,47 +446,47 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
 
             if (oldPropertyData == null)
             {
-                throw new ValidationException("Old Property","Old property not found",OperationType.Update);
+                throw new ValidationException("Old Property", "Old property not found", OperationType.Update);
             }
 
             //  CREATE LOOKUPS
-            var mappingByNewPropertyId = validationQuery.Where(x => x.PropertyIdNew.HasValue).ToDictionary(x => x.PropertyIdNew!.Value,x => x);
-            var mergeDetailByMapDetailId = mergeDetails.ToDictionary(x => x.PropertyMapDetailId,x => x);
+            var mappingByNewPropertyId = validationQuery.Where(x => x.PropertyIdNew.HasValue).ToDictionary(x => x.PropertyIdNew!.Value, x => x);
+            var mergeDetailByMapDetailId = mergeDetails.ToDictionary(x => x.PropertyMapDetailId, x => x);
 
             //  LOAD ALL REQUIRED SOCIETIES
-            var societyIds = currentProperties.Where(x => x.SocietyDetailId.HasValue).Select(x => x.SocietyDetailId!.Value).Distinct().ToList();
+            var propertyIds = currentProperties.Where(x => x.Id > 0).Select(x => x.Id).Distinct().ToList();
             List<SocietyDetailsEntity> societies = new();
-            if (societyIds.Count > 0)
+            if (propertyIds.Count > 0)
             {
                 societies = await _societyRepository.GetQueryable()
-                    .Where(x => societyIds.Contains(x.Id) && x.IsActive)
+                    .Where(x => x.PropertyId.HasValue && propertyIds.Contains(x.PropertyId.Value) && x.IsActive && !x.MarkedForDeletion)
                     .ToListAsync(cancellationToken);
             }
             var societyLookup = societies.ToDictionary(x => x.Id);
             var updatedDate = DateTime.Now;
-            
+
             //  BUILD ALL PROPERTY/SOCIETY CHANGES IN MEMORY
             foreach (var currentProperty in currentProperties)
             {
-                if (!mappingByNewPropertyId.TryGetValue(currentProperty.Id,out var propertyMapping))
+                if (!mappingByNewPropertyId.TryGetValue(currentProperty.Id, out var propertyMapping))
                 {
-                    throw new ValidationException("Property",$"Active merge mapping not found for new property Id: {currentProperty.Id}",OperationType.Update);
+                    throw new ValidationException("Property", $"Active merge mapping not found for new property Id: {currentProperty.Id}", OperationType.Update);
                 }
 
                 // Find original snapshot
-                if (!mergeDetailByMapDetailId.TryGetValue(propertyMapping.Id,out var restoreData))
+                if (!mergeDetailByMapDetailId.TryGetValue(propertyMapping.Id, out var restoreData))
                 {
-                    throw new ValidationException("Merge Details",$"Restore snapshot not found for property no {propertyMapping.PropertyNoNew}",OperationType.Update);
+                    throw new ValidationException("Merge Details", $"Restore snapshot not found for property no {propertyMapping.PropertyNoNew}", OperationType.Update);
                 }
 
                 // REMOVE OLD OWNER / OCCUPIER
-                var updatedOwnerName = RemoveOwnerNameFromCommaSeparated(currentProperty.OwnerName,oldPropertyData.OldOwnerName);
-                var updatedOwnerNameEnglish = RemoveOwnerNameFromCommaSeparated(currentProperty.OwnerNameEnglish,oldPropertyData.OldOwnerNameEnglish);
-                var updatedOccupierName = RemoveOwnerNameFromCommaSeparated(currentProperty.OccupierName,oldPropertyData.OldOccupierName);
-                var updatedOccupierNameEnglish = RemoveOwnerNameFromCommaSeparated(currentProperty.OccupierNameEnglish,oldPropertyData.OldOccupierNameEnglish);
+                var updatedOwnerName = RemoveOwnerNameFromCommaSeparated(currentProperty.OwnerName, oldPropertyData.OldOwnerName);
+                var updatedOwnerNameEnglish = RemoveOwnerNameFromCommaSeparated(currentProperty.OwnerNameEnglish, oldPropertyData.OldOwnerNameEnglish);
+                var updatedOccupierName = RemoveOwnerNameFromCommaSeparated(currentProperty.OccupierName, oldPropertyData.OldOccupierName);
+                var updatedOccupierNameEnglish = RemoveOwnerNameFromCommaSeparated(currentProperty.OccupierNameEnglish, oldPropertyData.OldOccupierNameEnglish);
 
                 // ALWAYS RESTORE OWNER/OCCUPIER
-                currentProperty.OwnerName = string.IsNullOrWhiteSpace(updatedOwnerName) ? "The Holder" : updatedOwnerName;
+                currentProperty.OwnerName = string.IsNullOrWhiteSpace(updatedOwnerName) ? "धारक" : updatedOwnerName;
                 currentProperty.OwnerNameEnglish = string.IsNullOrWhiteSpace(updatedOwnerNameEnglish) ? "The Holder" : updatedOwnerNameEnglish;
                 currentProperty.OccupierName = string.IsNullOrWhiteSpace(updatedOccupierName) ? string.Empty : updatedOccupierName;
                 currentProperty.OccupierNameEnglish = string.IsNullOrWhiteSpace(updatedOccupierNameEnglish) ? string.Empty : updatedOccupierNameEnglish;
@@ -494,7 +494,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 // RESTORE OLD PROPERTY DATA
                 if (dto.IsPreviousDataUpdate)
                 {
-                    currentProperty.MobileNo =restoreData.MobileNo;
+                    currentProperty.MobileNo = restoreData.MobileNo;
                     currentProperty.Address = restoreData.Address;
                     currentProperty.AddressEnglish = restoreData.AddressEnglish;
                     currentProperty.FlatOrShopNo = restoreData.FlatOrShopNo;
@@ -506,7 +506,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                 currentProperty.UpdatedDate = updatedDate;
 
                 // RESTORE SOCIETY BUILDER
-                if (dto.IsPreviousDataUpdate && currentProperty.SocietyDetailId.HasValue && societyLookup.TryGetValue(currentProperty.SocietyDetailId.Value,out var society))
+                if (dto.IsPreviousDataUpdate && societyLookup.TryGetValue(currentProperty.Id, out var society))
                 {
                     society.BuilderName = restoreData.BuilderName;
                     society.BuilderNameEnglish = restoreData.BuilderNameEnglish;
@@ -557,10 +557,10 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                             PropertyMapStatus.Active)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty(pmd => pmd.Status,PropertyMapStatus.Cancelled)
-                            .SetProperty(pmd => pmd.IsActive,false)
-                            .SetProperty(pmd => pmd.UpdatedBy,dto.UpdatedBy)
-                            .SetProperty(pmd => pmd.UpdatedDate,updatedDate),
+                            .SetProperty(pmd => pmd.Status, PropertyMapStatus.Cancelled)
+                            .SetProperty(pmd => pmd.IsActive, false)
+                            .SetProperty(pmd => pmd.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(pmd => pmd.UpdatedDate, updatedDate),
                         cancellationToken);
 
 
@@ -578,9 +578,9 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                         md.IsActive)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty( md => md.IsActive,false)
-                            .SetProperty( md => md.UpdatedBy, dto.UpdatedBy)
-                            .SetProperty( md => md.UpdatedDate, updatedDate),
+                            .SetProperty(md => md.IsActive, false)
+                            .SetProperty(md => md.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(md => md.UpdatedDate, updatedDate),
                         cancellationToken);
 
             if (updatedMergeDetailCount == 0)
@@ -620,7 +620,7 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                     throw new InvalidOperationException("ONE_TO_ONE mapping category not found");
                 }
 
-                var remainingMapDetailId =remainingMappings[0].Id;
+                var remainingMapDetailId = remainingMappings[0].Id;
                 await _propertyMapDetailRepository.GetQueryable()
                     .Where(pmd =>
                         pmd.Id == remainingMapDetailId &&
@@ -629,27 +629,27 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                             PropertyMapStatus.Active)
                     .ExecuteUpdateAsync(
                         setters => setters
-                            .SetProperty(pmd => pmd.PropertyMapId,oneToOnePropertyMapId)
-                            .SetProperty(pmd => pmd.UpdatedBy,dto.UpdatedBy)
-                            .SetProperty(pmd => pmd.UpdatedDate,updatedDate),
+                            .SetProperty(pmd => pmd.PropertyMapId, oneToOnePropertyMapId)
+                            .SetProperty(pmd => pmd.UpdatedBy, dto.UpdatedBy)
+                            .SetProperty(pmd => pmd.UpdatedDate, updatedDate),
                         cancellationToken);
             }
 
             //  RESPONSE VALUES
-            var oldPropertyNo = validationQuery.Select(x => x.PropertyNoOld).FirstOrDefault(x =>!string.IsNullOrWhiteSpace(x));
+            var oldPropertyNo = validationQuery.Select(x => x.PropertyNoOld).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
             var newPropertyNos = validationQuery.Select(x => x.PropertyNoNew).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
 
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
             return new PropertySplitDto
             {
                 Success = true,
-                Message =$"New properties {string.Join(", ", newPropertyNos)} demerged successfully from old property no : {oldPropertyNo}",
+                Message = $"New properties {string.Join(", ", newPropertyNos)} demerged successfully from old property no : {oldPropertyNo}",
                 Data = null
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,"Split demerge failed OldProperty:{OldPropertyId} NewProperties:{NewPropertyIds}",dto.PropertyOldId,dto.PropertyIds != null ? string.Join(",", dto.PropertyIds) : null);    
+            _logger.LogError(ex, "Split demerge failed OldProperty:{OldPropertyId} NewProperties:{NewPropertyIds}", dto.PropertyOldId, dto.PropertyIds != null ? string.Join(",", dto.PropertyIds) : null);
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
@@ -756,7 +756,8 @@ public class PropertySplitService : BaseCommonCrudService<PropertyMapDetailEntit
                     continue;
                 }
                 // Remove placeholder value
-                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(name, "The Holder", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(name, "धारक", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

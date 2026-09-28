@@ -2,7 +2,6 @@ using FluentAssertions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Moq;
-using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Exceptions;
 using NtisPlatform.Core.Interfaces;
@@ -37,43 +36,6 @@ public class PropertyCertificateServiceCriticalFixTests
         return mock;
     }
 
-    private static ICertificateTaxGuidelineReaderService CreateGuidelineReader()
-    {
-        var mock = new Mock<ICertificateTaxGuidelineReaderService>();
-        mock.Setup(s => s.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CertificateTaxGuidelineSettings(
-                EnableCertificateBasedTax: true,
-                ApplyOnlyTaxableCertTypes: true,
-                DatePriority1: "CC", DatePriority2: "OC", DatePriority3: "ELECTRIC_BILL", DatePriority4: "RETROSPECTIVE",
-                CertificateRequireNoAndDate: false,
-                MissingCertificateNoAction: "IGNORE_FOR_TAX",
-                MissingCertificateDateAction: "IGNORE_FOR_TAX",
-                IgnoreCcToOcWithinValue: 6, IgnoreCcToOcWithinType: "MONTHS",
-                CcOcGapComparison: "LESS_THAN_OR_EQUAL",
-                CcOcGapWithinAction: "APPLY_OC_ONLY",
-                CcOcGapExceededAction: "APPLY_CC_THEN_OC",
-                InvalidCcOcDateOrderAction: "USE_PRIORITY_AND_LOG",
-                CcOnlyAction: "APPLY_FROM_CC_DATE",
-                OcOnlyAction: "APPLY_FROM_OC_DATE",
-                FinancialYearStartMonth: 4, FinancialYearStartDay: 1,
-                CCPeriodMultiplier: 1.0m, OCPeriodMultiplier: 1.0m,
-                ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
-                ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
-                TaxPersistenceMode: "PROPERTY_AGGREGATED",
-                SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
-                RecalculateOnSave: true, RecalculateOnDelete: true, GuidelineChangeApplyMode: "NEXT_CALCULATION",
-                CcPartialPolicyCode: "PARTIAL_CC", CcFullPolicyCode: "CC",
-                OcPartialPolicyCode: "PARTIAL_OC", OcFullPolicyCode: "OC",
-                ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
-                CertificateTaxScopeMode: "FLOOR_WISE", AllowFloorWiseCertificateMetadata: true, EnableCcToOcSplit: true,
-                ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
-                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
-        return mock.Object;
-    }
-
     #region Critical Fix: ToggleEnabledAsync can re-enable disabled certificates
 
     [Fact]
@@ -82,7 +44,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -118,7 +80,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -151,7 +113,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -182,7 +144,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -220,7 +182,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -251,7 +213,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -286,7 +248,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -317,7 +279,7 @@ public class PropertyCertificateServiceCriticalFixTests
         // Arrange
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -357,7 +319,7 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -381,7 +343,7 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -406,7 +368,7 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -435,7 +397,7 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -463,7 +425,7 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -491,98 +453,12 @@ public class PropertyCertificateServiceCriticalFixTests
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
         var publisher = new Mock<IPublisher>();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object);
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
         var certType = EntityTestHelpers.CreatePropertyCertificateTypeMasterEntity(1);
         certType.IsTaxable = false;
-        context.PropertyCertificateTypeMasters.Add(certType);
-        await context.SaveChangesAsync();
-
-        var certificate = PropertyCertificateEntity.Create(1, 1, "CERT-001", DateTime.Now);
-        certificate.CreatedBy = 1;
-        certificate.CreatedDate = DateTime.Now;
-        context.PropertyCertificates.Add(certificate);
-        await context.SaveChangesAsync();
-
-        await service.DeleteAsync(certificate.Id, deletedBy: 11, CancellationToken.None);
-
-        publisher.Verify(p => p.Publish(
-            It.IsAny<NtisPlatform.Application.Events.PropertyCertificateChangedEvent>(),
-            It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    #endregion
-
-    #region CertificateTaxGuideline RECALCULATE_ON_CERTIFICATE_SAVE/_DELETE gating
-
-    private static Mock<ICertificateTaxGuidelineReaderService> CreateGuidelineReaderMock(bool recalculateOnSave, bool recalculateOnDelete)
-    {
-        var mock = new Mock<ICertificateTaxGuidelineReaderService>();
-        mock.Setup(s => s.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CertificateTaxGuidelineSettings(
-                EnableCertificateBasedTax: true, ApplyOnlyTaxableCertTypes: true,
-                DatePriority1: "CC", DatePriority2: "OC", DatePriority3: "ELECTRIC_BILL", DatePriority4: "RETROSPECTIVE",
-                CertificateRequireNoAndDate: false, MissingCertificateNoAction: "IGNORE_FOR_TAX", MissingCertificateDateAction: "IGNORE_FOR_TAX",
-                IgnoreCcToOcWithinValue: 6, IgnoreCcToOcWithinType: "MONTHS",
-                CcOcGapComparison: "LESS_THAN_OR_EQUAL", CcOcGapWithinAction: "APPLY_OC_ONLY", CcOcGapExceededAction: "APPLY_CC_THEN_OC",
-                InvalidCcOcDateOrderAction: "USE_PRIORITY_AND_LOG", CcOnlyAction: "APPLY_FROM_CC_DATE", OcOnlyAction: "APPLY_FROM_OC_DATE",
-                FinancialYearStartMonth: 4, FinancialYearStartDay: 1,
-                CCPeriodMultiplier: 1.0m, OCPeriodMultiplier: 1.0m,
-                ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
-                ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
-                TaxPersistenceMode: "PROPERTY_AGGREGATED",
-                SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
-                RecalculateOnSave: recalculateOnSave, RecalculateOnDelete: recalculateOnDelete, GuidelineChangeApplyMode: "NEXT_CALCULATION",
-                CcPartialPolicyCode: "PARTIAL_CC", CcFullPolicyCode: "CC",
-                OcPartialPolicyCode: "PARTIAL_OC", OcFullPolicyCode: "OC",
-                ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
-                CertificateTaxScopeMode: "FLOOR_WISE", AllowFloorWiseCertificateMetadata: true, EnableCcToOcSplit: true,
-                ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
-                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
-        return mock;
-    }
-
-    [Fact]
-    public async Task CreateAsync_DoesNotPublish_WhenRecalculateOnSaveIsDisabled()
-    {
-        await using var context = CreateInMemoryContext();
-        var unitOfWork = CreateMockUnitOfWork();
-        var publisher = new Mock<IPublisher>();
-        var guidelineReader = CreateGuidelineReaderMock(recalculateOnSave: false, recalculateOnDelete: true);
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, guidelineReader.Object);
-
-        var property = EntityTestHelpers.CreatePropertyEntity(1);
-        context.PropertyMast.Add(property);
-        var certType = EntityTestHelpers.CreatePropertyCertificateTypeMasterEntity(1);
-        certType.IsTaxable = true;
-        context.PropertyCertificateTypeMasters.Add(certType);
-        await context.SaveChangesAsync();
-
-        await service.CreateAsync(1, 1, "CERT-001", DateTime.Now, createdBy: 1, CancellationToken.None);
-
-        publisher.Verify(p => p.Publish(
-            It.IsAny<NtisPlatform.Application.Events.PropertyCertificateChangedEvent>(),
-            It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task DeleteAsync_DoesNotPublish_WhenRecalculateOnDeleteIsDisabled()
-    {
-        await using var context = CreateInMemoryContext();
-        var unitOfWork = CreateMockUnitOfWork();
-        var publisher = new Mock<IPublisher>();
-        var guidelineReader = CreateGuidelineReaderMock(recalculateOnSave: true, recalculateOnDelete: false);
-        var service = new PropertyCertificateService(context, unitOfWork.Object, publisher.Object, guidelineReader.Object);
-
-        var property = EntityTestHelpers.CreatePropertyEntity(1);
-        context.PropertyMast.Add(property);
-        var certType = EntityTestHelpers.CreatePropertyCertificateTypeMasterEntity(1);
-        certType.IsTaxable = true;
         context.PropertyCertificateTypeMasters.Add(certType);
         await context.SaveChangesAsync();
 
@@ -608,7 +484,7 @@ public class PropertyCertificateServiceCriticalFixTests
     {
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -629,7 +505,7 @@ public class PropertyCertificateServiceCriticalFixTests
     {
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -647,7 +523,7 @@ public class PropertyCertificateServiceCriticalFixTests
     {
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);
@@ -665,7 +541,7 @@ public class PropertyCertificateServiceCriticalFixTests
     {
         await using var context = CreateInMemoryContext();
         var unitOfWork = CreateMockUnitOfWork();
-        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>(), CreateGuidelineReader());
+        var service = new PropertyCertificateService(context, unitOfWork.Object, Mock.Of<IPublisher>());
 
         var property = EntityTestHelpers.CreatePropertyEntity(1);
         context.PropertyMast.Add(property);

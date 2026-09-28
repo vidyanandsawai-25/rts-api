@@ -19,6 +19,14 @@ public interface IPropertyOldDetailsRepository : IPropertyAggregateRepository
     /// <summary>Reads the composed old-property projection (PropertyMastOld + first PropertyDetailsOld + computed old taxes), or null when the property is not found.</summary>
     Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
+    /// <summary>Resolves the property's mapped PropertyMastOld id via the active PropertyMapDetail mapping, or null when none exists.</summary>
+    Task<int?> GetMappedOldPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>Resolves the property's mapped PropertyMastOld id, creating a new PropertyMastOld row and linking it via a new
+    /// PropertyMapDetail row when no mapping exists yet. Performs its own intermediate save(s); callers that need this
+    /// wrapped in a larger transaction should call it inside their own BeginTransactionAsync/CommitTransactionAsync.</summary>
+    Task<int> EnsureMappedOldPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
+
     /// <summary>Reads the tab header info (StatusName and Old property details) for the specified property, or null when not found.</summary>
     Task<PropertyTabHeaderInfoDto?> GetTabHeaderInfoAsync(int propertyId, CancellationToken cancellationToken = default);
 

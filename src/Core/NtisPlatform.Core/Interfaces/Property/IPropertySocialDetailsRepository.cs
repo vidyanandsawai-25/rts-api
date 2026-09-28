@@ -20,4 +20,15 @@ public interface IPropertySocialDetailsRepository
 
     /// <summary>Returns the property's active social-detail rows with their SocialAttribute loaded (for the upsert response projection).</summary>
     Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsWithAttributeByPropertyAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns active social-detail rows (with their SocialAttribute loaded) filtered by any combination of
+    /// <paramref name="socialAttributeId"/>, <paramref name="societyDetailId"/> and <paramref name="wingDetailId"/>.
+    /// A null filter argument is ignored. At least one filter is expected to be provided by the caller.
+    /// </summary>
+    Task<List<PropertySocialDetailsEntity>> GetSocialDetailsByFiltersAsync(
+        int? socialAttributeId,
+        int? societyDetailId,
+        int? wingDetailId,
+        CancellationToken cancellationToken = default);
 }

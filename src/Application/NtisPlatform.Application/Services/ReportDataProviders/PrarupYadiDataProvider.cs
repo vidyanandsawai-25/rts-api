@@ -50,6 +50,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         private readonly IReportDataRepository<TransMastEntity> _transRepository;
         private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
         private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
+        private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
         public PrarupYadiDataProvider(
             IReportDataRepository<PropertyEntity> propertyRepository,
@@ -68,11 +69,13 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             IReportDataRepository<YearMasterEntity> yearRepository,
             IReportDataRepository<TransMastEntity> transRepository,
             IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
-            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
+            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository,
+            IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null)
         {
             _propertyRepository = propertyRepository;
             _wardRepository = wardRepository;
             _societyRepository = societyRepository;
+            _wingDetailsRepository = wingDetailsRepository;
             _typeOfUseRepository = typeOfUseRepository;
             _propertyMastOldRepository = propertyMastOldRepository;
             _propertyTypeRepository = propertyTypeRepository;
@@ -341,17 +344,21 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
             // 1c. Society details — batch fetch for all properties
             var allPropertyIds = properties.Select(p => p.Id).ToList();
-            var societies = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId.HasValue && allPropertyIds.Contains(sd.PropertyId.Value))
-                .Select(sd => new
+            var wingQuery = _wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var societies = await (
+                from sd in _societyRepository.GetQueryable()
+                where sd.PropertyId.HasValue && allPropertyIds.Contains(sd.PropertyId.Value)
+                join wdm in wingQuery on sd.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
                     PropertyId = sd.PropertyId!.Value,
-                    sd.WingId,
-                    sd.WingName,
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null,
                     sd.SocietyName,
                     sd.SocietyAddress,
-                })
-                .ToListAsync(ct);
+                }
+            ).ToListAsync(ct);
             var societyMap = societies.ToDictionary(s => s.PropertyId);
 
             // 1d. Type-of-use — batch fetch for all property types
@@ -570,7 +577,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 {
                     foreach (var tax in taxRows)
                     {
-                        var safeCode = (tax.TaxCode?.Trim().Length > 0
+                        var safeCode = (!string.IsNullOrWhiteSpace(tax.TaxCode)
                                             ? tax.TaxCode
                                             : tax.TaxName ?? "UNKNOWN")
                                        .Replace(' ', '_');

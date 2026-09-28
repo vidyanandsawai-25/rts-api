@@ -87,6 +87,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IPropertyContextLoaderService, PropertyContextLoaderService>();
 builder.Services.AddScoped<IRuleApplierService, RuleApplierService>();
 builder.Services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
+builder.Services.AddScoped<IRVCalculationSignatureService, RVCalculationSignatureService>();
 builder.Services.AddScoped<IRuleExecutionService, RuleExecutionService>();
 builder.Services.AddSingleton<IRuleEffectApplicator, DecreasePercentApplicator>();
 builder.Services.AddSingleton<IRuleEffectApplicator, IncreasePercentApplicator>();

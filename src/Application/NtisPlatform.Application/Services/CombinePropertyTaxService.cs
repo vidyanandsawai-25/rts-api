@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -10,30 +11,34 @@ namespace NtisPlatform.Application.Services;
 /// <summary>
 /// Service responsible for handling tax-related operations during property combination.
 /// Implements the combine property tax handling flow:
-/// 1. Aggregate pending taxes from combined properties (year-wise, tax-wise)
+/// 1. Aggregate migrated-ULB-arrears TransMast rows (PolicyCode = OLD_ARREARS) from combined
+///    properties onto the source property (year-wise, tax-wise)
 /// 2. Recalculate current year RV tax using RateableValueService.CalculateAndSaveAsync()
-/// 
+///
 /// FUTURE WORK:
 /// - Currently, only Rateable Value (RV) taxes are calculated and updated during property combination
 /// - Capital Value (CV) tax calculation and update will be implemented in a future PR
 /// </summary>
 public class CombinePropertyTaxService : ICombinePropertyTaxService
 {
-    private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
+    private readonly IRepository<TransMastEntity> _transMastRepository;
     private readonly IRepository<YearMasterEntity, int> _yearMasterRepository;
+    private readonly IPolicyCodeLookupService _policyCodeLookup;
     private readonly IRateableValueService _rateableValueService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CombinePropertyTaxService> _logger;
 
     public CombinePropertyTaxService(
-        IRepository<TaxPendingDetailsEntity> taxPendingRepository,
+        IRepository<TransMastEntity> transMastRepository,
         IRepository<YearMasterEntity, int> yearMasterRepository,
+        IPolicyCodeLookupService policyCodeLookup,
         IRateableValueService rateableValueService,
         IUnitOfWork unitOfWork,
         ILogger<CombinePropertyTaxService> logger)
     {
-        _taxPendingRepository = taxPendingRepository;
+        _transMastRepository = transMastRepository;
         _yearMasterRepository = yearMasterRepository;
+        _policyCodeLookup = policyCodeLookup;
         _rateableValueService = rateableValueService;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -123,13 +128,15 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
 
         try
         {
-            // Get all pending tax records from combined properties.
-            // Note: Do NOT filter by IsActive here; pending records may be inactive in the database,
-            // but we still need to aggregate the pending amounts and then zero them out.
-            var combinedPendingTaxes = await _taxPendingRepository.GetQueryable()
+            var oldArrearsPolicyCodeId = await _policyCodeLookup.GetIdAsync(PolicyCodes.OldArrears, cancellationToken);
+
+            // Get all migrated-ULB-arrears TransMast rows from combined properties.
+            // Note: Do NOT filter by IsActive here; rows may be inactive in the database,
+            // but we still need to aggregate their amounts and then zero them out.
+            var combinedPendingTaxes = await _transMastRepository.GetQueryable()
                 .Where(t => combinePropertyIds.Contains(t.PropertyId) &&
                             !t.MarkedForDeletion &&
-                            !t.PendingFixed)
+                            t.PolicyCodeId == oldArrearsPolicyCodeId)
                 .ToListAsync(cancellationToken);
 
             if (combinedPendingTaxes.Count == 0)
@@ -144,68 +151,71 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
                 "Found {Count} pending tax records from combined properties",
                 combinedPendingTaxes.Count);
 
-            // Group by PendingYearId and TaxId to aggregate amounts
+            // Group by FinanceYearId and TaxId to aggregate amounts
             var aggregatedTaxes = combinedPendingTaxes
-                .GroupBy(t => new { t.PendingYearId, t.TaxId })
+                .GroupBy(t => new { t.FinanceYearId, t.TaxId })
                 .Select(g => new
                 {
-                    g.Key.PendingYearId,
+                    g.Key.FinanceYearId,
                     g.Key.TaxId,
-                    TotalAmount = g.Sum(t => t.PendingAmount ?? 0)
+                    TotalAmount = g.Sum(t => t.TaxAmount)
                 })
                 .ToList();
 
             _logger.LogDebug(
-                "Aggregated into {Count} unique PendingYearId+TaxId combinations",
+                "Aggregated into {Count} unique FinanceYearId+TaxId combinations",
                 aggregatedTaxes.Count);
 
             // Get existing pending tax records for source property
-            var distinctPendingYearIds = aggregatedTaxes.Select(a => a.PendingYearId).Distinct().ToList();
+            var distinctFinanceYearIds = aggregatedTaxes.Select(a => a.FinanceYearId).Distinct().ToList();
             var distinctTaxIds = aggregatedTaxes.Select(a => a.TaxId).Distinct().ToList();
 
-            var sourcePendingTaxes = await _taxPendingRepository.GetQueryable()
+            var sourcePendingTaxes = await _transMastRepository.GetQueryable()
                 .Where(t => t.PropertyId == sourcePropertyId &&
-                            distinctPendingYearIds.Contains(t.PendingYearId) &&
+                            distinctFinanceYearIds.Contains(t.FinanceYearId) &&
                             distinctTaxIds.Contains(t.TaxId) &&
+                            t.PolicyCodeId == oldArrearsPolicyCodeId &&
                             t.IsActive &&
                             !t.MarkedForDeletion)
                 .ToListAsync(cancellationToken);
 
             var sourceTaxLookup = sourcePendingTaxes
-                .ToDictionary(t => (t.PendingYearId, t.TaxId), t => t);
+                .ToDictionary(t => (t.FinanceYearId, t.TaxId), t => t);
 
             // Update or insert pending tax records for source property
-            var newRecords = new List<TaxPendingDetailsEntity>();
+            var newRecords = new List<TransMastEntity>();
 
             foreach (var aggregated in aggregatedTaxes)
             {
-                var key = (aggregated.PendingYearId, aggregated.TaxId);
+                var key = (aggregated.FinanceYearId, aggregated.TaxId);
 
                 if (sourceTaxLookup.TryGetValue(key, out var existingRecord))
                 {
                     // Update existing record: Add aggregated amount
-                    existingRecord.PendingAmount = (existingRecord.PendingAmount ?? 0) + aggregated.TotalAmount;
-                    existingRecord.PendingFixed = true; // Mark to skip in future calculations
+                    existingRecord.TaxAmount += aggregated.TotalAmount;
+                    existingRecord.CalculationValue = existingRecord.TaxAmount;
                     existingRecord.UpdatedBy = createdBy;
                     existingRecord.UpdatedDate = DateTime.Now;
 
                     _logger.LogDebug(
-                        "Updated source pending tax: PropertyId={PropertyId}, PendingYearId={PendingYearId}, TaxId={TaxId}, NewAmount={Amount}",
+                        "Updated source pending tax: PropertyId={PropertyId}, FinanceYearId={FinanceYearId}, TaxId={TaxId}, NewAmount={Amount}",
                         sourcePropertyId,
-                        aggregated.PendingYearId,
+                        aggregated.FinanceYearId,
                         aggregated.TaxId,
-                        existingRecord.PendingAmount);
+                        existingRecord.TaxAmount);
                 }
                 else
                 {
                     // Create new record for source property
-                    var newRecord = new TaxPendingDetailsEntity
+                    var newRecord = new TransMastEntity
                     {
                         PropertyId = sourcePropertyId,
-                        PendingYearId = aggregated.PendingYearId,
+                        FinanceYearId = aggregated.FinanceYearId,
+                        CalculationType = "RV",
+                        CalculationValue = aggregated.TotalAmount,
                         TaxId = aggregated.TaxId,
-                        PendingAmount = aggregated.TotalAmount,
-                        PendingFixed = true, // Mark to skip in future calculations
+                        PolicyCodeId = oldArrearsPolicyCodeId,
+                        TaxAmount = aggregated.TotalAmount,
                         IsActive = true,
                         MarkedForDeletion = false,
                         CreatedBy = createdBy,
@@ -214,9 +224,9 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
                     newRecords.Add(newRecord);
 
                     _logger.LogDebug(
-                        "Created new source pending tax: PropertyId={PropertyId}, PendingYearId={PendingYearId}, TaxId={TaxId}, Amount={Amount}",
+                        "Created new source pending tax: PropertyId={PropertyId}, FinanceYearId={FinanceYearId}, TaxId={TaxId}, Amount={Amount}",
                         sourcePropertyId,
-                        aggregated.PendingYearId,
+                        aggregated.FinanceYearId,
                         aggregated.TaxId,
                         aggregated.TotalAmount);
                 }
@@ -225,31 +235,16 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
             // Add new records
             if (newRecords.Count > 0)
             {
-                await _taxPendingRepository.AddRangeAsync(newRecords, cancellationToken);
+                await _transMastRepository.AddRangeAsync(newRecords, cancellationToken);
             }
 
-            // Set PendingFixed = true for any existing source property records not in aggregated list
-            var allSourcePendingTaxes = await _taxPendingRepository.GetQueryable()
-                .Where(t => t.PropertyId == sourcePropertyId &&
-                            t.IsActive &&
-                            !t.MarkedForDeletion &&
-                            !t.PendingFixed)
-                .ToListAsync(cancellationToken);
-
-            foreach (var sourceRecord in allSourcePendingTaxes)
-            {
-                sourceRecord.PendingFixed = true;
-                sourceRecord.UpdatedBy = createdBy;
-                sourceRecord.UpdatedDate = DateTime.Now;
-            }
-
-            // Zero out combined properties' pending tax records and mark as fixed
-            // Keep IsActive = true (do not deactivate), only set PendingAmount = 0 and PendingFixed = true
-            // This ensures historical records are preserved while preventing double-counting
+            // Zero out combined properties' arrears records.
+            // Keep IsActive = true (do not deactivate), only set the amount to 0.
+            // This ensures historical records are preserved while preventing double-counting.
             foreach (var combinedTax in combinedPendingTaxes)
             {
-                combinedTax.PendingAmount = 0;
-                combinedTax.PendingFixed = true;
+                combinedTax.TaxAmount = 0;
+                combinedTax.CalculationValue = 0;
                 combinedTax.IsActive = true; // Explicitly keep IsActive = true
                 combinedTax.UpdatedBy = createdBy;
                 combinedTax.UpdatedDate = DateTime.Now;

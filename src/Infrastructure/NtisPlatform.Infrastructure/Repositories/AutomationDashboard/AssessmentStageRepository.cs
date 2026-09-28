@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
@@ -110,20 +111,22 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
         var retroDemandByKey = await (
             from row in stageQuery
-            join retro in _context.TaxPendingDetailsRetro.AsNoTracking() on row.PropertyId equals retro.PropertyId
+            join retro in _context.TransMast.AsNoTracking() on row.PropertyId equals retro.PropertyId
             join tax in _context.TaxMaster.AsNoTracking() on retro.TaxId equals tax.Id
+            join pcm in _context.PolicyCodeMaster.AsNoTracking() on retro.PolicyCodeId equals pcm.Id
             where retro.IsActive
                   && !retro.MarkedForDeletion
                   && tax.IsActive
                   && tax.TaxCode == TaxTotalCode
                   && tax.TaxName == TaxTotalName
+                  && pcm.IsRetroDemand
             group retro by new { row.ZoneId, row.AssessmentStatusId, row.IsRented } into g
             select new
             {
                 g.Key.ZoneId,
                 g.Key.AssessmentStatusId,
                 g.Key.IsRented,
-                Demand = g.Sum(x => x.PendingAmount ?? 0m)
+                Demand = g.Sum(x => x.TaxAmount)
             }).ToDictionaryAsync(
                 x => (x.ZoneId, x.AssessmentStatusId, x.IsRented),
                 x => x.Demand,
@@ -313,19 +316,21 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         // ============================================================
 
         var retroDemandByProperty = await (
-            from retro in _context.TaxPendingDetailsRetro.AsNoTracking()
+            from retro in _context.TransMast.AsNoTracking()
             join tax in _context.TaxMaster.AsNoTracking() on retro.TaxId equals tax.Id
+            join pcm in _context.PolicyCodeMaster.AsNoTracking() on retro.PolicyCodeId equals pcm.Id
             where propertyIds.Contains(retro.PropertyId)
                   && retro.IsActive
                   && !retro.MarkedForDeletion
                   && tax.IsActive
                   && tax.TaxCode == TaxTotalCode
                   && tax.TaxName == TaxTotalName
+                  && pcm.IsRetroDemand
             group retro by retro.PropertyId
             into g
             select new
             {
-                PropertyId = g.Key, Demand = g.Sum(x => x.PendingAmount ?? 0m)
+                PropertyId = g.Key, Demand = g.Sum(x => x.TaxAmount)
             })
             .ToDictionaryAsync( x => x.PropertyId, x => x.Demand, cancellationToken);
 
@@ -493,7 +498,15 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             join p in properties on pwd.PropertyId equals p.Id
             join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
             join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
-            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldPropertyJoin
+            // PropertyEntity.PropertyMastOldId is [NotMapped] (its DB column was dropped) --
+            // resolve the old-property link via PropertyMapDetail (PropertyIdNew/PropertyIdOld)
+            // instead, matching the established pattern elsewhere in the codebase. Filtered to the
+            // current/active mapping row (IsCurrent + Status) since a property can have multiple
+            // IsActive PropertyMapDetail rows (e.g. superseded history), which would otherwise
+            // fan out this join into duplicate rows per property.
+            join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE") on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.DefaultIfEmpty()
+            join pmo in _context.PropertyMastOld.AsNoTracking() on (pmd != null ? pmd.PropertyIdOld : null) equals (int?)pmo.Id into oldPropertyJoin
             from pmo in oldPropertyJoin.DefaultIfEmpty()
             join use in useSummary on p.Id equals use.PropertyId into useJoin
             from use in useJoin.DefaultIfEmpty()
@@ -564,11 +577,16 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
          // Mixed
             let isMixed = MixedPropertyTypes.Contains(normalizedPropertyType)
-            let isOpenPlot = p.OpenPlot == true || _context.PropertyDetails.AsNoTracking()
+            // PropertyEntity.OpenPlot / PropertyDetailsEntity.IsOpenPlot are [NotMapped] -- open-plot
+            // is derived from TypeOfUseCategoryMaster.TypeOfUseCategoryCode (TypeOfUseConstants.Op),
+            // not TypeOfUse.Description text (which is locale-specific, e.g. Marathi "खुला भूखंड",
+            // and would never match an English substring check).
+            let isOpenPlot = _context.PropertyDetails.AsNoTracking()
                     .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
-                    .Any(pd => pd.IsOpenPlot == true || _context.TypeOfUse.AsNoTracking()
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
                     .Where(tou => tou.Id == pd.TypeOfUseId)
-                    .Any(tou => ((tou.Description ?? string.Empty).Trim().ToUpper()).Contains("OPEN")))
+                    .Any(tou => _context.TypeOfUseCategory.AsNoTracking()
+                        .Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op)))
 
             let hasIndustrial =_context.PropertyDetails.AsNoTracking().Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
                     .Any(pd => _context.TypeOfUse.AsNoTracking().Where(tou => tou.Id == pd.TypeOfUseId)
@@ -620,7 +638,9 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             join p in properties on pwd.PropertyId equals p.Id
             join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
             join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
-            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldPropertyJoin
+            join pmd in _context.PropertyMapDetails.AsNoTracking().Where(x => x.IsActive && x.IsCurrent && x.Status == "ACTIVE") on p.Id equals pmd.PropertyIdNew into pmdJoin
+            from pmd in pmdJoin.DefaultIfEmpty()
+            join pmo in _context.PropertyMastOld.AsNoTracking() on pmd.PropertyIdOld equals pmo.Id into oldPropertyJoin
             from pmo in oldPropertyJoin.DefaultIfEmpty()
             where pwd.WorkflowStageId == workflowStageId && w.IsActive && z.IsActive
                   && p.PropertyAssessmentStatusId == assessedStatusId
@@ -628,7 +648,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             select new AssessedClassificationPropertyProjection
             {
                 PropertyId = p.Id,
-                PropertyMastOldId = p.PropertyMastOldId,
+                PropertyMastOldId = pmo != null ? pmo.Id : (int?)null,
                 PartitionNo = p.PartitionNo,
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
@@ -662,7 +682,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
                 ZoneNo = z.ZoneNo,
-                IsOpenPlot = p.OpenPlot == true
+                IsOpenPlot = _context.PropertyDetails.AsNoTracking().Any(pd => pd.PropertyId == p.Id && pd.IsActive && !pd.MarkedForDeletion && _context.TypeOfUse.Any(tou => tou.Id == pd.TypeOfUseId && _context.TypeOfUseCategory.Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op)))
             }).Distinct().ToListAsync(cancellationToken);
     }
 
@@ -775,13 +795,14 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             : new Dictionary<int, decimal>();
 
         var retroDemandByProperty = totalTaxIds.Any()
-            ? await _context.TaxPendingDetailsRetro.AsNoTracking()
+            ? await _context.TransMast.AsNoTracking()
                 .Where(retro => stagePropertyIds.Contains(retro.PropertyId)
                                 && retro.IsActive
                                 && !retro.MarkedForDeletion
-                                && totalTaxIds.Contains(retro.TaxId))
+                                && totalTaxIds.Contains(retro.TaxId)
+                                && retro.PolicyCodeMaster!.IsRetroDemand)
                 .GroupBy(retro => retro.PropertyId)
-                .Select(g => new { PropertyId = g.Key, Demand = g.Sum(x => x.PendingAmount ?? 0m) })
+                .Select(g => new { PropertyId = g.Key, Demand = g.Sum(x => x.TaxAmount) })
                 .ToDictionaryAsync(x => x.PropertyId, x => x.Demand, cancellationToken)
             : new Dictionary<int, decimal>();
 
@@ -835,7 +856,8 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 {
                     PropertyId = pd.PropertyId,
                     CarpetArea = pd.CarpetAreaSqMeter ?? 0d,
-                    IsOpenPlot = pd.IsOpenPlot == true,
+                    IsOpenPlot = tou != null && _context.TypeOfUseCategory.AsNoTracking()
+                        .Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op),
                     Type = tou != null ? tou.Type : null,
                     TypeOfUseCode = tou != null ? tou.TypeOfUseCode : null,
                     TypeOfUseDescription = tou != null ? tou.Description : null
@@ -923,7 +945,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         var demandByProperty = await GetCurrentDemandByPropertyAsync(propertyZoneMap.Select(p => p.PropertyId), cancellationToken);
         return SumDemandByZone(propertyZoneMap, demandByProperty);
     }
-    // Calculates retro demand by zone from TaxPendingDetailsRetro.
+    // Calculates retro demand by zone from TransMast rows flagged PolicyCodeMaster.IsRetroDemand.
     public async Task<Dictionary<int, decimal>> GetRetroDemandByZoneAsync(IEnumerable<AssessmentStagePropertyProjection> properties, CancellationToken cancellationToken = default)
     {
         var propertyZoneMap = properties.Select(p => (p.PropertyId, p.ZoneId)).Distinct().ToList();
@@ -996,7 +1018,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         return rows.GroupBy(x => x.PropertyId).ToDictionary(g => g.Key, g => g.Sum(x => x.Demand));
     }
 
-    // Calculates retro demand per property from TaxPendingDetailsRetro.
+    // Calculates retro demand per property from TransMast rows flagged PolicyCodeMaster.IsRetroDemand.
     public async Task<Dictionary<int, decimal>> GetRetroDemandByPropertyAsync(IEnumerable<int> propertyIds, CancellationToken cancellationToken = default)
     {
         var ids = propertyIds.Distinct().ToList();
@@ -1007,12 +1029,14 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         foreach (var batch in BatchIds(ids))
         {
             var batchRows = await (
-                from retro in _context.TaxPendingDetailsRetro.AsNoTracking()
+                from retro in _context.TransMast.AsNoTracking()
                 join tax in _context.TaxMaster.AsNoTracking() on retro.TaxId equals tax.Id
+                join pcm in _context.PolicyCodeMaster.AsNoTracking() on retro.PolicyCodeId equals pcm.Id
                 where batch.Contains(retro.PropertyId) && retro.IsActive && !retro.MarkedForDeletion && tax.IsActive
                       && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+                      && pcm.IsRetroDemand
                 group retro by retro.PropertyId into g
-                select new { PropertyId = g.Key, Demand = g.Sum(x => x.PendingAmount ?? 0m) }
+                select new { PropertyId = g.Key, Demand = g.Sum(x => x.TaxAmount) }
             ).ToListAsync(cancellationToken);
 
             rows.AddRange(batchRows.Select(x => (x.PropertyId, x.Demand)));

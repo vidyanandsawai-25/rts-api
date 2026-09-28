@@ -13,11 +13,15 @@ public class RTSApplicationDashboardDetailsDto
     public string? ApplicationStatus { get; set; }
     public string? ApplicantName { get; set; }
     public string? ApplicantMobileNo { get; set; }
+    public string? PropertyNo { get; set; }
+    public string? UpicId { get; set; }
     public string? Remark { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
     public int? UserId { get; set; }
     public string? UserName { get; set; }
+    public string? OfficerFirstName { get; set; }
+    public string? OfficerLastName { get; set; }
     public string? SessionId { get; set; }
     public int? OwnerId { get; set; }
     public string? DepartmentName { get; set; }

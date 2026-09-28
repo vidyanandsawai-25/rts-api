@@ -19,5 +19,6 @@ public static class RetrospectiveRuleDateConditionOptions
         new RetrospectiveRuleDateConditionOptionDto { Code = "ELECTRICITY_AFTER_CUTOFF", Label = "Electricity date after cutoff date", RequiredInput = "CUTOFF_DATE" },
         new RetrospectiveRuleDateConditionOptionDto { Code = "OC_OLDER_THAN_ALLOWED_PERIOD", Label = "OC date older than allowed period", RequiredInput = "YEARS" },
         new RetrospectiveRuleDateConditionOptionDto { Code = "OC_WITHIN_ALLOWED_PERIOD", Label = "OC date within allowed period", RequiredInput = "YEARS" },
+        new RetrospectiveRuleDateConditionOptionDto { Code = "EVIDENCE_GAP_WITHIN_PERIOD", Label = "Gap between two evidence dates within/older than a period", RequiredInput = "EVIDENCE_PAIR_AND_GAP" },
     };
 }

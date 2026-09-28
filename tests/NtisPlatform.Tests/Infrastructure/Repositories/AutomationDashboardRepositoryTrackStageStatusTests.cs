@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Models;
@@ -890,10 +891,18 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         {
             Id = 601,
             PropertyId = 301,
-            WingId = 501,
             BuilderName = "Builder Prime",
             IsActive = true,
             MarkedForDeletion = false,
+            CreatedDate = createdDate
+        });
+        context.Set<WingDetailsMastEntity>().Add(new WingDetailsMastEntity
+        {
+            Id = 501,
+            SocietyDetailsMastId = 601,
+            WingMasterId = 501,
+            WingName = "Wing-A",
+            IsActive = true,
             CreatedDate = createdDate
         });
         context.PropertyDetails.AddRange(
@@ -1202,26 +1211,29 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             CreatePropertyType(13, "Industrial", "I", createdDate),
             CreatePropertyType(14, "Mixed", "R-C", createdDate),
             CreatePropertyType(15, "Public Utility", "N", createdDate));
+        context.TypeOfUseCategory.Add(new TypeOfUseCategoryEntity { Id = 1, TypeOfUseCategoryCode = TypeOfUseConstants.Op });
         context.TypeOfUse.AddRange(
             CreateTypeOfUse(901, "R", "R", "Residential", createdDate),
             CreateTypeOfUse(902, "C", "C", "Commercial", createdDate),
             CreateTypeOfUse(903, "I", "I", "Industrial", createdDate),
             CreateTypeOfUse(904, "N", "N", "Public Utility", createdDate),
-            CreateTypeOfUse(905, "UC", "R", "Under Construction", createdDate));
+            CreateTypeOfUse(905, "UC", "R", "Under Construction", createdDate),
+            CreateTypeOfUse(906, "OP", "R", "Open Plot", createdDate, typeOfUseCategoryId: 1));
         context.PropertyMast.AddRange(
             CreateSubGridProperty(101, 21, "1", "", "Residential Owner", createdDate, 11),
             CreateSubGridProperty(102, 21, "2", "", "Commercial Owner", createdDate, 12),
             CreateSubGridProperty(103, 21, "3", "", "Industrial Owner", createdDate, 13),
             CreateSubGridProperty(104, 21, "4", "", "Mixed Owner", createdDate, 14),
             CreateSubGridProperty(105, 21, "5", "", "Public Utility Owner", createdDate, 15),
-            CreateSubGridProperty(106, 21, "6", "", "Open Plot Owner", createdDate, 11, isOpenPlot: true),
+            CreateSubGridProperty(106, 21, "6", "", "Open Plot Owner", createdDate, 11),
             CreateSubGridProperty(107, 21, "7", "", "Under Construction Owner", createdDate, 11));
         context.PropertyDetails.AddRange(
             CreatePropertyDetail(901, 101, 901, createdDate),
             CreatePropertyDetail(902, 102, 902, createdDate),
             CreatePropertyDetail(903, 103, 903, createdDate),
             CreatePropertyDetail(904, 105, 904, createdDate),
-            CreatePropertyDetail(905, 107, 905, createdDate));
+            CreatePropertyDetail(905, 107, 905, createdDate),
+            CreatePropertyDetail(906, 106, 906, createdDate));
         context.PropertyWorkflowDetails.AddRange(
             CreateWorkflowDetail(201, 101, 1, createdDate),
             CreateWorkflowDetail(202, 102, 1, createdDate),
@@ -1268,7 +1280,8 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         string code,
         string type,
         string description,
-        DateTime createdDate)
+        DateTime createdDate,
+        int? typeOfUseCategoryId = null)
         => new()
         {
             Id = id,
@@ -1276,6 +1289,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             Description = description,
             Type = type,
             TypeOfUseGroupId = 1,
+            TypeOfUseCategoryId = typeOfUseCategoryId,
             IsActive = true,
             CreatedDate = createdDate
         };

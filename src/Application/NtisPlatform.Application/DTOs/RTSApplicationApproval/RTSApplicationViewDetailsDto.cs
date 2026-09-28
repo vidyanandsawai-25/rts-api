@@ -6,6 +6,17 @@ namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 /// </summary>
 public class RTSApplicationViewDetailsDto
 {
+    public int ApplicationId { get; set; }
+    public string? ApplicationNo { get; set; }
+    public int ServiceId { get; set; }
+    public string? ServiceName { get; set; }
+    public int DepartmentId { get; set; }
+    public string? DepartmentName { get; set; }
+    public string? ApplicationStatus { get; set; }
+    public string? Remark { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
+    public byte CertificateType { get; set; } = 1;
+    public Guid? IssuedCertificateGuid { get; set; }
     public List<ApplicationDocumentDto> Documents { get; set; } = new();
     public List<ApplicationFieldValueDto> ApplicationDetails { get; set; } = new();
 }
@@ -14,7 +25,9 @@ public class ApplicationDocumentDto
 {
     public int FieldDefinitionId { get; set; }
     public string DocumentName { get; set; } = string.Empty;
+    public string DocumentNameLocal { get; set; } = string.Empty;
     public Guid? DocumentGuid { get; set; }
+    public string? Value { get; set; }
     public bool IsRequired { get; set; }
     public bool IsUploaded { get; set; }
 }
@@ -41,6 +54,7 @@ public class ApplicationFieldValueDto
     {
         public int? TotalApprovalStages { get; set; }
         public int CompletedStages { get; set; }
+        public bool isRevertedToCitizen { get; set; }
         public List<ApplicationApprovalStageDto> ApprovalStages { get; set; } = new();
     }
 

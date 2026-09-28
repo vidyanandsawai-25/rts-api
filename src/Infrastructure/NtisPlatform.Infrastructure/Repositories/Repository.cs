@@ -73,6 +73,23 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         await Task.CompletedTask;
     }
 
+    public virtual async Task UpdateRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
+    {
+        var entityList = entities as IList<T> ?? entities.ToList();
+        var now = DateTime.Now;
+
+        foreach (var entity in entityList)
+        {
+            if (entity is BaseEntity commonEntity)
+            {
+                commonEntity.UpdatedDate = now;
+            }
+        }
+
+        _dbSet.UpdateRange(entityList);
+        await Task.CompletedTask;
+    }
+
     public virtual async Task DeleteAsync(TKey id, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken);

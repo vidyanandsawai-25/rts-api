@@ -161,7 +161,6 @@ public class PropertyEntityComprehensiveTests
             LocationEnglish = "Downtown Area",
             MobileNo = "9921759522",
             EmailId = "test@example.com",
-            SocietyDetailId = 5,
             MoujaId = 3,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null,

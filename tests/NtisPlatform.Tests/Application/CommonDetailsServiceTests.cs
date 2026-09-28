@@ -67,6 +67,7 @@ public class CommonDetailsServiceTests : IDisposable
         var sourceTableRepo = new Repository<SourceTableEntity>(_context);
         var sourceTableDetailsRepo = new Repository<SourceTableDetailsEntity>(_context);
         var moduleRepo = new Repository<ModuleMasterEntity>(_context);
+        var wingDetailsMastRepo = new Repository<WingDetailsMastEntity>(_context);
         var unitOfWork = new UnitOfWork(_context);
         var entityLoader = new DynamicEntityLoader(_context);
         _mockPropertySearchService = new Mock<IPropertySearchService>();
@@ -75,7 +76,7 @@ public class CommonDetailsServiceTests : IDisposable
         _service = new CommonDetailsService(
             masterRepo, fieldConfigRepo, historyRepo, activityRepo, propertyRepo, wardRepo, societyRepo, userRepo,
             sourceTableRepo, sourceTableDetailsRepo, moduleRepo,
-            unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object);
+            unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object, wingDetailsMastRepo);
 
         SeedTestData();
     }
@@ -104,14 +105,17 @@ public class CommonDetailsServiceTests : IDisposable
             new PropertyAssessmentEntity { Id = 2, PropertyId = 2, BHK = "3BHK" });
 
         _context.SocietyDetailsMast.Add(
-            new SocietyDetailsEntity { Id = 1, PropertyId = 2, WingName = "WingA" });
+            new SocietyDetailsEntity { Id = 1, PropertyId = 2 });
+
+        _context.Set<WingDetailsMastEntity>().Add(
+            new WingDetailsMastEntity { Id = 1, SocietyDetailsMastId = 1, WingName = "WingA", IsActive = true });
 
         _context.UserMasters.AddRange(
             new UserEntity { Id = 100, UserName = "alice.user" },
             new UserEntity { Id = 101, UserName = "bob.user" });
 
         _context.ModuleMasters.Add(
-            new ModuleMasterEntity { Id = 1, ModuleCode = "PROP", ModuleName = "Property", DepartmentId = 1, IsActive = true });
+            new ModuleMasterEntity { Id = 1, ModuleCode = "PROP", ModuleName = "Property", ModuleLabel = "Property", DepartmentId = 1, IsActive = true });
 
         _context.SourceTables.AddRange(
             new SourceTableEntity { Id = 1, ModuleId = 1, TableName = "PTIS.PropertyMast", TableAliasName = "Property Master", IsActive = true },
@@ -321,12 +325,13 @@ public class CommonDetailsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetSourceTablesAsync_CombinesModuleNameAndTableAliasName_WhenModuleExists()
+    public async Task GetSourceTablesAsync_ReturnsModuleLabelAndTableAliasName_WhenModuleExists()
     {
         var result = await _service.GetSourceTablesAsync(CancellationToken.None);
 
         var item = result.Single(t => t.Id == 1);
-        Assert.Equal("Property Property Master", item.TableName);
+        Assert.Equal("Property", item.ModuleLabel);
+        Assert.Equal("Property Master", item.TableName);
         Assert.Equal("PTIS.PropertyMast", item.ReferenceTableName);
     }
 

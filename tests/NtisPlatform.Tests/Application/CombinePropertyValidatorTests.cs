@@ -629,13 +629,13 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = 5 // Same wing
+            WingDetailId = 5 // Same wing
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "100", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 5 },
-            new() { Id = 3, PropertyNo = "100", PartitionNo = "A3", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 5 }
+            new() { Id = 2, PropertyNo = "100", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 5 },
+            new() { Id = 3, PropertyNo = "100", PartitionNo = "A3", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 5 }
         };
 
         // All properties in the building (to simulate multi-unit detection)
@@ -676,12 +676,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = 5 // Wing A
+            WingDetailId = 5 // Wing A
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "100", PartitionNo = "B1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 6 } // Wing B - different
+            new() { Id = 2, PropertyNo = "100", PartitionNo = "B1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 6 } // Wing B - different
         };
 
         // All properties in the building (multiple properties = multi-unit detection)
@@ -721,12 +721,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = null // No society detail - should fail
+            WingDetailId = null // No society detail - should fail
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "100", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 5 }
+            new() { Id = 2, PropertyNo = "100", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 5 }
         };
 
         // All properties in the building (multiple properties = multi-unit detection)
@@ -766,16 +766,16 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = 5
+            WingDetailId = 5
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "101", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 5 } // Different PropertyNo
+            new() { Id = 2, PropertyNo = "101", PartitionNo = "A2", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 5 } // Different PropertyNo
         };
 
         // Additional property to trigger multi-unit detection
-        var additionalProperty = new PropertyEntity { Id = 3, PropertyNo = "100", PartitionNo = "A3", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = 5 };
+        var additionalProperty = new PropertyEntity { Id = 3, PropertyNo = "100", PartitionNo = "A3", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = 5 };
 
         var allBuildingProperties = new List<PropertyEntity> { mainProperty, additionalProperty };
         allBuildingProperties.AddRange(combineProperties);
@@ -817,12 +817,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = null // No society detail - standalone
+            WingDetailId = null // No society detail - standalone
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = null }
+            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = null }
         };
 
         // Only these two properties exist - no multi-unit scenario
@@ -863,12 +863,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10, // Ward 10
             CategoryId = 1,
-            SocietyDetailId = null
+            WingDetailId = null
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 20, CategoryId = 1, SocietyDetailId = null } // Ward 20 - different
+            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 20, CategoryId = 1, WingDetailId = null } // Ward 20 - different
         };
 
         var allProperties = new List<PropertyEntity> { mainProperty };
@@ -907,12 +907,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1, // Zone 1
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = null
+            WingDetailId = null
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 2, WardId = 10, CategoryId = 1, SocietyDetailId = null } // Zone 2 - different
+            new() { Id = 2, PropertyNo = "101", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 2, WardId = 10, CategoryId = 1, WingDetailId = null } // Zone 2 - different
         };
 
         var allProperties = new List<PropertyEntity> { mainProperty };
@@ -951,12 +951,12 @@ public class CombinePropertyValidatorTests
             TaxZoneId = 1,
             WardId = 10,
             CategoryId = 1,
-            SocietyDetailId = null
+            WingDetailId = null
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "200", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, SocietyDetailId = null } // Different PropertyNo - allowed for standalone
+            new() { Id = 2, PropertyNo = "200", PartitionNo = null, OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 10, CategoryId = 1, WingDetailId = null } // Different PropertyNo - allowed for standalone
         };
 
         var allProperties = new List<PropertyEntity> { mainProperty };
@@ -1052,7 +1052,7 @@ public class CombinePropertyValidatorTests
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "100", PartitionNo = "A1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 1, PropertyTypeId = 200, SocietyDetailId = 5 } // Non-Amenity
+            new() { Id = 2, PropertyNo = "100", PartitionNo = "A1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 1, PropertyTypeId = 200, WingDetailId = 5 } // Non-Amenity
         };
 
         var category = new PropertyCategoryEntity
@@ -1108,12 +1108,12 @@ public class CombinePropertyValidatorTests
             WardId = 1,
             CategoryId = 1, // Apartment category
             PropertyTypeId = 140, // Amenity
-            SocietyDetailId = 5
+            WingDetailId = 5
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "100", PartitionNo = "A1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 1, PropertyTypeId = 141, SocietyDetailId = 6 } // Amenity (Different SocietyDetailId, wing validation bypassed)
+            new() { Id = 2, PropertyNo = "100", PartitionNo = "A1", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 1, PropertyTypeId = 141, WingDetailId = 6 } // Amenity (Different SocietyDetailId, wing validation bypassed)
         };
 
         var category = new PropertyCategoryEntity

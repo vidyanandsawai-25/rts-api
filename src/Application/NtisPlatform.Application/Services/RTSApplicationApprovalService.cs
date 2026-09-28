@@ -21,6 +21,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<RTSPaymentTransactionEntity, long> _paymentRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
+    private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
 
     public RTSApplicationApprovalService(
@@ -31,6 +32,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<RTSFieldValueEntity, int> fieldValueRepository,
           IRepository<RTSPaymentTransactionEntity, long> paymentRepository,
           IRepository<RTSServiceEntity, int> serviceRepository,
+          IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
           IRTSSmsNotificationService smsNotificationService,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
@@ -42,6 +44,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _paymentRepository = paymentRepository;
         _serviceRepository = serviceRepository;
         _smsNotificationService = smsNotificationService;
+        _issuedCertificateRepository = issuedCertificateRepository;
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -53,7 +56,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             {
                 TotalApplications = g.Count(),
                 Pending = g.Count(x => x.ApplicationStatus != ApplicationStatus.Approved &&
-                    x.ApplicationStatus != ApplicationStatus.Rejected) ,
+                    x.ApplicationStatus != ApplicationStatus.Rejected &&x.ApplicationStatus!=ApplicationStatus.Reverted) ,
                 Approved = g.Count(x => x.ApplicationStatus == ApplicationStatus.Approved),
                 Rejected = g.Count(x => x.ApplicationStatus == ApplicationStatus.Rejected),
                 Reverted = g.Count(x => x.IsReverted),
@@ -104,7 +107,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var today = DateTime.Today;
 
         var query = _repository.GetQueryable()
-            .Where(x => !x.MarkedForDeletion && x.IsActive).AsQueryable();
+         .Where(x => !x.MarkedForDeletion && x.IsActive)
+         .AsQueryable();
 
         if (queryParameters.DepartmentId > 0)
             query = query.Where(x => x.DepartmentId == queryParameters.DepartmentId);
@@ -112,18 +116,49 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
-            query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
+        if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
+            query = query.Where(x => x.UserId == queryParameters.UserId.Value);
+
+        // ADD DATE FILTER HERE
+        if (queryParameters.FromDate.HasValue)
+        {
+            var fromDate = queryParameters.FromDate.Value.Date;
+
+            query = query.Where(x =>
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value >= fromDate);
+        }
+
+        if (queryParameters.ToDate.HasValue)
+        {
+            var toDate = queryParameters.ToDate.Value.Date.AddDays(1);
+
+            query = query.Where(x =>
+                x.CreatedDate.HasValue &&
+                x.CreatedDate.Value < toDate);
+        }
 
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus) &&
-            !string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
 
-            query = query.Where(x => x.ApplicationStatus.Contains(queryParameters.ApplicationStatus));
+        var search = (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm)
+            ? queryParameters.SearchTerm
+            : queryParameters.ApplicationNo)?.Trim().ToLower();
 
-        else if (queryParameters.ApplicationStatus == "Overdue Applications")
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(x =>
+                (x.ApplicationNo != null && x.ApplicationNo.ToLower().Contains(search)) ||
+                (x.ApplicantName != null && x.ApplicantName.ToLower().Contains(search)) ||
+                (x.ApplicantMobileNo != null && x.ApplicantMobileNo.ToLower().Contains(search)) ||
+                (x.CitizenSession != null && x.CitizenSession.PropertyNo != null && x.CitizenSession.PropertyNo.ToLower().Contains(search)) ||
+                (x.CitizenSession != null && x.CitizenSession.Upic != null && x.CitizenSession.Upic.ToLower().Contains(search)));
+        }
+
+        if (string.Equals(queryParameters.ApplicationStatus, ApplicationStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(x => x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted);
+        }
+        else if (string.Equals(queryParameters.ApplicationStatus, "Overdue Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -137,8 +172,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     )
                 ) < today);
         }
-
-        else if (queryParameters.ApplicationStatus == "DueToday")
+        else if (string.Equals(queryParameters.ApplicationStatus, "DueToday", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.ApplicationStatus != ApplicationStatus.Approved &&
@@ -151,19 +185,86 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))
                 ).Date == today.Date);
         }
-        else if (queryParameters.ApplicationStatus == "Today's Applications")
+        else if (string.Equals(queryParameters.ApplicationStatus, "Today's Applications", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(queryParameters.ApplicationStatus, "Todays Applications", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(x =>
                 x.IsActive &&
                 x.CreatedDate.HasValue &&
                 x.CreatedDate.Value.Date == today.Date);
         }
+        else if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationStatus))
+        {
+            var targetStatus = queryParameters.ApplicationStatus.Trim().ToLower();
+            query = query.Where(x => x.ApplicationStatus != null && x.ApplicationStatus.ToLower() == targetStatus);
+        }
 
-        query = query.ApplySearch<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
-
-        query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
-
-
+        // RemainingDays is a computed field (not on entity), so skip entity-level sort when sorting by it
+        var isSortByRemainingDays = string.Equals(queryParameters.SortBy, "RemainingDays", StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(queryParameters.SortBy, "CreatedDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.CreatedDate).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "applicationNo", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicationNo).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicationNo).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "ApplicantName", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicantName).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicantName).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "ApplicationStatus", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ApplicationStatus).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ApplicationStatus).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "UpdatedDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.UpdatedDate ?? x.CreatedDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.UpdatedDate ?? x.CreatedDate).ThenBy(x => x.Id);
+        }
+        else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
+        {
+            // Strict FIFO mode:
+            // 1. Pending/active applications first, then closed (Approved, Rejected, Reverted)
+            // 2. Pending applications assigned to the logged-in officer (CurrentUserId) on top
+            // 3. Earliest CreatedDate first (FIFO)
+            // 4. Id ASC
+            var currentUserId = queryParameters.CurrentUserId;
+            if (currentUserId.HasValue && currentUserId.Value > 0)
+            {
+                var targetUserId = currentUserId.Value;
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.UserId == targetUserId ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
+            else
+            {
+                query = query
+                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                    .ThenBy(x => x.CreatedDate)
+                    .ThenBy(x => x.Id);
+            }
+        }
+        else if (!isSortByRemainingDays)
+        {
+            query = query.ApplySort<RTSApplicationDetailsEntity, RTSApplicationQueryParameters>(queryParameters);
+        }
+        else
+        {
+            // Apply default Id ordering so EF doesn't warn about unordered Skip/Take
+            query = query.OrderBy(x => x.Id);
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -177,8 +278,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceId = x.ServiceId,
                 ApplicationNo = x.ApplicationNo,
                 ApplicationStatus = x.ApplicationStatus,
-                CreatedDate = x.CreatedDate,
-                UpdatedDate = x.UpdatedDate,
+                ApplicantName = x.ApplicantName,
+                PropertyNo=x.CitizenSession.PropertyNo,
+                UpicId=x.CitizenSession.Upic,
                 SessionId = x.SessionId,
                 OwnerId = x.OwnerId,
                 DepartmentName = x.Department.DepartmentName,
@@ -187,11 +289,14 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceNameLocal = x.Service.ServiceNameLocal,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
-                ApplicantName = x.ApplicantName,
+
                 ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
-
+                OfficerFirstName = x.User.FirstName,
+                OfficerLastName = x.User.LastName,
+                CreatedDate = x.CreatedDate,
+                UpdatedDate = x.UpdatedDate,
             }).ToListAsync(cancellationToken);
 
         foreach (var item in items)
@@ -210,6 +315,18 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             var dueDate = item.CreatedDate.Value.Date.AddDays(slaDays.Value);
             var diff = (dueDate - DateTime.Today).Days;
             item.RemainingDays = diff;
+        }
+
+        // Apply in-memory sort for the computed RemainingDays field (nulls pushed to end)
+        if (isSortByRemainingDays)
+        {
+            items = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? items.OrderByDescending(x => x.RemainingDays.HasValue)
+                       .ThenByDescending(x => x.RemainingDays)
+                       .ToList()
+                : items.OrderByDescending(x => x.RemainingDays.HasValue)
+                       .ThenBy(x => x.RemainingDays)
+                       .ToList();
         }
 
 
@@ -248,7 +365,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           .Select(x => new ApplicationApprovalStageDetailsDto
           {
               ApprovalStages = x.Service.ApprovalFlows
-                .Where(flow => flow.IsActive)
+                .Where(flow => flow.IsActive && (x.ApprovalFlowId == 0 || flow.Id == x.ApprovalFlowId))
                 .OrderByDescending(flow => flow.Id)
                 .Take(1)
                 .SelectMany(flow => flow.ApprovalFlowStages)
@@ -294,6 +411,40 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return result;
         }
 
+        // Check if this application was reverted by the Clerk (first stage) to the Citizen
+        var application = await _historyRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.ApplicationId == applicationId && x.IsActive)
+            .OrderByDescending(x => x.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (application != null && application.ApprovalFlowId != 0)
+        {
+            var currentStages = await _approvalFlowStageRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(stage => stage.Id == application.ApprovalFlowStageId)
+                .Select(stage => new
+                {
+                    stage.ApprovalFlowId,
+                    stage.StageOrder
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (currentStages != null && application.Status==ApplicationStatus.Reverted)
+            {
+                var hasPreviousStage = await _approvalFlowStageRepository
+                    .GetQueryable()
+                    .AnyAsync(stage =>
+                        stage.ApprovalFlowId == currentStages.ApprovalFlowId &&
+                        stage.StageOrder < currentStages.StageOrder,
+                        cancellationToken);
+
+                result.isRevertedToCitizen = !hasPreviousStage;
+            }
+        }
+
+
         result.TotalApprovalStages = result.ApprovalStages.Count;
         result.CompletedStages = result.ApprovalStages.Count(x => IsCompletedStatus(x.Status));
         var currentStage = result.ApprovalStages.OrderBy(x => x.StageOrder).FirstOrDefault(x => !IsCompletedStatus(x.Status));
@@ -315,6 +466,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.Id == applicationId)
             .Select(x => new RTSApplicationViewDetailsDto
             {
+                ApplicationId = x.Id,
+                ApplicationNo = x.ApplicationNo,
+                ServiceId = x.ServiceId,
+                ServiceName = x.Service != null ? x.Service.ServiceName : null,
+                DepartmentId = x.DepartmentId,
+                DepartmentName = x.Department != null ? x.Department.DepartmentName : null,
+                ApplicationStatus = x.ApplicationStatus,
+                Remark = x.Remark,
+                IsCertificateRequired = x.Service != null && x.Service.IsCertificateRequired,
+                CertificateType = x.Service != null ? (byte)x.Service.CertificateType : (byte)0,
+                IssuedCertificateGuid = x.IssuedCertificateGuid,
                 Documents = x.FieldValueData
                     .Where(fv =>
                         !fv.MarkedForDeletion &&
@@ -328,7 +490,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     {
                         FieldDefinitionId = fv.FieldDefinitionId,
                         DocumentName = fv.FieldDefinition!.FieldLabel,
+                        DocumentNameLocal=fv.FieldDefinition.FieldLabelLocal,
                         DocumentGuid = fv.DocumentGuid,
+                        Value=fv.TextValue,
                         IsRequired = fv.FieldDefinition.IsRequired,
                         IsUploaded = fv.DocumentGuid.HasValue
                     })
@@ -378,7 +542,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
 
     // <summary>
-    // Get the current approval officer for a given application. and it Access and Name Role and Email and Stage Details
+    // Get the current approval officer for a given application. and it Access and Name Role and Email and Stage Details 
     // <summary>
 
     public async Task<CurrentApprovalOfficerDto?> GetCurrentApprovalOfficerAsync(
@@ -409,7 +573,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 application.ServiceId,
                 ServiceName = application.Service != null ? application.Service.ServiceName : null,
                 ServiceFees = application.Service != null ? application.Service.Fees : null,
-                FeesRequired = application.Service != null && application.Service.FeesRequired
+                FeesRequired = application.Service != null && application.Service.FeesRequired,
+                CertificateType = application.Service != null ? application.Service.CertificateType : NtisPlatform.Core.Enums.RTSCertificateType.None
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -418,13 +583,21 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             return null;
         }
 
+        var isCertificateIssued = await _issuedCertificateRepository   //checks the applications Certficate is issued or not
+         .GetQueryable()
+         .AsNoTracking()
+         .AnyAsync(
+         x =>
+         x.ApplicationId == applicationId &&
+         x.IsActive &&
+         !x.MarkedForDeletion,
+            cancellationToken);
+
         // Application workflow is already completed.
-        if (result.ApplicationStatus == ApplicationStatus.Approved ||
-            result.ApplicationStatus == ApplicationStatus.Rejected)
+        if (result.ApplicationStatus == ApplicationStatus.Approved && isCertificateIssued)
         {
             return null;
         }
-
         if (result.ApprovalFlowId == 0 || result.CurrentApprovalFlowStageId == 0)
         {
             throw new InvalidOperationException(
@@ -452,6 +625,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanPay,
                 stage.CanEdit,
                 stage.CanViewNoteSheet,
+                stage.CanIssueCertificate,
+                stage.CanViewCertificate,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -518,6 +693,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanPay = currentStage.CanPay,
             CanEdit = currentStage.CanEdit,
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
+            CanIssueCertificate = currentStage.CanIssueCertificate,
+            CanViewCertificate=currentStage.CanViewCertificate,
+            IsManualCertificate = result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
@@ -724,10 +902,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 "Current stage history record was not found.");
 
-        //if Second Stage Is Last Satge
-        if (currentStage.IsFinalStage)
-        {
+        var nextStage = await _approvalFlowStageRepository
+           .GetQueryable()
+           .AsNoTracking()
+           .Where(stage =>
+               stage.ApprovalFlowId == application.ApprovalFlowId &&
+               stage.StageOrder > application.CurrentStageOrder)
+           .OrderBy(stage => stage.StageOrder)
+           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
+           .FirstOrDefaultAsync(cancellationToken);
 
+        // Finalize approval only if current stage is final and there are no subsequent stages
+        if (currentStage.IsFinalStage && nextStage == null)
+        {
             application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
             {
                 ApprovalFlowId = application.ApprovalFlowId,
@@ -747,6 +934,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.ApplicationStatus = ApplicationStatus.Approved;
             application.Remark = dto.Remark;
             application.IsReverted = false;
+            application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
 
@@ -777,16 +965,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             };
         }
 
-        var nextStage = await _approvalFlowStageRepository  //PENDING AT
-           .GetQueryable()
-           .AsNoTracking()
-           .Where(stage =>
-               stage.ApprovalFlowId == application.ApprovalFlowId &&
-               stage.StageOrder > application.CurrentStageOrder)
-           .OrderBy(stage => stage.StageOrder)
-           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
-           .FirstOrDefaultAsync(cancellationToken);
-
         if (nextStage == null)
             throw new InvalidOperationException("Next approval stage is not configured.");
 
@@ -797,6 +975,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
+        application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
         application.UpdatedBy = dto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
 
@@ -965,7 +1144,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (currentStage == null)
             throw new InvalidOperationException("Current approval stage was not found.");
 
-        if (!currentStage.CanEdit)
+        if (!currentStage.CanEdit && application.ApplicationStatus != ApplicationStatus.Reverted && !application.IsReverted)
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application correction.");
 
@@ -977,9 +1156,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        if (!fieldValues.Any())
-            throw new InvalidOperationException("Applicant field values were not found.");
-
         foreach (var item in dto.FieldValue)
         {
             var fieldValue = fieldValues.FirstOrDefault(x =>
@@ -987,22 +1163,45 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.FieldDefinitionId == item.FieldDefinitionId);
 
             if (fieldValue == null)
-                throw new InvalidOperationException(
-                    $"Field definition {item.FieldDefinitionId} was not found for this application.");
-
-            fieldValue.TextValue = item.TextValue;
-            fieldValue.NumberValue = item.NumberValue;
-            fieldValue.DateValue = item.DateValue;
-            fieldValue.BooleanValue = item.BooleanValue;
-            fieldValue.DocumentGuid = item.DocumentGuid;
-            fieldValue.UpdatedBy = dto.UpdatedBy;
-            fieldValue.UpdatedDate = DateTime.Now;
+            {
+                var newFieldValue = new RTSFieldValueEntity
+                {
+                    ApplicationId = applicationId,
+                    FieldDefinitionId = item.FieldDefinitionId,
+                    TextValue = item.TextValue,
+                    NumberValue = item.NumberValue,
+                    DateValue = item.DateValue,
+                    BooleanValue = item.BooleanValue,
+                    DocumentGuid = item.DocumentGuid,
+                    IsActive = true,
+                    CreatedBy = dto.UpdatedBy,
+                    CreatedDate = DateTime.Now
+                };
+                await _fieldValueRepository.AddAsync(newFieldValue, cancellationToken);
+            }
+            else
+            {
+                fieldValue.TextValue = item.TextValue;
+                fieldValue.NumberValue = item.NumberValue;
+                fieldValue.DateValue = item.DateValue;
+                fieldValue.BooleanValue = item.BooleanValue;
+                fieldValue.DocumentGuid = item.DocumentGuid;
+                fieldValue.UpdatedBy = dto.UpdatedBy;
+                fieldValue.UpdatedDate = DateTime.Now;
+                await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
+            }
         }
 
-            application.Remark = dto.Remark;
-            application.UpdatedBy = dto.UpdatedBy;
-            application.UpdatedDate = DateTime.Now;
+        var wasReverted = application.IsReverted || application.ApplicationStatus == ApplicationStatus.Reverted;
+        if (wasReverted)
+        {
+            application.ApplicationStatus = ApplicationStatus.Pending;
+            application.IsReverted = false;
+        }
 
+        application.Remark = dto.Remark;
+        application.UpdatedBy = dto.UpdatedBy;
+        application.UpdatedDate = DateTime.Now;
 
         var history = new TrackApplicationHistoryEntity
         {
@@ -1010,9 +1209,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = application.CurrentApprovalFlowStageId,
             ActionByUserId = dto.UpdatedBy,
-            Status = ApplicationStatus.Correction,
-            Action = $"{ApplicationStatus.Correction} at {currentStage.StageName}",
-            Remark = dto.Remark,
+            Status = wasReverted ? ApplicationStatus.Pending : ApplicationStatus.Correction,
+            Action = wasReverted ? "Application Corrected & Resubmitted" : $"{ApplicationStatus.Correction} at {currentStage.StageName}",
+            Remark = dto.Remark ?? (wasReverted ? "Corrections updated and resubmitted" : null),
             IsReverted = false,
             IsActive = true,
             CreatedBy = dto.UpdatedBy,
@@ -1022,6 +1221,25 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         await _historyRepository.AddAsync(history, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(mobile))
+            {
+                var statusText = wasReverted ? "RESUBMITTED" : "CORRECTED";
+                await _smsNotificationService.SendApplicationStatusUpdateAsync(
+                    application.Id,
+                    application.ApplicationNo ?? $"APP{application.Id}",
+                    name,
+                    mobile,
+                    serviceName,
+                    statusText,
+                    null,
+                    cancellationToken);
+            }
+        }
+        catch { }
 
         return new RTSApplicationApprovalResponseDto
         {
@@ -1230,6 +1448,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
 
+
+
+
+
     // <summary>
     // Helper Methods
     private static bool IsCompletedStatus(string? status)
@@ -1248,4 +1470,67 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var numericPart = new string(sla?.Where(char.IsDigit).ToArray() ?? []);
         return int.TryParse(numericPart, out var days) ? days : null;
     }
+
+    public async Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(
+        int applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        var histories = await _historyRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(h => h.Application)
+            .Include(h => h.ApprovalFlowStage)
+            .Where(h => h.ApplicationId == applicationId && h.IsActive)
+            .OrderBy(h => h.Id)
+            .ToListAsync(cancellationToken);
+
+        var userIds = histories.Where(h => h.ActionByUserId.HasValue).Select(h => h.ActionByUserId!.Value).Distinct().ToList();
+        var users = await _userRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => new { u.UserName, u.FirstName, u.LastName }, cancellationToken);
+
+        var result = new List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>();
+        foreach (var h in histories)
+        {
+            string? userName = null;
+            string? officerName = null;
+            if (h.ActionByUserId.HasValue && users.TryGetValue(h.ActionByUserId.Value, out var user))
+            {
+                userName = user.UserName;
+                officerName = $"{user.FirstName} {user.LastName}".Trim();
+                if (string.IsNullOrWhiteSpace(officerName)) officerName = user.UserName;
+            }
+
+            bool isDsc = h.Action != null && (
+                h.Action.Contains("DigitalSign", StringComparison.OrdinalIgnoreCase) ||
+                h.Action.Contains("DSC", StringComparison.OrdinalIgnoreCase) ||
+                (h.Remark != null && h.Remark.Contains("DSC Hash", StringComparison.OrdinalIgnoreCase))
+            );
+
+            result.Add(new NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto
+            {
+                Id = h.Id,
+                ApplicationId = h.ApplicationId,
+                ApplicationNo = h.Application?.ApplicationNo,
+                ApprovalFlowId = h.ApprovalFlowId,
+                ApprovalFlowStageId = h.ApprovalFlowStageId,
+                StageName = h.ApprovalFlowStage?.StageName,
+                ActionByUserId = h.ActionByUserId,
+                ActionByUserName = userName,
+                ActionByOfficerName = officerName,
+                Action = h.Action ?? string.Empty,
+                Status = h.Status,
+                Remark = h.Remark,
+                IsReverted = h.IsReverted,
+                IsDigitallySigned = isDsc,
+                DigitalSignatureInfo = isDsc ? h.Remark : null,
+                CreatedDate = h.CreatedDate ?? DateTime.UtcNow
+            });
+        }
+
+        return result;
+    }
+
+
 }
+

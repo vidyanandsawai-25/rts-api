@@ -4,6 +4,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Utilities;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -11,6 +12,7 @@ using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Infrastructure.Repositories;
 
@@ -192,7 +194,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 // -- trusting it directly would show a 0 total on live properties. TaxTotal is
                 // therefore always the sum of the real (non-reserved) components.
                 var taxAmounts = allTaxAmounts
-                    .Where(t => !string.Equals(t.TaxName, "TaxTotal", StringComparison.OrdinalIgnoreCase))
+                    .Where(t => !string.Equals(t.TaxName, "TaxTotal", StringComparison.OrdinalIgnoreCase)
+                             && !string.Equals(t.TaxName, "Tax Total", StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
                 var taxTotal = taxAmounts.Sum(t => t.TaxAmount);
@@ -259,35 +262,43 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 }
             }
 
-            var summaryPendingRowsRaw = await (from tp in _context.TaxPendingDetails
-                                               join ym in _context.YearMaster on tp.PendingYearId equals ym.Id
-                                               join tm in _context.TaxMaster on tp.TaxId equals tm.Id
-                                               where tp.PropertyId == propertyId && tp.IsActive && !tp.MarkedForDeletion && tm.IsActive
+            // Migrated ULB arrears -- PTIS.TransMast rows tagged PolicyCode = OLD_ARREARS (see
+            // RetrospectiveTaxCalculationEngineService.SyncPolicyTaxAndTransMastAsync, the writer).
+            var summaryPendingRowsRaw = await (from tm2 in _context.TransMast
+                                               join ym in _context.YearMaster on tm2.FinanceYearId equals ym.Id
+                                               join tm in _context.TaxMaster on tm2.TaxId equals tm.Id
+                                               join pcm in _context.PolicyCodeMaster on tm2.PolicyCodeId equals pcm.Id
+                                               where tm2.PropertyId == propertyId && tm2.IsActive && !tm2.MarkedForDeletion && tm.IsActive
+                                                  && pcm.PolicyCode == PolicyCodes.OldArrears
                                                   && ym.Year < currentAssessmentYear
                                                select new
                                                {
-                                                   tp.PendingYearId,
+                                                   PendingYearId = tm2.FinanceYearId,
                                                    ym.YearCode,
                                                    ym.Year,
                                                    ym.StartDate,
                                                    tm.TaxName,
-                                                   PendingAmount = tp.PendingAmount ?? 0m,
+                                                   PendingAmount = tm2.TaxAmount,
                                                    tm.DisplayOrder
                                                }).ToListAsync(cancellationToken);
 
-            var retroPendingRowsRaw = await (from tpr in _context.TaxPendingDetailsRetro
-                                             join ym in _context.YearMaster on tpr.PendingYearId equals ym.Id
-                                             join tm in _context.TaxMaster on tpr.TaxId equals tm.Id
-                                             where tpr.PropertyId == propertyId && tpr.IsActive && !tpr.MarkedForDeletion && tm.IsActive
+            // Retrospective demand -- PTIS.TransMast rows whose policy is flagged IsRetroDemand
+            // (OC/CC/Electric Bill and their PARTIAL_ variants).
+            var retroPendingRowsRaw = await (from tm2 in _context.TransMast
+                                             join ym in _context.YearMaster on tm2.FinanceYearId equals ym.Id
+                                             join tm in _context.TaxMaster on tm2.TaxId equals tm.Id
+                                             join pcm in _context.PolicyCodeMaster on tm2.PolicyCodeId equals pcm.Id
+                                             where tm2.PropertyId == propertyId && tm2.IsActive && !tm2.MarkedForDeletion && tm.IsActive
+                                                && pcm.IsRetroDemand
                                                 && ym.Year < currentAssessmentYear
                                              select new
                                              {
-                                                 tpr.PendingYearId,
+                                                 PendingYearId = tm2.FinanceYearId,
                                                  ym.YearCode,
                                                  ym.Year,
                                                  ym.StartDate,
                                                  tm.TaxName,
-                                                 PendingAmount = tpr.PendingAmount ?? 0m,
+                                                 PendingAmount = tm2.TaxAmount,
                                                  tm.DisplayOrder
                                              }).ToListAsync(cancellationToken);
 
@@ -324,6 +335,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     {
                         var amounts = gy
                             .OrderBy(r => r.DisplayOrder)
+                            .Where(r => !string.Equals(r.TaxName, "TaxTotal", StringComparison.OrdinalIgnoreCase)
+                                     && !string.Equals(r.TaxName, "Tax Total", StringComparison.OrdinalIgnoreCase))
                             .Select(r => new TaxAmountDetail
                             {
                                 TaxName = r.TaxName,
@@ -440,6 +453,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     {
                         var amounts = gy
                             .OrderBy(r => r.DisplayOrder)
+                            .Where(r => !string.Equals(r.TaxName, "TaxTotal", StringComparison.OrdinalIgnoreCase)
+                                     && !string.Equals(r.TaxName, "Tax Total", StringComparison.OrdinalIgnoreCase))
                             .Select(r => new TaxAmountDetail
                             {
                                 TaxName = r.TaxName,
@@ -564,7 +579,38 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
 
-        var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+        List<int> propertyIds;
+        if (dto.PropertyId.HasValue)
+        {
+            var societyQuery = _context.SocietyDetailsMast.AsNoTracking();
+            var wingDetailsMastQuery = _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking();
+
+            var searchedProperty = await _context.PropertyMast.AsNoTracking().FirstOrDefaultAsync(p => p.Id == dto.PropertyId.Value, cancellationToken);
+            var targetPropertyNo = searchedProperty?.PropertyNo;
+            var targetWardId = searchedProperty?.WardId;
+
+            var isSociety = searchedProperty != null && await societyQuery.AnyAsync(s => s.IsActive && !s.MarkedForDeletion &&
+                _context.PropertyMast.Any(sp => sp.Id == s.PropertyId && sp.PropertyNo == targetPropertyNo && sp.WardId == targetWardId && sp.IsActive && !sp.MarkedForDeletion), cancellationToken);
+
+            if (isSociety && searchedProperty != null)
+            {
+                propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+                                     where pm.IsActive && !pm.MarkedForDeletion &&
+                                           pm.WingDetailId.HasValue &&
+                                           wingDetailsMastQuery.Any(wdm => wdm.Id == pm.WingDetailId.Value && wdm.IsActive && !wdm.MarkedForDeletion &&
+                                               societyQuery.Any(s => s.Id == wdm.SocietyDetailsMastId && s.IsActive && !s.MarkedForDeletion &&
+                                                   _context.PropertyMast.Any(sp => sp.Id == s.PropertyId && sp.PropertyNo == targetPropertyNo && sp.WardId == targetWardId && sp.IsActive && !sp.MarkedForDeletion)))
+                                     select pm.Id)
+                                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                propertyIds = new List<int> { dto.PropertyId.Value };
+            }
+        }
+        else
+        {
+            propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters.AsNoTracking() on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
@@ -573,11 +619,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                                                ? pm.PartitionNo.ToLower().Contains(normalizedPartitionNo)
                                                : pm.PartitionNo.ToLower() == normalizedPartitionNo))) &&
                                        (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
-                                       (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&
                                        pt.IsActive
                                  select pm.Id)
                                 .ToListAsync(cancellationToken);
+        }
 
         if (propertyIds == null || !propertyIds.Any())
             return null;
@@ -624,7 +670,38 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
 
-        var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+        List<int> propertyIds;
+        if (dto.PropertyId.HasValue)
+        {
+            var societyQuery = _context.SocietyDetailsMast.AsNoTracking();
+            var wingDetailsMastQuery = _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking();
+
+            var searchedProperty = await _context.PropertyMast.AsNoTracking().FirstOrDefaultAsync(p => p.Id == dto.PropertyId.Value, cancellationToken);
+            var targetPropertyNo = searchedProperty?.PropertyNo;
+            var targetWardId = searchedProperty?.WardId;
+
+            var isSociety = searchedProperty != null && await societyQuery.AnyAsync(s => s.IsActive && !s.MarkedForDeletion &&
+                _context.PropertyMast.Any(sp => sp.Id == s.PropertyId && sp.PropertyNo == targetPropertyNo && sp.WardId == targetWardId && sp.IsActive && !sp.MarkedForDeletion), cancellationToken);
+
+            if (isSociety && searchedProperty != null)
+            {
+                propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+                                     where pm.IsActive && !pm.MarkedForDeletion &&
+                                           pm.WingDetailId.HasValue &&
+                                           wingDetailsMastQuery.Any(wdm => wdm.Id == pm.WingDetailId.Value && wdm.IsActive && !wdm.MarkedForDeletion &&
+                                               societyQuery.Any(s => s.Id == wdm.SocietyDetailsMastId && s.IsActive && !s.MarkedForDeletion &&
+                                                   _context.PropertyMast.Any(sp => sp.Id == s.PropertyId && sp.PropertyNo == targetPropertyNo && sp.WardId == targetWardId && sp.IsActive && !sp.MarkedForDeletion)))
+                                     select pm.Id)
+                                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                propertyIds = new List<int> { dto.PropertyId.Value };
+            }
+        }
+        else
+        {
+            propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters.AsNoTracking() on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
@@ -633,11 +710,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                                                ? pm.PartitionNo.ToLower().Contains(normalizedPartitionNo)
                                                : pm.PartitionNo.ToLower() == normalizedPartitionNo))) &&
                                        (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
-                                       (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&
                                        pt.IsActive
                                  select pm.Id)
                                 .ToListAsync(cancellationToken);
+        }
 
         if (propertyIds == null || !propertyIds.Any())
             return null;
@@ -741,14 +818,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 3: Get existing property count for partition number calculation
         // This is equivalent to @LastPropertyNo in the SQL query
         var lastPropertyNo = await (from p in _context.PropertyMast
-                                    join s in _context.SocietyDetailsMast on p.SocietyDetailId equals s.Id
+                                    join s in _context.SocietyDetailsMast on p.Id equals s.PropertyId
+                                    join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>() on s.Id equals wdm.SocietyDetailsMastId
                                     where p.WardId == dto.WardId
                                           && p.PropertyNo == dto.PropertyNo
-                                          && s.WingId == dto.WingId
+                                          && wdm.WingMasterId == dto.WingId
                                           && p.IsActive
                                           && !p.MarkedForDeletion
                                           && s.IsActive
                                           && !s.MarkedForDeletion
+                                          && wdm.IsActive
+                                          && !wdm.MarkedForDeletion
                                     select p).CountAsync(cancellationToken);
 
         // Step 4: Generate floor and unit sequences (equivalent to CTEs in SQL)
@@ -849,9 +929,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             from pm in _context.PropertyMast
             join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
             join wm in _context.WardMaster on pm.WardId equals wm.Id
-            join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
-            join we in _context.WingEntity on sdm.WingId equals we.Id
-            where pm.SocietyDetailId == SocietyDetailId
+            join sdm in _context.SocietyDetailsMast on pm.Id equals sdm.PropertyId
+            join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking().Where(x => x.IsActive && !x.MarkedForDeletion) on sdm.Id equals wdm.SocietyDetailsMastId
+            join we in _context.WingEntity.AsNoTracking().Where(x => x.IsActive) on wdm.WingMasterId equals we.Id
+            where sdm.Id == SocietyDetailId
     && !string.IsNullOrEmpty(pm.PartitionNo)
     && pm.PartitionNo != we.WingNo
     && pm.MarkedForDeletion != true
@@ -866,12 +947,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             select new SocietyAminityDetailsDto
             {
                 PropertyId = pm.Id,
-                SocietyDetailId = pm.SocietyDetailId ?? 0,
+                SocietyDetailId = sdm.Id,
                 WardId = pm.WardId,
                 WardNo = wm.WardNo,
                 wingId = we.Id,
                 WingNo = we.WingNo,
-                WingName = sdm.WingName,
+                WingName = wdm.WingName,
                 PropertyNo = pm.PropertyNo,
                 PartitionNo = pm.PartitionNo,
                 PartType = ptm.PartType
@@ -903,22 +984,34 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (property == null)
             return null;
 
+        // Find all PropertyMast IDs that share the same WardId + PropertyNo (same building)
+        var buildingPropertyIds = await _context.PropertyMast
+            .AsNoTracking()
+            .Where(p => p.WardId == property.WardId
+                     && p.PropertyNo == property.PropertyNo
+                     && p.IsActive
+                     && !p.MarkedForDeletion)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
         var amenityProperties = await (
       from sdm in _context.SocietyDetailsMast
-      join we in _context.WingEntity on sdm.WingId equals we.Id into wingJoin
+      join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>() on sdm.Id equals wdm.SocietyDetailsMastId into wdmJoin
+      from wdm in wdmJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
+      join we in _context.WingEntity on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)we.Id into wingJoin
       from we in wingJoin.Where(x => x.IsActive).DefaultIfEmpty()
-      where sdm.PropertyId == property.Id
+      where sdm.PropertyId.HasValue && buildingPropertyIds.Contains(sdm.PropertyId.Value)
             && sdm.IsActive
             && !sdm.MarkedForDeletion
       select new PropertySocietyDetailsDto
       {
           PropertyId = sdm.PropertyId,
           SocietyDetailId = sdm.Id,
-          WingId = sdm.WingId,
+          WingId = wdm != null ? (int?)wdm.WingMasterId : null,
           WingNo = we != null ? we.WingNo : null,
           WardNo = property.WardNo,
           PropertyNo = property.PropertyNo,
-          WingName = sdm.WingName,
+          WingName = wdm != null ? wdm.WingName : null,
           SocietyName = sdm.SocietyName,
           SocietyAddress = sdm.SocietyAddress,
           SecretaryName = sdm.SecretaryName,
@@ -936,8 +1029,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
           SocietyEmailId = sdm.SocietyEmailId,
           SecretaryEmailId = sdm.SecretaryEmailId,
           ManagerEmailId = sdm.ManagerEmailId,
-          PropertyCount = _context.PropertyMast
-              .Where(pm => pm.SocietyDetailId == sdm.Id
+          PropertyCount = wdm == null ? 0 : _context.PropertyMast
+              .Where(pm => pm.WingDetailId == wdm.Id
                   && !string.IsNullOrEmpty(pm.PartitionNo)
                   && pm.IsActive
                   && !pm.MarkedForDeletion)
@@ -946,8 +1039,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                   ptm => ptm.Id,
                   (pm, ptm) => ptm)
               .Count(ptm => ptm.PartType != PartTypeConstants.Amenity && ptm.IsActive),
-          AminityCount = _context.PropertyMast
-              .Where(pm => pm.SocietyDetailId == sdm.Id
+          AminityCount = wdm == null ? 0 : _context.PropertyMast
+              .Where(pm => pm.WingDetailId == wdm.Id
                   && !string.IsNullOrEmpty(pm.PartitionNo)
                   && pm.IsActive
                   && !pm.MarkedForDeletion)
@@ -1030,8 +1123,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     /// </summary>
     public async Task<List<RoomWiseMinusDataEntity>> GetRoomWiseMinusBySubmissionIdsAsync(List<int> roomWiseSubmissionIds, CancellationToken cancellationToken = default)
     {
-        return await _context.RoomWiseMinusData
-            .Where(x => roomWiseSubmissionIds.Contains(x.RoomWiseSubmissionId))
+        return await _context.RoomWiseMinusData.Where(x => roomWiseSubmissionIds.Contains(x.RoomWiseSubmissionId))
             .ToListAsync(cancellationToken);
     }
 
@@ -1201,24 +1293,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Note: PropertyTaxCalculationCVResultsEntity and RenterDetailEntity use PropertyDetailsId (not PropertyId).
         // They are handled in PropertyService.MarkPropertyDetailsAndRelatedAsync() method with TODO comments there.
 
-        var taxPending = await _context.TaxPendingDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPending);
-
-        var taxPendingArchive = await _context.TaxPendingDetailsArchive.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPendingArchive);
-
-        var taxPendingCV = await _context.TaxPendingDetailsCV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPendingCV);
-
-        var taxPendingLookup = await _context.TaxPendingDetailsLookup.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPendingLookup);
-
-        var taxPendingRetro = await _context.TaxPendingDetailsRetro.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPendingRetro);
-
-        var taxPendingRV = await _context.TaxPendingDetailsRV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(taxPendingRV);
-
         // TransMast now holds both RV and CV rows (CalculationType discriminator), so this single
         // query already covers what a separate TransMastCV load used to cover.
         var transMast = await _context.TransMast.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
@@ -1303,6 +1377,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         PropertyAssessmentEntity? propertyMastDetails = null;
         try
         {
+            var ward = await _context.WardMaster.FirstOrDefaultAsync(x => x.Id == dto.WardId, cancellationToken);
+
+            if (ward == null)
+            {
+                throw new ValidationException($"Ward with Id {dto.WardId} not found.");
+            }
 
             // Property insert
             property = new PropertyEntity
@@ -1314,6 +1394,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 PropertySeqNo = dto.PropertySeqNo,
                 PropertyTypeId = dto.PropertyTypeId,
                 CategoryId = dto.CategoryId,
+                UPICId = UpicIdBuilderHelper.Generate(ward.WardNo,dto.PropertyNo,dto.PartitionNo),
                 OwnerTitle = string.Empty,
                 OwnerTitleEnglish = string.Empty,
                 OpenPlot = dto.OpenPlot,
@@ -1325,9 +1406,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 AddressEnglish = dto?.AddressEnglish,
                 Location = dto?.Location,
                 LocationEnglish = dto?.LocationEnglish,
-                SocietyDetailId = dto?.SocietyDetailId,
+                WingDetailId = dto?.WingDetailId,
                 PropertyFloorId = dto?.PropertyFloorId,
-
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedBy = dto?.CreatedBy
@@ -1336,10 +1416,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             _context.PropertyMast.Add(property);
             var propertySaveResult = await _context.SaveChangesAsync(cancellationToken);
 
+
             // Assessment insert 
             propertyMastDetails = new PropertyAssessmentEntity
             {
                 PropertyId = property.Id,
+                BHK = dto?.BHK,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedBy = dto?.CreatedBy
@@ -1355,10 +1437,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 {
                     PropertyId = property.Id,
                     FloorId = property!.PropertyFloorId!.Value,
+                    SubFloorId = dto.SubFloorId,
                     ConstructionTypeId = dto!.ConstructionTypeId!.Value,
                     TypeOfUseId = dto.TypeOfUseId!.Value,
                     SubTypeOfUseId = dto.SubTypeOfUseId,
                     ConstructionYear = dto.ConstructionYear,
+                    AssessmentYear = dto.AssessmentYear,
+                    CarpetAreaSqMeter = dto.CarpetAreaSqMeter,
+                    CarpetAreaSqFeet = dto.CarpetAreaSqFeet,
+                    BuiltupAreaSqMeter = dto.BuiltupAreaSqMeter,
+                    BuiltupAreaSqFeet = dto.BuiltupAreaSqFeet,
+                    NoOfRooms = dto.NoOfRooms,
                     IsActive = true,
                     MarkedForDeletion = false,
                     CreatedBy = dto?.CreatedBy
@@ -1394,6 +1483,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
         }
     }
+    
     public async Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
     {
         return await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "" && x.MarkedForDeletion == false, cancellationToken);
@@ -1423,7 +1513,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return await _context.PropertyMast.AnyAsync(
             x => x.WardId == dto.WardId
               && x.PropertyNo == dto.PropertyNo
-              && x.SocietyDetailId == dto.SocietyDetailId
+              && x.WingDetailId == dto.WingDetailId
               && x.FlatOrShopNo == dto.FlatOrShopNo && x.MarkedForDeletion == false,
             cancellationToken);
     }
@@ -1571,66 +1661,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         // 15. PropertyImagesMast
         await _context.PropertyImagesMast
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 16. TaxPendingDetails
-        await _context.TaxPendingDetails
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 17. TaxPendingDetailsArchive
-        await _context.TaxPendingDetailsArchive
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 18. TaxPendingDetailsCV
-        await _context.TaxPendingDetailsCV
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 19. TaxPendingDetailsLookup
-        await _context.TaxPendingDetailsLookup
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 20. TaxPendingDetailsRetro
-        await _context.TaxPendingDetailsRetro
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(p => p.MarkedForDeletion, true)
-                .SetProperty(p => p.MarkedForDeletionDate, deletionTime)
-                .SetProperty(p => p.IsActive, false)
-                .SetProperty(p => p.UpdatedDate, deletionTime),
-                cancellationToken);
-
-        // 21. TaxPendingDetailsRV
-        await _context.TaxPendingDetailsRV
             .Where(x => propertyIds.Contains(x.PropertyId) && x.MarkedForDeletion == false)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.MarkedForDeletion, true)

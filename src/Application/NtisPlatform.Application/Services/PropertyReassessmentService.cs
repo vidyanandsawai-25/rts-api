@@ -232,7 +232,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         // Separate into OC and CC dictionaries
         var ocCerts = certRows
             .Where(c => c.CertificateTypeCode == "OC")
-            .GroupBy(c => (c.PropertyId, c.PropertyDetailsId))
+            .GroupBy(c => (c.PropertyId!.Value, c.PropertyDetailsId))
             .ToDictionary(
                 g => g.Key,
                 g =>
@@ -243,7 +243,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
 
         var ccCerts = certRows
             .Where(c => c.CertificateTypeCode == "CC")
-            .GroupBy(c => (c.PropertyId, c.PropertyDetailsId))
+            .GroupBy(c => (c.PropertyId!.Value, c.PropertyDetailsId))
             .ToDictionary(
                 g => g.Key,
                 g =>

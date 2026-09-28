@@ -65,7 +65,7 @@ public partial class PropertyOldDetailsService : IPropertyOldDetailsService
         try
         {
             // Get or create the PropertyMastOld root, linking it back to the property when created.
-            int propertyMastOldId = await EnsurePropertyMastOldAsync(property, now, cancellationToken);
+            int propertyMastOldId = await _repository.EnsureMappedOldPropertyIdAsync(propertyId, cancellationToken);
 
             // Update PropertyMastOld fields (only those supplied).
             var oldMastData = await _repository.GetPropertyMastOldByIdAsync(propertyMastOldId, cancellationToken);
@@ -151,28 +151,4 @@ public partial class PropertyOldDetailsService : IPropertyOldDetailsService
         }
     }
 
-    /// <summary>
-    /// Returns the property's PropertyMastOld id, creating (and linking) a new PropertyMastOld row when none
-    /// exists. The intermediate save is protected by the transaction opened in <see cref="UpdateOldDetailsAsync"/>.
-    /// </summary>
-    private async Task<int> EnsurePropertyMastOldAsync(PropertyEntity property, DateTime now, CancellationToken cancellationToken)
-    {
-        if (property.PropertyMastOldId.HasValue)
-            return property.PropertyMastOldId.Value;
-
-        var newPropertyMastOld = new PropertyMastOldEntity
-        {
-            IsActive = true,
-            MarkedForDeletion = false,
-            CreatedDate = now
-        };
-        await _repository.AddPropertyMastOldAsync(newPropertyMastOld, cancellationToken);
-
-        // Save to get the DB-generated PK so we can link the parent FK.
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        property.PropertyMastOldId = newPropertyMastOld.Id;
-        property.UpdatedDate = now;
-        return newPropertyMastOld.Id;
-    }
 }

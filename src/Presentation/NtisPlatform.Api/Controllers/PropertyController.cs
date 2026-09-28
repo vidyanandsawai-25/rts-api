@@ -39,6 +39,8 @@ public partial class PropertyController : ControllerBase
     private readonly IWebHostEnvironment _environment;
     private readonly FileValidationHelper _fileValidationHelper;
     private readonly IPropertyWorkflowDetailsService _propertyWorkflowDetailsService;
+    private readonly IBuilding3DViewService _building3DViewService;
+    private readonly IPropertyNumberDetailsService _propertyNumberDetailsService;
 
     /// <summary>
     /// Constructor follows codebase convention: Service dependencies first, then infrastructure.
@@ -54,7 +56,9 @@ public partial class PropertyController : ControllerBase
         ILogger<PropertyController> logger,
         IWebHostEnvironment environment,
         FileValidationHelper fileValidationHelper,
-        IPropertyWorkflowDetailsService propertyWorkflowDetailsService)
+        IPropertyWorkflowDetailsService propertyWorkflowDetailsService,
+        IBuilding3DViewService building3DViewService,
+        IPropertyNumberDetailsService propertyNumberDetailsService)
     {
         _propertyService = propertyService;
         _propertyBasicDetailsService = propertyBasicDetailsService;
@@ -67,6 +71,8 @@ public partial class PropertyController : ControllerBase
         _environment = environment;
         _fileValidationHelper = fileValidationHelper;
         _propertyWorkflowDetailsService = propertyWorkflowDetailsService;
+        _building3DViewService = building3DViewService ?? throw new ArgumentNullException(nameof(building3DViewService));
+        _propertyNumberDetailsService = propertyNumberDetailsService;
     }
 
     [HttpGet]

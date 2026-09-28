@@ -251,8 +251,15 @@ public class FieldRegistryService : IFieldRegistryService
                 query = query.Where(m => m.UpdateCode == queryParameters.UpdateCode);
             }
 
-            if (!string.IsNullOrWhiteSpace(queryParameters.UpdateName))
+            // SearchTerm: partial, case-insensitive search on UpdateName
+            if (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm))
             {
+                var term = queryParameters.SearchTerm.Trim().ToLower();
+                query = query.Where(m => m.UpdateName != null && m.UpdateName.ToLower().Contains(term));
+            }
+            else if (!string.IsNullOrWhiteSpace(queryParameters.UpdateName))
+            {
+                // Exact-filter still available when caller passes UpdateName directly
                 query = query.Where(m => m.UpdateName == queryParameters.UpdateName);
             }
 

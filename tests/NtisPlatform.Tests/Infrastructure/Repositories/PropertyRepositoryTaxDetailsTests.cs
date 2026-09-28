@@ -1105,12 +1105,13 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetTaxDetailsAsync_TaxPendingDetailsRetroExists_AttachesPendingYearsToOcGroupOnly()
+    public async Task GetTaxDetailsAsync_RetroTransMastRowsExist_AttachesPendingYearsToOcGroupOnly()
     {
-        // Year-wise retro/arrears breakdown from TaxPendingDetailsRetro should surface as
-        // PolicyTaxDetail.PendingYears on the certificate-tax family group (OC/CC/Electric-Bill)
-        // it belongs to -- purely additive display data, never on the unrelated NETTAX group, and
-        // never by reintroducing those retro years into the main current-year TaxAmounts.
+        // Year-wise retro/arrears breakdown -- now TransMast rows whose PolicyCodeMaster.IsRetroDemand
+        // is set -- should surface as PolicyTaxDetail.PendingYears on the certificate-tax family
+        // group (OC/CC/Electric-Bill) it belongs to -- purely additive display data, never on the
+        // unrelated NETTAX group, and never by reintroducing those retro years into the main
+        // current-year TaxAmounts.
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
@@ -1127,16 +1128,16 @@ public class PropertyRepositoryTaxDetailsTests
         var year2025 = new YearMasterEntity { Id = 9, Year = 2025, YearCode = "2025-26", IsActive = true };
         var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
 
-        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
-        var ocPolicy = new PolicyCodeMasterEntity { Id = 2, PolicyCode = "PARTIAL_OC", PolicyName = "Partial OC", PolicyType = "NORMAL", IsActive = true };
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true, IsRetroDemand = false };
+        var ocPolicy = new PolicyCodeMasterEntity { Id = 2, PolicyCode = "PARTIAL_OC", PolicyName = "Partial OC", PolicyType = "NORMAL", IsActive = true, IsRetroDemand = true };
 
         var nettaxRow = new PolicyTaxDetailsEntity { Id = 1, PropertyId = 1, PolicyCodeId = 1, TaxId = 1, TaxAmount = 10_000m, IsActive = true, MarkedForDeletion = false };
         var ocRow = new PolicyTaxDetailsEntity { Id = 2, PropertyId = 1, PolicyCodeId = 2, TaxId = 1, TaxAmount = 4_110m, IsActive = true, MarkedForDeletion = false };
         var nettaxTotalRow = new PolicyTaxDetailsEntity { Id = 3, PropertyId = 1, PolicyCodeId = 1, TaxId = 3, TaxAmount = 10_000m, IsActive = true, MarkedForDeletion = false };
         var ocTotalRow = new PolicyTaxDetailsEntity { Id = 4, PropertyId = 1, PolicyCodeId = 2, TaxId = 3, TaxAmount = 4_110m, IsActive = true, MarkedForDeletion = false };
 
-        var retro2024 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 8, TaxId = 1, PendingAmount = 3_540m, IsActive = true, MarkedForDeletion = false };
-        var retro2025 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 9, TaxId = 1, PendingAmount = 3_560m, IsActive = true, MarkedForDeletion = false };
+        var retro2024 = new TransMastEntity { PropertyId = 1, FinanceYearId = 8, CalculationType = "RV", TaxId = 1, PolicyCodeId = 2, TaxAmount = 3_540m, CalculationValue = 3_540m, IsActive = true, MarkedForDeletion = false };
+        var retro2025 = new TransMastEntity { PropertyId = 1, FinanceYearId = 9, CalculationType = "RV", TaxId = 1, PolicyCodeId = 2, TaxAmount = 3_560m, CalculationValue = 3_560m, IsActive = true, MarkedForDeletion = false };
 
         // Real OC certificate covering both retro years -- required for ResolveYearPolicyCode to
         // actually resolve "OC" for FY2024/FY2025 instead of falling into the RETROSPECTIVE catch-all.
@@ -1151,7 +1152,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PropertyCertificates.Add(ocCertificate);
         context.PolicyCodeMaster.AddRange(nettaxPolicy, ocPolicy);
         context.PolicyTaxDetails.AddRange(nettaxRow, ocRow, nettaxTotalRow, ocTotalRow);
-        context.TaxPendingDetailsRetro.AddRange(retro2024, retro2025);
+        context.TransMast.AddRange(retro2024, retro2025);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));

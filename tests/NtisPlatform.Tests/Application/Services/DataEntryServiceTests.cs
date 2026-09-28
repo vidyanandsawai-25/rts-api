@@ -11,6 +11,7 @@ using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using System.Linq.Expressions;
 using Xunit;
@@ -31,6 +32,7 @@ public class DataEntryServiceTests
     private readonly Mock<IRoomWiseSubmissionDetailsService> _mockRoomWiseService;
     private readonly Mock<IRepository<PropertyEntity, int>> _mockPropertyRepository;
     private readonly Mock<IRepository<PropertyCertificateEntity, int>> _mockPropertyCertificateRepository;
+    private readonly Mock<IRepository<TypeOfUseEntity, int>> _mockTypeOfUseRepository;
     private readonly DataEntryService _service;
     private readonly Mock<IQueryable<PropertyDetailsEntity>> _mockQueryable;
 
@@ -44,6 +46,7 @@ public class DataEntryServiceTests
         _mockRoomWiseService = new Mock<IRoomWiseSubmissionDetailsService>();
         _mockPropertyRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockPropertyCertificateRepository = new Mock<IRepository<PropertyCertificateEntity, int>>();
+        _mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity, int>>();
         _mockQueryable = new Mock<IQueryable<PropertyDetailsEntity>>();
 
         // Setup transaction methods to prevent null Task returns
@@ -62,6 +65,10 @@ public class DataEntryServiceTests
         var emptyCertificates = new List<PropertyCertificateEntity>().BuildMock();
         _mockPropertyCertificateRepository.Setup(r => r.GetQueryable()).Returns(emptyCertificates);
 
+        // Setup empty queryable for TypeOfUseRepository
+        var emptyTypeOfUses = new List<TypeOfUseEntity>().BuildMock();
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(emptyTypeOfUses);
+
         _service = new DataEntryService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
@@ -70,7 +77,8 @@ public class DataEntryServiceTests
             _mockRenterMastService.Object,
             _mockRoomWiseService.Object,
             _mockPropertyRepository.Object,
-            _mockPropertyCertificateRepository.Object
+            _mockPropertyCertificateRepository.Object,
+            _mockTypeOfUseRepository.Object
         );
     }
 

@@ -30,7 +30,9 @@ public static class PropertyControllerTestHelper
         Mock<IPropertyDiscountService>? discountService = null,
         Mock<IPropertyOldDetailsService>? oldDetailsService = null,
         Mock<IPropertySearchService>? searchService = null,
-        Mock<IPropertyWorkflowDetailsService>? workflowDetailsService = null)
+        Mock<IPropertyWorkflowDetailsService>? workflowDetailsService = null,
+        Mock<IBuilding3DViewService>? building3DViewService = null,
+        Mock<IPropertyNumberDetailsService>? numberDetailsService = null)
     {
         basicDetailsService ??= new Mock<IPropertyBasicDetailsService>();
         kycService ??= new Mock<IPropertyKycService>();
@@ -39,6 +41,8 @@ public static class PropertyControllerTestHelper
         oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
         searchService ??= new Mock<IPropertySearchService>();
         workflowDetailsService ??= new Mock<IPropertyWorkflowDetailsService>();
+        building3DViewService ??= new Mock<IBuilding3DViewService>();
+        numberDetailsService ??= new Mock<IPropertyNumberDetailsService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
         // Create a simple in-memory configuration with default file validation settings
@@ -60,7 +64,9 @@ public static class PropertyControllerTestHelper
             logger.Object,
             mockEnvironment.Object,
             fileValidationHelper,
-            workflowDetailsService.Object);
+            workflowDetailsService.Object,
+            building3DViewService.Object,
+            numberDetailsService.Object);
     }
 
     /// <summary>
@@ -72,7 +78,8 @@ public static class PropertyControllerTestHelper
         Mock<IPropertyService> PropertyService,
         Mock<ILogger<PropertyController>> Logger,
         Mock<IWebHostEnvironment> Environment,
-        FileValidationHelper FileValidationHelper
+        FileValidationHelper FileValidationHelper,
+        Mock<IPropertyNumberDetailsService> NumberDetailsService
     ) CreateControllerWithMocks()
     {
         var mockPropertyService = new Mock<IPropertyService>();
@@ -84,6 +91,7 @@ public static class PropertyControllerTestHelper
         var mockSearchService = new Mock<IPropertySearchService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
+        var mockNumberDetailsService = new Mock<IPropertyNumberDetailsService>();
 
         // Create a simple in-memory configuration with default file validation settings
         var configData = new Dictionary<string, string?>();
@@ -94,6 +102,7 @@ public static class PropertyControllerTestHelper
         var fileValidationHelper = new FileValidationHelper(configuration);
 
         var mockWorkflowDetailsService = new Mock<IPropertyWorkflowDetailsService>();
+        var mockBuilding3DViewService = new Mock<IBuilding3DViewService>();
 
         var controller = new PropertyController(
             mockPropertyService.Object,
@@ -106,14 +115,17 @@ public static class PropertyControllerTestHelper
             mockLogger.Object,
             mockEnvironment.Object,
             fileValidationHelper,
-            mockWorkflowDetailsService.Object);
+            mockWorkflowDetailsService.Object,
+            mockBuilding3DViewService.Object,
+            mockNumberDetailsService.Object);
 
         return (
             controller,
             mockPropertyService,
             mockLogger,
             mockEnvironment,
-            fileValidationHelper
+            fileValidationHelper,
+            mockNumberDetailsService
         );
     }
 }

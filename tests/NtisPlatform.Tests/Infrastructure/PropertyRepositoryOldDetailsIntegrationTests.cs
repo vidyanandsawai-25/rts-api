@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -102,6 +102,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             new YearMasterEntity { Id = 999, Year = 2019, YearCode = "2019-20", IsActive = false }
         );
 
+        // Add PropertyMapMaster "MAP" category row: PropertyOldDetailsRepository.EnsureMappedOldPropertyIdAsync
+        // looks this up to create the PropertyMapDetail row linking a new property to its (get-or-created) old property.
+        _context.PropertyMapMasters.Add(new PropertyMapMasterEntity { Id = 1, MappingCategory = "MAP", IsActive = true, VersionNo = 1 });
+
         _context.SaveChanges();
     }
 
@@ -197,6 +201,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 2,
+            PropertyIdOld = 1,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -261,6 +275,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 3,
+            PropertyIdOld = 2,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -426,6 +450,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             CreatedDate = DateTime.Now
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 10,
+            PropertyIdOld = 50,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -700,13 +734,19 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal("10", result.OldWardNo);
         Assert.Equal("200", result.OldPropertyNo);
 
-        // Verify PropertyMast was updated with PropertyMastOldId
+        // Verify PropertyMast still exists
         var updatedProperty = await _context.PropertyMast.FindAsync(10);
         Assert.NotNull(updatedProperty);
-        Assert.NotNull(updatedProperty.PropertyMastOldId);
+
+        // Verify a PropertyMapDetail mapping was created linking the property to a new PropertyMastOld
+        var mapDetail = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 10 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.NotNull(mapDetail);
+        Assert.NotNull(mapDetail.PropertyIdOld);
 
         // Verify PropertyMastOld was created
-        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(mapDetail.PropertyIdOld);
         Assert.NotNull(createdPropertyMastOld);
         Assert.Equal("10", createdPropertyMastOld.OldWardNo);
     }
@@ -749,6 +789,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 11,
+            PropertyIdOld = 10,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -806,6 +856,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 12,
+            PropertyIdOld = 11,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -874,6 +934,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 13,
+            PropertyIdOld = 12,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -928,6 +998,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 14,
+            PropertyIdOld = 13,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -972,6 +1052,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 15,
+            PropertyIdOld = 14,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -1016,6 +1106,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 16,
+            PropertyIdOld = 15,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -1059,6 +1159,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 17,
+            PropertyIdOld = 16,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldDetailsDto
@@ -1154,6 +1264,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 21,
+            PropertyIdOld = 20,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -1195,6 +1315,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 22,
+            PropertyIdOld = 21,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -1236,6 +1366,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 23,
+            PropertyIdOld = 22,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add transactions for the active year (year 2022, FinanceYearId = 3)
         _context.TransMastOld.AddRange(
@@ -1326,6 +1466,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 24,
+            PropertyIdOld = 23,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add transactions for multiple years
         _context.TransMastOld.AddRange(
@@ -1373,6 +1523,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 25,
+            PropertyIdOld = 24,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add active and inactive transactions for the active year (year 3)
         _context.TransMastOld.AddRange(
@@ -1466,18 +1626,24 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(100, result.PropertyId);
 
-        // Verify PropertyMast was updated
+        // Verify PropertyMast still exists
         var updatedProperty = await _context.PropertyMast.FindAsync(100);
         Assert.NotNull(updatedProperty);
-        Assert.NotNull(updatedProperty.PropertyMastOldId);
+
+        // Verify a PropertyMapDetail mapping was created linking the property to a new PropertyMastOld
+        var mapDetail = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 100 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.NotNull(mapDetail);
+        Assert.NotNull(mapDetail.PropertyIdOld);
 
         // Verify PropertyMastOld was created
-        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(mapDetail.PropertyIdOld);
         Assert.NotNull(createdPropertyMastOld);
 
         // Verify transactions were created
         var transactions = await _context.TransMastOld
-            .Where(t => t.PropertyMastOldId == updatedProperty.PropertyMastOldId)
+            .Where(t => t.PropertyMastOldId == mapDetail.PropertyIdOld)
             .ToListAsync();
         Assert.Equal(2, transactions.Count);
     }
@@ -1500,6 +1666,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 101,
+            PropertyIdOld = 100,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add existing transaction
         _context.TransMastOld.Add(new TransMastOldEntity
@@ -1555,6 +1731,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 102,
+            PropertyIdOld = 101,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add existing transaction for Tax 1 only
         _context.TransMastOld.Add(new TransMastOldEntity
@@ -1612,6 +1798,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 103,
+            PropertyIdOld = 102,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         // Add soft-deleted transaction (should NOT cause conflict in CREATE)
         _context.TransMastOld.Add(new TransMastOldEntity
@@ -1667,6 +1863,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 104,
+            PropertyIdOld = 103,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -1722,6 +1928,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 105,
+            PropertyIdOld = 104,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -1799,14 +2015,17 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
             _oldDetailsService.CreateOldTaxesDetailsAsync(106, dto, CancellationToken.None));
 
-        // Verify atomicity: PropertyMast should NOT have PropertyMastOldId set
+        // Verify atomicity: no PropertyMapDetail mapping should have been created
         var propertyAfterError = await _context.PropertyMast.FindAsync(106);
         Assert.NotNull(propertyAfterError);
-        Assert.Null(propertyAfterError.PropertyMastOldId); // Should remain null due to validation failure
+        var mapDetailAfterError = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 106 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.Null(mapDetailAfterError); // Should remain unmapped due to validation failure
 
         // Verify no orphaned PropertyMastOld record was created
         var orphanedPropertyMastOld = await _context.PropertyMastOld
-            .Where(pmo => !_context.PropertyMast.Any(p => p.PropertyMastOldId == pmo.Id))
+            .Where(pmo => !_context.PropertyMapDetails.Any(pmd => pmd.PropertyIdOld == pmo.Id && pmd.IsActive))
             .ToListAsync();
         Assert.Empty(orphanedPropertyMastOld);
     }
@@ -1847,14 +2066,17 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
             _oldDetailsService.CreateOldTaxesDetailsAsync(107, dto, CancellationToken.None));
 
-        // Verify atomicity: PropertyMast should NOT have PropertyMastOldId set
+        // Verify atomicity: no PropertyMapDetail mapping should have been created
         var propertyAfterError = await _context.PropertyMast.FindAsync(107);
         Assert.NotNull(propertyAfterError);
-        Assert.Null(propertyAfterError.PropertyMastOldId); // Should remain null
+        var mapDetailAfterError = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 107 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.Null(mapDetailAfterError); // Should remain unmapped
 
         // Verify no orphaned records
         var orphanedPropertyMastOld = await _context.PropertyMastOld
-            .Where(pmo => !_context.PropertyMast.Any(p => p.PropertyMastOldId == pmo.Id))
+            .Where(pmo => !_context.PropertyMapDetails.Any(pmd => pmd.PropertyIdOld == pmo.Id && pmd.IsActive))
             .ToListAsync();
         Assert.Empty(orphanedPropertyMastOld);
     }
@@ -1942,6 +2164,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 201,
+            PropertyIdOld = 200,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2026,13 +2258,19 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(30, result.PropertyId);
 
-        // Verify PropertyMast was updated
+        // Verify PropertyMast still exists
         var updatedProperty = await _context.PropertyMast.FindAsync(30);
         Assert.NotNull(updatedProperty);
-        Assert.NotNull(updatedProperty.PropertyMastOldId);
+
+        // Verify a PropertyMapDetail mapping was created linking the property to a new PropertyMastOld
+        var mapDetail = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 30 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.NotNull(mapDetail);
+        Assert.NotNull(mapDetail.PropertyIdOld);
 
         // Verify PropertyMastOld was created
-        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(mapDetail.PropertyIdOld);
         Assert.NotNull(createdPropertyMastOld);
     }
 
@@ -2054,6 +2292,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 31,
+            PropertyIdOld = 30,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2090,6 +2338,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 32,
+            PropertyIdOld = 31,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2128,6 +2386,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 33,
+            PropertyIdOld = 32,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2169,6 +2437,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 34,
+            PropertyIdOld = 33,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2217,6 +2495,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 38,
+            PropertyIdOld = 37,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2274,6 +2562,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 39,
+            PropertyIdOld = 38,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var existingTransaction = new TransMastOldEntity
         {
@@ -2338,6 +2636,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 40,
+            PropertyIdOld = 39,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var deletedTransaction = new TransMastOldEntity
         {
@@ -2402,6 +2710,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 41,
+            PropertyIdOld = 40,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -2505,13 +2823,19 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(50, result.PropertyId);
 
-        // Verify PropertyMast was updated with PropertyMastOldId
+        // Verify PropertyMast still exists
         var updatedProperty = await _context.PropertyMast.FindAsync(50);
         Assert.NotNull(updatedProperty);
-        Assert.NotNull(updatedProperty.PropertyMastOldId);
+
+        // Verify a PropertyMapDetail mapping was created linking the property to a new PropertyMastOld
+        var mapDetail = await _context.PropertyMapDetails
+            .Where(pmd => pmd.PropertyIdNew == 50 && pmd.IsActive)
+            .FirstOrDefaultAsync();
+        Assert.NotNull(mapDetail);
+        Assert.NotNull(mapDetail.PropertyIdOld);
 
         // Verify PropertyMastOld was created
-        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(mapDetail.PropertyIdOld);
         Assert.NotNull(createdPropertyMastOld);
         Assert.True(createdPropertyMastOld.IsActive);
         Assert.False(createdPropertyMastOld.MarkedForDeletion);
@@ -2535,6 +2859,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 51,
+            PropertyIdOld = 50,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto { OldFloorId = 99999 };
@@ -2564,6 +2898,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 52,
+            PropertyIdOld = 51,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto { OldFloorId = 999 }; // Inactive floor
@@ -2593,6 +2937,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 53,
+            PropertyIdOld = 52,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2626,6 +2980,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 54,
+            PropertyIdOld = 53,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2659,6 +3023,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 55,
+            PropertyIdOld = 54,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2692,6 +3066,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 56,
+            PropertyIdOld = 55,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2725,6 +3109,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 57,
+            PropertyIdOld = 56,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2786,6 +3180,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 58,
+            PropertyIdOld = 57,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2837,6 +3241,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 150,
+            PropertyIdOld = 100,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2878,6 +3292,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 151,
+            PropertyIdOld = 101,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new AddPropertyDetailsOldDto
@@ -2962,6 +3386,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 61,
+            PropertyIdOld = 60,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         var dto = new UpdatePropertyDetailsOldDto { OldFloorId = 1 };
@@ -3002,6 +3436,27 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.AddRange(property1, property2);
+        _context.PropertyMapDetails.AddRange(
+            new PropertyMapDetailEntity
+            {
+                PropertyMapId = 1,
+                PropertyIdNew = 62,
+                PropertyIdOld = 61,
+                Status = "ACTIVE",
+                IsCurrent = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            },
+            new PropertyMapDetailEntity
+            {
+                PropertyMapId = 1,
+                PropertyIdNew = 63,
+                PropertyIdOld = 62,
+                Status = "ACTIVE",
+                IsCurrent = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3041,6 +3496,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 64,
+            PropertyIdOld = 63,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3080,6 +3545,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 65,
+            PropertyIdOld = 64,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3161,6 +3636,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 66,
+            PropertyIdOld = 65,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var oldDate = DateTime.Now.AddDays(-10);
         var floor = new PropertyDetailsOldEntity
@@ -3213,6 +3698,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 250,
+            PropertyIdOld = 200,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3266,6 +3761,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 251,
+            PropertyIdOld = 201,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3359,6 +3864,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 71,
+            PropertyIdOld = 70,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -3396,6 +3911,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 72,
+            PropertyIdOld = 71,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         _context.PropertyDetailsOld.AddRange(
             new PropertyDetailsOldEntity
@@ -3495,6 +4020,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 73,
+            PropertyIdOld = 72,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         _context.PropertyDetailsOld.AddRange(
             new PropertyDetailsOldEntity
@@ -3551,6 +4086,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 74,
+            PropertyIdOld = 73,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         _context.PropertyDetailsOld.AddRange(
             new PropertyDetailsOldEntity { Id = 206, PropertyMastOldId = 73, OldFloorId = 3, IsActive = true, MarkedForDeletion = false },
@@ -3588,6 +4133,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 75,
+            PropertyIdOld = 74,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         _context.PropertyDetailsOld.Add(
             new PropertyDetailsOldEntity
@@ -3671,6 +4226,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 81,
+            PropertyIdOld = 80,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
         await _context.SaveChangesAsync();
 
         // Act
@@ -3709,6 +4274,27 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.AddRange(property1, property2);
+        _context.PropertyMapDetails.AddRange(
+            new PropertyMapDetailEntity
+            {
+                PropertyMapId = 1,
+                PropertyIdNew = 82,
+                PropertyIdOld = 81,
+                Status = "ACTIVE",
+                IsCurrent = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            },
+            new PropertyMapDetailEntity
+            {
+                PropertyMapId = 1,
+                PropertyIdNew = 83,
+                PropertyIdOld = 82,
+                Status = "ACTIVE",
+                IsCurrent = true,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3746,6 +4332,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 84,
+            PropertyIdOld = 83,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {
@@ -3791,6 +4387,16 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMast.Add(property);
+        _context.PropertyMapDetails.Add(new PropertyMapDetailEntity
+        {
+            PropertyMapId = 1,
+            PropertyIdNew = 85,
+            PropertyIdOld = 84,
+            Status = "ACTIVE",
+            IsCurrent = true,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        });
 
         var floor = new PropertyDetailsOldEntity
         {

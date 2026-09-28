@@ -42,13 +42,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         _httpContextAccessor = httpContextAccessor;
     }
 
-    private sealed class PropertySocialDetailBindingInfo
-    {
-        public int PropertySocialDetailId { get; init; }
-        public int BindingId { get; init; }
-        public Guid DocumentGuid { get; init; }
-        public string? BindingPurpose { get; init; }
-    }
+   
 
     // ── Generic CRUD overrides ─────────────────────────────────────────────────────────
     // PropertySocialDetailsDto carries IsPhotoRequired/IsDocumentRequired (from the SocialAttribute)
@@ -188,6 +182,20 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     }
 
     /// <summary>
+    /// Returns active social-detail rows filtered by any combination of SocialAttributeId, SocietyDetailId
+    /// and WingDetailId. The result is enriched with the DocumentGuid resolved by joining DocumentBinding→Document.
+    /// </summary>
+    public async Task<List<PropertySocialDetailsDto>> GetByFiltersAsync(int? socialAttributeId, int? societyDetailId, int? wingDetailId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _socialDetailsRepository.GetSocialDetailsByFiltersAsync(socialAttributeId, societyDetailId, wingDetailId, cancellationToken);
+
+        var dtos = _mapper.Map<List<PropertySocialDetailsDto>>(entities);
+        await EnrichDtosAsync(dtos, cancellationToken);
+
+        return dtos;
+    }
+
+    /// <summary>
     /// Populates the DTO members the AutoMapper profile cannot derive from the entity alone:
     /// requirement flags from the parent <see cref="SocialAttributeEntity"/>, and the document/photo
     /// GUIDs + binding ids from the polymorphic DocumentBinding→Document association.
@@ -236,6 +244,17 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             {
                 dto.DocumentGuid = docBinding.DocumentGuid;
                 dto.DocumentBindingId = docBinding.BindingId;
+            }
+            else if (dto.DocumentBindingId.HasValue)
+            {
+                // Fallback: the reference-table lookup missed (e.g. binding's ReferenceTableId was
+                // never back-filled to this row's id), but the detail row already stores its
+                // DocumentBindingId. Resolve the GUID directly by binding id.
+                var document = await _documentApplicationService.GetDocumentByBindingAsync(dto.DocumentBindingId.Value, cancellationToken);
+                if (document != null)
+                {
+                    dto.DocumentGuid = document.DocumentGuid;
+                }
             }
 
             var photoBinding = bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingPurpose == "Photo");

@@ -11,6 +11,7 @@ public class SocietyWingDetailsMappingProfile : Profile
         CreateMap<SocietyWingDetailsEntity, SocietyWingDetailsDto>();
 
         CreateMap<CreateSocietyWingDetailsDto, SocietyWingDetailsEntity>()
+            .ForMember(dest => dest.WingDetailsMastId, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));

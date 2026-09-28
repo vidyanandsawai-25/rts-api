@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
@@ -291,9 +292,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
     private async Task<decimal> GetOldTaxTotalDemandAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)
     {
-        var propertyMastOldIds = query
-            .Where(p => p.PropertyMastOldId != null)
-            .Select(p => p.PropertyMastOldId!.Value);
+        // PropertyEntity.PropertyMastOldId is [NotMapped] (DB column dropped) - PropertyMapDetail
+        // (PropertyIdNew -> PropertyIdOld) is the surviving new-to-old property mapping.
+        var propertyIds = query.Select(p => p.Id);
+        var propertyMastOldIds = _context.PropertyMapDetails.AsNoTracking()
+            .Where(m => m.PropertyIdNew != null && propertyIds.Contains(m.PropertyIdNew.Value)
+                        && m.PropertyIdOld != null && m.Status == "ACTIVE")
+            .Select(m => m.PropertyIdOld!.Value);
 
         var demand = await (
             from t in _context.TransMastOld.AsNoTracking()
@@ -480,12 +485,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                                 Address = pm.Address,
                                 FlatOrShopName = pm.FlatOrShopName,
                                 UPICId = pm.UPICId,
-                                PropertyMastOldId = pm.PropertyMastOldId,
                                 PropertyTypeId = pm.PropertyTypeId,
                                 ZoneId = wd.ZoneId,
                                 ZoneNo = z.ZoneNo,
                                 ZoneName = z.Description ?? z.ZoneNo,
-                                IsPropertyOpenPlot = pm.OpenPlot == true
+                                IsPropertyOpenPlot = _context.PropertyDetails.AsNoTracking().Any(pd => pd.PropertyId == pm.Id && pd.IsActive && !pd.MarkedForDeletion && _context.TypeOfUse.Any(tou => tou.Id == pd.TypeOfUseId && _context.TypeOfUseCategory.Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op)))
                             };
 
         if (workflowStageId is int filterWorkflowStageId && filterWorkflowStageId > 0)
@@ -833,11 +837,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .Select(property => property.Id);
 
     private IQueryable<int> GetPropertyIdsMappedToOldIds(IQueryable<int> oldPropertyIds)
-        => _context.PropertyMast
+        // PropertyEntity.PropertyMastOldId is [NotMapped] (DB column dropped) - PropertyMapDetail
+        // (PropertyIdOld -> PropertyIdNew) is the surviving old-to-new property mapping.
+        => _context.PropertyMapDetails
             .AsNoTracking()
-            .Where(property => property.PropertyMastOldId.HasValue
-                               && oldPropertyIds.Contains(property.PropertyMastOldId.Value))
-            .Select(property => property.Id)
+            .Where(m => m.PropertyIdOld.HasValue && oldPropertyIds.Contains(m.PropertyIdOld.Value)
+                       && m.PropertyIdNew.HasValue && m.Status == "ACTIVE")
+            .Select(m => m.PropertyIdNew!.Value)
             .Union(_context.PropertyMapMasters
                 .AsNoTracking()
                 .Where(propertyMap => propertyMap.ParentPropertyMapId.HasValue
@@ -848,13 +854,15 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
     {
         return (
             from society in _context.SocietyDetailsMast.AsNoTracking()
+            join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking() on society.Id equals wdm.SocietyDetailsMastId into wdmJoin
+            from wdm in wdmJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
             join wing in _context.WingEntity.AsNoTracking().Where(wing => wing.IsActive)
-                on society.WingId equals wing.Id into wingJoin
+                on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wing.Id into wingJoin
             from wing in wingJoin.DefaultIfEmpty()
             where society.PropertyId.HasValue
                   && society.IsActive
                   && !society.MarkedForDeletion
-                  && ((society.WingName != null && EF.Functions.Like(society.WingName, $"%{search}%"))
+                  && ((wdm != null && wdm.WingName != null && EF.Functions.Like(wdm.WingName, $"%{search}%"))
                       || (society.SocietyName != null && EF.Functions.Like(society.SocietyName, $"%{search}%"))
                       || (society.SocietyNameEnglish != null && EF.Functions.Like(society.SocietyNameEnglish, $"%{search}%"))
                       || (society.BuilderName != null && EF.Functions.Like(society.BuilderName, $"%{search}%"))
@@ -1090,7 +1098,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 PropertyTypeId = pm.PropertyTypeId,
                 ZoneId = w.ZoneId,
                 ZoneNo = z.ZoneNo,
-                IsPropertyOpenPlot = pm.OpenPlot == true,
+                IsPropertyOpenPlot = _context.PropertyDetails.AsNoTracking().Any(pd => pd.PropertyId == pm.Id && pd.IsActive && !pd.MarkedForDeletion && _context.TypeOfUse.Any(tou => tou.Id == pd.TypeOfUseId && _context.TypeOfUseCategory.Any(touc => touc.Id == tou.TypeOfUseCategoryId && touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op))),
                 PropertyNo = pm.PropertyNo,
                 OwnerName = pm.OwnerName,
                 OccupierName = pm.OccupierName,
@@ -1218,8 +1226,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
 
         var wingNameRows = await (
             from society in _context.SocietyDetailsMast.AsNoTracking()
+            join wdm in _context.Set<NtisPlatform.Core.Entities.WingDetailsMastEntity>().AsNoTracking() on society.Id equals wdm.SocietyDetailsMastId into wdmJoin
+            from wdm in wdmJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
             join wing in _context.WingEntity.AsNoTracking().Where(w => w.IsActive)
-                on society.WingId equals wing.Id into wingJoin
+                on (wdm != null ? (int?)wdm.WingMasterId : null) equals (int?)wing.Id into wingJoin
             from wing in wingJoin.DefaultIfEmpty()
             where society.PropertyId.HasValue
                   && pagePropertyIds.Contains(society.PropertyId.Value)
@@ -1228,8 +1238,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             select new
             {
                 PropertyId = society.PropertyId.Value,
-                WingName = !string.IsNullOrWhiteSpace(society.WingName)
-                    ? society.WingName
+                WingName = wdm != null && !string.IsNullOrWhiteSpace(wdm.WingName)
+                    ? wdm.WingName
                     : wing != null ? wing.WingNo : null
             })
             .Where(x => !string.IsNullOrWhiteSpace(x.WingName))
@@ -1289,12 +1299,12 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             from pp in _context.PropertyPhotos.AsNoTracking()
             join db in _context.DocumentBindings.AsNoTracking() on pp.DocumentBindingId equals (int?)db.Id
             join doc in _context.Documents.AsNoTracking() on db.DocumentId equals doc.Id
-            where pagePropertyIds.Contains(pp.PropertyId)
+            where pp.PropertyId.HasValue && pagePropertyIds.Contains(pp.PropertyId.Value)
                   && pp.IsActive
                   && !pp.MarkedForDeletion
             select new SubGridDocumentProjection
             {
-                PropertyId = pp.PropertyId,
+                PropertyId = pp.PropertyId.Value,
                 DocumentGuid = doc.DocumentGuid.ToString()
             }
         )
@@ -1384,13 +1394,16 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         )
         .ToListAsync(cancellationToken);
 
+        // Migrated ULB arrears due -- TransMast rows tagged PolicyCode = OLD_ARREARS (see
+        // RetrospectiveTaxCalculationEngineService.SyncPolicyTaxAndTransMastAsync).
         var newRTaxData = await (
-            from tpd in _context.TaxPendingDetails.AsNoTracking()
-            where pagePropertyIds.Contains(tpd.PropertyId)
+            from tpd in _context.TransMast.AsNoTracking()
+            where pagePropertyIds.Contains(tpd.PropertyId) && tpd.IsActive && !tpd.MarkedForDeletion
+                  && tpd.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears
             select new SubGridTaxValueProjection
             {
                 PropertyId = tpd.PropertyId,
-                Amount = tpd.PendingAmount ?? 0
+                Amount = tpd.TaxAmount
             }
         )
         .ToListAsync(cancellationToken);
@@ -1450,16 +1463,14 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         )
         .ToListAsync(cancellationToken);
 
-        var oldRTaxData = await (
-            from tpdr in _context.TaxPendingDetailsRetro.AsNoTracking()
-            where oldPropertyIds.Contains(tpdr.PropertyId)
-            select new SubGridTaxValueProjection
-            {
-                PropertyId = tpdr.PropertyId,
-                Amount = tpdr.PendingAmount ?? 0
-            }
-        )
-        .ToListAsync(cancellationToken);
+        // "Old record" retro tax: there is no TransMast equivalent for the pre-merge legacy
+        // property (TransMast.PropertyId is only ever a *current* PropertyMast row -- there is
+        // no old-property-keyed retro table, unlike oldCTaxData above which has a real source in
+        // TransMastOld). The pre-migration query here read TaxPendingDetailsRetro.PropertyId with
+        // oldPropertyIds (PropertyMastOld ids), but that column was documented as an FK to the
+        // *current* PropertyMast, not PropertyMastOld -- so it was very likely already returning
+        // 0/near-0 in practice. Kept as an empty list rather than a broken join.
+        var oldRTaxData = new List<SubGridTaxValueProjection>();
 
         return new SubGridDataProjection
         {
@@ -1524,7 +1535,6 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         public string? Address { get; set; }
         public string? FlatOrShopName { get; set; }
         public string? UPICId { get; set; }
-        public int? PropertyMastOldId { get; set; }
     }
 
     #endregion

@@ -172,6 +172,7 @@ public class PropertyServiceSurveySearchTests
             new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
+            new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object,
             _mockRuleLogService.Object);
 
         SetupEmptyRepositories();

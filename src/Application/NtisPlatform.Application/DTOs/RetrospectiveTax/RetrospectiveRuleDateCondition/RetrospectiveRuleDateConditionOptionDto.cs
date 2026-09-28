@@ -26,6 +26,11 @@ public class RetrospectiveRuleDateConditionOptionDto
     ///                      -> show a single date picker bound to CompareDate (the cutoff date).
     /// OC_OLDER_THAN_ALLOWED_PERIOD / OC_WITHIN_ALLOWED_PERIOD
     ///                      -> show a "years" number input bound to CompareYears (the allowed period).
+    /// EVIDENCE_GAP_WITHIN_PERIOD
+    ///                      -> show two evidence-type pickers (LeftEvidenceTypeId/RightEvidenceTypeId),
+    ///                         a comparator (CompareOperator = WITHIN_YEARS / OLDER_THAN_YEARS), a
+    ///                         number input (CompareYears, the threshold value) and a unit picker
+    ///                         (CompareGapUnit = DAYS/MONTHS/YEARS).
     /// </summary>
     public string RequiredInput { get; set; } = string.Empty;
 }

@@ -5,7 +5,9 @@ using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Interfaces.Rules;
 
@@ -19,6 +21,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     private readonly IRoomWiseSubmissionDetailsService _roomWiseService;
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepository;
+    private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
 
     public DataEntryService(
@@ -30,6 +33,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         IRoomWiseSubmissionDetailsService roomWiseService,
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyCertificateEntity, int> propertyCertificateRepository,
+        IRepository<TypeOfUseEntity, int> typeOfUseRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
@@ -38,6 +42,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         _roomWiseService = roomWiseService;
         _propertyRepository = propertyRepository;
         _propertyCertificateRepository = propertyCertificateRepository;
+        _typeOfUseRepository = typeOfUseRepository;
         _ruleLogService = ruleLogService;
     }
 
@@ -61,8 +66,6 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
             .Include(x => x.SubTypeOfUse)
             .Include(x => x.RenterDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
             .Include(x => x.Renters.Where(r => r.IsActive && !r.MarkedForDeletion))
-                .ThenInclude(r => r.DocumentBinding)
-                    .ThenInclude(b => b!.Document)
              .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
                 .ThenInclude(r => r.PropertyRoomMinus!.Where(rm => rm.IsActive && !rm.MarkedForDeletion))
             .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
@@ -272,9 +275,25 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     // ────────────────────────────────────────────────────────────────
     public async Task<bool> DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        var entities = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.IsActive && x.IsOpenPlot != true)
+        var allEntities = await _repository.GetQueryable()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
+
+        if (!allEntities.Any())
+            return false;
+
+        // Open-plot records are excluded from delete: TypeOfUseCategoryMaster.TypeOfUseCategoryCode ==
+        // TypeOfUseConstants.Op identifies an open-plot type of use (PropertyDetailsEntity no longer
+        // has its own IsOpenPlot column).
+        var openTypeOfUseIds = await _typeOfUseRepository.GetQueryable()
+            .Where(t => t.IsActive && t.TypeOfUseCategory != null && t.TypeOfUseCategory.TypeOfUseCategoryCode == TypeOfUseConstants.Op)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+        var openTypeOfUseIdSet = openTypeOfUseIds.ToHashSet();
+
+        var entities = allEntities
+            .Where(x => !openTypeOfUseIdSet.Contains(x.TypeOfUseId))
+            .ToList();
 
         if (!entities.Any())
             return false;
@@ -333,7 +352,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         // Query: Join PropertyCertificates with PropertyCertificateTypeMaster
         // Filter by certificate type codes and where PropertyDetailsId is not null/empty
         var certificates = await _propertyCertificateRepository.GetQueryable()
-            .Where(pc => propertyIds.Contains(pc.PropertyId) && pc.IsActive && !pc.MarkedForDeletion)
+            .Where(pc => pc.PropertyId.HasValue && propertyIds.Contains(pc.PropertyId.Value) && pc.IsActive && !pc.MarkedForDeletion)
             .Where(pc => pc.PropertyDetailsId != null)
             .Include(pc => pc.CertificateType)
             .Where(pc => pc.CertificateType != null && certificateTypeCodes.Contains(pc.CertificateType.CertificateTypeCode))

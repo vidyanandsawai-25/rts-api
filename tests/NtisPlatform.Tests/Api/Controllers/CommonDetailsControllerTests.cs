@@ -937,7 +937,7 @@ public class CommonDetailsControllerTests
                 Id = 1,
                 ActivityType = "Screen",
                 ActivityStatus = "Success",
-                CreatedDate = DateTime.UtcNow,
+                CreatedDate = DateTime.Now,
                 DoneBy = "admin"
             }
         };

@@ -84,7 +84,7 @@ public class PropertyServiceTests
             new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
             new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
-            new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
+            new Mock<IRepository<SocietyWingDetailsEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
     // Basic Details was split into the per-tab PropertyBasicDetailsService (data access in
@@ -683,15 +683,8 @@ public class PropertyServiceTests
             .Setup(x => x.CheckBuildingIfExists(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyEntity?)null);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Building Not Found"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
     }
 
     [Fact]
@@ -713,15 +706,8 @@ public class PropertyServiceTests
             .Setup(x => x.GetBuildingCategory(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyCategoryEntity?)null);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Invalid CategoryId"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
     }
 
     [Fact]
@@ -744,15 +730,8 @@ public class PropertyServiceTests
             .Setup(x => x.GetBuildingCategory(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(categoryEntity);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Society Wing Details"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
     }
 
     [Fact]
@@ -859,15 +838,8 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Property creation failed"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
         _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -889,14 +861,8 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
         _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -918,15 +884,8 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Transaction failed"));
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
         _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -953,15 +912,8 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.Equal(2, result.FailedCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Duplicate property"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
         _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -1052,14 +1004,8 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.SuccessCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Unknown error"));
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.BulkCreateAsync(items, CancellationToken.None));
     }
 
     [Fact]
@@ -1114,7 +1060,7 @@ public class PropertyServiceTests
         // Arrange
         var items = new[]
         {
-            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1, SocietyDetailId = 5 }
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1, SocietyDetailId = 5, WingDetailId = 1 }
         };
 
         var buildingEntity = new PropertyEntity { Id = 1, WardId = 1, Address = "Test", AddressEnglish = "Test", Location = "Test", LocationEnglish = "Test", PropertySeqNo = 1 };
@@ -1156,5 +1102,6 @@ public class PropertyServiceTests
 
     #endregion
 }
+
 
 

@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ClosedXML.Excel;
 using NtisPlatform.Application.DTOs.LockUnlock;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Interfaces;
@@ -26,12 +28,18 @@ public class LockUnlockService : ILockUnlockService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<LockUnlockService> _logger;
     private readonly IPropertySearchService _propertySearchService;
+    private readonly IPropertyLockExcelService _propertyLockExcelService;
 
-    public LockUnlockService(ApplicationDbContext context, ILogger<LockUnlockService> logger, IPropertySearchService propertySearchService)
+    public LockUnlockService(
+        ApplicationDbContext context,
+        ILogger<LockUnlockService> logger,
+        IPropertySearchService propertySearchService,
+        IPropertyLockExcelService propertyLockExcelService)
     {
         _context = context;
         _logger = logger;
         _propertySearchService = propertySearchService;
+        _propertyLockExcelService = propertyLockExcelService;
     }
 
     public async Task<List<LockableScreenDto>> GetLockableScreensAsync(
@@ -218,6 +226,24 @@ public class LockUnlockService : ILockUnlockService
         }).ToList();
 
         return new PagedResult<PropertyLockRowDto>(items, searchResult.TotalCount, searchResult.PageNumber, searchResult.PageSize);
+    }
+
+    public async Task<PropertyLockExcelPagedResultDto> GetPropertyLocksByExcelFileAsync(
+        IFormFile file, int pageNumber, int pageSize, string? searchTerm = null, CancellationToken ct = default)
+    {
+        if (file == null || file.Length == 0)
+        {
+            throw new ArgumentException("Please upload a valid Excel file (.xlsx or .xls).");
+        }
+
+        await using var stream = file.OpenReadStream();
+        return await _propertyLockExcelService.GetPropertyLocksByExcelFileAsync(stream, pageNumber, pageSize, searchTerm, ct);
+    }
+
+    public async Task<PropertyLockExcelPagedResultDto> GetPropertyLocksByExcelAsync(
+        SearchByExcelRequestDto request, CancellationToken ct = default)
+    {
+        return await _propertyLockExcelService.GetPropertyLocksByExcelRowsAsync(request, ct);
     }
 
     /// <summary>

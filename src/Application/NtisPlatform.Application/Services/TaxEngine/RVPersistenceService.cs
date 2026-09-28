@@ -476,4 +476,40 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _logger.LogInformation("Saved {Count} rule application logs for PropertyId={PropertyId}, DetailsId={DetailsId}",
             entities.Count, propertyId, propertyDetailsId);
     }
+
+    /// <inheritdoc/>
+    public async Task<(List<RVCalculationResultsEntity> ResultsRows, List<RVCalculationTaxDetailsEntity> TaxDetailRows, List<PolicyTaxDetailsEntity> PolicyRows)>
+        GetExistingActiveResultsAsync(int propertyId)
+    {
+        var resultsRows = await _taxResultsRepo.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync();
+
+        var resultsIds = resultsRows.Select(x => x.Id).ToList();
+
+        var taxDetailRows = resultsIds.Count == 0
+            ? new List<RVCalculationTaxDetailsEntity>()
+            : await _taxDetailsRepo.GetQueryable()
+                .AsNoTracking()
+                .Where(x => resultsIds.Contains(x.RVCalculationResultsId) && x.IsActive && !x.MarkedForDeletion)
+                .ToListAsync();
+
+        var netTaxPolicyCodeId = await _policyCodeMasterRepo.GetQueryable()
+            .Where(x => x.IsActive && x.PolicyCode == NetTaxPolicyCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync();
+
+        var policyRows = netTaxPolicyCodeId <= 0
+            ? new List<PolicyTaxDetailsEntity>()
+            : await _policyTaxRepo.GetQueryable()
+                .AsNoTracking()
+                .Include(x => x.PolicyCodeMaster)
+                .Where(x => x.PropertyId == propertyId &&
+                            x.PolicyCodeId == netTaxPolicyCodeId &&
+                            x.IsActive && !x.MarkedForDeletion)
+                .ToListAsync();
+
+        return (resultsRows, taxDetailRows, policyRows);
+    }
 }

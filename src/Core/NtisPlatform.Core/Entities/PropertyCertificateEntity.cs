@@ -18,14 +18,17 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// Internal constructor for testing purposes only
     /// </summary>
     internal PropertyCertificateEntity(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         string? certificateNo = null,
         DateTime? issueDate = null,
         int? documentBindingId = null,
         bool markedForDeletion = false,
         DateTime? markedForDeletionDate = null,
-        int? propertyDetailsId = null)
+        int? propertyDetailsId = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
         PropertyId = propertyId;
         CertificateTypeId = certificateTypeId;
@@ -35,6 +38,9 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         _markedForDeletion = markedForDeletion;
         _markedForDeletionDate = markedForDeletionDate;
         PropertyDetailsId = propertyDetailsId;
+        EntityType = entityType;
+        SocietyDetailId = societyDetailId;
+        WingDetailId = wingDetailId;
     }
 
     /// <summary>
@@ -42,15 +48,15 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// Use this when you need to create the certificate before the DocumentBinding exists.
     /// </summary>
     public static PropertyCertificateEntity Create(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         string? certificateNo = null,
         DateTime? issueDate = null,
-        int? propertyDetailsId = null)
+        int? propertyDetailsId = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
-        if (propertyId <= 0)
-            throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
-
         if (certificateTypeId <= 0)
             throw new ArgumentException("Certificate type ID must be greater than zero.", nameof(certificateTypeId));
 
@@ -59,6 +65,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
 
         if (issueDate.HasValue && issueDate.Value > DateTime.Now)
             throw new ArgumentException("Issue date cannot be in the future.", nameof(issueDate));
+
+        ValidateEntityScope(entityType, propertyId, societyDetailId, wingDetailId);
 
         var certificate = new PropertyCertificateEntity
         {
@@ -69,10 +77,50 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             DocumentBindingId = null,
             PropertyDetailsId = propertyDetailsId,
             IsActive = true,
-            _markedForDeletion = false
+            _markedForDeletion = false,
+            EntityType = entityType,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId
         };
 
         return certificate;
+    }
+
+    /// <summary>
+    /// Validates EntityType against the required companion ids, mirroring
+    /// CK_PropertyCertificates_EntityScope exactly: 'S' requires SocietyDetailId and forbids
+    /// WingDetailId/PropertyId; 'W' requires both SocietyDetailId and WingDetailId and forbids
+    /// PropertyId; 'P' requires PropertyId (SocietyDetailId/WingDetailId may be set alongside it,
+    /// e.g. a specific unit certificate created under a wing/society context -- the DB constraint
+    /// places no restriction on them for 'P').
+    /// </summary>
+    private static void ValidateEntityScope(string entityType, int? propertyId, int? societyDetailId, int? wingDetailId)
+    {
+        switch (entityType)
+        {
+            case "S":
+                if (!societyDetailId.HasValue)
+                    throw new ArgumentException("SocietyDetailId is required when EntityType is 'S'.", nameof(societyDetailId));
+                if (wingDetailId.HasValue)
+                    throw new ArgumentException("WingDetailId must be null when EntityType is 'S'.", nameof(wingDetailId));
+                if (propertyId.HasValue)
+                    throw new ArgumentException("PropertyId must be null when EntityType is 'S'.", nameof(propertyId));
+                break;
+            case "W":
+                if (!societyDetailId.HasValue)
+                    throw new ArgumentException("SocietyDetailId is required when EntityType is 'W'.", nameof(societyDetailId));
+                if (!wingDetailId.HasValue)
+                    throw new ArgumentException("WingDetailId is required when EntityType is 'W'.", nameof(wingDetailId));
+                if (propertyId.HasValue)
+                    throw new ArgumentException("PropertyId must be null when EntityType is 'W'.", nameof(propertyId));
+                break;
+            case "P":
+                if (!propertyId.HasValue || propertyId.Value <= 0)
+                    throw new ArgumentException("PropertyId is required when EntityType is 'P'.", nameof(propertyId));
+                break;
+            default:
+                throw new ArgumentException($"EntityType must be 'S', 'W', or 'P'. Got '{entityType}'.", nameof(entityType));
+        }
     }
 
     /// <summary>
@@ -80,16 +128,16 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// Optimized to eliminate the need for a separate update operation.
     /// </summary>
     public static PropertyCertificateEntity CreateWithDocument(
-        int propertyId,
+        int? propertyId,
         int certificateTypeId,
         int documentBindingId,
         string? certificateNo = null,
         DateTime? issueDate = null,
-        int? propertyDetailsId = null)
+        int? propertyDetailsId = null,
+        string entityType = "P",
+        int? societyDetailId = null,
+        int? wingDetailId = null)
     {
-        if (propertyId <= 0)
-            throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
-
         if (certificateTypeId <= 0)
             throw new ArgumentException("Certificate type ID must be greater than zero.", nameof(certificateTypeId));
 
@@ -102,6 +150,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         if (issueDate.HasValue && issueDate.Value > DateTime.Now)
             throw new ArgumentException("Issue date cannot be in the future.", nameof(issueDate));
 
+        ValidateEntityScope(entityType, propertyId, societyDetailId, wingDetailId);
+
         var certificate = new PropertyCertificateEntity
         {
             PropertyId = propertyId,
@@ -111,16 +161,21 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             DocumentBindingId = documentBindingId,
             PropertyDetailsId = propertyDetailsId,
             IsActive = true,
-            _markedForDeletion = false
+            _markedForDeletion = false,
+            EntityType = entityType,
+            SocietyDetailId = societyDetailId,
+            WingDetailId = wingDetailId
         };
 
         return certificate;
     }
 
     /// <summary>
-    /// Property ID this certificate belongs to
+    /// Property ID this certificate belongs to. Null when EntityType is 'S' (Society) or 'W'
+    /// (Wing) -- those scopes apply to every property under the society/wing, not one specific
+    /// property (see CK_PropertyCertificates_EntityScope). Always set when EntityType is 'P'.
     /// </summary>
-    public int PropertyId { get; private set; }
+    public int? PropertyId { get; private set; }
 
     /// <summary>
     /// FK to PropertyCertificateTypeMaster
@@ -148,6 +203,21 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// FK to PropertyDetails - links to specific floor/unit
     /// </summary>
     public int? PropertyDetailsId { get; private set; }
+
+    /// <summary>
+    /// Entity type (P for Property, S for Society, W for Wing)
+    /// </summary>
+    public string EntityType { get; private set; } = "P";
+
+    /// <summary>
+    /// Society Detail ID when EntityType is 'S' (FK to PTIS.SocietyDetailsMast)
+    /// </summary>
+    public int? SocietyDetailId { get; private set; }
+
+    /// <summary>
+    /// Wing Detail ID when EntityType is 'W' (FK to PTIS.WingDetailsMast)
+    /// </summary>
+    public int? WingDetailId { get; private set; }
 
     // IHardDeletable - Explicit interface implementation
     private bool _markedForDeletion = false;
@@ -303,7 +373,7 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     {
         return !string.IsNullOrWhiteSpace(CertificateNo)
                && IssueDate.HasValue
-               && PropertyId > 0
+               && (EntityType != "P" || (PropertyId.HasValue && PropertyId.Value > 0))
                && CertificateTypeId > 0
                && !_markedForDeletion;
     }

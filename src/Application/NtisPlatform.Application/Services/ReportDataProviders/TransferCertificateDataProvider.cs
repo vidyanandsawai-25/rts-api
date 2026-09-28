@@ -19,7 +19,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
     ///            + pivoted TransMast tax columns.
     /// 
     /// Join conditions:
-    ///   PTIS.PropertyMast.PropertyMastOldId = PTIS.PropertyMastOld.Id
+    ///   PTIS.PropertyMast.Id via PTIS.PropertyMapDetail.PropertyIdNew = PTIS.PropertyMapDetail.PropertyIdOld = PTIS.PropertyMastOld.Id
     ///   PTIS.PropertyMast.PropertyTypeId    = PTIS.PropertyTypeMaster.Id
     /// 
     /// Section discovery is static (no query runs during authenticate).
@@ -44,6 +44,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         private readonly IReportDataRepository<TransMastEntity> _transRepository;
         private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
         private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
+        private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
         public TransferCertificateDataProvider(
             IReportDataRepository<PropertyEntity> propertyRepository,
@@ -59,11 +60,13 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             IReportDataRepository<YearMasterEntity> yearRepository,
             IReportDataRepository<TransMastEntity> transRepository,
             IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
-            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository)
+            IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository,
+            IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null)
         {
             _propertyRepository = propertyRepository;
             _wardRepository = wardRepository;
             _societyRepository = societyRepository;
+            _wingDetailsRepository = wingDetailsRepository;
             _typeOfUseRepository = typeOfUseRepository;
             _propertyMastOldRepository = propertyMastOldRepository;
             _propertyTypeRepository = propertyTypeRepository;
@@ -286,18 +289,21 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             if (!properties.Any())
                 return new List<object>();
 
-            // 1b. Society details map
-            var societyDetails = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value))
-                .Select(sd => new
+            var wingQuery = _wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var societyDetails = await (
+                from sd in _societyRepository.GetQueryable()
+                where sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value)
+                join wdm in wingQuery on sd.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                select new
                 {
                     PropertyId = sd.PropertyId!.Value,
-                    sd.WingId,
-                    sd.WingName,
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null,
                     sd.SocietyName,
                     sd.SocietyAddress,
-                })
-                .ToListAsync(ct);
+                }
+            ).ToListAsync(ct);
 
             var societyMap = societyDetails.GroupBy(s => s.PropertyId)
                                            .ToDictionary(g => g.Key, g => g.First());

@@ -53,7 +53,8 @@ public class OldWardMasterServiceTests
         var entity = new OldWardMasterEntity
         {
             Id = 1,
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -69,7 +70,8 @@ public class OldWardMasterServiceTests
             .Returns((OldWardMasterEntity e) => new OldWardMasterDto
             {
                 Id = e.Id,
-                OldZoneName = e.OldZoneName,
+                OldZoneId = e.OldZoneId,
+                Description = e.Description,
                 OldWardNo = e.OldWardNo,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate,
@@ -82,7 +84,8 @@ public class OldWardMasterServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal("MM", result.OldZoneName);
+        Assert.Equal(1, result.OldZoneId);
+        Assert.Equal("Ward 11", result.Description);
         Assert.Equal("MM11", result.OldWardNo);
         Assert.True(result.IsActive);
     }
@@ -107,8 +110,8 @@ public class OldWardMasterServiceTests
         // Arrange
         var entities = new List<OldWardMasterEntity>
         {
-            new() { Id = 1, OldZoneName = "MM", OldWardNo = "MM11", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now },
-            new() { Id = 2, OldZoneName = "MM", OldWardNo = "MM12", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now }
+            new() { Id = 1, OldZoneId = 1, Description = "Ward 11", OldWardNo = "MM11", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now },
+            new() { Id = 2, OldZoneId = 1, Description = "Ward 12", OldWardNo = "MM12", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -154,7 +157,8 @@ public class OldWardMasterServiceTests
         // Arrange
         var createDto = new CreateOldWardMasterDto
         {
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             CreatedBy = 1,
             IsActive = true
@@ -165,7 +169,8 @@ public class OldWardMasterServiceTests
             .Returns((CreateOldWardMasterDto dto) => new OldWardMasterEntity
             {
                 Id = 1,
-                OldZoneName = dto.OldZoneName,
+                OldZoneId = dto.OldZoneId,
+                Description = dto.Description,
                 OldWardNo = dto.OldWardNo,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
@@ -181,7 +186,8 @@ public class OldWardMasterServiceTests
             .Returns((OldWardMasterEntity e) => new OldWardMasterDto
             {
                 Id = e.Id,
-                OldZoneName = e.OldZoneName,
+                OldZoneId = e.OldZoneId,
+                Description = e.Description,
                 OldWardNo = e.OldWardNo,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
@@ -193,7 +199,8 @@ public class OldWardMasterServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal("MM", result.OldZoneName);
+        Assert.Equal(1, result.OldZoneId);
+        Assert.Equal("Ward 11", result.Description);
         Assert.Equal("MM11", result.OldWardNo);
         Assert.True(result.IsActive);
 
@@ -207,7 +214,8 @@ public class OldWardMasterServiceTests
         // Arrange
         var updateDto = new UpdateOldWardMasterDto
         {
-            OldZoneName = "MM_Updated",
+            OldZoneId = 1,
+            Description = "Ward 11 Updated",
             OldWardNo = "MM11_Updated",
             IsActive = true,
             UpdatedBy = 2
@@ -216,7 +224,8 @@ public class OldWardMasterServiceTests
         var existingEntity = new OldWardMasterEntity
         {
             Id = 1,
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -235,7 +244,8 @@ public class OldWardMasterServiceTests
             .Setup(m => m.Map(It.IsAny<UpdateOldWardMasterDto>(), It.IsAny<OldWardMasterEntity>()))
             .Callback((UpdateOldWardMasterDto src, OldWardMasterEntity dest) =>
             {
-                dest.OldZoneName = src.OldZoneName;
+                dest.OldZoneId = src.OldZoneId;
+                dest.Description = src.Description;
                 dest.OldWardNo = src.OldWardNo;
                 dest.IsActive = src.IsActive;
                 dest.UpdatedBy = src.UpdatedBy;
@@ -247,7 +257,8 @@ public class OldWardMasterServiceTests
             .Returns((OldWardMasterEntity e) => new OldWardMasterDto
             {
                 Id = e.Id,
-                OldZoneName = e.OldZoneName,
+                OldZoneId = e.OldZoneId,
+                Description = e.Description,
                 OldWardNo = e.OldWardNo,
                 IsActive = e.IsActive
             });
@@ -261,7 +272,7 @@ public class OldWardMasterServiceTests
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OldWardMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
-        Assert.Equal("MM_Updated", existingEntity.OldZoneName);
+        Assert.Equal("Ward 11 Updated", existingEntity.Description);
         Assert.Equal("MM11_Updated", existingEntity.OldWardNo);
     }
 
@@ -271,7 +282,8 @@ public class OldWardMasterServiceTests
         // Arrange
         var updateDto = new UpdateOldWardMasterDto
         {
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true,
             UpdatedBy = 2
@@ -298,7 +310,8 @@ public class OldWardMasterServiceTests
         var existingEntity = new OldWardMasterEntity
         {
             Id = 1,
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true
         };
@@ -351,7 +364,8 @@ public class OldWardMasterServiceTests
         // Arrange
         var updateDto = new UpdateOldWardMasterDto
         {
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = false
         };
@@ -359,7 +373,8 @@ public class OldWardMasterServiceTests
         var existingEntity = new OldWardMasterEntity
         {
             Id = 1,
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true
         };
@@ -395,7 +410,8 @@ public class OldWardMasterServiceTests
         var existingEntity = new OldWardMasterEntity
         {
             Id = 1,
-            OldZoneName = "MM",
+            OldZoneId = 1,
+            Description = "Ward 11",
             OldWardNo = "MM11",
             IsActive = true
         };

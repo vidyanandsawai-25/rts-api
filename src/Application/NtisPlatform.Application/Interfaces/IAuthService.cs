@@ -16,6 +16,11 @@ public interface IAuthService
     Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Authenticate user with username and password, returning JWT token along with roles, permissions, and user access details.
+    /// </summary>
+    Task<LoginV2ResponseDto> LoginV2Async(LoginRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Refresh an access token using a refresh token
     /// </summary>
     /// <param name="request">Refresh token request</param>

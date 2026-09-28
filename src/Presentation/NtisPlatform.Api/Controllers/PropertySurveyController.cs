@@ -42,7 +42,7 @@ public class PropertySurveyController : ControllerBase
     /// Searches newly created properties for a module (paginated).
     /// </summary>
     [HttpGet("created-by-user")]
-    [ProducesResponseType(typeof(ApiResponse<UserPropertyPageDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(UserPropertyPageDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SearchNewlyCreatedProperties(
         [FromQuery] CreatedByUserPropertySearchRequestDto request,
@@ -51,12 +51,7 @@ public class PropertySurveyController : ControllerBase
         var result = await _propertySurveyService
             .SearchNewlyCreatedPropertiesAsync(request, cancellationToken);
 
-        return Ok(new ApiResponse<UserPropertyPageDto>
-        {
-            Success = true,
-            Message = result.PageItemCount == 0 ? "No properties found." : "Properties fetched successfully.",
-            Items = result
-        });
+        return Ok(result);
     }
 
     /// <summary>
@@ -238,7 +233,7 @@ public class PropertySurveyController : ControllerBase
     /// </summary>
     [HttpPost("survey-visit/unverify")]
     [ProducesResponseType(
-        typeof(ApiResponse<bool>),
+        typeof(ApiResponse<UnverifyPropertySurveyVisitResponseDto>),
         StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -265,10 +260,10 @@ public class PropertySurveyController : ControllerBase
                 loggedInUserId,
                 cancellationToken);
 
-        return Ok(new ApiResponse<bool>
+        return Ok(new ApiResponse<UnverifyPropertySurveyVisitResponseDto>
         {
-            Success = result,
-            Message = "Property unverified successfully.",
+            Success = true,
+            Message = result.Message,
             Items = result
         });
     }

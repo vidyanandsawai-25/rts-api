@@ -4,6 +4,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.OldSociety;
 using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
 using NtisPlatform.Application.DTOs.PropertySurveySearch;
 using NtisPlatform.Application.DTOs.Range;
@@ -69,8 +70,20 @@ public interface IPropertyService
         CancellationToken cancellationToken = default);
 
 		
-		 Task<PagedResult<PropertyBuildingInformationDto>>
-    SearchBuildingInformationAsync(
-        BuildingInformationQueryParameters queryParameters,CancellationToken cancellationToken = default);
+    Task<List<PropertyBuildingInformationDto>> SearchBuildingInformationAsync(
+        List<SearchBuildingInformationDto> dtos,
+        CancellationToken cancellationToken = default);
 
+    Task<OldSocietyResponseDto?> GetOldSocietiesAsync(
+        SearchOldSocietyDto dto,
+        CancellationToken cancellationToken = default);
+
+    Task<List<GetPropertiesItemDto>> GetPropertiesAsync(
+        GetPropertiesQueryParameters queryParameters,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all mapped old properties for a merged property.
+    /// </summary>
+    Task<PagedResult<MappedOldPropertyMastDto>?> GetMappedOldPropertyDetailsAsync(MappedOldPropertyQueryParameters queryParameters, CancellationToken cancellationToken = default);
 }

@@ -10,10 +10,18 @@ public class PropertyCertificateDto
     public int Id { get; set; }
     public int PropertyId { get; set; }
     public int CertificateTypeId { get; set; }
+    public string? CertificateTypeName { get; set; }
     public string? CertificateTypeCode { get; set; }
     public string? CertificateNo { get; set; }
     public DateTime? IssueDate { get; set; }
+    public DateTime? CertificateIssueDate => IssueDate;
     public int? PropertyDetailsId { get; set; }
+    public int? DocumentBindingId { get; set; }
+    public int? DocumentId { get; set; }
+    public Guid? DocumentGuid { get; set; }
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>
@@ -33,6 +41,9 @@ public class PropertyCertificateUploadResponseDto
     public long FileSizeBytes { get; set; }
     public string StoragePath { get; set; } = string.Empty;
     public int? PropertyDetailsId { get; set; }
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 }
 
 /// <summary>
@@ -60,5 +71,15 @@ public class PropertyCertificateWithStatusDto
     /// Set = floor-level certificate tied to this PropertyDetails/floor row.
     /// </summary>
     public int? PropertyDetailsId { get; set; }
-}
+    public string? EntityType { get; set; }
+    public int? SocietyDetailId { get; set; }
+    public int? WingDetailId { get; set; }
 
+    /// <summary>
+    /// True when this unit has no certificate of its own for this type and the row shown is
+    /// instead falling back to its Wing's or Society's applied certificate (EntityType/
+    /// SocietyDetailId/WingDetailId above identify which). False for the unit's own certificate
+    /// or when there is no certificate at all (HasCertificate = false).
+    /// </summary>
+    public bool IsInherited { get; set; }
+}

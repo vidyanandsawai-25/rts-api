@@ -190,7 +190,7 @@ public class MfaChallengeService : IMfaChallengeService
         }
 
         var secret = _secretProtector.Unprotect(user.TwoFactorSecretEncrypted);
-        return _totpService.ValidateCode(secret, normalized, _timeProvider.GetLocalNow());
+        return _totpService.ValidateCode(secret, normalized, _timeProvider.GetUtcNow());
     }
 
     private async Task<bool> TryRedeemRecoveryCodeAsync(int userId, string rawCode, CancellationToken cancellationToken)

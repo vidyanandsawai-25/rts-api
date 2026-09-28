@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Report;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Reporting;
@@ -40,7 +41,6 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         private readonly IReportDataRepository<SocietyDetailsEntity> _societyRepository;
         private readonly IReportDataRepository<PropertyMastOldEntity> _propertyMastOldRepository;
         private readonly IReportDataRepository<TransMastEntity> _transmastRepository;
-        private readonly IReportDataRepository<TaxPendingDetailsEntity> _taxPendingRepository;
         private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
         private readonly IReportDataRepository<UserEntity> _userRepository;
         private readonly IReportDataRepository<YearMasterEntity> _yearRepository;
@@ -48,6 +48,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         private readonly IReportingRepository<ReportRequestEntity, Guid> _ReportRequestRepository;
         private readonly IReportDataRepository<PropertyMapDetailEntity> _propertyMapDetailRepository;
         private readonly IReportDataRepository<PropertyTypeMasterEntity> _PropertyTypeMasterRepository;
+        private readonly IReportDataRepository<WingDetailsMastEntity>? _wingDetailsRepository;
 
         public SocietyOutstandingReportDataProvider(
             IReportDataRepository<PropertyEntity> propertyRepository,
@@ -55,22 +56,21 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             IReportDataRepository<SocietyDetailsEntity> societyRepository,
             IReportDataRepository<PropertyMastOldEntity> propertyMastOldRepository,
             IReportDataRepository<TransMastEntity> transmastRepository,
-            IReportDataRepository<TaxPendingDetailsEntity> taxPendingRepository,
             IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
             IReportDataRepository<UserEntity> userRepository,
             IReportDataRepository<YearMasterEntity> yearRepository,
             IReportDataRepository<TransMastEntity> transRepository,
             IReportingRepository<ReportRequestEntity, Guid> reportRequestRepository,
             IReportDataRepository<PropertyMapDetailEntity> propertyMapDetailRepository,
-            IReportDataRepository<PropertyTypeMasterEntity> PropertyTypeMasterRepository
-            )
+            IReportDataRepository<PropertyTypeMasterEntity> PropertyTypeMasterRepository,
+            IReportDataRepository<WingDetailsMastEntity>? wingDetailsRepository = null)
         {
             _propertyRepository = propertyRepository;
             _wardRepository = wardRepository;
             _societyRepository = societyRepository;
+            _wingDetailsRepository = wingDetailsRepository;
             _propertyMastOldRepository = propertyMastOldRepository;
             _transmastRepository = transmastRepository;
-            _taxPendingRepository = taxPendingRepository;
             _ulbMasterRepository = ulbMasterRepository;
             _userRepository = userRepository;
             _yearRepository = yearRepository;
@@ -394,19 +394,22 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
             // 3a. Society details — keyed by PropertyId (int? in SocietyDetailsEntity)
             //     A property can have multiple wing rows; take the first per PropertyId.
-            var societies = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value)
-                    && sd.IsActive && !sd.MarkedForDeletion)
-                .OrderBy(sd => sd.Id)
-                .Select(sd => new
+            var wingQuery = _wingDetailsRepository != null ? _wingDetailsRepository.GetQueryable().Where(x => x.IsActive && !x.MarkedForDeletion) : Enumerable.Empty<WingDetailsMastEntity>().AsQueryable();
+            var societies = await (
+                from sd in _societyRepository.GetQueryable()
+                where sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value) && sd.IsActive && !sd.MarkedForDeletion
+                join wdm in wingQuery on sd.Id equals wdm.SocietyDetailsMastId into wdmGroup
+                from wdm in wdmGroup.DefaultIfEmpty()
+                orderby sd.Id
+                select new
                 {
                     sd.PropertyId,
-                    sd.WingId,
-                    sd.WingName,
+                    WingId = (int?)(wdm != null ? wdm.WingMasterId : null),
+                    WingName = wdm != null ? wdm.WingName : null,
                     sd.SocietyName,
                     sd.SocietyAddress,
-                })
-                .ToListAsync(ct);
+                }
+            ).ToListAsync(ct);
             // GroupBy to handle duplicate PropertyId rows (multiple wings per property)
             var societyMap = societies
                 .GroupBy(s => s.PropertyId!.Value)
@@ -453,15 +456,13 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 .ToListAsync(ct);
             var currentTaxMap = currentTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 
-            // 3d. TaxPendingDetails — SUM(PendingAmount) per PropertyId (IsActive = true)
-            //     SQL: SELECT PropertyId, SUM(PendingAmount) FROM PTIS.TaxPendingDetails
-            //          WHERE PropertyId IN (@ids) AND IsActive = 1 GROUP BY PropertyId
-
-            var pendingTaxSums = await _taxPendingRepository.GetQueryable()
-                // Outstanding arrears intentionally span all pending years.
-                .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion && !tp.PendingFixed)
+            // 3d. Migrated ULB arrears -- TransMast rows tagged PolicyCode = OLD_ARREARS.
+            var pendingTaxSums = await _transmastRepository.GetQueryable()
+                // Outstanding arrears intentionally span all finance years.
+                .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion
+                            && tp.PolicyCodeMaster!.PolicyCode == PolicyCodes.OldArrears)
                 .GroupBy(tp => tp.PropertyId)
-                .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.PendingAmount) ?? 0m })
+                .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.TaxAmount) })
                 .ToListAsync(ct);
             var pendingTaxMap = pendingTaxSums.ToDictionary(x => x.PropertyId, x => x.Total);
 
