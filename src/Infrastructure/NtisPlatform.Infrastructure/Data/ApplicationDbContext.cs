@@ -2579,7 +2579,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.UserId);
+            entity.Property(e => e.UserId).IsRequired(false);
             entity.Property(e => e.Success).IsRequired();
             entity.Property(e => e.CorrelationId).HasMaxLength(100);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
@@ -6320,7 +6320,9 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.ApplicationId).IsRequired();
             entity.Property(e => e.AppealNo).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.AppealLevel).IsRequired();
+            entity.Property(e => e.AppealLevel)
+                .HasColumnType("int")
+                .IsRequired();
             entity.Property(e => e.AppealTypeId).IsRequired();
             entity.Property(e => e.ReasonForComplaint).HasMaxLength(1000);
             entity.Property(e => e.MobileNumber).HasMaxLength(20);
@@ -6356,7 +6358,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.AppealFlowId).IsRequired();
             entity.Property(e => e.StageName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.StageOrder).IsRequired();
-            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.UserId);
 
             entity.HasOne(e => e.ApprovalFlow)
                 .WithMany(e => e.AppealFlowStages)

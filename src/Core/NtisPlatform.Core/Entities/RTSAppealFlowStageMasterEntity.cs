@@ -26,7 +26,7 @@ public class RTSAppealFlowStageMasterEntity : BaseEntity
     /// <summary>
     /// Designated officer/user ID assigned to this appellate stage.
     /// </summary>
-    public int UserId { get; set; }
+    public int? UserId { get; set; }
 
     /// <summary>
     /// Whether this stage officer is permitted to approve appeals.

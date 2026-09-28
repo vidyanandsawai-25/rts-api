@@ -18,8 +18,8 @@ namespace NtisPlatform.Api.Controllers;
 /// in accordance with the Maharashtra Right to Public Services Act (MRTSA 2015).
 /// </summary>
 [Route("api/[controller]")]
-[Route("api/rts/appeal")]
-[Route("api/rts-appeal")]
+// [Route("api/rts/appeal")]
+// [Route("api/rts-appeal")]
 [ApiController]
 public class RTSAppealController : ControllerBase
 {
