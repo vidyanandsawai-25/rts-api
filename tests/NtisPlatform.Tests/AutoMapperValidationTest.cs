@@ -206,7 +206,12 @@ public class AutoMapperValidationTest
                 // corresponding *Id foreign keys are what the DTOs/mapping profiles actually carry.
                 "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy",
                 // GIS Engine Master DTO computed/read-only display fields (resolved via joins or audit fields)
-                "LayerCode", "KpiCode", "FilterKey", "UploadedAt", "FileName", "UploadedBy"
+                "LayerCode", "KpiCode", "FilterKey", "UploadedAt", "FileName", "UploadedBy",
+                // RTS module navigation properties and workflow permission flags (EF Core managed)
+                "Service", "ApprovalFlowStages", "AppealFlowStages", "CanViewNoteSheet", "CanEdit",
+                "CanIssueCertificate", "CanEditCertificate", "ApprovalFlow", "ApprovalFlows",
+                "IsReverted", "FieldDefinition", "FieldValues", "IsCertificateRequired",
+                "IsSmsEnabled", "ServiceCode"
              };
 
             // Check if all unmapped properties are in the expected list

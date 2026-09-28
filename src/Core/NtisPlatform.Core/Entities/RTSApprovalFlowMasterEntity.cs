@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -10,5 +10,6 @@ public class RTSApprovalFlowMasterEntity : BaseEntity
     // Navigation properties
     public virtual RTSServiceEntity Service { get; set; } = null!;
     public virtual List<RTSApprovalFlowStageMasterEntity> ApprovalFlowStages { get; set; } = new List<RTSApprovalFlowStageMasterEntity>();
+    public virtual List<RTSAppealFlowStageMasterEntity> AppealFlowStages { get; set; } = new List<RTSAppealFlowStageMasterEntity>();
     public virtual List<TrackApplicationHistoryEntity> TrackApplicationHistories { get; set; } = new List<TrackApplicationHistoryEntity>();
 }
