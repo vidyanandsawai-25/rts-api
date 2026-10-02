@@ -260,6 +260,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
     public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
     public DbSet<RTSPaymentWebhookLogEntity> RTSPaymentWebhookLogs { get; set; } = null!;
+    public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
 
     // Property Sign-off Module
     public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
@@ -6561,6 +6562,78 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.GatewayConfigId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+
+        modelBuilder.Entity<RTSRuleMasterEntity>(entity =>
+        {
+            entity.ToTable("RuleMaster", "RTS");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(x => x.ServiceId)
+                .IsRequired();
+
+            entity.Property(x => x.RuleDescription)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(x => x.ConditionField)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.ComparisonOperator)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(x => x.ExpectedValue)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(x => x.RuleActionType)
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(x => x.RateAmount)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.Priority)
+                .HasDefaultValue(1)
+                .IsRequired();
+
+            entity.Property(x => x.RuleGroup)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.ActionValue)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.IsCumulative)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            entity.Property(x => x.ConditionFieldDefinitionId);
+
+            entity.Property(x => x.IsActive)
+                .HasDefaultValue(true)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedBy);
+
+            entity.Property(x => x.CreatedDate)
+                .HasDefaultValueSql("GETDATE()")
+                .IsRequired();
+
+            entity.Property(x => x.UpdatedBy);
+
+            entity.Property(x => x.UpdatedDate);
+
+            entity.Property(x => x.UserId);
+        });
+
+
+
+
 
         //----------------------------------------------------------------
         //--------------------RTSEND Api work ------------------------
