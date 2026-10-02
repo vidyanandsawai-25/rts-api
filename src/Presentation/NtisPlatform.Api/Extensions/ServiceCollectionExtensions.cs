@@ -692,6 +692,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSPaymentService, RTSPaymentService>();
         services.AddSingleton<IRTSDigitalSignatureService, RTSDigitalSignatureService>();
         services.AddScoped<IRTSCertificateService, RTSCertificateService>();
+        services.AddScoped<IRTSAppealService, RTSAppealService>();
+        services.AddScoped<IRtsAppealService>(sp => (IRtsAppealService)sp.GetRequiredService<IRTSAppealService>());
         services.AddScoped<IRTSCertificateTemplateLibraryService, RTSCertificateTemplateLibraryService>();
         services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
         services.AddScoped<IRTSRuleMasterService, RTSRuleMasterService>();

@@ -190,6 +190,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSServiceCertificateMasterEntity> RTSServiceCertificateMasters { get; set; } = null!;
     public DbSet<RTSCertificateCoreTemplateMasterEntity> RTSCertificateCoreTemplateMasters { get; set; } = null!;
     public DbSet<RTSIssuedCertificateEntity> RTSIssuedCertificates { get; set; } = null!;
+    public DbSet<RTSAppealTypeMasterEntity> RTSAppealTypeMasters { get; set; } = null!;
+    public DbSet<RTSAppealApplicationEntity> RTSAppealApplications { get; set; } = null!;
+    public DbSet<RTSTrackAppealHistoryEntity> RTSTrackAppealHistories { get; set; } = null!;
+    public DbSet<RTSAppealFlowStageMasterEntity> RTSAppealFlowStageMasters { get; set; } = null!;
 
     //Asset Start
     public DbSet<CVRateMasterEntity> CVRateMaster { get; set; } = null!;
@@ -2576,7 +2580,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.UserId);
+            entity.Property(e => e.UserId).IsRequired(false);
             entity.Property(e => e.Success).IsRequired();
             entity.Property(e => e.CorrelationId).HasMaxLength(100);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
@@ -6292,6 +6296,98 @@ public class ApplicationDbContext : DbContext
                 .WithMany(e => e.ApprovalFlowStages)
                 .HasForeignKey(e => e.ApprovalFlowId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RTSAppealTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("AppealTypeMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Code).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AppealTypeName).IsRequired().HasMaxLength(250);
+
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedBy);
+            entity.Ignore(e => e.UpdatedDate);
+            entity.Ignore(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<RTSAppealApplicationEntity>(entity =>
+        {
+            entity.ToTable("AppealApplicationDetails", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.AppealNo).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AppealLevel)
+                .HasColumnType("int")
+                .IsRequired();
+            entity.Property(e => e.AppealTypeId).IsRequired();
+            entity.Property(e => e.ReasonForComplaint).HasMaxLength(1000);
+            entity.Property(e => e.MobileNumber).HasMaxLength(20);
+            entity.Property(e => e.EmailAddress).HasMaxLength(150);
+            entity.Property(e => e.AppealStatus).HasMaxLength(50).HasDefaultValue("Pending");
+            entity.Property(e => e.ActionRemarks).HasMaxLength(1000);
+            entity.Property(e => e.ActionByUserId);
+            entity.Property(e => e.ActionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedBy).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.ApplicationId, e.AppealLevel });
+            entity.HasIndex(e => e.AppealNo);
+        });
+
+        modelBuilder.Entity<RTSAppealFlowStageMasterEntity>(entity =>
+        {
+            entity.ToTable("AppealFlowStageMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedBy);
+            entity.Ignore(e => e.UpdatedDate);
+            entity.Ignore(e => e.IsActive);
+
+            entity.Property(e => e.AppealFlowId).IsRequired();
+            entity.Property(e => e.StageName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.StageOrder).IsRequired();
+            entity.Property(e => e.UserId);
+
+            entity.HasOne(e => e.ApprovalFlow)
+                .WithMany(e => e.AppealFlowStages)
+                .HasForeignKey(e => e.AppealFlowId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RTSTrackAppealHistoryEntity>(entity =>
+        {
+            entity.ToTable("TrackAppealHistory", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.UpdatedBy);
+            entity.Ignore(e => e.UpdatedDate);
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.HasOne(e => e.AppealApplication)
+                .WithMany()
+                .HasForeignKey(e => e.AppealId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.AppealId);
+            entity.HasIndex(e => e.ApplicationId);
         });
 
         modelBuilder.Entity<RTSServiceCertificateMasterEntity>(entity =>

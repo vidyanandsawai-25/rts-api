@@ -204,6 +204,14 @@ public class AutoMapperValidationTest
                 "RuleDefinition",
                 // Retrospective Tax Rule Engine navigation properties (EF Core managed); the
                 // corresponding *Id foreign keys are what the DTOs/mapping profiles actually carry.
+                "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy",
+                // GIS Engine Master DTO computed/read-only display fields (resolved via joins or audit fields)
+                "LayerCode", "KpiCode", "FilterKey", "UploadedAt", "FileName", "UploadedBy",
+                // RTS module navigation properties and workflow permission flags (EF Core managed)
+                "Service", "ApprovalFlowStages", "AppealFlowStages", "CanViewNoteSheet", "CanEdit",
+                "CanIssueCertificate", "CanEditCertificate", "ApprovalFlow", "ApprovalFlows",
+                "IsReverted", "FieldDefinition", "FieldValues", "IsCertificateRequired",
+                "IsSmsEnabled", "ServiceCode",
                 "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy", "WingDetailsMast",
                 // Unmapped computed / domain fields
                 "OCDate", "RentYearly", "RentMonthly", "RenterName", "RenterNameEnglish", "RateableValue",
