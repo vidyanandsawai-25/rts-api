@@ -42,7 +42,7 @@ public class RTSApplicationDetailsDto
         public string? ApplicationStatus { get; set; }
         public string? Remark { get; set; }
         public List<CreateRTSFieldValueDto>? FieldValues { get; set; }
-
+        public string? TdToken { get; set; }
     }
 
 
@@ -59,5 +59,9 @@ public class RTSApplicationDetailsDto
         public string? ApplicationStatus { get; set; }
         public string? Remark { get; set; }
         public List<UpdateRTSFieldValueDto>? FieldValues { get; set; }
-
     }
+
+    public class AapleSarkarMappingDto : NtisPlatform.Application.DTOs.AapleSarkar.AapleSarkarMappingDto { }
+
+    public class AapleSarkarNotifyDto : NtisPlatform.Application.DTOs.AapleSarkar.AapleSarkarNotifyDto { }
+

@@ -37,6 +37,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IUlbConfigService _ulbConfigService;
+    private readonly IAapleSarkarIntegrationService _aapleSarkarService;
     private readonly ILogger<RTSPaymentService> _logger;
 
     public RTSPaymentService(
@@ -56,6 +57,7 @@ public class RTSPaymentService : IRTSPaymentService
         IHttpClientFactory httpClientFactory,
         IRTSSmsNotificationService smsNotificationService,
         IUlbConfigService ulbConfigService,
+        IAapleSarkarIntegrationService aapleSarkarService,
         ILogger<RTSPaymentService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -74,6 +76,7 @@ public class RTSPaymentService : IRTSPaymentService
         _httpClientFactory = httpClientFactory;
         _smsNotificationService = smsNotificationService;
         _ulbConfigService = ulbConfigService;
+        _aapleSarkarService = aapleSarkarService;
         _logger = logger;
     }
 
@@ -569,7 +572,7 @@ public class RTSPaymentService : IRTSPaymentService
             if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
             {
-                app.ApplicationStatus = "In Progress";
+                app.ApplicationStatus = "Pending";
                 app.UpdatedDate = DateTime.Now;
             }
 
@@ -585,6 +588,24 @@ public class RTSPaymentService : IRTSPaymentService
                 IsActive = true
             };
             await _historyRepository.AddAsync(history, ct);
+
+            // Notify Aaple Sarkar: PaymentDone -> UnderScrutiny (populates Payment Date and enters scrutiny)
+            if (!string.IsNullOrWhiteSpace(app.ApplicationNo))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _aapleSarkarService.UpdateStatusAsync(app.ApplicationNo, "PaymentDone", ct: CancellationToken.None);
+                        await Task.Delay(1000);
+                        await _aapleSarkarService.UpdateStatusAsync(app.ApplicationNo, "UnderScrutiny", ct: CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to update Aaple Sarkar status after payment for {AppNo}", app.ApplicationNo);
+                    }
+                });
+            }
         }
 
         // Pre-resolve applicant contact for SMS dispatch

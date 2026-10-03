@@ -263,8 +263,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSPaymentModeMasterEntity> RTSPaymentModeMasters { get; set; } = null!;
     public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
     public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
-    public DbSet<RTSPaymentWebhookLogEntity> RTSPaymentWebhookLogs { get; set; } = null!;
     public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
+    public DbSet<RTSAapleSarkarCredentialEntity> RTSAapleSarkarCredentials { get; set; } = null!;
+    public DbSet<RTSAapleSarkarServiceMappingEntity> RTSAapleSarkarServiceMappings { get; set; } = null!;
+    public DbSet<RTSAapleSarkarRequestEntity> RTSAapleSarkarRequests { get; set; } = null!;
+    public DbSet<RTSAapleSarkarStatusLogEntity> RTSAapleSarkarStatusLogs { get; set; } = null!;
+    public DbSet<RTSAapleSarkarWebhookLogEntity> RTSAapleSarkarWebhookLogs { get; set; } = null!;
 
     // Property Sign-off Module
     public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
@@ -6727,9 +6731,85 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UserId);
         });
 
+        // ----------------------------------------------------------------
+        // ---------------- Aaple Sarkar Integration (RTS Schema) ---------
+        // ----------------------------------------------------------------
+        modelBuilder.Entity<RTSAapleSarkarCredentialEntity>(entity =>
+        {
+            entity.ToTable("AapleSarkarCredential", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ClientCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ChecksumKey).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EncryptionKey).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EncryptionIV).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ServiceUrl).HasMaxLength(255);
+            entity.Property(e => e.PortalBaseUrl).HasMaxLength(255);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+        });
 
+        modelBuilder.Entity<RTSAapleSarkarServiceMappingEntity>(entity =>
+        {
+            entity.ToTable("AapleSarkarServiceMapping", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MahaItServiceName).HasMaxLength(255);
+            entity.Property(e => e.MaxProcessingDays).HasDefaultValue(7);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasOne(e => e.RtsService)
+                .WithMany()
+                .HasForeignKey(e => e.RtsServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
 
+        modelBuilder.Entity<RTSAapleSarkarRequestEntity>(entity =>
+        {
+            entity.ToTable("AapleSarkarRequest", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AapleSarkarTrackId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApplicationNo).HasMaxLength(50);
+            entity.Property(e => e.CitizenUserId).HasMaxLength(100);
+            entity.Property(e => e.CitizenName).HasMaxLength(200);
+            entity.Property(e => e.MobileNo).HasMaxLength(20);
+            entity.Property(e => e.Email).HasMaxLength(150);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50).HasDefaultValue("Received");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.RtsService)
+                .WithMany()
+                .HasForeignKey(e => e.RtsServiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
+        modelBuilder.Entity<RTSAapleSarkarStatusLogEntity>(entity =>
+        {
+            entity.ToTable("AapleSarkarStatusLog", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AapleSarkarTrackId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApplicationNo).HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
+
+        modelBuilder.Entity<RTSAapleSarkarWebhookLogEntity>(entity =>
+        {
+            entity.ToTable("AapleSarkarWebhookLog", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AapleSarkarTrackId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApplicationNo).HasMaxLength(50);
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.MahaItStatusCode).HasMaxLength(10);
+            entity.Property(e => e.IsSuccess).HasDefaultValue(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
 
         //----------------------------------------------------------------
         //--------------------RTSEND Api work ------------------------

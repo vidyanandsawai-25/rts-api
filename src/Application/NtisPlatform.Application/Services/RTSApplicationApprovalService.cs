@@ -23,6 +23,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
+    private readonly IAapleSarkarIntegrationService _aapleSarkarService;
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -34,6 +35,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<RTSServiceEntity, int> serviceRepository,
           IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
           IRTSSmsNotificationService smsNotificationService,
+          IAapleSarkarIntegrationService aapleSarkarService,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -45,6 +47,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _serviceRepository = serviceRepository;
         _smsNotificationService = smsNotificationService;
         _issuedCertificateRepository = issuedCertificateRepository;
+        _aapleSarkarService = aapleSarkarService;
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -942,6 +945,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
             try
             {
+                if (!string.IsNullOrWhiteSpace(application.ApplicationNo))
+                {
+                    await _aapleSarkarService.UpdateStatusAsync(application.ApplicationNo, application.ApplicationStatus, remark: null, ct: cancellationToken);
+                }
+            }
+            catch { }
+
+            try
+            {
                 var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(mobile))
                 {
@@ -1090,6 +1102,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.UpdatedDate = DateTime.Now;
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(application.ApplicationNo))
+                {
+                    await _aapleSarkarService.UpdateStatusAsync(application.ApplicationNo, application.ApplicationStatus, remark: dto.Remark, ct: cancellationToken);
+                }
+            }
+            catch { }
 
             try
             {

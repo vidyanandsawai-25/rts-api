@@ -23,6 +23,7 @@ public class RTSApplicationController : ControllerBase
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IRepository<SMSGatewayMasterEntity, int> _gatewayRepository;
     private readonly IRepository<SMSMasterEntity, int> _smsMasterRepository;
+    private readonly IAapleSarkarIntegrationService _aapleSarkarService;
     private readonly ILogger<RTSApplicationController> _logger;
 
     public RTSApplicationController(
@@ -30,18 +31,73 @@ public class RTSApplicationController : ControllerBase
         IRTSSmsNotificationService smsNotificationService,
         IRepository<SMSGatewayMasterEntity, int> gatewayRepository,
         IRepository<SMSMasterEntity, int> smsMasterRepository,
+        IAapleSarkarIntegrationService aapleSarkarService,
         ILogger<RTSApplicationController> logger)
     {
         _service = service;
         _smsNotificationService = smsNotificationService;
         _gatewayRepository = gatewayRepository;
         _smsMasterRepository = smsMasterRepository;
+        _aapleSarkarService = aapleSarkarService;
         _logger = logger;
     }
 
     [HttpPost]
     public Task<IActionResult> Create([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
         => this.ExecuteCreate(_service, dto, _logger, ct);
+
+    [HttpPost("aaple-sarkar-mapping")]
+    public async Task<IActionResult> MapAapleSarkar([FromBody] AapleSarkarMappingDto dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto?.ApplicationNo))
+        {
+            return BadRequest(new { success = false, message = "ApplicationNo is required." });
+        }
+
+        var tokenOrTrackId = !string.IsNullOrWhiteSpace(dto.TdToken) ? dto.TdToken : dto.AapleSarkarTrackId;
+        if (string.IsNullOrWhiteSpace(tokenOrTrackId))
+        {
+            return BadRequest(new { success = false, message = "TdToken or AapleSarkarTrackId is required." });
+        }
+
+        var isMapped = await _aapleSarkarService.MapApplicationAsync(
+            tokenOrTrackId,
+            dto.ApplicationNo,
+            string.IsNullOrWhiteSpace(dto.Status) ? null : dto.Status,
+            ct);
+
+        return Ok(new
+        {
+            success = isMapped,
+            message = isMapped ? "Application mapped to Aaple Sarkar request successfully." : "Track ID not found in AapleSarkarRequest."
+        });
+    }
+
+    [HttpPost("aaple-sarkar-document-pending")]
+    public async Task<IActionResult> NotifyAapleSarkarDocumentPending([FromBody] AapleSarkarNotifyDto dto, CancellationToken ct)
+    {
+        var token = !string.IsNullOrWhiteSpace(dto?.TdToken) ? dto.TdToken : dto?.AapleSarkarTrackId;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { success = false, message = "TdToken or AapleSarkarTrackId is required." });
+        }
+
+        var success = await _aapleSarkarService.NotifyDocumentPendingAsync(token, ct);
+        return Ok(new { success, message = success ? "DocumentPending status recorded." : "Could not record status." });
+    }
+
+    [HttpPost("aaple-sarkar-payment-pending")]
+    public async Task<IActionResult> NotifyAapleSarkarPaymentPending([FromBody] AapleSarkarNotifyDto dto, CancellationToken ct)
+    {
+        var identifier = !string.IsNullOrWhiteSpace(dto?.TdToken) ? dto.TdToken : (!string.IsNullOrWhiteSpace(dto?.AapleSarkarTrackId) ? dto.AapleSarkarTrackId : dto?.ApplicationNo);
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return BadRequest(new { success = false, message = "Identifier (TdToken, AapleSarkarTrackId or ApplicationNo) is required." });
+        }
+
+        var success = await _aapleSarkarService.NotifyPaymentPendingAsync(identifier, ct);
+        return Ok(new { success, message = success ? "PaymentPending status recorded." : "Could not record status." });
+    }
 
     [HttpPost("citizen-otp/send")]
     public async Task<IActionResult> SendCitizenOtp([FromBody] SendCitizenOtpRequestDto request, CancellationToken ct)

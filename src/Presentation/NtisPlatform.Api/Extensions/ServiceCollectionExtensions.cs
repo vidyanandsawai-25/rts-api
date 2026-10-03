@@ -697,6 +697,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSCertificateTemplateLibraryService, RTSCertificateTemplateLibraryService>();
         services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
         services.AddScoped<IRTSRuleMasterService, RTSRuleMasterService>();
+        services.AddScoped<IAapleSarkarIntegrationService, AapleSarkarIntegrationService>();
 
 
 
