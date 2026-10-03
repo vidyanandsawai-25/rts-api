@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using NtisPlatform.Core.Enums;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
@@ -8,9 +9,17 @@ public class RTSServiceDto : BaseDtos
     public int DepartmentId { get; set; }
 
     /// <summary>
-    /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate).
+    /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate, 8273, etc.).
     /// </summary>
-    public int? GovtServiceCode { get; set; }
+    public int? GovtCode { get; set; }
+
+    [JsonPropertyName("govtServiceCode")]
+    public int? GovtServiceCode
+    {
+        get => GovtCode;
+        set => GovtCode = value;
+    }
+
     public string ServiceName { get; set; } = string.Empty;
     public string? ServiceNameLocal { get; set; }
     public string? Description { get; set; }
@@ -23,7 +32,6 @@ public class RTSServiceDto : BaseDtos
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsCertificateRequired { get; set; } = true;
     public bool IsSmsEnabled { get; set; } = true;
-    public string? ServiceCode { get; set; }
 }
 
 public class CreateRTSServiceDto : CreateBaseDtos
@@ -32,8 +40,15 @@ public class CreateRTSServiceDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Service_DepartmentId_Invalid")]
     public int DepartmentId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtServiceCode_Invalid")]
-    public int? GovtServiceCode { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtCode_Invalid")]
+    public int? GovtCode { get; set; }
+
+    [JsonPropertyName("govtServiceCode")]
+    public int? GovtServiceCode
+    {
+        get => GovtCode;
+        set => GovtCode = value;
+    }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]
@@ -57,9 +72,6 @@ public class CreateRTSServiceDto : CreateBaseDtos
     public bool IsCertificateRequired { get; set; } = true;
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsSmsEnabled { get; set; } = true;
-
-    [StringLength(50, ErrorMessage = "Service_ServiceCode_MaxLengthExceeded_50")]
-    public string? ServiceCode { get; set; }
 }
 
 public class UpdateRTSServiceDto : UpdateBaseDtos
@@ -68,8 +80,15 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Service_DepartmentId_Invalid")]
     public int DepartmentId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtServiceCode_Invalid")]
-    public int? GovtServiceCode { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtCode_Invalid")]
+    public int? GovtCode { get; set; }
+
+    [JsonPropertyName("govtServiceCode")]
+    public int? GovtServiceCode
+    {
+        get => GovtCode;
+        set => GovtCode = value;
+    }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]
@@ -94,7 +113,4 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     public bool IsCertificateRequired { get; set; } = true;
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsSmsEnabled { get; set; } = true;
-
-    [StringLength(50, ErrorMessage = "Service_ServiceCode_MaxLengthExceeded_50")]
-    public string? ServiceCode { get; set; }
 }

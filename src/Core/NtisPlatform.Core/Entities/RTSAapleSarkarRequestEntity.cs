@@ -19,7 +19,15 @@ public class RTSAapleSarkarRequestEntity
     public int? VillageId { get; set; }
     public int? DivisionId { get; set; }
     public int? RtsServiceId { get; set; }
-    public int? MahaItServiceId { get; set; }
+    public int? GovtCode { get; set; }
+
+    [NotMapped]
+    public int? MahaItServiceId
+    {
+        get => GovtCode;
+        set => GovtCode = value;
+    }
+
     public int? UlbId { get; set; }
     public int? UlbDistrict { get; set; }
     public string Status { get; set; } = "Received";

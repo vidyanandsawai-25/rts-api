@@ -265,7 +265,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 req.ApplicationId = app?.Id;
                 req.ApplicationNo = applicationNo.Trim();
                 req.RtsServiceId = app?.ServiceId;
-                if (sMap != null) req.MahaItServiceId = sMap.MahaItServiceId;
+                if (sMap != null) req.GovtCode = sMap.GovtCode;
                 if (!req.UlbId.HasValue && cred != null) req.UlbId = cred.UlbId;
                 if (!req.UlbDistrict.HasValue && cred != null) req.UlbDistrict = cred.UlbDistrict;
                 req.Status = targetStatus;
@@ -279,7 +279,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     ApplicationId = app?.Id,
                     ApplicationNo = applicationNo.Trim(),
                     RtsServiceId = app?.ServiceId,
-                    MahaItServiceId = sMap?.MahaItServiceId,
+                    GovtCode = sMap?.GovtCode,
                     UlbId = cred?.UlbId,
                     UlbDistrict = cred?.UlbDistrict,
                     CitizenName = app?.ApplicantName,
@@ -434,10 +434,10 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             int? rtsServiceId = req?.RtsServiceId ?? req?.Application?.ServiceId;
             RTSAapleSarkarServiceMappingEntity? mapping = null;
 
-            if (req?.MahaItServiceId.HasValue == true && req.MahaItServiceId.Value > 0)
+            if (req?.GovtCode.HasValue == true && req.GovtCode.Value > 0)
             {
                 mapping = await db.RTSAapleSarkarServiceMappings
-                    .FirstOrDefaultAsync(m => m.MahaItServiceId == req.MahaItServiceId.Value && m.IsActive, ct);
+                    .FirstOrDefaultAsync(m => m.GovtCode == req.GovtCode.Value && m.IsActive, ct);
             }
             else if (rtsServiceId.HasValue && rtsServiceId.Value > 0)
             {
@@ -445,14 +445,14 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     .FirstOrDefaultAsync(m => m.RtsServiceId == rtsServiceId.Value && m.IsActive, ct);
             }
 
-            string serviceIdStr = req?.MahaItServiceId?.ToString() ?? mapping?.MahaItServiceId.ToString() ?? "";
+            string serviceIdStr = req?.GovtCode?.ToString() ?? mapping?.GovtCode.ToString() ?? "";
             if (string.IsNullOrWhiteSpace(serviceIdStr))
             {
-                _logger.LogError("No MahaItServiceId resolved from database for TrackId={TrackId}, AppNo={AppNo}, ServiceId={SId}", trackId, appNo, rtsServiceId);
+                _logger.LogError("No GovtCode resolved from database for TrackId={TrackId}, AppNo={AppNo}, ServiceId={SId}", trackId, appNo, rtsServiceId);
                 return false;
             }
 
-            string serviceName = mapping?.MahaItServiceName
+            string serviceName = mapping?.GovtServiceName
                                  ?? req?.Application?.Service?.ServiceName
                                  ?? "RTS Service";
             int maxDays = mapping?.MaxProcessingDays ?? 7;
@@ -702,12 +702,12 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 return (false, string.Empty, "Could not resolve TrackId from incoming payload.");
 
             // 5. Lookup Service Mapping
-            int? mahaItServiceId = int.TryParse(ns, out var sId) ? sId : null;
+            int? govtCode = int.TryParse(ns, out var sId) ? sId : null;
             RTSAapleSarkarServiceMappingEntity? mapping = null;
-            if (mahaItServiceId.HasValue)
+            if (govtCode.HasValue)
             {
                 mapping = await db.RTSAapleSarkarServiceMappings
-                    .FirstOrDefaultAsync(m => m.MahaItServiceId == mahaItServiceId.Value && m.IsActive, ct);
+                    .FirstOrDefaultAsync(m => m.GovtCode == govtCode.Value && m.IsActive, ct);
             }
 
             int rtsServiceId = mapping?.RtsServiceId ?? 55;
@@ -726,7 +726,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 req.VillageId = villageId ?? req.VillageId;
                 req.DivisionId = divisionId ?? req.DivisionId;
                 req.RtsServiceId = rtsServiceId;
-                req.MahaItServiceId = mahaItServiceId ?? req.MahaItServiceId;
+                req.GovtCode = govtCode ?? req.GovtCode;
                 req.UlbId = ulbId ?? cred.UlbId;
                 req.UlbDistrict = ulbDistrict ?? cred.UlbDistrict;
                 req.RawPayload = decrypted;
@@ -745,7 +745,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     VillageId = villageId,
                     DivisionId = divisionId,
                     RtsServiceId = rtsServiceId,
-                    MahaItServiceId = mahaItServiceId,
+                    GovtCode = govtCode,
                     UlbId = ulbId ?? cred.UlbId,
                     UlbDistrict = ulbDistrict ?? cred.UlbDistrict,
                     Status = "Received",

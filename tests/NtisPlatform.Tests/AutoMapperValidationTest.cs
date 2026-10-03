@@ -211,7 +211,7 @@ public class AutoMapperValidationTest
                 "Service", "ApprovalFlowStages", "AppealFlowStages", "CanViewNoteSheet", "CanEdit",
                 "CanIssueCertificate", "CanEditCertificate", "ApprovalFlow", "ApprovalFlows",
                 "IsReverted", "FieldDefinition", "FieldValues", "IsCertificateRequired",
-                "IsSmsEnabled", "ServiceCode",
+                "IsSmsEnabled",
                 "Rule", "Calculation", "AppliedRule", "AppliedTaxPolicy", "WingDetailsMast",
                 // Unmapped computed / domain fields
                 "OCDate", "RentYearly", "RentMonthly", "RenterName", "RenterNameEnglish", "RateableValue",
