@@ -6768,6 +6768,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.AapleSarkarTrackId).IsRequired().HasMaxLength(50);
             entity.Property(e => e.ApplicationNo).HasMaxLength(50);
+            entity.Property(e => e.ServiceId).HasMaxLength(50);
             entity.Property(e => e.CitizenUserId).HasMaxLength(100);
             entity.Property(e => e.CitizenName).HasMaxLength(200);
             entity.Property(e => e.MobileNo).HasMaxLength(20);
@@ -6776,10 +6777,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasOne(e => e.Application)
-                .WithMany()
-                .HasForeignKey(e => e.ApplicationId)
-                .OnDelete(DeleteBehavior.SetNull);
             entity.HasOne(e => e.RtsService)
                 .WithMany()
                 .HasForeignKey(e => e.RtsServiceId)

@@ -55,7 +55,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             var reversed = new string(replaced.Reverse().ToArray());
             var bytes = Convert.FromBase64String(reversed);
             var decoded = Encoding.UTF8.GetString(bytes).Trim();
-            if (decoded.Length >= 10 && decoded.All(char.IsDigit))
+            if (!string.IsNullOrWhiteSpace(decoded) && decoded.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_'))
                 return decoded;
         }
         catch
@@ -68,7 +68,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
         {
             var bytes = Convert.FromBase64String(token);
             var decoded = Encoding.UTF8.GetString(bytes).Trim();
-            if (decoded.Length >= 10 && decoded.All(char.IsDigit))
+            if (!string.IsNullOrWhiteSpace(decoded) && decoded.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_'))
                 return decoded;
         }
         catch
@@ -94,7 +94,14 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             var req = await db.RTSAapleSarkarRequests
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId, ct);
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId || r.CitizenUserId == actualTrackId, ct);
+
+            // Canonical trackId for MahaIT
+            if (req != null && !string.IsNullOrWhiteSpace(req.AapleSarkarTrackId))
+            {
+                actualTrackId = req.AapleSarkarTrackId;
+            }
 
             // Only transition to DocumentPending if application has not been submitted yet
             if (req != null)
@@ -113,6 +120,12 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             }
             else
             {
+                if (actualTrackId.Contains("-") || actualTrackId.Length > 20)
+                {
+                    _logger.LogWarning("Cannot create new AapleSarkarRequest with non-numeric TrackId: {TrackId}", actualTrackId);
+                    return false;
+                }
+
                 var cred = await db.RTSAapleSarkarCredentials
                     .OrderByDescending(c => c.Id)
                     .FirstOrDefaultAsync(c => c.IsActive, ct);
@@ -172,7 +185,10 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             var req = await db.RTSAapleSarkarRequests
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId || r.ApplicationNo == tdTokenOrAppNo, ct);
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId 
+                                       || r.CitizenUserId == actualTrackId 
+                                       || r.ApplicationNo == tdTokenOrAppNo, ct);
 
             if (req != null)
             {
@@ -256,16 +272,35 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     .FirstOrDefaultAsync(m => m.RtsServiceId == app.ServiceId && m.IsActive, ct);
             }
 
-            // 4. Find or create RTS.AapleSarkarRequest record
+            // 4. Find RTS.AapleSarkarRequest record by TrackId, CitizenUserId, or ApplicationNo
             var req = await db.RTSAapleSarkarRequests
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId, ct);
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == actualTrackId 
+                                       || r.CitizenUserId == actualTrackId
+                                       || (!string.IsNullOrWhiteSpace(r.ApplicationNo) && r.ApplicationNo == applicationNo.Trim()), ct);
+
+            // If not found yet and actualTrackId looks like a GUID, search by CitizenUserId
+            if (req == null && (actualTrackId.Contains("-") || actualTrackId.Length > 20))
+            {
+                req = await db.RTSAapleSarkarRequests
+                    .OrderByDescending(r => r.Id)
+                    .FirstOrDefaultAsync(r => r.CitizenUserId == actualTrackId, ct);
+            }
+
+            // Resolve canonical numeric TrackId for MahaIT
+            if (req != null && !string.IsNullOrWhiteSpace(req.AapleSarkarTrackId) && req.AapleSarkarTrackId.All(char.IsDigit))
+            {
+                actualTrackId = req.AapleSarkarTrackId;
+            }
 
             if (req != null)
             {
-                req.ApplicationId = app?.Id;
                 req.ApplicationNo = applicationNo.Trim();
-                req.RtsServiceId = app?.ServiceId;
-                if (sMap != null) req.GovtCode = sMap.GovtCode;
+                req.RtsServiceId = app?.ServiceId ?? req.RtsServiceId;
+                if (!string.IsNullOrWhiteSpace(sMap?.GovtCode.ToString()))
+                {
+                    req.ServiceId = sMap.GovtCode.ToString();
+                }
                 if (!req.UlbId.HasValue && cred != null) req.UlbId = cred.UlbId;
                 if (!req.UlbDistrict.HasValue && cred != null) req.UlbDistrict = cred.UlbDistrict;
                 req.Status = targetStatus;
@@ -276,10 +311,9 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 req = new RTSAapleSarkarRequestEntity
                 {
                     AapleSarkarTrackId = actualTrackId,
-                    ApplicationId = app?.Id,
                     ApplicationNo = applicationNo.Trim(),
                     RtsServiceId = app?.ServiceId,
-                    GovtCode = sMap?.GovtCode,
+                    ServiceId = sMap?.GovtCode.ToString(),
                     UlbId = cred?.UlbId,
                     UlbDistrict = cred?.UlbDistrict,
                     CitizenName = app?.ApplicantName,
@@ -388,20 +422,32 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // 1. Fetch Request details from RTS.AapleSarkarRequest and RTS.ApplicationDetails
+            // 1. Fetch Request details from RTS.AapleSarkarRequest
             var req = await db.RTSAapleSarkarRequests
-                .Include(r => r.Application)
-                .ThenInclude(a => a!.Service)
                 .OrderByDescending(r => r.Id)
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackIdOrAppNo || r.ApplicationNo == trackIdOrAppNo, ct);
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackIdOrAppNo 
+                                       || r.CitizenUserId == trackIdOrAppNo 
+                                       || r.ApplicationNo == trackIdOrAppNo, ct);
 
-            string? trackId = req?.AapleSarkarTrackId ?? (trackIdOrAppNo.All(char.IsDigit) ? trackIdOrAppNo : null);
+            string? trackId = (req != null && !string.IsNullOrWhiteSpace(req.AapleSarkarTrackId) && req.AapleSarkarTrackId.All(char.IsDigit))
+                ? req.AapleSarkarTrackId
+                : (trackIdOrAppNo.All(char.IsDigit) ? trackIdOrAppNo : null);
+
             string? appNo = req?.ApplicationNo ?? (!trackIdOrAppNo.All(char.IsDigit) ? trackIdOrAppNo : null);
 
             if (string.IsNullOrWhiteSpace(trackId))
             {
-                _logger.LogWarning("No trackId resolved for {Id} to push SOAP", trackIdOrAppNo);
+                _logger.LogWarning("No valid numeric trackId resolved for {Id} to push SOAP", trackIdOrAppNo);
                 return false;
+            }
+
+            // Fetch Application Details by ApplicationNo if available
+            RTSApplicationDetailsEntity? appDetails = null;
+            if (!string.IsNullOrWhiteSpace(appNo))
+            {
+                appDetails = await db.Set<RTSApplicationDetailsEntity>()
+                    .Include(a => a.Service)
+                    .FirstOrDefaultAsync(a => a.ApplicationNo == appNo, ct);
             }
 
             // 2. Fetch active credentials dynamically from RTS.AapleSarkarCredential
@@ -431,13 +477,13 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             string ulbDistrictStr = (req?.UlbDistrict ?? cred.UlbDistrict).ToString();
 
             // 3. Resolve service mapping dynamically from RTS.AapleSarkarServiceMapping
-            int? rtsServiceId = req?.RtsServiceId ?? req?.Application?.ServiceId;
+            int? rtsServiceId = req?.RtsServiceId ?? appDetails?.ServiceId;
             RTSAapleSarkarServiceMappingEntity? mapping = null;
 
-            if (req?.GovtCode.HasValue == true && req.GovtCode.Value > 0)
+            if (int.TryParse(req?.ServiceId, out var reqGovtCode) && reqGovtCode > 0)
             {
                 mapping = await db.RTSAapleSarkarServiceMappings
-                    .FirstOrDefaultAsync(m => m.GovtCode == req.GovtCode.Value && m.IsActive, ct);
+                    .FirstOrDefaultAsync(m => m.GovtCode == reqGovtCode && m.IsActive, ct);
             }
             else if (rtsServiceId.HasValue && rtsServiceId.Value > 0)
             {
@@ -445,20 +491,20 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     .FirstOrDefaultAsync(m => m.RtsServiceId == rtsServiceId.Value && m.IsActive, ct);
             }
 
-            string serviceIdStr = req?.GovtCode?.ToString() ?? mapping?.GovtCode.ToString() ?? "";
+            string serviceIdStr = req?.ServiceId ?? mapping?.GovtCode.ToString() ?? "";
             if (string.IsNullOrWhiteSpace(serviceIdStr))
             {
-                _logger.LogError("No GovtCode resolved from database for TrackId={TrackId}, AppNo={AppNo}, ServiceId={SId}", trackId, appNo, rtsServiceId);
+                _logger.LogError("No ServiceId resolved from database for TrackId={TrackId}, AppNo={AppNo}, ServiceId={SId}", trackId, appNo, rtsServiceId);
                 return false;
             }
 
             string serviceName = mapping?.GovtServiceName
-                                 ?? req?.Application?.Service?.ServiceName
+                                 ?? appDetails?.Service?.ServiceName
                                  ?? "RTS Service";
             int maxDays = mapping?.MaxProcessingDays ?? 7;
-            if (mapping == null && !string.IsNullOrWhiteSpace(req?.Application?.Service?.Sla))
+            if (mapping == null && !string.IsNullOrWhiteSpace(appDetails?.Service?.Sla))
             {
-                var digits = new string(req.Application.Service.Sla.Where(char.IsDigit).ToArray());
+                var digits = new string(appDetails.Service.Sla.Where(char.IsDigit).ToArray());
                 if (int.TryParse(digits, out var parsedDays) && parsedDays > 0)
                 {
                     maxDays = parsedDays;
@@ -467,7 +513,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
 
             // 4. Resolve citizen user ID and fee amount dynamically
             string userId = !string.IsNullOrWhiteSpace(req?.CitizenUserId) ? req.CitizenUserId.Trim() : "NA";
-            decimal totalFee = req?.Application?.Service?.FeesRequired == true ? (req.Application.Service.Fees ?? 0m) : 0m;
+            decimal totalFee = appDetails?.Service?.FeesRequired == true ? (appDetails.Service.Fees ?? 0m) : 0m;
             string amountStr = totalFee.ToString("0.0#");
 
             // 5. Map MahaIT Status Payload (per MahaIT Doc v3.3 Page 25-27)
@@ -698,6 +744,22 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 _logger.LogWarning(ex, "Failed to fetch citizen profile from MahaIT SOAP. Falling back to decrypted tokens.");
             }
 
+            // If trackId looks like a GUID/session token, attempt to recover numeric trackId from existing request in DB
+            if (trackId.Contains("-") || trackId.Length > 20)
+            {
+                var existing = await db.RTSAapleSarkarRequests
+                    .OrderByDescending(r => r.Id)
+                    .FirstOrDefaultAsync(r => r.CitizenUserId == trackId || r.CitizenUserId == parts[0], ct);
+
+                if (existing != null && !string.IsNullOrWhiteSpace(existing.AapleSarkarTrackId) && !existing.AapleSarkarTrackId.Contains("-"))
+                {
+                    trackId = existing.AapleSarkarTrackId;
+                    userId = existing.CitizenUserId ?? userId;
+                    fullName = !string.IsNullOrWhiteSpace(existing.CitizenName) ? existing.CitizenName : fullName;
+                    mobileNo = !string.IsNullOrWhiteSpace(existing.MobileNo) ? existing.MobileNo : mobileNo;
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(trackId))
                 return (false, string.Empty, "Could not resolve TrackId from incoming payload.");
 
@@ -714,7 +776,9 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
 
             // 6. Save or update [RTS].[AapleSarkarRequest]
             var req = await db.RTSAapleSarkarRequests
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackId, ct);
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackId 
+                                       || (!string.IsNullOrWhiteSpace(userId) && r.CitizenUserId == userId && r.ServiceId == ns), ct);
 
             if (req != null)
             {
@@ -726,7 +790,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 req.VillageId = villageId ?? req.VillageId;
                 req.DivisionId = divisionId ?? req.DivisionId;
                 req.RtsServiceId = rtsServiceId;
-                req.GovtCode = govtCode ?? req.GovtCode;
+                req.ServiceId = ns;
                 req.UlbId = ulbId ?? cred.UlbId;
                 req.UlbDistrict = ulbDistrict ?? cred.UlbDistrict;
                 req.RawPayload = decrypted;
@@ -745,7 +809,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     VillageId = villageId,
                     DivisionId = divisionId,
                     RtsServiceId = rtsServiceId,
-                    GovtCode = govtCode,
+                    ServiceId = ns,
                     UlbId = ulbId ?? cred.UlbId,
                     UlbDistrict = ulbDistrict ?? cred.UlbDistrict,
                     Status = "Received",

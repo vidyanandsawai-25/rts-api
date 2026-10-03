@@ -8,7 +8,6 @@ public class RTSAapleSarkarRequestEntity
 {
     public long Id { get; set; }
     public string AapleSarkarTrackId { get; set; } = string.Empty;
-    public int? ApplicationId { get; set; }
     public string? ApplicationNo { get; set; }
     public string? CitizenUserId { get; set; }
     public string? CitizenName { get; set; }
@@ -19,15 +18,7 @@ public class RTSAapleSarkarRequestEntity
     public int? VillageId { get; set; }
     public int? DivisionId { get; set; }
     public int? RtsServiceId { get; set; }
-    public int? GovtCode { get; set; }
-
-    [NotMapped]
-    public int? MahaItServiceId
-    {
-        get => GovtCode;
-        set => GovtCode = value;
-    }
-
+    public string? ServiceId { get; set; }
     public int? UlbId { get; set; }
     public int? UlbDistrict { get; set; }
     public string Status { get; set; } = "Received";
@@ -37,9 +28,6 @@ public class RTSAapleSarkarRequestEntity
     public DateTime? UpdatedDate { get; set; }
     public int? CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
-
-    [ForeignKey(nameof(ApplicationId))]
-    public virtual RTSApplicationDetailsEntity? Application { get; set; }
 
     [ForeignKey(nameof(RtsServiceId))]
     public virtual RTSServiceEntity? RtsService { get; set; }
