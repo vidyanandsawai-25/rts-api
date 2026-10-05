@@ -698,6 +698,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
         services.AddScoped<IRTSRuleMasterService, RTSRuleMasterService>();
         services.AddScoped<IAapleSarkarIntegrationService, AapleSarkarIntegrationService>();
+        services.AddScoped<IMahaITDashboardService, MahaITDashboardService>();
 
 
 

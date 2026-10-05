@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using NtisPlatform.Application.DTOs.AapleSarkar;
 
 namespace NtisPlatform.Application.Interfaces;
 
@@ -12,4 +13,8 @@ public interface IAapleSarkarIntegrationService
     Task<bool> UpdateStatusAsync(string applicationNo, string status, string? remark = null, CancellationToken ct = default);
     Task<bool> PushStatusToMahaITSoapAsync(string trackIdOrAppNo, string statusName, string? remark = null, string? transactionId = null, CancellationToken ct = default);
     Task<(bool success, string redirectUrl, string? errorMessage)> ProcessCallbackAsync(string str, string ns, int? ulbId, int? ulbDistrict, CancellationToken ct = default);
+
+    // Citizen Dashboard Integration
+    Task<(bool success, string redirectUrl, string? errorMessage, string? citizenUserId)> ProcessDashboardRedirectAsync(string appId, CancellationToken ct = default);
+    Task<AapleSarkarCitizenApplicationsResponseDto> GetAapleSarkarApplicationsAsync(AapleSarkarCitizenApplicationsRequestDto request, CancellationToken ct = default);
 }
