@@ -1004,17 +1004,32 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
 
             string citizenUserId = req?.CitizenUserId ?? actualTrackId;
 
-            // 2. Fetch portal base URL from credentials
+            // 2. Fetch portal credentials strictly from database table [RTS].[AapleSarkarCredential]
             var cred = await db.RTSAapleSarkarCredentials
                 .OrderByDescending(c => c.Id)
                 .FirstOrDefaultAsync(c => c.IsActive, ct);
 
-            string portalBase = !string.IsNullOrWhiteSpace(cred?.PortalBaseUrl)
-                ? cred.PortalBaseUrl.TrimEnd('/')
-                : "http://localhost:3000";
+            if (cred == null)
+            {
+                return (false, string.Empty, "No active AapleSarkarCredential found in database table [RTS].[AapleSarkarCredential].", null);
+            }
 
-            // 3. Build Redirect URL to citizen dashboard
-            string redirectUrl = $"{portalBase}/mr/service/dashboard?CUID={Uri.EscapeDataString(citizenUserId)}";
+            string dashboardBase;
+            if (!string.IsNullOrWhiteSpace(cred.DashboardUrl))
+            {
+                dashboardBase = cred.DashboardUrl.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(cred.PortalBaseUrl))
+            {
+                dashboardBase = $"{cred.PortalBaseUrl.TrimEnd('/')}/mr/service/dashboard";
+            }
+            else
+            {
+                return (false, string.Empty, "Neither DashboardUrl nor PortalBaseUrl is configured in database table [RTS].[AapleSarkarCredential].", null);
+            }
+
+            string separator = dashboardBase.Contains("?") ? "&" : "?";
+            string redirectUrl = $"{dashboardBase}{separator}CUID={Uri.EscapeDataString(citizenUserId)}";
 
             _logger.LogInformation("Dashboard redirect prepared for Appid={Appid}, CitizenUserId={CUID} -> {Url}",
                 appId, citizenUserId, redirectUrl);

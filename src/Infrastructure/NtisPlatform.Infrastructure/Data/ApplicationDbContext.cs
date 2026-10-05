@@ -6745,6 +6745,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.EncryptionIV).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ServiceUrl).HasMaxLength(255);
             entity.Property(e => e.PortalBaseUrl).HasMaxLength(255);
+            entity.Property(e => e.DashboardUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITTokenUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITPushUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITClientSecretKey).HasMaxLength(200);
+            entity.Property(e => e.MahaITDepartmentCode).HasMaxLength(50);
+            entity.Property(e => e.Division);
+            entity.Property(e => e.District);
+            entity.Property(e => e.Taluka);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");

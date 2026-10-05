@@ -51,10 +51,17 @@ public class MahaITDashboardService : IMahaITDashboardService
         var startDate = new DateTime(year, month, 1);
         var endDate = startDate.AddMonths(1);
 
-        string deptCode = _configuration["MahaIT:DepartmentName"] ?? "AKMC";
-        int defaultDivision = int.TryParse(_configuration["MahaIT:DefaultDivision"], out var div) ? div : 6;
-        int defaultDistrict = int.TryParse(_configuration["MahaIT:DefaultDistrict"], out var dist) ? dist : 520;
-        int defaultTaluka = int.TryParse(_configuration["MahaIT:DefaultTaluka"], out var tal) ? tal : 4173;
+        var cred = await db.RTSAapleSarkarCredentials
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync(c => c.IsActive, ct);
+
+        string deptCode = !string.IsNullOrWhiteSpace(cred?.MahaITDepartmentCode)
+            ? cred.MahaITDepartmentCode
+            : (!string.IsNullOrWhiteSpace(cred?.ClientCode) ? cred.ClientCode : (_configuration["MahaIT:DepartmentName"] ?? "AKMC"));
+
+        int defaultDivision = cred?.Division ?? (int.TryParse(_configuration["MahaIT:DefaultDivision"], out var div) ? div : 6);
+        int defaultDistrict = cred?.District ?? (int.TryParse(_configuration["MahaIT:DefaultDistrict"], out var dist) ? dist : 520);
+        int defaultTaluka = cred?.Taluka ?? (int.TryParse(_configuration["MahaIT:DefaultTaluka"], out var tal) ? tal : 4173);
 
         // Fetch active mappings
         var mappings = await db.RTSAapleSarkarServiceMappings
@@ -246,10 +253,40 @@ public class MahaITDashboardService : IMahaITDashboardService
     {
         var summaryRows = await GenerateMonthlySummaryAsync(year, month, ct);
 
-        string clientSecretKey = _configuration["MahaIT:ClientSecretKey"] ?? "4332093E-07D9-4765-AA1E-4C6A640ACF94";
-        string departmentCode = _configuration["MahaIT:DepartmentCode"] ?? "AKMCDEPT";
-        string tokenUrl = _configuration["MahaIT:TokenUrl"] ?? "https://rtsdashboarddeptapi.mahaitgov.in/api/Token/GetToken";
-        string pushUrl = _configuration["MahaIT:PushURL"] ?? "https://rtsdashboarddeptapi.mahaitgov.in/api/Dashboard/PushDepartmentDetails";
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var cred = await db.RTSAapleSarkarCredentials
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync(c => c.IsActive, ct);
+
+        string clientSecretKey = !string.IsNullOrWhiteSpace(cred?.MahaITClientSecretKey)
+            ? cred.MahaITClientSecretKey
+            : (_configuration["MahaIT:ClientSecretKey"] ?? string.Empty);
+
+        string departmentCode = !string.IsNullOrWhiteSpace(cred?.MahaITDepartmentCode)
+            ? cred.MahaITDepartmentCode
+            : (!string.IsNullOrWhiteSpace(cred?.ClientCode) ? cred.ClientCode : (_configuration["MahaIT:DepartmentCode"] ?? string.Empty));
+
+        string tokenUrl = !string.IsNullOrWhiteSpace(cred?.MahaITTokenUrl)
+            ? cred.MahaITTokenUrl
+            : (_configuration["MahaIT:TokenUrl"] ?? string.Empty);
+
+        string pushUrl = !string.IsNullOrWhiteSpace(cred?.MahaITPushUrl)
+            ? cred.MahaITPushUrl
+            : (_configuration["MahaIT:PushURL"] ?? string.Empty);
+
+        if (string.IsNullOrWhiteSpace(tokenUrl) || string.IsNullOrWhiteSpace(pushUrl) || 
+            string.IsNullOrWhiteSpace(clientSecretKey) || string.IsNullOrWhiteSpace(departmentCode))
+        {
+            return new MahaITDashboardPushResultDto
+            {
+                ReportYear = year,
+                ReportMonth = month,
+                IsSuccess = false,
+                Message = "MahaIT configuration is missing in database table [RTS].[AapleSarkarCredential]. Please configure MahaITTokenUrl, MahaITPushUrl, MahaITClientSecretKey, and MahaITDepartmentCode."
+            };
+        }
 
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(60);
