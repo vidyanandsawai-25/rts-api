@@ -6,17 +6,6 @@ public class RTSServiceEntity : BaseEntity
 {
     public int DepartmentId { get; set; }
 
-    /// <summary>
-    /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate, 8273, etc.).
-    /// </summary>
-    public int? GovtCode { get; set; }
-
-    [NotMapped]
-    public int? GovtServiceCode
-    {
-        get => GovtCode;
-        set => GovtCode = value;
-    }
 
     public string ServiceName { get; set; } = string.Empty;
     public string? ServiceNameLocal { get; set; }

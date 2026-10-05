@@ -5942,7 +5942,6 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.DepartmentId)
                 .IsRequired();
-            entity.Property(e => e.GovtCode);
             entity.Property(e => e.ServiceName)
                 .IsRequired()
                 .HasMaxLength(200);
@@ -6751,6 +6750,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("AapleSarkarServiceMapping", "RTS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.MahaITServiceId).IsRequired();
             entity.Property(e => e.GovtServiceName).HasMaxLength(255);
             entity.Property(e => e.MaxProcessingDays).HasDefaultValue(7);
             entity.Property(e => e.IsActive).HasDefaultValue(true);

@@ -8,17 +8,6 @@ public class RTSServiceDto : BaseDtos
 {
     public int DepartmentId { get; set; }
 
-    /// <summary>
-    /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate, 8273, etc.).
-    /// </summary>
-    public int? GovtCode { get; set; }
-
-    [JsonPropertyName("govtServiceCode")]
-    public int? GovtServiceCode
-    {
-        get => GovtCode;
-        set => GovtCode = value;
-    }
 
     public string ServiceName { get; set; } = string.Empty;
     public string? ServiceNameLocal { get; set; }
@@ -40,15 +29,6 @@ public class CreateRTSServiceDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Service_DepartmentId_Invalid")]
     public int DepartmentId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtCode_Invalid")]
-    public int? GovtCode { get; set; }
-
-    [JsonPropertyName("govtServiceCode")]
-    public int? GovtServiceCode
-    {
-        get => GovtCode;
-        set => GovtCode = value;
-    }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]
@@ -80,15 +60,6 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Service_DepartmentId_Invalid")]
     public int DepartmentId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Service_GovtCode_Invalid")]
-    public int? GovtCode { get; set; }
-
-    [JsonPropertyName("govtServiceCode")]
-    public int? GovtServiceCode
-    {
-        get => GovtCode;
-        set => GovtCode = value;
-    }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]

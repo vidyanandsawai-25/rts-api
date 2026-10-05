@@ -936,9 +936,7 @@ public class RTSCertificateService : IRTSCertificateService
                     ? app.Department.DepartmentName[..Math.Min(3, app.Department.DepartmentName.Length)].ToUpperInvariant()
                     : ""));
 
-        string serviceCode = app.Service?.GovtCode.HasValue == true
-            ? app.Service.GovtCode.Value.ToString()
-            : $"SRV{app.ServiceId:D3}";
+        string serviceCode = $"SRV{app.ServiceId:D3}";
 
         string standardOutwardNo = !string.IsNullOrWhiteSpace(ulbShortCode) && !string.IsNullOrWhiteSpace(deptCode)
             ? $"{ulbShortCode}/{deptCode}/{currentYear}/{app.Id:D6}"

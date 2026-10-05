@@ -297,9 +297,9 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             {
                 req.ApplicationNo = applicationNo.Trim();
                 req.RtsServiceId = app?.ServiceId ?? req.RtsServiceId;
-                if (!string.IsNullOrWhiteSpace(sMap?.GovtCode.ToString()))
+                if (!string.IsNullOrWhiteSpace(sMap?.MahaITServiceId.ToString()))
                 {
-                    req.ServiceId = sMap.GovtCode.ToString();
+                    req.ServiceId = sMap.MahaITServiceId.ToString();
                 }
                 if (!req.UlbId.HasValue && cred != null) req.UlbId = cred.UlbId;
                 if (!req.UlbDistrict.HasValue && cred != null) req.UlbDistrict = cred.UlbDistrict;
@@ -313,7 +313,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     AapleSarkarTrackId = actualTrackId,
                     ApplicationNo = applicationNo.Trim(),
                     RtsServiceId = app?.ServiceId,
-                    ServiceId = sMap?.GovtCode.ToString(),
+                    ServiceId = sMap?.MahaITServiceId.ToString(),
                     UlbId = cred?.UlbId,
                     UlbDistrict = cred?.UlbDistrict,
                     CitizenName = app?.ApplicantName,
@@ -480,10 +480,10 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             int? rtsServiceId = req?.RtsServiceId ?? appDetails?.ServiceId;
             RTSAapleSarkarServiceMappingEntity? mapping = null;
 
-            if (int.TryParse(req?.ServiceId, out var reqGovtCode) && reqGovtCode > 0)
+            if (int.TryParse(req?.ServiceId, out var reqMahaItId) && reqMahaItId > 0)
             {
                 mapping = await db.RTSAapleSarkarServiceMappings
-                    .FirstOrDefaultAsync(m => m.GovtCode == reqGovtCode && m.IsActive, ct);
+                    .FirstOrDefaultAsync(m => m.MahaITServiceId == reqMahaItId && m.IsActive, ct);
             }
             else if (rtsServiceId.HasValue && rtsServiceId.Value > 0)
             {
@@ -491,7 +491,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                     .FirstOrDefaultAsync(m => m.RtsServiceId == rtsServiceId.Value && m.IsActive, ct);
             }
 
-            string serviceIdStr = req?.ServiceId ?? mapping?.GovtCode.ToString() ?? "";
+            string serviceIdStr = req?.ServiceId ?? mapping?.MahaITServiceId.ToString() ?? "";
             if (string.IsNullOrWhiteSpace(serviceIdStr))
             {
                 _logger.LogError("No ServiceId resolved from database for TrackId={TrackId}, AppNo={AppNo}, ServiceId={SId}", trackId, appNo, rtsServiceId);
@@ -764,12 +764,12 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 return (false, string.Empty, "Could not resolve TrackId from incoming payload.");
 
             // 5. Lookup Service Mapping
-            int? govtCode = int.TryParse(ns, out var sId) ? sId : null;
+            int? mahaItServiceId = int.TryParse(ns, out var sId) ? sId : null;
             RTSAapleSarkarServiceMappingEntity? mapping = null;
-            if (govtCode.HasValue)
+            if (mahaItServiceId.HasValue)
             {
                 mapping = await db.RTSAapleSarkarServiceMappings
-                    .FirstOrDefaultAsync(m => m.GovtCode == govtCode.Value && m.IsActive, ct);
+                    .FirstOrDefaultAsync(m => m.MahaITServiceId == mahaItServiceId.Value && m.IsActive, ct);
             }
 
             int rtsServiceId = mapping?.RtsServiceId ?? 55;
