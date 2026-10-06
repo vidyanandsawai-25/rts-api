@@ -1,19 +1,19 @@
 using System.ComponentModel.DataAnnotations;
 using NtisPlatform.Application.DTOs.Queries;
 
-namespace NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
+namespace NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 
 /// <summary>
 /// DTO for ApprovalFlowMaster
 /// </summary>
-public class ApprovalFlowMasterDto : BaseDtos
+public class RTSApprovalFlowMasterDto : BaseDtos
 {
     public int Id { get; set; }
     public int ServiceId { get; set; }
     public string ApprovalFlowName { get; set; } = string.Empty;
 }
 
-public class CreateApprovalFlowMasterDto : CreateBaseDtos
+public class CreateRTSApprovalFlowMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "ServiceId_Required")]
     public int ServiceId { get; set; }
@@ -23,7 +23,7 @@ public class CreateApprovalFlowMasterDto : CreateBaseDtos
     public string ApprovalFlowName { get; set; } = string.Empty;
 }
 
-public class UpdateApprovalFlowMasterDto : UpdateBaseDtos
+public class UpdateRTSApprovalFlowMasterDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ServiceId_Required")]
     public int ServiceId { get; set; }
@@ -33,7 +33,7 @@ public class UpdateApprovalFlowMasterDto : UpdateBaseDtos
     public string ApprovalFlowName { get; set; } = string.Empty;
 }
 
-public class ApprovalFlowMasterQueryParameters : BaseQueryParameters
+public class RTSApprovalFlowMasterQueryParameters : BaseQueryParameters
 {
     public int? ServiceId { get; set; }
     public string? ApprovalFlowName { get; set; }
@@ -42,7 +42,7 @@ public class ApprovalFlowMasterQueryParameters : BaseQueryParameters
 /// <summary>
 /// DTO for ApprovalFlowStageMaster
 /// </summary>
-public class ApprovalFlowStageMasterDto
+public class RTSApprovalFlowStageMasterDto
 {
     public int Id { get; set; }
     public int ApprovalFlowId { get; set; }
@@ -65,7 +65,7 @@ public class ApprovalFlowStageMasterDto
     public string? OfficerName { get; set; }
 }
 
-public class CreateApprovalFlowStageMasterDto
+public class CreateRTSApprovalFlowStageMasterDto
 {
     [Required]
     public int ApprovalFlowId { get; set; }
@@ -90,7 +90,7 @@ public class CreateApprovalFlowStageMasterDto
     public bool IsFinalStage { get; set; }
 }
 
-public class UpdateApprovalFlowStageMasterDto
+public class UpdateRTSApprovalFlowStageMasterDto
 {
     [Required]
     public int ApprovalFlowId { get; set; }
@@ -115,7 +115,7 @@ public class UpdateApprovalFlowStageMasterDto
     public bool IsFinalStage { get; set; }
 }
 
-public class ApprovalFlowStageMasterQueryParameters : BaseQueryParameters
+public class RTSApprovalFlowStageMasterQueryParameters : BaseQueryParameters
 {
     public int? ApprovalFlowId { get; set; }
     public int? EmployeeTypeId { get; set; }

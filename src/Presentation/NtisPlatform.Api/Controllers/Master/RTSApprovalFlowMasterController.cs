@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
-using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
+using NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 using NtisPlatform.Application.Interfaces;
 
 namespace NtisPlatform.Api.Controllers.Master;
@@ -10,13 +10,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 /// Controller for ApprovalFlowMaster CRUD operations
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
-public class ApprovalFlowMasterController : ControllerBase
+[Route("api/RTSApprovalFlowMaster")]
+public class RTSApprovalFlowMasterController : ControllerBase
 {
-    private readonly IApprovalFlowMasterService _service;
-    private readonly ILogger<ApprovalFlowMasterController> _logger;
+    private readonly IRTSApprovalFlowMasterService _service;
+    private readonly ILogger<RTSApprovalFlowMasterController> _logger;
 
-    public ApprovalFlowMasterController(IApprovalFlowMasterService service, ILogger<ApprovalFlowMasterController> logger)
+    public RTSApprovalFlowMasterController(IRTSApprovalFlowMasterService service, ILogger<RTSApprovalFlowMasterController> logger)
     {
         _service = service;
         _logger = logger;
@@ -27,7 +27,7 @@ public class ApprovalFlowMasterController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpGet]
-    public Task<IActionResult> GetAll([FromQuery] ApprovalFlowMasterQueryParameters queryParameters, CancellationToken ct)
+    public Task<IActionResult> GetAll([FromQuery] RTSApprovalFlowMasterQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
     /// <summary>
@@ -42,14 +42,14 @@ public class ApprovalFlowMasterController : ControllerBase
     /// Create new ApprovalFlow Master
     /// </summary>
     [HttpPost]
-    public Task<IActionResult> Create([FromBody] CreateApprovalFlowMasterDto createDto, CancellationToken ct)
+    public Task<IActionResult> Create([FromBody] CreateRTSApprovalFlowMasterDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
     /// <summary>
     /// Update existing ApprovalFlow Master
     /// </summary>
     [HttpPut("{id}")]
-    public Task<IActionResult> Update(int id, [FromBody] UpdateApprovalFlowMasterDto updateDto, CancellationToken ct)
+    public Task<IActionResult> Update(int id, [FromBody] UpdateRTSApprovalFlowMasterDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
     /// <summary>

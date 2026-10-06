@@ -1,6 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
-using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
+using NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -10,11 +10,11 @@ namespace NtisPlatform.Application.Services;
 /// <summary>
 /// Service for ApprovalFlowMaster CRUD operations
 /// </summary>
-public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMasterEntity, ApprovalFlowMasterDto, CreateApprovalFlowMasterDto, UpdateApprovalFlowMasterDto, ApprovalFlowMasterQueryParameters, int>, IApprovalFlowMasterService
+public class RTSApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMasterEntity, RTSApprovalFlowMasterDto, CreateRTSApprovalFlowMasterDto, UpdateRTSApprovalFlowMasterDto, RTSApprovalFlowMasterQueryParameters, int>, IRTSApprovalFlowMasterService
 {
     private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _stageRepository;
 
-    public ApprovalFlowMasterService(
+    public RTSApprovalFlowMasterService(
         IRepository<RTSApprovalFlowMasterEntity, int> repository,
         IRepository<RTSApprovalFlowStageMasterEntity, int> stageRepository,
         IUnitOfWork unitOfWork,
@@ -35,7 +35,7 @@ public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMa
       .AsNoTracking()
       .Where(s => s.ApprovalFlowId == flow.Id)
       .OrderBy(s => s.StageOrder)
-      .Select(s => new ApprovalFlowStageMasterDto
+      .Select(s => new RTSApprovalFlowStageMasterDto
       {
           Id = s.Id,
           ApprovalFlowId = s.ApprovalFlowId,
@@ -71,9 +71,9 @@ public class ApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMa
 /// <summary>
 /// Service for ApprovalFlowStageMaster CRUD operations
 /// </summary>
-public class ApprovalFlowStageMasterService : BaseCommonCrudService<RTSApprovalFlowStageMasterEntity, ApprovalFlowStageMasterDto, CreateApprovalFlowStageMasterDto, UpdateApprovalFlowStageMasterDto, ApprovalFlowStageMasterQueryParameters, int>, IApprovalFlowStageMasterService
+public class RTSApprovalFlowStageMasterService : BaseCommonCrudService<RTSApprovalFlowStageMasterEntity, RTSApprovalFlowStageMasterDto, CreateRTSApprovalFlowStageMasterDto, UpdateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterQueryParameters, int>, IRTSApprovalFlowStageMasterService
 {
-    public ApprovalFlowStageMasterService(
+    public RTSApprovalFlowStageMasterService(
         IRepository<RTSApprovalFlowStageMasterEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
