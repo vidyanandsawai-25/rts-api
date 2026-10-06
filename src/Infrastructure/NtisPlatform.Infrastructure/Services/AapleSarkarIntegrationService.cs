@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -9,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.AapleSarkar;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -979,4 +981,196 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             return ~crc;
         }
     }
+
+    public async Task<(bool success, string redirectUrl, string? errorMessage, string? citizenUserId)> ProcessDashboardRedirectAsync(
+        string appId,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(appId))
+            return (false, string.Empty, "Appid is required.", null);
+
+        var cleanAppId = appId.Trim();
+        var actualTrackId = DecodeTrackId(cleanAppId);
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // 1. Look up AapleSarkarRequest by TrackId or ApplicationNo
+            var req = await db.RTSAapleSarkarRequests
+                .OrderByDescending(r => r.Id)
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == cleanAppId || r.AapleSarkarTrackId == actualTrackId || r.ApplicationNo == cleanAppId, ct);
+
+            string citizenUserId = req?.CitizenUserId ?? actualTrackId;
+
+            // 2. Fetch portal credentials strictly from database table [RTS].[AapleSarkarCredential]
+            var cred = await db.RTSAapleSarkarCredentials
+                .OrderByDescending(c => c.Id)
+                .FirstOrDefaultAsync(c => c.IsActive, ct);
+
+            if (cred == null)
+            {
+                return (false, string.Empty, "No active AapleSarkarCredential found in database table [RTS].[AapleSarkarCredential].", null);
+            }
+
+            string dashboardBase;
+            if (!string.IsNullOrWhiteSpace(cred.DashboardUrl))
+            {
+                dashboardBase = cred.DashboardUrl.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(cred.PortalBaseUrl))
+            {
+                dashboardBase = $"{cred.PortalBaseUrl.TrimEnd('/')}/mr/service/dashboard";
+            }
+            else
+            {
+                return (false, string.Empty, "Neither DashboardUrl nor PortalBaseUrl is configured in database table [RTS].[AapleSarkarCredential].", null);
+            }
+
+            string separator = dashboardBase.Contains("?") ? "&" : "?";
+            string redirectUrl = $"{dashboardBase}{separator}CUID={Uri.EscapeDataString(citizenUserId)}";
+
+            _logger.LogInformation("Dashboard redirect prepared for Appid={Appid}, CitizenUserId={CUID} -> {Url}",
+                appId, citizenUserId, redirectUrl);
+
+            return (true, redirectUrl, null, citizenUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing dashboard redirect for Appid={Appid}", appId);
+            return (false, string.Empty, ex.Message, null);
+        }
+    }
+
+    public async Task<AapleSarkarCitizenApplicationsResponseDto> GetAapleSarkarApplicationsAsync(
+        AapleSarkarCitizenApplicationsRequestDto request,
+        CancellationToken ct = default)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.CitizenUserId))
+        {
+            return new AapleSarkarCitizenApplicationsResponseDto
+            {
+                Status = false,
+                Message = "CitizenUserId is required."
+            };
+        }
+
+        var cuid = request.CitizenUserId.Trim();
+        int pageNumber = request.PageNumber > 0 ? request.PageNumber : 1;
+        int pageSize = request.PageSize > 0 ? request.PageSize : 10;
+        int offset = (pageNumber - 1) * pageSize;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            // Query base: all requests belonging to this citizen (by CitizenUserId, TrackId, or Mobile)
+            var baseQuery = from r in db.RTSAapleSarkarRequests
+                            where r.CitizenUserId == cuid || r.AapleSarkarTrackId == cuid
+                            join sm in db.RTSServices on r.RtsServiceId equals sm.Id into smJoin
+                            from service in smJoin.DefaultIfEmpty()
+                            join ad in db.RTSApplicationDetails on r.ApplicationNo equals ad.ApplicationNo into adJoin
+                            from appDetail in adJoin.DefaultIfEmpty()
+                            join asm in db.RTSAapleSarkarServiceMappings on service.Id equals asm.RtsServiceId into asmJoin
+                            from mapping in asmJoin.DefaultIfEmpty()
+                            select new
+                            {
+                                r.ApplicationNo,
+                                r.AapleSarkarTrackId,
+                                RtsServiceId = service != null ? service.Id : r.RtsServiceId,
+                                MahaITServiceId = mapping != null ? mapping.MahaITServiceId : 0,
+                                ServiceName = service != null ? service.ServiceName : "Service",
+                                ServiceNameMr = service != null ? (service.ServiceNameLocal ?? service.ServiceName) : "सेवा",
+                                ApplicationStatus = appDetail != null ? appDetail.ApplicationStatus : (r.Status ?? "Pending"),
+                                CreatedDate = appDetail != null ? appDetail.CreatedDate : r.CreatedDate,
+                                IssuedCertificateGuid = appDetail != null ? appDetail.IssuedCertificateGuid : null
+                            };
+
+            // Search filter
+            if (!string.IsNullOrWhiteSpace(request.SearchText))
+            {
+                var st = request.SearchText.Trim();
+                baseQuery = baseQuery.Where(x =>
+                    x.ApplicationNo.Contains(st) ||
+                    x.AapleSarkarTrackId.Contains(st) ||
+                    x.ServiceName.Contains(st) ||
+                    x.ServiceNameMr.Contains(st));
+            }
+
+            // Status filter
+            if (!string.IsNullOrWhiteSpace(request.StatusFilter) && !request.StatusFilter.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                var sf = request.StatusFilter.Trim();
+                if (sf.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    baseQuery = baseQuery.Where(x => x.ApplicationStatus == "Approved" || x.ApplicationStatus.Contains("Approved"));
+                }
+                else if (sf.Equals("Rejected", StringComparison.OrdinalIgnoreCase))
+                {
+                    baseQuery = baseQuery.Where(x => x.ApplicationStatus == "Rejected" || x.ApplicationStatus.Contains("DisApproved") || x.ApplicationStatus.Contains("Reject"));
+                }
+                else
+                {
+                    baseQuery = baseQuery.Where(x => x.ApplicationStatus == sf);
+                }
+            }
+
+            var totalCount = await baseQuery.CountAsync(ct);
+
+            var items = await baseQuery
+                .OrderByDescending(x => x.CreatedDate)
+                .Skip(offset)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            var resultList = items.Select(x =>
+            {
+                string status = "Pending";
+                if (x.ApplicationStatus != null && (x.ApplicationStatus.Contains("Approved", StringComparison.OrdinalIgnoreCase) || x.ApplicationStatus.Contains("Certificate Issued", StringComparison.OrdinalIgnoreCase)))
+                    status = "Approved";
+                else if (x.ApplicationStatus != null && (x.ApplicationStatus.Contains("DisApproved", StringComparison.OrdinalIgnoreCase) || x.ApplicationStatus.Contains("Reject", StringComparison.OrdinalIgnoreCase)))
+                    status = "Rejected";
+
+                return new AapleSarkarCitizenApplicationItemDto
+                {
+                    ApplicationNo = x.ApplicationNo ?? string.Empty,
+                    AapleSarkarTrackId = x.AapleSarkarTrackId ?? string.Empty,
+                    RtsServiceId = x.RtsServiceId ?? 0,
+                    MahaITServiceId = x.MahaITServiceId,
+                    ServiceName = x.ServiceName,
+                    ServiceNameMr = x.ServiceNameMr,
+                    ApplicationStatus = x.ApplicationStatus ?? "Pending",
+                    Status = status,
+                    CreatedDate = x.CreatedDate,
+                    IssuedCertificateGuid = x.IssuedCertificateGuid,
+                    CertificateUrl = x.IssuedCertificateGuid.HasValue
+                        ? $"/api/RTSApplication/download-certificate?guid={x.IssuedCertificateGuid.Value}"
+                        : null,
+                    TrackingUrl = $"/mr/right-to-service/track-application?appNo={x.ApplicationNo}"
+                };
+            }).ToList();
+
+            return new AapleSarkarCitizenApplicationsResponseDto
+            {
+                Status = true,
+                Message = "Applications retrieved successfully.",
+                TotalCount = totalCount,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                Data = resultList
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting Aaple Sarkar applications for CitizenUserId={CUID}", cuid);
+            return new AapleSarkarCitizenApplicationsResponseDto
+            {
+                Status = false,
+                Message = "Error retrieving applications: " + ex.Message
+            };
+        }
+    }
 }
+

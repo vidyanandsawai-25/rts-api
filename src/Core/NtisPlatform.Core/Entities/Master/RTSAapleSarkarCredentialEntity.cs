@@ -13,4 +13,12 @@ public class RTSAapleSarkarCredentialEntity : BaseEntity
     public string EncryptionIV { get; set; } = string.Empty;
     public string? ServiceUrl { get; set; }
     public string? PortalBaseUrl { get; set; }
+    public string? DashboardUrl { get; set; }
+    public string? MahaITTokenUrl { get; set; }
+    public string? MahaITPushUrl { get; set; }
+    public string? MahaITClientSecretKey { get; set; }
+    public string? MahaITDepartmentCode { get; set; }
+    public int? Division { get; set; }
+    public int? District { get; set; }
+    public int? Taluka { get; set; }
 }

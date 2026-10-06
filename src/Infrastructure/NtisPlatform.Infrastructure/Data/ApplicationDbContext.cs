@@ -269,6 +269,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSAapleSarkarRequestEntity> RTSAapleSarkarRequests { get; set; } = null!;
     public DbSet<RTSAapleSarkarStatusLogEntity> RTSAapleSarkarStatusLogs { get; set; } = null!;
     public DbSet<RTSAapleSarkarWebhookLogEntity> RTSAapleSarkarWebhookLogs { get; set; } = null!;
+    public DbSet<RTSMahaITDashboardReportEntity> RTSMahaITDashboardReports { get; set; } = null!;
+    public DbSet<RTSMahaITDashboardPushLogEntity> RTSMahaITDashboardPushLogs { get; set; } = null!;
+    public DbSet<RTSServiceEntity> RTSServices { get; set; } = null!;
+    public DbSet<RTSApplicationDetailsEntity> RTSApplicationDetails { get; set; } = null!;
 
     // Property Sign-off Module
     public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
@@ -6741,6 +6745,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.EncryptionIV).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ServiceUrl).HasMaxLength(255);
             entity.Property(e => e.PortalBaseUrl).HasMaxLength(255);
+            entity.Property(e => e.DashboardUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITTokenUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITPushUrl).HasMaxLength(500);
+            entity.Property(e => e.MahaITClientSecretKey).HasMaxLength(200);
+            entity.Property(e => e.MahaITDepartmentCode).HasMaxLength(50);
+            entity.Property(e => e.Division);
+            entity.Property(e => e.District);
+            entity.Property(e => e.Taluka);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
@@ -6804,6 +6816,28 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MahaItStatusCode).HasMaxLength(10);
             entity.Property(e => e.IsSuccess).HasDefaultValue(false);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
+
+        modelBuilder.Entity<RTSMahaITDashboardReportEntity>(entity =>
+        {
+            entity.ToTable("MahaITDashboardReport", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ServiceName).HasMaxLength(250);
+            entity.Property(e => e.ApplicationSource).IsRequired().HasMaxLength(2);
+            entity.Property(e => e.PaymentMode).IsRequired().HasMaxLength(5);
+            entity.Property(e => e.PushStatus).HasMaxLength(50);
+            entity.Property(e => e.GeneratedOn).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.LastPushedOn).HasColumnType("datetime");
+            entity.HasIndex(e => new { e.ReportYear, e.ReportMonth });
+        });
+
+        modelBuilder.Entity<RTSMahaITDashboardPushLogEntity>(entity =>
+        {
+            entity.ToTable("MahaITDashboardPushLog", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PushedAt).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.HasIndex(e => e.PushedAt);
         });
 
         //----------------------------------------------------------------
