@@ -15,6 +15,6 @@ public interface IAapleSarkarIntegrationService
     Task<(bool success, string redirectUrl, string? errorMessage)> ProcessCallbackAsync(string str, string ns, int? ulbId, int? ulbDistrict, CancellationToken ct = default);
 
     // Citizen Dashboard Integration
-    Task<(bool success, string redirectUrl, string? errorMessage, string? citizenUserId)> ProcessDashboardRedirectAsync(string appId, CancellationToken ct = default);
+    Task<(bool success, string redirectUrl, string? errorMessage, string? citizenUserId)> ProcessDashboardRedirectAsync(string? appId, string? str = null, CancellationToken ct = default);
     Task<AapleSarkarCitizenApplicationsResponseDto> GetAapleSarkarApplicationsAsync(AapleSarkarCitizenApplicationsRequestDto request, CancellationToken ct = default);
 }

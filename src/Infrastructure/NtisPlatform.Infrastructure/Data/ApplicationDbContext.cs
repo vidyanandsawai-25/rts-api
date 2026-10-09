@@ -263,8 +263,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSPaymentModeMasterEntity> RTSPaymentModeMasters { get; set; } = null!;
     public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
     public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
-    public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
-    public DbSet<RTSAapleSarkarCredentialEntity> RTSAapleSarkarCredentials { get; set; } = null!;
+    public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarCredentials { get; set; } = null!;
+    public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarConfigurations => RTSAapleSarkarCredentials;
     public DbSet<RTSAapleSarkarServiceMappingEntity> RTSAapleSarkarServiceMappings { get; set; } = null!;
     public DbSet<RTSAapleSarkarRequestEntity> RTSAapleSarkarRequests { get; set; } = null!;
     public DbSet<RTSAapleSarkarStatusLogEntity> RTSAapleSarkarStatusLogs { get; set; } = null!;
@@ -6735,7 +6735,7 @@ public class ApplicationDbContext : DbContext
         // ----------------------------------------------------------------
         // ---------------- Aaple Sarkar Integration (RTS Schema) ---------
         // ----------------------------------------------------------------
-        modelBuilder.Entity<RTSAapleSarkarCredentialEntity>(entity =>
+        modelBuilder.Entity<RTSAapleSarkarConfigurationEntity>(entity =>
         {
             entity.ToTable("AapleSarkarCredential", "RTS");
             entity.HasKey(e => e.Id);

@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.AapleSarkar;
@@ -28,18 +27,15 @@ public class MahaITDashboardService : IMahaITDashboardService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IConfiguration _configuration;
     private readonly ILogger<MahaITDashboardService> _logger;
 
     public MahaITDashboardService(
         IHttpClientFactory httpClientFactory,
         IServiceScopeFactory scopeFactory,
-        IConfiguration configuration,
         ILogger<MahaITDashboardService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _scopeFactory = scopeFactory;
-        _configuration = configuration;
         _logger = logger;
     }
 
@@ -57,11 +53,11 @@ public class MahaITDashboardService : IMahaITDashboardService
 
         string deptCode = !string.IsNullOrWhiteSpace(cred?.MahaITDepartmentCode)
             ? cred.MahaITDepartmentCode
-            : (!string.IsNullOrWhiteSpace(cred?.ClientCode) ? cred.ClientCode : (_configuration["MahaIT:DepartmentName"] ?? "AKMC"));
+            : (!string.IsNullOrWhiteSpace(cred?.ClientCode) ? cred.ClientCode : string.Empty);
 
-        int defaultDivision = cred?.Division ?? (int.TryParse(_configuration["MahaIT:DefaultDivision"], out var div) ? div : 6);
-        int defaultDistrict = cred?.District ?? (int.TryParse(_configuration["MahaIT:DefaultDistrict"], out var dist) ? dist : 520);
-        int defaultTaluka = cred?.Taluka ?? (int.TryParse(_configuration["MahaIT:DefaultTaluka"], out var tal) ? tal : 4173);
+        int defaultDivision = cred?.Division ?? 0;
+        int defaultDistrict = cred?.District ?? 0;
+        int defaultTaluka = cred?.Taluka ?? 0;
 
         // Fetch active mappings
         var mappings = await db.RTSAapleSarkarServiceMappings
@@ -260,21 +256,12 @@ public class MahaITDashboardService : IMahaITDashboardService
             .OrderByDescending(c => c.Id)
             .FirstOrDefaultAsync(c => c.IsActive, ct);
 
-        string clientSecretKey = !string.IsNullOrWhiteSpace(cred?.MahaITClientSecretKey)
-            ? cred.MahaITClientSecretKey
-            : (_configuration["MahaIT:ClientSecretKey"] ?? string.Empty);
-
+        string clientSecretKey = cred?.MahaITClientSecretKey ?? string.Empty;
         string departmentCode = !string.IsNullOrWhiteSpace(cred?.MahaITDepartmentCode)
             ? cred.MahaITDepartmentCode
-            : (!string.IsNullOrWhiteSpace(cred?.ClientCode) ? cred.ClientCode : (_configuration["MahaIT:DepartmentCode"] ?? string.Empty));
-
-        string tokenUrl = !string.IsNullOrWhiteSpace(cred?.MahaITTokenUrl)
-            ? cred.MahaITTokenUrl
-            : (_configuration["MahaIT:TokenUrl"] ?? string.Empty);
-
-        string pushUrl = !string.IsNullOrWhiteSpace(cred?.MahaITPushUrl)
-            ? cred.MahaITPushUrl
-            : (_configuration["MahaIT:PushURL"] ?? string.Empty);
+            : (cred?.ClientCode ?? string.Empty);
+        string tokenUrl = cred?.MahaITTokenUrl ?? string.Empty;
+        string pushUrl = cred?.MahaITPushUrl ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(tokenUrl) || string.IsNullOrWhiteSpace(pushUrl) || 
             string.IsNullOrWhiteSpace(clientSecretKey) || string.IsNullOrWhiteSpace(departmentCode))

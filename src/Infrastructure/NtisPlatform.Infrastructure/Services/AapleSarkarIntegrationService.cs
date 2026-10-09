@@ -849,7 +849,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
 
     private async Task<CitizenProfileResult?> FetchCitizenDataFromMahaITAsync(
         string encKey,
-        RTSAapleSarkarCredentialEntity cred,
+        RTSAapleSarkarConfigurationEntity cred,
         CancellationToken ct)
     {
         string soap = $@"<?xml version=""1.0"" encoding=""utf-8""?>
@@ -983,28 +983,19 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
     }
 
     public async Task<(bool success, string redirectUrl, string? errorMessage, string? citizenUserId)> ProcessDashboardRedirectAsync(
-        string appId,
+        string? appId,
+        string? str = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(appId))
-            return (false, string.Empty, "Appid is required.", null);
-
-        var cleanAppId = appId.Trim();
-        var actualTrackId = DecodeTrackId(cleanAppId);
+        if (string.IsNullOrWhiteSpace(appId) && string.IsNullOrWhiteSpace(str))
+            return (false, string.Empty, "Appid or str is required.", null);
 
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // 1. Look up AapleSarkarRequest by TrackId or ApplicationNo
-            var req = await db.RTSAapleSarkarRequests
-                .OrderByDescending(r => r.Id)
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == cleanAppId || r.AapleSarkarTrackId == actualTrackId || r.ApplicationNo == cleanAppId, ct);
-
-            string citizenUserId = req?.CitizenUserId ?? actualTrackId;
-
-            // 2. Fetch portal credentials strictly from database table [RTS].[AapleSarkarCredential]
+            // 1. Fetch portal credentials strictly from database table [RTS].[AapleSarkarCredential]
             var cred = await db.RTSAapleSarkarCredentials
                 .OrderByDescending(c => c.Id)
                 .FirstOrDefaultAsync(c => c.IsActive, ct);
@@ -1014,6 +1005,44 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 return (false, string.Empty, "No active AapleSarkarCredential found in database table [RTS].[AapleSarkarCredential].", null);
             }
 
+            string? citizenUserId = null;
+
+            // 2. If str is provided, decrypt to extract CitizenUserId directly
+            if (!string.IsNullOrWhiteSpace(str))
+            {
+                try
+                {
+                    string decrypted = TripleDesDecrypt(str.Trim(), cred.EncryptionKey, cred.EncryptionIV);
+                    var parts = decrypted.Split('|');
+                    if (parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]))
+                    {
+                        citizenUserId = parts[0].Trim();
+                    }
+                }
+                catch (Exception decEx)
+                {
+                    _logger.LogWarning(decEx, "Could not decrypt str in ProcessDashboardRedirectAsync: {Msg}", decEx.Message);
+                }
+            }
+
+            // 3. Fallback to AppId lookup in RTSAapleSarkarRequests if citizenUserId not found from str
+            if (string.IsNullOrWhiteSpace(citizenUserId) && !string.IsNullOrWhiteSpace(appId))
+            {
+                var cleanAppId = appId.Trim();
+                var actualTrackId = DecodeTrackId(cleanAppId);
+
+                var req = await db.RTSAapleSarkarRequests
+                    .OrderByDescending(r => r.Id)
+                    .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == cleanAppId || r.AapleSarkarTrackId == actualTrackId || r.ApplicationNo == cleanAppId, ct);
+
+                citizenUserId = req?.CitizenUserId ?? actualTrackId;
+            }
+
+            if (string.IsNullOrWhiteSpace(citizenUserId))
+            {
+                return (false, string.Empty, "Unable to resolve CitizenUserId from Appid or str.", null);
+            }
+
             string dashboardBase;
             if (!string.IsNullOrWhiteSpace(cred.DashboardUrl))
             {
@@ -1021,7 +1050,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             }
             else if (!string.IsNullOrWhiteSpace(cred.PortalBaseUrl))
             {
-                dashboardBase = $"{cred.PortalBaseUrl.TrimEnd('/')}/mr/service/dashboard";
+                dashboardBase = $"{cred.PortalBaseUrl.TrimEnd('/')}/mr/service/aaple-sarkar-dashboard";
             }
             else
             {
@@ -1066,26 +1095,27 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // Query base: all requests belonging to this citizen (by CitizenUserId, TrackId, or Mobile)
+            // Query base: only actual RTS applications submitted via Aaple Sarkar belonging to this citizen
             var baseQuery = from r in db.RTSAapleSarkarRequests
-                            where r.CitizenUserId == cuid || r.AapleSarkarTrackId == cuid
-                            join sm in db.RTSServices on r.RtsServiceId equals sm.Id into smJoin
+                            where (r.CitizenUserId == cuid || r.AapleSarkarTrackId == cuid)
+                                  && !string.IsNullOrEmpty(r.ApplicationNo)
+                                  && r.ApplicationNo != "0"
+                            join ad in db.RTSApplicationDetails on r.ApplicationNo equals ad.ApplicationNo
+                            join sm in db.RTSServices on ad.ServiceId equals sm.Id into smJoin
                             from service in smJoin.DefaultIfEmpty()
-                            join ad in db.RTSApplicationDetails on r.ApplicationNo equals ad.ApplicationNo into adJoin
-                            from appDetail in adJoin.DefaultIfEmpty()
                             join asm in db.RTSAapleSarkarServiceMappings on service.Id equals asm.RtsServiceId into asmJoin
                             from mapping in asmJoin.DefaultIfEmpty()
                             select new
                             {
                                 r.ApplicationNo,
                                 r.AapleSarkarTrackId,
-                                RtsServiceId = service != null ? service.Id : r.RtsServiceId,
+                                RtsServiceId = service != null ? service.Id : (r.RtsServiceId ?? 0),
                                 MahaITServiceId = mapping != null ? mapping.MahaITServiceId : 0,
                                 ServiceName = service != null ? service.ServiceName : "Service",
                                 ServiceNameMr = service != null ? (service.ServiceNameLocal ?? service.ServiceName) : "सेवा",
-                                ApplicationStatus = appDetail != null ? appDetail.ApplicationStatus : (r.Status ?? "Pending"),
-                                CreatedDate = appDetail != null ? appDetail.CreatedDate : r.CreatedDate,
-                                IssuedCertificateGuid = appDetail != null ? appDetail.IssuedCertificateGuid : null
+                                ApplicationStatus = ad.ApplicationStatus ?? (r.Status ?? "Pending"),
+                                CreatedDate = ad.CreatedDate ?? r.CreatedDate,
+                                IssuedCertificateGuid = ad.IssuedCertificateGuid
                             };
 
             // Search filter
@@ -1137,7 +1167,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 {
                     ApplicationNo = x.ApplicationNo ?? string.Empty,
                     AapleSarkarTrackId = x.AapleSarkarTrackId ?? string.Empty,
-                    RtsServiceId = x.RtsServiceId ?? 0,
+                    RtsServiceId = x.RtsServiceId,
                     MahaITServiceId = x.MahaITServiceId,
                     ServiceName = x.ServiceName,
                     ServiceNameMr = x.ServiceNameMr,
@@ -1152,11 +1182,28 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 };
             }).ToList();
 
+            // Aggregate status counts across all submitted RTS applications for this citizen
+            var statusCountsQuery = from r in db.RTSAapleSarkarRequests
+                                    where (r.CitizenUserId == cuid || r.AapleSarkarTrackId == cuid)
+                                          && !string.IsNullOrEmpty(r.ApplicationNo)
+                                          && r.ApplicationNo != "0"
+                                    join ad in db.RTSApplicationDetails on r.ApplicationNo equals ad.ApplicationNo
+                                    select ad.ApplicationStatus;
+
+            var allStatusList = await statusCountsQuery.ToListAsync(ct);
+            int totalAll = allStatusList.Count;
+            int approvedCount = allStatusList.Count(s => !string.IsNullOrEmpty(s) && (s.Contains("Approved", StringComparison.OrdinalIgnoreCase) || s.Contains("Certificate Issued", StringComparison.OrdinalIgnoreCase)));
+            int rejectedCount = allStatusList.Count(s => !string.IsNullOrEmpty(s) && (s.Contains("Reject", StringComparison.OrdinalIgnoreCase) || s.Contains("DisApproved", StringComparison.OrdinalIgnoreCase)));
+            int pendingCount = Math.Max(0, totalAll - approvedCount - rejectedCount);
+
             return new AapleSarkarCitizenApplicationsResponseDto
             {
                 Status = true,
                 Message = "Applications retrieved successfully.",
                 TotalCount = totalCount,
+                PendingCount = pendingCount,
+                ApprovedCount = approvedCount,
+                RejectedCount = rejectedCount,
                 PageNumber = pageNumber,
                 PageSize = pageSize,
                 Data = resultList

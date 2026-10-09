@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities.Master;
 
-public class RTSAapleSarkarCredentialEntity : BaseEntity
+public class RTSAapleSarkarConfigurationEntity : BaseEntity
 {
     public int IntegrationId { get; set; } = 1;
     public int UlbId { get; set; }
@@ -21,4 +21,8 @@ public class RTSAapleSarkarCredentialEntity : BaseEntity
     public int? Division { get; set; }
     public int? District { get; set; }
     public int? Taluka { get; set; }
+    public bool DailyPushEnabled { get; set; } = true;
+    public int MorningPushHour { get; set; } = 6;
+    public int MorningPushMinute { get; set; } = 0;
+    public bool RunOnStartup { get; set; } = false;
 }

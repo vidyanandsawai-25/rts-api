@@ -160,6 +160,7 @@ public static class ServiceCollectionExtensions
         // Document orphan cleanup service (disabled by default until enabled/configured)
         // services.AddHostedService<DocumentOrphanCleanupService>();
         services.AddHostedService<CitizenSessionCleanupHostedService>();
+        services.AddHostedService<MahaITDailyDashboardPushHostedService>();
         // Replace RESX localizer with service-backed factory
         services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
         // Configure localization options from appsettings
