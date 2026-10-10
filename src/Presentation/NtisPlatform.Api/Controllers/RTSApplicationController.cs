@@ -46,6 +46,11 @@ public class RTSApplicationController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
         => this.ExecuteCreate(_service, dto, _logger, ct);
 
+    [HttpPut("{id}")]
+    public Task<IActionResult> Update(int id, [FromBody] UpdateRTSApplicationDetailsDto dto, CancellationToken ct)
+        => this.ExecuteUpdate(_service, id, dto, _logger, ct);
+
+
     [HttpPost("aaple-sarkar-mapping")]
     public async Task<IActionResult> MapAapleSarkar([FromBody] AapleSarkarMappingDto dto, CancellationToken ct)
     {

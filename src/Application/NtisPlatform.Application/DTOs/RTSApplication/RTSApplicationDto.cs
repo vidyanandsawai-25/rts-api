@@ -7,9 +7,8 @@ namespace NtisPlatform.Application.DTOs.RTSApplication;
 /// <summary>
 /// Create Application After submit the application
 /// </summary>
-public class RTSApplicationDetailsDto
+public class RTSApplicationDetailsDto:BaseDtos
     {
-        public int Id { get; set; }
         public int DepartmentId { get; set; }
         public int ServiceId { get; set; }
         public string? SessionId { get; set; }
@@ -58,8 +57,8 @@ public class RTSApplicationDetailsDto
         [Required(ErrorMessage = "RTSApplication_ApplicationStatus_Required")]
         public string? ApplicationStatus { get; set; }
         public string? Remark { get; set; }
-        public List<UpdateRTSFieldValueDto>? FieldValues { get; set; }
-    }
+        public List<UpdateRTSFieldValueDto> FieldValues { get; set; } = new();
+}
 
     public class AapleSarkarMappingDto : NtisPlatform.Application.DTOs.AapleSarkar.AapleSarkarMappingDto { }
 

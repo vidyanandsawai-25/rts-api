@@ -18,10 +18,10 @@ public class RTSCitizenSessionMappingProfile:Profile
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore());
 
         CreateMap<UpdateRTSCitizenSessionDto, RTSCitizenSessionEntity>()
-                .ForMember(dest => dest.Id, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }
 }

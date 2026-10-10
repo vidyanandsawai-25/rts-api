@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
-using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -13,7 +12,7 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicationDetailsEntity, RTSApplicationDetailsDto, CreateRTSApplicationDetailsDto, UpdateRTSFieldValueDto, RTSApplicationQueryParameters, int>, IRTSApplicationApprovalService
+public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicationDetailsEntity, RTSApplicationDetailsDto, CreateRTSApplicationDetailsDto, UpdateRTSApplicationDetailsDto, RTSApplicationQueryParameters, int>, IRTSApplicationApprovalService
 {
     private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _approvalFlowStageRepository;
     private readonly IRepository<UserEntity, int> _userRepository;

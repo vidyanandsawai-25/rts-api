@@ -10,7 +10,7 @@ public class RTSRuleMasterEntity : BaseEntity
     public string RuleActionType { get; set; } = null!;
     public decimal? RateAmount { get; set; }
     public int? UserId { get; set; }
-    public int Priority { get; set; } = 1;
+    public int Priority { get; set; } 
     public string? RuleGroup { get; set; }
     public string? ActionValue { get; set; }
     public bool IsCumulative { get; set; }
