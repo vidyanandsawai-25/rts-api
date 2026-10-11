@@ -17,73 +17,30 @@ public class RTSRuleEngineController : ControllerBase
         _service = service;
         _logger = logger;
     }
-
+    
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] RTSRuleMasterQueryParameters queryParameters, CancellationToken ct)
-       => await this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
-
+    [ProducesResponseType(typeof(PagedResult<RTSRuleMasterDto>), StatusCodes.Status200OK)]
+    public Task<IActionResult> GetAll([FromQuery] RTSRuleMasterQueryParameters queryParameters, CancellationToken ct)
+       => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
+    
     [AllowAnonymous]
     [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(int id, CancellationToken ct)
-        => await this.ExecuteGetById(_service, id, _logger, ct);
+    [ProducesResponseType(typeof(RTSRuleMasterDto), StatusCodes.Status200OK)]
+    public Task<IActionResult> GetById(int id, CancellationToken ct)
+        => this.ExecuteGetById(_service, id, _logger, ct);
 
     [AllowAnonymous]
-    [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateRTSRuleMasterRequestDto createDto, CancellationToken ct)
-    {
-        try
-        {
-            var result = await _service.CreateRulesAsync(createDto, ct);
-            return Ok(new ApiResponse<RTSRuleMasterResponseDto>
-            {
-                Success = true,
-                Message = $"{result.RuleCount} rule created successfully",
-                Items = result
-            });
-        }
-      
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Create rules operation failed");
-            return StatusCode(500, new ApiResponse<RTSRuleMasterResponseDto>
-            {
-                Success = false,
-                Message = "An error occurred while creating the rules"
-            });
-        }
-    }
+    [HttpPost("bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateRTSRuleMasterRequestDto[] items,CancellationToken ct)
+     => this.ExecuteBulkCreate(_service, items, _logger, ct);
 
-    [AllowAnonymous]
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdateRTSRuleMasterRequestDto updateDto, CancellationToken ct)
-    {
-        try
-        {
-            var result = await _service.UpdateRulesAsync(id, updateDto, ct);
-            return Ok(new ApiResponse<RTSRuleMasterResponseDto>
-            {
-                Success = true,
-                Message = $"{result.RuleCount} rule updated successfully",
-                Items = result
-            });
-        }
-
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Update rules operation failed");
-            return StatusCode(500, new ApiResponse<RTSRuleMasterResponseDto>
-            {
-                Success = false,
-                Message = "An error occurred while updating the rules"
-            });
-        }
-    }
-
+    public Task<IActionResult> Update(int id, [FromBody] UpdateRTSRuleMasterRequestDto dto, CancellationToken ct)
+     => this.ExecuteUpdate(_service, id, dto, _logger, ct);
 
     [AllowAnonymous]
     [HttpDelete("{id}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct)
-        => await this.ExecuteDelete(_service, id, _logger, ct);
-
+    public Task<IActionResult> Delete(int id, CancellationToken ct)
+        => this.ExecuteDelete(_service, id, _logger, ct);
 }
