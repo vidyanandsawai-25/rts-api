@@ -23,10 +23,76 @@ public class RTSRuleEngineController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] RTSRuleMasterQueryParameters queryParameters, CancellationToken ct)
        => await this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
+    [HttpGet("ServiceCard")]
+    public async Task<IActionResult> GetServiceCards(
+        [FromQuery] RTSRuleServiceCardQueryParameters query,
+        [FromServices] IRTSRuleServiceCardService cards,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid || string.IsNullOrWhiteSpace(query.RuleGroup))
+            return BadRequest(ModelState);
+        try
+        {
+            return Ok(await cards.GetCardsAsync(query, ct));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load RTS rule service cards");
+            return StatusCode(500, new { message = "Unable to load rule service cards." });
+        }
+    }
+
     [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id, CancellationToken ct)
         => await this.ExecuteGetById(_service, id, _logger, ct);
+
+    [AllowAnonymous]
+    [HttpPost("evaluate-fee")]
+    [ProducesResponseType(typeof(ApiResponse<RTSFeeEvaluationResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<RTSFeeEvaluationResponseDto>), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EvaluateFee(
+        [FromBody] RTSFeeEvaluationRequestDto request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(new ApiResponse<RTSFeeEvaluationResponseDto>
+            {
+                Success = false,
+                Message = "Invalid fee evaluation request."
+            });
+
+        try
+        {
+            var result = await _service.EvaluateFeeAsync(request, ct);
+            return Ok(new ApiResponse<RTSFeeEvaluationResponseDto>
+            {
+                Success = true,
+                Message = "Fee evaluated successfully.",
+                Items = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<RTSFeeEvaluationResponseDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<RTSFeeEvaluationResponseDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
 
     [AllowAnonymous]
     [HttpPost]
@@ -42,7 +108,14 @@ public class RTSRuleEngineController : ControllerBase
                 Items = result
             });
         }
-      
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<RTSRuleMasterResponseDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Create rules operation failed");
@@ -68,7 +141,14 @@ public class RTSRuleEngineController : ControllerBase
                 Items = result
             });
         }
-
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<RTSRuleMasterResponseDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Update rules operation failed");

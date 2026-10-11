@@ -11,4 +11,8 @@ public interface IRTSRuleMasterService: ICommonCrudService<RTSRuleMasterEntity, 
 
     Task<RTSRuleMasterResponseDto> UpdateRulesAsync(int serviceId, UpdateRTSRuleMasterRequestDto updateDto, CancellationToken cancellationToken = default);
 
+    Task<RTSFeeEvaluationResponseDto> EvaluateFeeAsync(
+        RTSFeeEvaluationRequestDto request,
+        CancellationToken cancellationToken = default);
+
 }

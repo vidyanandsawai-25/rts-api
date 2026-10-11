@@ -1,14 +1,20 @@
 namespace NtisPlatform.Application.DTOs.RTSRuleMaster;
 
+public class RTSRuleConditionDto
+{
+    public int Id { get; set; }
+    public int FieldDefinitionId { get; set; }
+    public string ComparisonOperator { get; set; } = string.Empty;
+    public string ExpectedValue { get; set; } = string.Empty;
+    public int ConditionOrder { get; set; }
+}
 
     public class RTSRuleMasterDto : BaseDtos
     {
         public int ServiceId { get; set; }
         public string? RuleDescription { get; set; }
-        public int? ConditionFieldDefinitionId { get; set; }
-        public string? ConditionField { get; set; }
-        public string? ComparisonOperator { get; set; }
-        public string? ExpectedValue { get; set; }
+        public string ConditionMatchType { get; set; } = "ALL";
+        public List<RTSRuleConditionDto> Conditions { get; set; } = [];
         public string? RuleActionType { get; set; }
         public decimal? RateAmount { get; set; }
         public int? UserId { get; set; }
@@ -27,10 +33,8 @@ namespace NtisPlatform.Application.DTOs.RTSRuleMaster;
     public class CreateRTSRuleDto
     {
         public string? RuleDescription { get; set; }
-        public int? ConditionFieldDefinitionId { get; set; }
-        public string? ConditionField { get; set; }
-        public string? ComparisonOperator { get; set; }
-        public string? ExpectedValue { get; set; }
+        public string ConditionMatchType { get; set; } = "ALL";
+        public List<RTSRuleConditionDto> Conditions { get; set; } = [];
         public string? RuleActionType { get; set; }
         public decimal? RateAmount { get; set; }
         public int? UserId { get; set; }
@@ -49,10 +53,8 @@ namespace NtisPlatform.Application.DTOs.RTSRuleMaster;
     {
         public int? Id { get; set; }
         public string? RuleDescription { get; set; }
-        public int? ConditionFieldDefinitionId { get; set; }
-        public string? ConditionField { get; set; }
-        public string? ComparisonOperator { get; set; }
-        public string? ExpectedValue { get; set; }
+        public string ConditionMatchType { get; set; } = "ALL";
+        public List<RTSRuleConditionDto> Conditions { get; set; } = [];
         public string? RuleActionType { get; set; }
         public decimal? RateAmount { get; set; }
         public int? UserId { get; set; }
