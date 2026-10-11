@@ -24,6 +24,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
+    private readonly IRTSStageAllocationRuleService _allocationRules;
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -36,6 +37,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
           IRTSSmsNotificationService smsNotificationService,
           IAapleSarkarIntegrationService aapleSarkarService,
+          IRTSStageAllocationRuleService allocationRules,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -48,6 +50,41 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _smsNotificationService = smsNotificationService;
         _issuedCertificateRepository = issuedCertificateRepository;
         _aapleSarkarService = aapleSarkarService;
+        _allocationRules = allocationRules;
+    }
+
+    private async Task<int> ResolveStageOfficerAsync(RTSApplicationDetailsEntity application,
+        int stageId, int defaultUserId, CancellationToken cancellationToken)
+    {
+        var values = await _fieldValueRepository.GetQueryable().AsNoTracking()
+            .Where(x => x.ApplicationId == application.Id && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+        return await _allocationRules.ResolveOfficerAsync(application.ServiceId, application.ApprovalFlowId,
+            stageId, defaultUserId, _allocationRules.NormalizeValues(values), cancellationToken);
+    }
+
+    private async Task EnsurePaymentSnapshotIsSettledAsync(
+        int applicationId,
+        string? applicationNo,
+        string action,
+        CancellationToken cancellationToken)
+    {
+        var paymentSnapshot = await _paymentRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(payment => payment.PaymentStatus)
+            .Where(payment => payment.ApplicationId == applicationId)
+            .OrderByDescending(payment => payment.CreatedDate)
+            .ThenByDescending(payment => payment.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (paymentSnapshot == null || paymentSnapshot.TotalAmount <= 0 ||
+            string.Equals(paymentSnapshot.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot {action} application {applicationNo}. Government statutory fee of ₹{paymentSnapshot.TotalAmount:F2} is pending. Payment must be recorded before proceeding.");
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -573,10 +610,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 application.ApplicationStatus,
                 application.ApprovalFlowId,
                 application.CurrentApprovalFlowStageId,
+                application.UserId,
                 application.ServiceId,
                 ServiceName = application.Service != null ? application.Service.ServiceName : null,
-                ServiceFees = application.Service != null ? application.Service.Fees : null,
-                FeesRequired = application.Service != null && application.Service.FeesRequired,
                 CertificateType = application.Service != null ? application.Service.CertificateType : NtisPlatform.Core.Enums.RTSCertificateType.None
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -643,7 +679,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var officer = await _userRepository
             .GetQueryable()
             .AsNoTracking()
-            .Where(user => user.Id == currentStage.UserId)
+            .Where(user => user.Id == (result.UserId ?? currentStage.UserId))
             .Select(user => new
             {
                 user.Id,
@@ -661,13 +697,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         }
 
         var paymentTxn = await _paymentRepository.GetQueryable()
+            .AsNoTracking()
             .Include(p => p.PaymentStatus)
-            .Where(p => p.ApplicationId == result.ApplicationId && p.PaymentStatus.StatusCode == "SUCCESS")
-            .OrderByDescending(p => p.Id)
+            .Where(p => p.ApplicationId == result.ApplicationId)
+            .OrderByDescending(p => p.CreatedDate)
+            .ThenByDescending(p => p.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool isPaid = paymentTxn != null;
-        string? paymentStatus = paymentTxn != null ? "SUCCESS" : (result.FeesRequired && (result.ServiceFees ?? 0) > 0 ? "PENDING" : "NOT_REQUIRED");
+        bool isPaid = string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
+        string paymentStatus = paymentTxn?.PaymentStatus?.StatusCode ?? "NOT_REQUIRED";
         string? receiptNo = paymentTxn?.ReceiptNo;
 
         return new CurrentApprovalOfficerDto
@@ -702,9 +740,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
-            ServiceFees = result.ServiceFees,
-            FeesRequired = result.FeesRequired,
-
+            PaymentTransactionId = paymentTxn?.Id,
+            PayableFee = paymentTxn?.TotalAmount,
+            HasPaymentTransaction = paymentTxn != null,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo
@@ -746,19 +784,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!currentStage.CanVerifyDocument)
             throw new InvalidOperationException("This stage does not permit document verification.");
 
-        // Strict Statutory Government Fee Payment Verification Gate
-        if (application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0)
-        {
-            var isPaid = await _paymentRepository.GetQueryable()
-                .Include(p => p.PaymentStatus)
-                .AnyAsync(p => p.ApplicationId == applicationId && p.PaymentStatus.StatusCode == "SUCCESS", cancellationToken);
-
-            if (!isPaid)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot process application {application.ApplicationNo}. Government statutory fee of ₹{application.Service.Fees:F2} is pending. Payment must be recorded before proceeding.");
-            }
-        }
+        // The transaction snapshot, not today's Service Master fee, is authoritative.
+        await EnsurePaymentSnapshotIsSettledAsync(
+            applicationId,
+            application.ApplicationNo,
+            "process",
+            cancellationToken);
 
         var currentHistory = await _historyRepository
         .GetQueryable()
@@ -792,7 +823,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         //this Update ApplicationDetails Table
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
-        application.UserId = nextStage.UserId;
+        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, nextStage.UserId, cancellationToken);
         application.ApplicationStatus = ApplicationStatus.DocumentVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
@@ -879,19 +910,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application approval.");
 
-        // Strict Statutory Government Fee Payment Verification Gate
-        if (application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0)
-        {
-            var isPaid = await _paymentRepository.GetQueryable()
-                .Include(p => p.PaymentStatus)
-                .AnyAsync(p => p.ApplicationId == applicationId && p.PaymentStatus.StatusCode == "SUCCESS", cancellationToken);
-
-            if (!isPaid)
-            {
-                throw new InvalidOperationException(
-                    $"Cannot approve application {application.ApplicationNo}. Government statutory fee of ₹{application.Service.Fees:F2} is pending. Payment must be recorded online or offline at municipal counter before approval.");
-            }
-        }
+        // The transaction snapshot, not today's Service Master fee, is authoritative.
+        await EnsurePaymentSnapshotIsSettledAsync(
+            applicationId,
+            application.ApplicationNo,
+            "approve",
+            cancellationToken);
 
         var currentHistory = await _historyRepository
                 .GetQueryable()
@@ -983,7 +1007,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
-        application.UserId = nextStage.UserId;
+        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, nextStage.UserId, cancellationToken);
         application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
@@ -1334,7 +1358,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             // Officer-wise revert: move application back to the previous stage/officer
             application.CurrentApprovalFlowStageId = previousStage.StageId;
             application.CurrentStageOrder = previousStage.StageOrder;
-            application.UserId = previousStage.UserId;
+            application.UserId = await ResolveStageOfficerAsync(application, previousStage.StageId, previousStage.UserId, cancellationToken);
             application.ApplicationStatus = ApplicationStatus.Reverted;
             application.Remark = dto.Remark;
             application.IsReverted = true;

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.DTOs.RTSPayment;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -18,6 +19,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
+    private readonly IRTSPaymentService _paymentService;
+    private readonly IRTSStageAllocationRuleService _allocationRules;
 
     public RTSApplicationService(
         IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -27,6 +30,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         IRepository<RTSServiceEntity, int> serviceRepository,
         IRTSSmsNotificationService smsNotificationService,
         IAapleSarkarIntegrationService aapleSarkarService,
+        IRTSPaymentService paymentService,
+        IRTSStageAllocationRuleService allocationRules,
         IUnitOfWork unitOfWork,
         IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -36,6 +41,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         _serviceRepository = serviceRepository;
         _smsNotificationService = smsNotificationService;
         _aapleSarkarService = aapleSarkarService;
+        _paymentService = paymentService;
+        _allocationRules = allocationRules;
     }
     public override async Task<RTSApplicationDetailsDto> CreateAsync(CreateRTSApplicationDetailsDto createDto, CancellationToken cancellationToken = default)
     {
@@ -75,13 +82,10 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             .FirstOrDefaultAsync(cancellationToken);
 
 
-        var rtsService = await _serviceRepository.GetByIdAsync(createDto.ServiceId, cancellationToken);
-        bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0;
-
         var entity = _mapper.Map<RTSApplicationDetailsEntity>(createDto);
 
         entity.Remark = ApplicationStatus.Remark;
-        entity.ApplicationStatus = isPaymentRequired ? "Payment Pending" : ApplicationStatus.Pending;
+        entity.ApplicationStatus = ApplicationStatus.Pending;
         entity.UserId = approvalFlowData?.FirstStage?.UserId ?? 0;
         entity.ApprovalFlowId = approvalFlowData?.ApprovalFlowId ?? 0;
         entity.CurrentApprovalFlowStageId = approvalFlowData?.FirstStage?.StageId ?? 0;
@@ -100,36 +104,76 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 .ToList();
         }
 
+        if (approvalFlowData?.FirstStage != null)
+            entity.UserId = await _allocationRules.ResolveOfficerAsync(
+                createDto.ServiceId, approvalFlowData.ApprovalFlowId,
+                approvalFlowData.FirstStage.StageId, approvalFlowData.FirstStage.UserId,
+                _allocationRules.NormalizeValues(entity.FieldValueData), cancellationToken);
+
+        TrackApplicationHistoryEntity? submissionHistory = null;
         if (approvalFlowData != null)
         {
-            entity.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
+            submissionHistory = new TrackApplicationHistoryEntity
             {
                 ApprovalFlowId = approvalFlowData.ApprovalFlowId,
                 ApprovalFlowStageId = approvalFlowData?.FirstStage?.StageId ?? 0,
-                Status = isPaymentRequired ? "Payment Pending" : ApplicationStatus.Pending,
+                Status = ApplicationStatus.Pending,
                 Remark = ApplicationStatus.Remark,
                 Action = ApplicationStatus.Submitted,
                 IsReverted = false,
                 IsActive = true
-            });
+            };
+            entity.TrackApplicationHistory.Add(submissionHistory);
         }
 
-        await _repository.AddAsync(entity, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        PaymentStatusDto paymentSnapshot;
+        try
+        {
+            await _repository.AddAsync(entity, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await DispatchSubmissionSmsAsync(entity, createDto, cancellationToken);
+            paymentSnapshot = await _paymentService.InitializePendingPaymentAsync(entity.Id, cancellationToken);
+            if (paymentSnapshot.IsFeeRequired)
+            {
+                entity.ApplicationStatus = "Payment Pending";
+                if (submissionHistory != null)
+                {
+                    submissionHistory.Status = "Payment Pending";
+                }
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
+
+        await DispatchSubmissionSmsAsync(entity, createDto, paymentSnapshot.RequiredFee, cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(createDto.TdToken))
         {
             var appNo = entity.ApplicationNo ?? $"RTS{entity.Id:D8}";
-            var targetStatus = isPaymentRequired ? "PaymentPending" : "UnderScrutiny";
+            var targetStatus = paymentSnapshot.IsFeeRequired ? "PaymentPending" : "UnderScrutiny";
             await _aapleSarkarService.MapApplicationAsync(createDto.TdToken, appNo, targetStatus, cancellationToken);
         }
 
-        return _mapper.Map<RTSApplicationDetailsDto>(entity);
+        var result = _mapper.Map<RTSApplicationDetailsDto>(entity);
+        result.PaymentTransactionId = paymentSnapshot.TransactionId;
+        result.PaymentRequiredFee = paymentSnapshot.RequiredFee;
+        result.PaymentStatus = paymentSnapshot.PaymentStatus;
+        return result;
     }
 
-    private async Task DispatchSubmissionSmsAsync(RTSApplicationDetailsEntity entity, CreateRTSApplicationDetailsDto createDto, CancellationToken ct)
+    private async Task DispatchSubmissionSmsAsync(
+        RTSApplicationDetailsEntity entity,
+        CreateRTSApplicationDetailsDto createDto,
+        decimal feeAmount,
+        CancellationToken ct)
     {
         try
         {
@@ -188,8 +232,6 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             if (!string.IsNullOrWhiteSpace(applicantMobile))
             {
                 var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, ct);
-                var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
-
                 await _smsNotificationService.SendApplicationSubmittedAsync(
                     entity.Id,
                     entity.ApplicationNo ?? $"RTS{entity.Id:D8}",

@@ -17,6 +17,9 @@ public class RTSApplicationDetailsDto
         public string ApplicationNo { get; set; } = string.Empty;
         public string? ApplicationStatus { get; set; }
         public List<RTSFieldValueDto>? FieldValues { get; set; }
+        public long? PaymentTransactionId { get; set; }
+        public decimal PaymentRequiredFee { get; set; }
+        public string? PaymentStatus { get; set; }
     }
 
     public class CreateRTSApplicationDetailsDto : CreateBaseDtos

@@ -31,9 +31,10 @@ public class CurrentApprovalOfficerDto
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }
-    public decimal? ServiceFees { get; set; }
-    public bool FeesRequired { get; set; }
-
+    /// <summary>Immutable fee snapshot from the latest RTS payment transaction.</summary>
+    public long? PaymentTransactionId { get; set; }
+    public decimal? PayableFee { get; set; }
+    public bool HasPaymentTransaction { get; set; }
     public bool IsPaid { get; set; }
     public string? PaymentStatus { get; set; }
     public string? ReceiptNo { get; set; }
