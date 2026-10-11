@@ -92,17 +92,22 @@ public class AapleSarkarController : ControllerBase
     /// </summary>
     [HttpGet("GotoApplicationDashboard")]
     public async Task<IActionResult> GotoApplicationDashboard(
-        [FromQuery] string Appid,
+        [FromQuery] string? Appid,
+        [FromQuery] string? str,
+        [FromQuery] string? ns,
+        [FromQuery] int? ULBID,
+        [FromQuery] int? ULBDistrict,
         CancellationToken ct)
     {
-        _logger.LogInformation("Received GotoApplicationDashboard request for Appid={Appid}", Appid);
+        _logger.LogInformation("Received GotoApplicationDashboard request: Appid={Appid}, ns={Ns}, hasStr={HasStr}",
+            Appid, ns, !string.IsNullOrWhiteSpace(str));
 
-        if (string.IsNullOrWhiteSpace(Appid))
+        if (string.IsNullOrWhiteSpace(Appid) && string.IsNullOrWhiteSpace(str))
         {
-            return BadRequest(new { status = false, message = "Parameter 'Appid' is required." });
+            return BadRequest(new { status = false, message = "Parameter 'Appid' or 'str' is required." });
         }
 
-        var (success, redirectUrl, error, citizenUserId) = await _service.ProcessDashboardRedirectAsync(Appid, ct);
+        var (success, redirectUrl, error, citizenUserId) = await _service.ProcessDashboardRedirectAsync(Appid, str, ct);
 
         if (!success || string.IsNullOrWhiteSpace(redirectUrl))
         {

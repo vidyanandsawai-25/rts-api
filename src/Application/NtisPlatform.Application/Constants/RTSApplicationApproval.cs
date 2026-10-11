@@ -9,6 +9,7 @@ public static class ApplicationStatus
     public const string Pending = "Pending";
 
     public const string Reverted = "Reverted";
+    public const string PaymentPending = "Payment Pending";
 
     public const string DocumentVerified = "Document Verified";  // clerk
 

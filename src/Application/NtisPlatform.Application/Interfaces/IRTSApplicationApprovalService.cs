@@ -6,7 +6,7 @@ using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Interfaces;
 
-public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicationDetailsEntity, RTSApplicationDetailsDto, CreateRTSApplicationDetailsDto, UpdateRTSFieldValueDto, RTSApplicationQueryParameters, int>
+public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicationDetailsEntity, RTSApplicationDetailsDto, CreateRTSApplicationDetailsDto, UpdateRTSApplicationDetailsDto, RTSApplicationQueryParameters, int>
 {
     //<summary>
     //Dashboard card data for RTS Application Approval get all applications with pagination and filtering

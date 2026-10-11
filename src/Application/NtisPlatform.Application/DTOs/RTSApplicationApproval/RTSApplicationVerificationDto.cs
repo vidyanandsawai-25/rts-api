@@ -28,6 +28,8 @@ public class CurrentApprovalOfficerDto
     public bool CanIssueCertificate { get; set; }
     public bool IsManualCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
+    public int CertificateType { get; set; }
+    public bool IsCertificateRequired { get; set; } = true;
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }

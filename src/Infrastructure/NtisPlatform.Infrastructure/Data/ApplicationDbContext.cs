@@ -266,7 +266,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
     public DbSet<RTSRuleConditionEntity> RTSRuleConditions { get; set; } = null!;
     public DbSet<RTSApprovalFlowStageUserAllocationMasterEntity> RTSApprovalFlowStageUserAllocationMasters { get; set; } = null!;
-    public DbSet<RTSAapleSarkarCredentialEntity> RTSAapleSarkarCredentials { get; set; } = null!;
+    public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarCredentials { get; set; } = null!;
+    public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarConfigurations => RTSAapleSarkarCredentials;
     public DbSet<RTSAapleSarkarServiceMappingEntity> RTSAapleSarkarServiceMappings { get; set; } = null!;
     public DbSet<RTSAapleSarkarRequestEntity> RTSAapleSarkarRequests { get; set; } = null!;
     public DbSet<RTSAapleSarkarStatusLogEntity> RTSAapleSarkarStatusLogs { get; set; } = null!;
@@ -6759,9 +6760,9 @@ public class ApplicationDbContext : DbContext
         // ----------------------------------------------------------------
         // ---------------- Aaple Sarkar Integration (RTS Schema) ---------
         // ----------------------------------------------------------------
-        modelBuilder.Entity<RTSAapleSarkarCredentialEntity>(entity =>
+        modelBuilder.Entity<RTSAapleSarkarConfigurationEntity>(entity =>
         {
-            entity.ToTable("AapleSarkarCredential", "RTS");
+            entity.ToTable("AapleSarkarConfiguration", "RTS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.ClientCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.ChecksumKey).IsRequired().HasMaxLength(100);
@@ -6777,6 +6778,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Division);
             entity.Property(e => e.District);
             entity.Property(e => e.Taluka);
+            entity.Property(e => e.DailyPushEnabled).HasDefaultValue(true);
+            entity.Property(e => e.MorningPushHour).HasDefaultValue(6);
+            entity.Property(e => e.MorningPushMinute).HasDefaultValue(0);
+            entity.Property(e => e.RunOnStartup).HasDefaultValue(false);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
