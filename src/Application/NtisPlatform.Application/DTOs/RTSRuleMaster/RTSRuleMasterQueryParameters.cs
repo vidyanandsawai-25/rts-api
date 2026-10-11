@@ -10,4 +10,8 @@ public class RTSRuleMasterQueryParameters:BaseQueryParameters
     [Sortable]
     public int? ServiceId { get; set; }
 
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public string? RuleGroup { get; set; }
+
 }

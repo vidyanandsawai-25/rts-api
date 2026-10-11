@@ -263,6 +263,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSPaymentModeMasterEntity> RTSPaymentModeMasters { get; set; } = null!;
     public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
     public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
+    public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
+    public DbSet<RTSRuleConditionEntity> RTSRuleConditions { get; set; } = null!;
+    public DbSet<RTSApprovalFlowStageUserAllocationMasterEntity> RTSApprovalFlowStageUserAllocationMasters { get; set; } = null!;
     public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarCredentials { get; set; } = null!;
     public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarConfigurations => RTSAapleSarkarCredentials;
     public DbSet<RTSAapleSarkarServiceMappingEntity> RTSAapleSarkarServiceMappings { get; set; } = null!;
@@ -6303,6 +6306,25 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<RTSApprovalFlowStageUserAllocationMasterEntity>(entity =>
+        {
+            entity.ToTable("ApprovalFlowStageUserAllocationMaster", "RTS");
+
+            // The model needs an identity key for EF tracking. No physical FK, unique,
+            // check, or index constraints are configured for this exploratory table.
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApprovalFlowStageId).IsRequired(false);
+            entity.Property(e => e.UserId).IsRequired(false);
+            entity.Property(e => e.Priority).IsRequired(false);
+
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime2").IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+        });
+
         modelBuilder.Entity<RTSAppealTypeMasterEntity>(entity =>
         {
             entity.ToTable("AppealTypeMaster", "RTS");
@@ -6680,18 +6702,6 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(200)
                 .IsRequired();
 
-            entity.Property(x => x.ConditionField)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.ComparisonOperator)
-                .HasMaxLength(20)
-                .IsRequired();
-
-            entity.Property(x => x.ExpectedValue)
-                .HasMaxLength(200)
-                .IsRequired();
-
             entity.Property(x => x.RuleActionType)
                 .HasMaxLength(50)
                 .IsRequired();
@@ -6713,7 +6723,9 @@ public class ApplicationDbContext : DbContext
                 .HasDefaultValue(false)
                 .IsRequired();
 
-            entity.Property(x => x.ConditionFieldDefinitionId);
+            entity.Property(x => x.ConditionMatchType).HasMaxLength(3);
+            entity.Property(x => x.CalculationType).HasMaxLength(20);
+            entity.Property(x => x.QuantityFieldDefinitionId);
 
             entity.Property(x => x.IsActive)
                 .HasDefaultValue(true)
@@ -6730,6 +6742,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
 
             entity.Property(x => x.UserId);
+        });
+
+        modelBuilder.Entity<RTSRuleConditionEntity>(entity =>
+        {
+            entity.ToTable("RuleCondition", "RTS");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.ConditionOrder).IsRequired();
+            entity.Property(x => x.ComparisonOperator).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.ExpectedValue).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.IsActive).HasDefaultValue(true).IsRequired();
+            entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()").IsRequired();
+            entity.HasOne(x => x.Rule).WithMany(x => x.Conditions).HasForeignKey(x => x.RuleMasterId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => new { x.RuleMasterId, x.ConditionOrder }).IsUnique();
         });
 
         // ----------------------------------------------------------------

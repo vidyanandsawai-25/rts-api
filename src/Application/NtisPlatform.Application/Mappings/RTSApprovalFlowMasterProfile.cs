@@ -13,7 +13,9 @@ public class RTSApprovalFlowMasterProfile : Profile
         CreateMap<UpdateRTSApprovalFlowMasterDto, RTSApprovalFlowMasterEntity>();
 
         CreateMap<RTSApprovalFlowStageMasterEntity, RTSApprovalFlowStageMasterDto>();
-        CreateMap<CreateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>();
-        CreateMap<UpdateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>();
+        CreateMap<CreateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>()
+            .ForMember(destination => destination.UserId, options => options.Ignore());
+        CreateMap<UpdateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterEntity>()
+            .ForMember(destination => destination.UserId, options => options.Ignore());
     }
 }

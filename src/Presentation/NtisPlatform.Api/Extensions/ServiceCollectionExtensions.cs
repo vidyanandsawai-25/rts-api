@@ -684,6 +684,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IHistoricalNetTaxBaselineService, NtisPlatform.Application.Services.TaxEngine.HistoricalNetTaxBaselineService>();
 
         //RTS SERVICES DepenedencyInjection
+        services.AddScoped<IRtsUserService, RtsUserService>();
         services.AddScoped<IRTSDepartmentService, RTSDepartmentService>();  //rts service di
         services.AddScoped<IRTSFieldDefinitionService, RTSFieldDefinitionService>();
         services.AddScoped<IRTSApplicationService, RTSApplicationService>();
@@ -697,7 +698,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRtsAppealService>(sp => (IRtsAppealService)sp.GetRequiredService<IRTSAppealService>());
         services.AddScoped<IRTSCertificateTemplateLibraryService, RTSCertificateTemplateLibraryService>();
         services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
+        services.AddScoped<IRTSRuleServiceCardService, RTSRuleServiceCardService>();
         services.AddScoped<IRTSRuleMasterService, RTSRuleMasterService>();
+        services.AddScoped<IRTSFeeRuleService, RTSFeeRuleService>();
+        services.AddScoped<IRTSStageAllocationRuleService, RTSStageAllocationRuleService>();
+        services.AddScoped<IRTSApprovalFlowStageUserAllocationMasterService, RTSApprovalFlowStageUserAllocationMasterService>();
         services.AddScoped<IAapleSarkarIntegrationService, AapleSarkarIntegrationService>();
         services.AddScoped<IMahaITDashboardService, MahaITDashboardService>();
 

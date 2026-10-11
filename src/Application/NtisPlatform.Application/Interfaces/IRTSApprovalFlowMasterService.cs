@@ -9,7 +9,6 @@ namespace NtisPlatform.Application.Interfaces;
 /// </summary>
 public interface IRTSApprovalFlowMasterService : ICommonCrudService<RTSApprovalFlowMasterEntity, RTSApprovalFlowMasterDto, CreateRTSApprovalFlowMasterDto, UpdateRTSApprovalFlowMasterDto, RTSApprovalFlowMasterQueryParameters, int>
 {
-    Task<object?> GetWorkflowStagesByServiceIdAsync(int serviceId, CancellationToken ct = default);
 }
 
 /// <summary>
