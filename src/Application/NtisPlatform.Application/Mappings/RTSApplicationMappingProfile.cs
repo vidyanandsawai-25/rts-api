@@ -32,7 +32,10 @@ public class RTSApplicationMappingProfile:Profile
 
 
         CreateMap<RTSApplicationDetailsEntity, RTSApplicationDetailsDto>()    //SELECT APPLICATION DETAILS FOR APPROVAL DASHBAORD
-                   .ForMember(dest => dest.FieldValues, opt => opt.MapFrom(src => src.FieldValueData));
+                   .ForMember(dest => dest.FieldValues, opt => opt.MapFrom(src => src.FieldValueData))
+                   .ForMember(dest => dest.PaymentTransactionId, opt => opt.Ignore())
+                   .ForMember(dest => dest.PaymentRequiredFee, opt => opt.Ignore())
+                   .ForMember(dest => dest.PaymentStatus, opt => opt.Ignore());
 
         CreateMap<RTSFieldValueEntity, RTSFieldValueDto>();
         // ──────────────────────────Other MappingProfile Are Not configured Due To No Requirements Provided──────────────────────────────────────

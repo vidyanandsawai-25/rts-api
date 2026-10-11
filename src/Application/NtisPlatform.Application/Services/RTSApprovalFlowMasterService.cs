@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 
@@ -12,59 +13,12 @@ namespace NtisPlatform.Application.Services;
 /// </summary>
 public class RTSApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlowMasterEntity, RTSApprovalFlowMasterDto, CreateRTSApprovalFlowMasterDto, UpdateRTSApprovalFlowMasterDto, RTSApprovalFlowMasterQueryParameters, int>, IRTSApprovalFlowMasterService
 {
-    private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _stageRepository;
-
     public RTSApprovalFlowMasterService(
         IRepository<RTSApprovalFlowMasterEntity, int> repository,
-        IRepository<RTSApprovalFlowStageMasterEntity, int> stageRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
     {
-        _stageRepository = stageRepository;
-    }
-
-    public async Task<object?> GetWorkflowStagesByServiceIdAsync(int serviceId, CancellationToken ct = default)
-    {
-        var flows = await _repository.GetAsync(f => f.ServiceId == serviceId && f.IsActive, ct);
-        var flow = flows.FirstOrDefault();
-        if (flow == null) return null;
-
-       var stages = await _stageRepository
-      .GetQueryable()
-      .AsNoTracking()
-      .Where(s => s.ApprovalFlowId == flow.Id)
-      .OrderBy(s => s.StageOrder)
-      .Select(s => new RTSApprovalFlowStageMasterDto
-      {
-          Id = s.Id,
-          ApprovalFlowId = s.ApprovalFlowId,
-          StageOrder = s.StageOrder,
-          StageName = s.StageName,
-          SlaDays = s.SLADays,
-
-          UserName = s.User.UserName,
-          FirstName = s.User.FirstName,
-          MiddleName = s.User.MiddleName,
-          LastName = s.User.LastName,
-
-          CanVerifyDocument = s.CanVerifyDocument,
-          CanApprove = s.CanApprove,
-          CanReject = s.CanReject,
-          CanReturn = s.CanReturn,
-          CanPay = s.CanPay,
-          IsFinalStage = s.IsFinalStage
-      })
-      .ToListAsync(ct);
-        var orderedStages = stages.OrderBy(s => s.StageOrder).ToList();
-
-        return new
-        {
-            flowId = flow.Id,
-            serviceId = flow.ServiceId,
-            flowName = flow.ApprovalFlowName,
-            stages = stages
-        };
     }
 }
 
@@ -73,11 +27,64 @@ public class RTSApprovalFlowMasterService : BaseCommonCrudService<RTSApprovalFlo
 /// </summary>
 public class RTSApprovalFlowStageMasterService : BaseCommonCrudService<RTSApprovalFlowStageMasterEntity, RTSApprovalFlowStageMasterDto, CreateRTSApprovalFlowStageMasterDto, UpdateRTSApprovalFlowStageMasterDto, RTSApprovalFlowStageMasterQueryParameters, int>, IRTSApprovalFlowStageMasterService
 {
+    private readonly IRepository<RTSApprovalFlowStageUserAllocationMasterEntity, int> _stageUserAllocationRepository;
+
     public RTSApprovalFlowStageMasterService(
         IRepository<RTSApprovalFlowStageMasterEntity, int> repository,
+        IRepository<RTSApprovalFlowStageUserAllocationMasterEntity, int> stageUserAllocationRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
     {
+        _stageUserAllocationRepository = stageUserAllocationRepository;
+    }
+
+    public override async Task<PagedResult<RTSApprovalFlowStageMasterDto>> GetAllAsync(
+        RTSApprovalFlowStageMasterQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await base.GetAllAsync(queryParameters, cancellationToken);
+        await PopulateUserAllocationCountsAsync(result.Items, cancellationToken);
+        return result;
+    }
+
+    public override async Task<RTSApprovalFlowStageMasterDto?> GetByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await base.GetByIdAsync(id, cancellationToken);
+        if (result is not null)
+        {
+            await PopulateUserAllocationCountsAsync(new[] { result }, cancellationToken);
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Enriches a returned page of stages with allocation counts in one grouped query.
+    /// Allocation rows are counted whether active or inactive because both remain assigned
+    /// to the stage configuration.
+    /// </summary>
+    private async Task PopulateUserAllocationCountsAsync(
+        IEnumerable<RTSApprovalFlowStageMasterDto> stages,
+        CancellationToken cancellationToken)
+    {
+        var stageRows = stages as ICollection<RTSApprovalFlowStageMasterDto> ?? stages.ToList();
+        if (stageRows.Count == 0) return;
+
+        var stageIds = stageRows.Select(stage => stage.Id).Distinct().ToList();
+        var countsByStageId = await _stageUserAllocationRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(allocation =>
+                allocation.ApprovalFlowStageId.HasValue &&
+                stageIds.Contains(allocation.ApprovalFlowStageId.Value))
+            .GroupBy(allocation => allocation.ApprovalFlowStageId!.Value)
+            .Select(group => new { StageId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.StageId, item => item.Count, cancellationToken);
+
+        foreach (var stage in stageRows)
+        {
+            stage.UserAllocationCount = countsByStageId.GetValueOrDefault(stage.Id);
+        }
     }
 }

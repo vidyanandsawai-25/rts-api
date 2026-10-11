@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
+using NtisPlatform.Application.Enums;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 
@@ -35,8 +37,16 @@ public class UpdateRTSApprovalFlowMasterDto : UpdateBaseDtos
 
 public class RTSApprovalFlowMasterQueryParameters : BaseQueryParameters
 {
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
     public int? ServiceId { get; set; }
+
+    [Searchable]
     public string? ApprovalFlowName { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? IsActive { get; set; }
 }
 
 /// <summary>
@@ -48,21 +58,20 @@ public class RTSApprovalFlowStageMasterDto
     public int ApprovalFlowId { get; set; }
     public int StageOrder { get; set; }
     public string StageName { get; set; } = string.Empty;
-    public int EmployeeTypeId { get; set; }
     public int SlaDays { get; set; }
     public bool CanVerifyDocument { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanViewNoteSheet { get; set; }
+    public bool CanIssueCertificate { get; set; }
+    public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }
     public bool CanReject { get; set; }
     public bool CanReturn { get; set; }
     public bool CanPay { get; set; }
     public bool IsFinalStage { get; set; }
+    /// <summary>Number of saved candidate-user allocations configured for this stage.</summary>
+    public int UserAllocationCount { get; set; }
 
-    //officer name
-    public string? UserName { get; set; }
-    public string? FirstName { get; set; }
-    public string? MiddleName { get; set; }
-    public string? LastName { get; set; }
-    public string? OfficerName { get; set; }
 }
 
 public class CreateRTSApprovalFlowStageMasterDto
@@ -77,12 +86,13 @@ public class CreateRTSApprovalFlowStageMasterDto
     [StringLength(200)]
     public string StageName { get; set; } = string.Empty;
 
-    [Required]
-    public int EmployeeTypeId { get; set; }
-
     public int SlaDays { get; set; } = 3;
 
     public bool CanVerifyDocument { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanViewNoteSheet { get; set; }
+    public bool CanIssueCertificate { get; set; }
+    public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }
     public bool CanReject { get; set; }
     public bool CanReturn { get; set; }
@@ -102,12 +112,13 @@ public class UpdateRTSApprovalFlowStageMasterDto
     [StringLength(200)]
     public string StageName { get; set; } = string.Empty;
 
-    [Required]
-    public int EmployeeTypeId { get; set; }
-
     public int SlaDays { get; set; }
 
     public bool CanVerifyDocument { get; set; }
+    public bool CanEdit { get; set; }
+    public bool CanViewNoteSheet { get; set; }
+    public bool CanIssueCertificate { get; set; }
+    public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }
     public bool CanReject { get; set; }
     public bool CanReturn { get; set; }
@@ -117,6 +128,19 @@ public class UpdateRTSApprovalFlowStageMasterDto
 
 public class RTSApprovalFlowStageMasterQueryParameters : BaseQueryParameters
 {
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? Id { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
     public int? ApprovalFlowId { get; set; }
-    public int? EmployeeTypeId { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? StageOrder { get; set; }
+
+    [Filterable(FilterOperator.Contains)]
+    [Searchable]
+    public string? StageName { get; set; }
 }

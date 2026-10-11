@@ -53,21 +53,6 @@ public class RTSApprovalFlowMasterController : ControllerBase
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
     /// <summary>
-    /// Get configured workflow stages by RTS Service ID
-    /// </summary>
-    [AllowAnonymous]
-    [HttpGet("stages/{serviceId}")]
-    public async Task<IActionResult> GetStagesByServiceId(int serviceId, CancellationToken ct)
-    {
-        var result = await _service.GetWorkflowStagesByServiceIdAsync(serviceId, ct);
-        if (result == null)
-        {
-            return NotFound(new { status = false, message = "No active workflow configuration found for this service." });
-        }
-        return Ok(new { status = true, data = result });
-    }
-
-    /// <summary>
     /// Delete ApprovalFlow Master
     /// </summary>
     [HttpDelete("{id}")]

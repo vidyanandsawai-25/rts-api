@@ -7,6 +7,8 @@ public class RTSApprovalFlowStageMasterEntity:BaseEntity
     public int ApprovalFlowId { get; set; }
     public int StageOrder { get; set; }
     public string StageName { get; set; } = string.Empty;
+    // Transitional fallback assignee. Keep mapped until the database migration removes
+    // RTS.ApprovalFlowStageMaster.UserId after ApprovalFlowStageUserAllocationMaster is adopted.
     public int UserId { get; set; }
     public int SLADays { get; set; }
     public bool CanVerifyDocument { get; set; }
