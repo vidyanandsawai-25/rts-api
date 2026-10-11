@@ -576,7 +576,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceName = application.Service != null ? application.Service.ServiceName : null,
                 ServiceFees = application.Service != null ? application.Service.Fees : null,
                 FeesRequired = application.Service != null && application.Service.FeesRequired,
-                CertificateType = application.Service != null ? application.Service.CertificateType : NtisPlatform.Core.Enums.RTSCertificateType.None
+                CertificateType = application.Service != null ? application.Service.CertificateType : NtisPlatform.Core.Enums.RTSCertificateType.None,
+                IsCertificateRequired = application.Service == null || application.Service.IsCertificateRequired
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -596,7 +597,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             cancellationToken);
 
         // Application workflow is already completed.
-        if (result.ApplicationStatus == ApplicationStatus.Approved && isCertificateIssued)
+        bool requiresCertificate = result.IsCertificateRequired && result.CertificateType != NtisPlatform.Core.Enums.RTSCertificateType.None;
+        if (result.ApplicationStatus == ApplicationStatus.Approved && (isCertificateIssued || !requiresCertificate))
         {
             return null;
         }
@@ -695,9 +697,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanPay = currentStage.CanPay,
             CanEdit = currentStage.CanEdit,
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
-            CanIssueCertificate = currentStage.CanIssueCertificate,
-            CanViewCertificate=currentStage.CanViewCertificate,
-            IsManualCertificate = result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
+            CanIssueCertificate = requiresCertificate && currentStage.CanIssueCertificate,
+            CanViewCertificate = requiresCertificate && currentStage.CanViewCertificate,
+            IsManualCertificate = requiresCertificate && result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
+            CertificateType = (int)result.CertificateType,
+            IsCertificateRequired = result.IsCertificateRequired,
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,

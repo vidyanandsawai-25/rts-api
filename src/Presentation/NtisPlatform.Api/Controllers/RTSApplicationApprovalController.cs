@@ -62,8 +62,8 @@ public class RTSApplicationApprovalController : ControllerBase
     /// <summary>
     /// this api get application facing how many desk related data and documents
     /// </summary>
-    /// <param name="id"></param>
-    /// <param name="ct"></param>
+    /// <param name="applicationId">The RTS application ID</param>
+    /// <param name="ct">Cancellation token</param>
     /// <returns></returns>
     [AllowAnonymous]
     [HttpGet("{applicationId}/details")]
@@ -136,6 +136,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> VerifyDocumentsAndProcessApplication(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
+        dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
         var result = await _service.VerifyDocumentsAndProcessApplicationAsync(applicationId, dto, ct);
 
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
@@ -154,6 +155,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> VerifyApplicationAndSentToApprove(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
+        dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
         var result = await _service.VerifyApplicationAndSentToApproveAsync(applicationId, dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
@@ -170,6 +172,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> VerifyAndCorrectApplication(int applicationId, [FromBody] UpdateRTSApplicationVerificationDto dto, CancellationToken ct)
     {
+        dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
         var result = await _service.VerifyAndCorrectApplicationAsync(applicationId, dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
@@ -187,6 +190,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> RejectApplicationByOfficerAsync(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
+        dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
         var result = await _service.RejectApplicationByOfficerAsync(applicationId, dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
@@ -208,6 +212,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> VerifyAndRevertApplication(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
+        dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
         var result = await _service.VerifyAndRevertApplicationAsync(applicationId, dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
@@ -218,7 +223,7 @@ public class RTSApplicationApprovalController : ControllerBase
     }
 
     /// <summary>
-    /// Complete RTS Application Audit Trail & Track History
+    /// Complete RTS Application Audit Trail &amp; Track History
     /// </summary>
     [AllowAnonymous]
     [HttpGet("{applicationId}/track-history")]
@@ -233,5 +238,18 @@ public class RTSApplicationApprovalController : ControllerBase
             Message = "Application Track History & Audit Trail Retrieved Successfully",
             Items = result
         });
+    }
+
+    private int ResolveOfficerUserId(int? updatedBy)
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier) 
+                 ?? User.FindFirst("id") 
+                 ?? User.FindFirst("UserId")
+                 ?? User.FindFirst("sub");
+        if (claim != null && int.TryParse(claim.Value, out int id) && id > 0)
+            return id;
+        if (updatedBy.HasValue && updatedBy.Value > 0)
+            return updatedBy.Value;
+        return 1;
     }
 }

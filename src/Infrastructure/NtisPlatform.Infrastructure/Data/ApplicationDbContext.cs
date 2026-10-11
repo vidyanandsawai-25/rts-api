@@ -6753,6 +6753,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Division);
             entity.Property(e => e.District);
             entity.Property(e => e.Taluka);
+            entity.Property(e => e.DailyPushEnabled).HasDefaultValue(true);
+            entity.Property(e => e.MorningPushHour).HasDefaultValue(6);
+            entity.Property(e => e.MorningPushMinute).HasDefaultValue(0);
+            entity.Property(e => e.RunOnStartup).HasDefaultValue(false);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
