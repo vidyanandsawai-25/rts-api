@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
-using NtisPlatform.Application.DTOs.RTSPayment;
+// using NtisPlatform.Application.DTOs.RTSPayment;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
@@ -24,7 +24,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
-    private readonly IRTSPaymentService _paymentService;
+    // private readonly IRTSPaymentService _paymentService;
     private readonly IRTSStageAllocationRuleService _allocationRules;
 
     public RTSApplicationService(
@@ -39,7 +39,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         IRepository<RTSApprovalFlowStageMasterEntity, int> approvalFlowStageRepository,
         IRTSSmsNotificationService smsNotificationService,
         IAapleSarkarIntegrationService aapleSarkarService,
-        IRTSPaymentService paymentService,
+        // IRTSPaymentService paymentService,
         IRTSStageAllocationRuleService allocationRules,
         IUnitOfWork unitOfWork,
         IMapper mapper) : base(repository, unitOfWork, mapper)
@@ -52,7 +52,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         _fieldValueRepository = fieldValueRepository;
         _smsNotificationService = smsNotificationService;
         _aapleSarkarService = aapleSarkarService;
-        _paymentService = paymentService;
+        // _paymentService = paymentService;
         _allocationRules = allocationRules;
         _historyRepository = historyRepository;
     }
@@ -143,45 +143,47 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         }
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
-        PaymentStatusDto paymentSnapshot;
-        try
-        {
-            await _repository.AddAsync(entity, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // PaymentStatusDto paymentSnapshot;
+        // try
+        // {
+        //     await _repository.AddAsync(entity, cancellationToken);
+        //     await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            paymentSnapshot = await _paymentService.InitializePendingPaymentAsync(entity.Id, cancellationToken);
-            if (paymentSnapshot.IsFeeRequired)
-            {
-                entity.ApplicationStatus = "Payment Pending";
-                if (submissionHistory != null)
-                {
-                    submissionHistory.Status = "Payment Pending";
-                }
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }
+        //     paymentSnapshot = await _paymentService.InitializePendingPaymentAsync(entity.Id, cancellationToken);
+        //     if (paymentSnapshot.IsFeeRequired)
+        //     {
+        //         entity.ApplicationStatus = "Payment Pending";
+        //         if (submissionHistory != null)
+        //         {
+        //             submissionHistory.Status = "Payment Pending";
+        //         }
+        //         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        //     }
 
-            await _unitOfWork.CommitTransactionAsync(cancellationToken);
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-            _unitOfWork.DiscardChanges();
-            throw;
-        }
+        //     await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        // }
+        // catch
+        // {
+        //     await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+        //     _unitOfWork.DiscardChanges();
+        //     throw;
+        // }
 
 
         if (!string.IsNullOrWhiteSpace(createDto.TdToken))
         {
             var appNo = entity.ApplicationNo ?? $"RTS{entity.Id:D8}";
-            var targetStatus = paymentSnapshot.IsFeeRequired ? "PaymentPending" : "UnderScrutiny";
+            // var targetStatus = paymentSnapshot.IsFeeRequired ? "PaymentPending" : "UnderScrutiny";
+            var targetStatus = isPaymentRequired ? "PaymentPending" : "UnderScrutiny";
             await _aapleSarkarService.MapApplicationAsync(createDto.TdToken, appNo, targetStatus, cancellationToken);
         }
 
-        var result = _mapper.Map<RTSApplicationDetailsDto>(entity);
-        result.PaymentTransactionId = paymentSnapshot.TransactionId;
-        result.PaymentRequiredFee = paymentSnapshot.RequiredFee;
-        result.PaymentStatus = paymentSnapshot.PaymentStatus;
-        return result;
+        // var result = _mapper.Map<RTSApplicationDetailsDto>(entity);
+        // result.PaymentTransactionId = paymentSnapshot.TransactionId;
+        // result.PaymentRequiredFee = paymentSnapshot.RequiredFee;
+        // result.PaymentStatus = paymentSnapshot.PaymentStatus;
+        // return result;
+        return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
 
 
