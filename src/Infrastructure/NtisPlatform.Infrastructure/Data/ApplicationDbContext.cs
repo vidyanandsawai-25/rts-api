@@ -6737,7 +6737,7 @@ public class ApplicationDbContext : DbContext
         // ----------------------------------------------------------------
         modelBuilder.Entity<RTSAapleSarkarConfigurationEntity>(entity =>
         {
-            entity.ToTable("AapleSarkarCredential", "RTS");
+            entity.ToTable("AapleSarkarConfiguration", "RTS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.ClientCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.ChecksumKey).IsRequired().HasMaxLength(100);
