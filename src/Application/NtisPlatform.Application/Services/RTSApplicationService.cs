@@ -18,6 +18,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     private readonly IRepository<RTSFieldDefinitionEntity, int> _fieldDefinitionRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
+    private readonly IRepository<RTSPaymentTransactionEntity, int> _PaymentTransactionRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
@@ -25,6 +26,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     public RTSApplicationService(
         IRepository<RTSApplicationDetailsEntity, int> repository,
         IRepository<RTSApprovalFlowMasterEntity, int> approvalFlowRepository,
+        IRepository<RTSPaymentTransactionEntity, int> PaymentTransactionRepository,
         IRTSCitizenSessionService sessionService,
         IRepository<RTSFieldDefinitionEntity, int> fieldDefinitionRepository,
         IRepository<RTSServiceEntity, int> serviceRepository,
@@ -40,6 +42,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         _approvalFlowRepository = approvalFlowRepository;
         _fieldDefinitionRepository = fieldDefinitionRepository;
         _serviceRepository = serviceRepository;
+        _PaymentTransactionRepository = PaymentTransactionRepository;
         _fieldValueRepository = fieldValueRepository;
         _smsNotificationService = smsNotificationService;
         _aapleSarkarService = aapleSarkarService;
@@ -96,9 +99,9 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         entity.CurrentStageOrder = approvalFlowData?.FirstStage?.StageOrder ?? 0;
 
 
-        if (createDto.FieldValues?.Any() == true)
+        if (createDto.FieldValues?.Any() == true) 
         {
-            entity.FieldValueData = createDto.FieldValues
+            entity.FieldValueData = createDto.FieldValues 
                 .Select(f =>
                 {
                     var field = _mapper.Map<RTSFieldValueEntity>(f);
@@ -114,7 +117,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             {
                 ApprovalFlowId = approvalFlowData.ApprovalFlowId,
                 ApprovalFlowStageId = approvalFlowData?.FirstStage?.StageId ?? 0,
-                Status = isPaymentRequired ? "Payment Pending" : ApplicationStatus.Pending,
+                Status = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
                 Remark = ApplicationStatus.Remark,
                 Action = ApplicationStatus.Submitted,
                 IsReverted = false,
@@ -141,6 +144,16 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
     public override async Task<RTSApplicationDetailsDto?> UpdateAsync(int Id, UpdateRTSApplicationDetailsDto updateDto,CancellationToken cancellationToken = default)
     {
+
+        if (!string.IsNullOrWhiteSpace(updateDto.SessionId))
+        {
+            var sessionValidation = await _sessionService.ValidateAndUpdateSessionAsync(updateDto.SessionId, cancellationToken);
+            if (!sessionValidation.Success)
+            {
+                updateDto.SessionId = null;
+            }
+        }
+
         var application = await _repository
          .GetQueryable()
          .Include(x => x.Service)
@@ -181,21 +194,44 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
         }
 
-        application.ApplicationStatus = ApplicationStatus.Pending;
+        var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0;
+
+        var isPaymentSuccessful = false;
+
+        if (isPaymentRequired)
+        {
+            isPaymentSuccessful = await _PaymentTransactionRepository
+                .GetQueryable()
+                .Include(x => x.PaymentStatus)
+                .AnyAsync(x =>
+                    x.ApplicationId == application.Id &&
+                    x.IsActive &&
+                    x.PaymentStatus.StatusCode == "SUCCESS",
+                    cancellationToken);
+        }
+
+        application.ApplicationStatus = (isPaymentRequired && !isPaymentSuccessful)? ApplicationStatus.PaymentPending: ApplicationStatus.Pending;
         application.IsReverted = false;
-        application.Remark = "Application Corrected & Resubmitted";
+        application.Remark = "Application Resubmitted";
         application.UpdatedBy = updateDto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
 
+        if (!string.IsNullOrEmpty(updateDto.ApplicantName)&&!string.IsNullOrEmpty(updateDto.ApplicantMobileNo))
+        {
+            application.ApplicantName = updateDto.ApplicantName;
+            application.ApplicantMobileNo = updateDto.ApplicantMobileNo;
+        }
+
+        
         var history = new TrackApplicationHistoryEntity
         {
             ApplicationId = Id,
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = application.CurrentApprovalFlowStageId,
             ActionByUserId = updateDto.UpdatedBy,
-            Status = ApplicationStatus.Pending ,
-            Action = "Application Resubmitted ",
-            Remark = "Application Corrected & Resubmitted",
+            Status = application.ApplicationStatus,
+            Action = "Application Resubmitted By Citizen",
+            Remark = "Application Resubmitted",
             IsReverted = false,
             IsActive = true,
             CreatedBy = updateDto.UpdatedBy,
