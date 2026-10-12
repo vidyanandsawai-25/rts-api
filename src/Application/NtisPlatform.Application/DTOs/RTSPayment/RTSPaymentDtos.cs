@@ -69,7 +69,11 @@ public class RecordOfflinePaymentRequestDto
 
     public DateTime? InstrumentDate { get; set; }
 
+    public int? BankId { get; set; }
+
     public string? BankName { get; set; }
+
+    public string? BranchName { get; set; }
 
     public string? Remarks { get; set; }
 }
@@ -159,3 +163,144 @@ public class PaymentTransactionListItemDto
     public string? CitizenName { get; set; }
     public string? CitizenMobile { get; set; }
 }
+
+public class ApprovePaymentRequestDto
+{
+    [Required]
+    public long TransactionId { get; set; }
+
+    public DateTime? ClearanceDate { get; set; }
+
+    public string? BankRefNo { get; set; }
+
+    public string? Remarks { get; set; }
+}
+
+public class DisapprovePaymentRequestDto
+{
+    [Required]
+    public long TransactionId { get; set; }
+
+    [Required]
+    public string Reason { get; set; } = string.Empty;
+
+    public string? Remarks { get; set; }
+}
+
+public class CancelReceiptRequestDto
+{
+    [Required]
+    public long TransactionId { get; set; }
+
+    [Required]
+    public string Reason { get; set; } = string.Empty;
+
+    public string? Remarks { get; set; }
+}
+
+public class PendingClearanceQueryDto
+{
+    public string? PaymentMode { get; set; }
+    public string? StatusCode { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public string? SearchText { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
+public class PendingClearanceItemDto
+{
+    public long TransactionId { get; set; }
+    public string TransactionNo { get; set; } = string.Empty;
+    public int ApplicationId { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public string? CitizenName { get; set; }
+    public string? CitizenMobile { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public string DepartmentName { get; set; } = string.Empty;
+    public string PaymentMode { get; set; } = string.Empty;
+    public decimal TotalAmount { get; set; }
+    public string Currency { get; set; } = "INR";
+    public int? BankId { get; set; }
+    public string? BankName { get; set; }
+    public string? BranchName { get; set; }
+    public string? InstrumentNo { get; set; }
+    public DateTime? InstrumentDate { get; set; }
+    public DateTime? ClearanceDate { get; set; }
+    public string? BankRefNo { get; set; }
+    public string? GatewayPaymentId { get; set; }
+    public string? ReceiptNo { get; set; }
+    public DateTime? ReceiptDate { get; set; }
+    public DateTime? PaymentDate { get; set; }
+    public string PaymentStatus { get; set; } = string.Empty;
+    public string? StatusBadgeColor { get; set; }
+    public string? ApprovalStatus { get; set; }
+    public bool IsReceiptCancelled { get; set; }
+    public string? CancellationReason { get; set; }
+    public string? FailureReason { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+public class PendingClearanceStatsDto
+{
+    public int TotalPendingDdCheque { get; set; }
+    public int TotalPendingOnline { get; set; }
+    public int TotalClearedToday { get; set; }
+    public int TotalBounced { get; set; }
+    public int TotalCancelled { get; set; }
+    public decimal TotalClearedAmountToday { get; set; }
+}
+
+public class BulkClearanceRowResultDto
+{
+    public int RowIndex { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public string? InstrumentNo { get; set; }
+    public string Action { get; set; } = string.Empty;
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+public class BulkClearanceResponseDto
+{
+    public int TotalRows { get; set; }
+    public int ProcessedCount { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailureCount { get; set; }
+    public List<BulkClearanceRowResultDto> Results { get; set; } = new();
+}
+
+public class RTSBankLookupDto
+{
+    public int Id { get; set; }
+    public string BankCode { get; set; } = string.Empty;
+    public string BankName { get; set; } = string.Empty;
+    public string? BranchName { get; set; }
+    public string? IFSCCode { get; set; }
+}
+
+public class ReceiptCancellationLogDto
+{
+    public int Id { get; set; }
+    public long TransactionId { get; set; }
+    public int ApplicationId { get; set; }
+    public string ReceiptNumber { get; set; } = string.Empty;
+    public decimal OriginalAmount { get; set; }
+    public string PaymentMode { get; set; } = string.Empty;
+    public string? InstrumentNo { get; set; }
+    public int? BankId { get; set; }
+    public string? BankName { get; set; }
+    public int? CancelledBy { get; set; }
+    public string? CancelledByName { get; set; }
+    public DateTime CancelledDate { get; set; }
+    public string CancellationReason { get; set; } = string.Empty;
+    public int? ApprovedBy { get; set; }
+    public string? ApprovedByName { get; set; }
+    public DateTime? ApprovedDate { get; set; }
+    public string? ApprovalRemarks { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+

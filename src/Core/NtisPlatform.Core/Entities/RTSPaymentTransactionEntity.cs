@@ -28,6 +28,20 @@ public class RTSPaymentTransactionEntity
     public decimal? GatewayFee { get; set; }
     public decimal? GatewayTax { get; set; }
     public string? BankRefNo { get; set; }
+    public int? BankId { get; set; }
+    public string? BankName { get; set; }
+    public string? BranchName { get; set; }
+    public string? InstrumentNo { get; set; }
+    public DateTime? InstrumentDate { get; set; }
+    public DateTime? ClearanceDate { get; set; }
+    public string? ApprovalStatus { get; set; }
+    public int? ApprovedBy { get; set; }
+    public DateTime? ApprovedDate { get; set; }
+    public string? ApprovalRemarks { get; set; }
+    public bool IsReceiptCancelled { get; set; } = false;
+    public DateTime? ReceiptCancelledDate { get; set; }
+    public int? ReceiptCancelledBy { get; set; }
+    public string? ReceiptCancellationReason { get; set; }
     public string? PayerVpaOrAccount { get; set; }
     public string? ReceiptNo { get; set; }
     public DateTime? ReceiptDate { get; set; }
