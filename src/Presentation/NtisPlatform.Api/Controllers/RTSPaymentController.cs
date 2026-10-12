@@ -301,6 +301,8 @@ public class RTSPaymentController : ControllerBase
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
         [FromQuery] string? searchText,
+        [FromQuery] int? departmentId,
+        [FromQuery] int? serviceId,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken ct = default)
@@ -312,6 +314,8 @@ public class RTSPaymentController : ControllerBase
             FromDate = fromDate,
             ToDate = toDate,
             SearchText = searchText,
+            DepartmentId = departmentId,
+            ServiceId = serviceId,
             PageNumber = pageNumber,
             PageSize = pageSize
         };

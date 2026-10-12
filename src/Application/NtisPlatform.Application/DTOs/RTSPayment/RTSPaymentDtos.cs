@@ -205,6 +205,8 @@ public class PendingClearanceQueryDto
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public string? SearchText { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? ServiceId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
@@ -218,7 +220,9 @@ public class PendingClearanceItemDto
     public string? CitizenName { get; set; }
     public string? CitizenMobile { get; set; }
     public string ServiceName { get; set; } = string.Empty;
+    public string? ServiceNameLocal { get; set; }
     public string DepartmentName { get; set; } = string.Empty;
+    public string? DepartmentNameLocal { get; set; }
     public string PaymentMode { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }
     public string Currency { get; set; } = "INR";

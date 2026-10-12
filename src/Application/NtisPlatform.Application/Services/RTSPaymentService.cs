@@ -1440,6 +1440,18 @@ public class RTSPaymentService : IRTSPaymentService
             q = q.Where(t => t.CreatedDate <= to);
         }
 
+        // Department Filter
+        if (query.DepartmentId.HasValue && query.DepartmentId.Value > 0)
+        {
+            q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
+        }
+
+        // Service Filter
+        if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
+        {
+            q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+        }
+
         // Search Text
         if (!string.IsNullOrWhiteSpace(query.SearchText))
         {
@@ -1454,6 +1466,7 @@ public class RTSPaymentService : IRTSPaymentService
         }
 
         var totalCount = await q.CountAsync(ct);
+        var totalAmountSum = await q.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
 
         int pageNumber = query.PageNumber > 0 ? query.PageNumber : 1;
         int pageSize = query.PageSize > 0 ? query.PageSize : 10;
@@ -1503,7 +1516,9 @@ public class RTSPaymentService : IRTSPaymentService
             CitizenName = applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant",
             CitizenMobile = applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : "",
             ServiceName = t.Service?.ServiceName ?? "RTS Service",
+            ServiceNameLocal = t.Service?.ServiceNameLocal,
             DepartmentName = t.Department?.DepartmentName ?? "RTS Department",
+            DepartmentNameLocal = t.Department?.DepartmentNameLocal,
             PaymentMode = t.PaymentMode?.ModeNameEn ?? (t.PayerVpaOrAccount ?? "Online"),
             TotalAmount = t.TotalAmount,
             Currency = t.Currency ?? "INR",
@@ -1528,7 +1543,9 @@ public class RTSPaymentService : IRTSPaymentService
             CreatedDate = t.CreatedDate
         }).ToList();
 
-        return new PagedResult<PendingClearanceItemDto>(dtoList, totalCount, pageNumber, pageSize);
+        var pagedResult = new PagedResult<PendingClearanceItemDto>(dtoList, totalCount, pageNumber, pageSize);
+        pagedResult.TotalAmount = totalAmountSum;
+        return pagedResult;
     }
 
     public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(CancellationToken ct = default)
