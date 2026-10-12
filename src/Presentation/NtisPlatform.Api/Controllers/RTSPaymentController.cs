@@ -1,6 +1,10 @@
 using System;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -585,6 +589,168 @@ public class RTSPaymentController : ControllerBase
             {
                 Success = false,
                 Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Exports payment clearance settlement records to Excel (.xlsx) or CSV format
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("export-clearance")]
+    public async Task<IActionResult> ExportClearance(
+        [FromQuery] string? paymentMode,
+        [FromQuery] string? statusCode,
+        [FromQuery] DateTime? fromDate,
+        [FromQuery] DateTime? toDate,
+        [FromQuery] string? searchText,
+        [FromQuery] string format = "excel",
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var query = new PendingClearanceQueryDto
+            {
+                PaymentMode = paymentMode,
+                StatusCode = statusCode,
+                FromDate = fromDate,
+                ToDate = toDate,
+                SearchText = searchText,
+                PageNumber = 1,
+                PageSize = 10000
+            };
+
+            var result = await _paymentService.GetPendingClearancePaymentsAsync(query, ct);
+            var records = result?.Items?.ToList() ?? new List<PendingClearanceItemDto>();
+
+            if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("Application No,Citizen Name,Receipt No,Payment Mode,Bank Name,Instrument No,Instrument Date,Amount (Rs.),Status,Created Date");
+
+                foreach (var item in records)
+                {
+                    var appNo = $"\"{item.ApplicationNo?.Replace("\"", "\"\"")}\"";
+                    var citizen = $"\"{item.CitizenName?.Replace("\"", "\"\"")}\"";
+                    var receipt = $"\"{item.ReceiptNo?.Replace("\"", "\"\"")}\"";
+                    var mode = $"\"{item.PaymentMode?.Replace("\"", "\"\"")}\"";
+                    var bank = $"\"{item.BankName?.Replace("\"", "\"\"")}\"";
+                    var instNo = $"\"{item.InstrumentNo?.Replace("\"", "\"\"")}\"";
+                    var instDate = item.InstrumentDate.HasValue ? item.InstrumentDate.Value.ToString("yyyy-MM-dd") : "";
+                    var amount = item.TotalAmount.ToString("F2");
+                    var status = $"\"{(item.ApprovalStatus ?? item.PaymentStatus)?.Replace("\"", "\"\"")}\"";
+                    var createdDate = item.CreatedDate.ToString("yyyy-MM-dd HH:mm");
+
+                    sb.AppendLine($"{appNo},{citizen},{receipt},{mode},{bank},{instNo},{instDate},{amount},{status},{createdDate}");
+                }
+
+                var bom = Encoding.UTF8.GetPreamble();
+                var csvBytes = Encoding.UTF8.GetBytes(sb.ToString());
+                var combined = bom.Concat(csvBytes).ToArray();
+
+                var fileName = $"Payment_Settlement_Clearance_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+                return File(combined, "text/csv; charset=utf-8", fileName);
+            }
+            else
+            {
+                using var workbook = new XLWorkbook();
+                var ws = workbook.Worksheets.Add("Settlement_Report");
+
+                // Municipal Header Banner
+                ws.Cell(1, 1).Value = "AKOLA MUNICIPAL CORPORATION - RIGHT TO SERVICES (RTS)";
+                ws.Range(1, 1, 1, 10).Merge();
+                ws.Cell(1, 1).Style.Font.Bold = true;
+                ws.Cell(1, 1).Style.Font.FontSize = 14;
+                ws.Cell(1, 1).Style.Font.FontColor = XLColor.White;
+                ws.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.FromArgb(30, 58, 138); // Deep Navy
+                ws.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                ws.Cell(2, 1).Value = $"Payment Settlement & Clearance Report | Generated: {DateTime.UtcNow:dd-MMM-yyyy HH:mm} UTC | Total Records: {records.Count}";
+                ws.Range(2, 1, 2, 10).Merge();
+                ws.Cell(2, 1).Style.Font.Italic = true;
+                ws.Cell(2, 1).Style.Font.FontSize = 10;
+                ws.Cell(2, 1).Style.Font.FontColor = XLColor.White;
+                ws.Cell(2, 1).Style.Fill.BackgroundColor = XLColor.FromArgb(49, 46, 129); // Indigo
+                ws.Cell(2, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+                // Table Column Headers
+                var headers = new[]
+                {
+                    "Sr. No.",
+                    "Application No",
+                    "Citizen Name",
+                    "Receipt No",
+                    "Payment Mode",
+                    "Bank Name",
+                    "Instrument / Cheque No",
+                    "Instrument Date",
+                    "Amount (Rs.)",
+                    "Status"
+                };
+
+                for (int c = 0; c < headers.Length; c++)
+                {
+                    var cell = ws.Cell(4, c + 1);
+                    cell.Value = headers[c];
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Font.FontColor = XLColor.White;
+                    cell.Style.Fill.BackgroundColor = XLColor.FromArgb(15, 23, 42); // Slate 900
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                }
+
+                int row = 5;
+                decimal totalAmount = 0;
+                for (int i = 0; i < records.Count; i++)
+                {
+                    var item = records[i];
+                    totalAmount += item.TotalAmount;
+
+                    ws.Cell(row, 1).Value = i + 1;
+                    ws.Cell(row, 2).Value = item.ApplicationNo ?? "-";
+                    ws.Cell(row, 3).Value = item.CitizenName ?? "-";
+                    ws.Cell(row, 4).Value = item.ReceiptNo ?? "-";
+                    ws.Cell(row, 5).Value = item.PaymentMode ?? "-";
+                    ws.Cell(row, 6).Value = item.BankName ?? "-";
+                    ws.Cell(row, 7).Value = item.InstrumentNo ?? "-";
+                    ws.Cell(row, 8).Value = item.InstrumentDate.HasValue ? item.InstrumentDate.Value.ToString("dd-MMM-yyyy") : "-";
+                    ws.Cell(row, 9).Value = (double)item.TotalAmount;
+                    ws.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
+                    ws.Cell(row, 10).Value = item.ApprovalStatus ?? item.PaymentStatus ?? "-";
+
+                    // Zebra striping
+                    if (i % 2 == 1)
+                    {
+                        ws.Range(row, 1, row, 10).Style.Fill.BackgroundColor = XLColor.FromArgb(248, 250, 252);
+                    }
+
+                    row++;
+                }
+
+                // Summary Row
+                ws.Cell(row, 1).Value = "TOTAL";
+                ws.Range(row, 1, row, 8).Merge();
+                ws.Cell(row, 1).Style.Font.Bold = true;
+                ws.Cell(row, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                ws.Cell(row, 9).Value = (double)totalAmount;
+                ws.Cell(row, 9).Style.Font.Bold = true;
+                ws.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
+                ws.Range(row, 1, row, 10).Style.Fill.BackgroundColor = XLColor.FromArgb(226, 232, 240);
+
+                ws.Columns().AdjustToContents();
+
+                using var ms = new MemoryStream();
+                workbook.SaveAs(ms);
+                var fileName = $"Payment_Settlement_Clearance_{DateTime.UtcNow:yyyyMMdd_HHmmss}.xlsx";
+                return File(ms.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting payment clearance report");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<string>
+            {
+                Success = false,
+                Message = "Error generating export: " + ex.Message
             });
         }
     }
