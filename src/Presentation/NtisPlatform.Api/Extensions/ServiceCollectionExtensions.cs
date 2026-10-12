@@ -700,7 +700,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSServiceOfficerAllocationService, RTSServiceOfficerAllocationService>();
         services.AddScoped<IRTSRuleServiceCardService, RTSRuleServiceCardService>();
         services.AddScoped<IRTSRuleMasterService, RTSRuleMasterService>();
-        services.AddScoped<IRTSFeeRuleService, RTSFeeRuleService>();
+        services.AddScoped<IRtsFeeEvaluationRuleService, RtsFeeEvaluationRuleService>();
         services.AddScoped<IRTSStageAllocationRuleService, RTSStageAllocationRuleService>();
         services.AddScoped<IRTSApprovalFlowStageUserAllocationMasterService, RTSApprovalFlowStageUserAllocationMasterService>();
         services.AddScoped<IAapleSarkarIntegrationService, AapleSarkarIntegrationService>();

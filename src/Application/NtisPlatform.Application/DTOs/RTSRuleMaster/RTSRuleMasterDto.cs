@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NtisPlatform.Application.DTOs.Queries;
 
 namespace NtisPlatform.Application.DTOs.RTSRuleMaster;
 
@@ -22,7 +23,9 @@ public class RTSRuleMasterDto : BaseDtos
     public string ConditionMatchType { get; set; } = "ALL";
     public List<RTSRuleConditionDto> Conditions { get; set; } = [];
     public string? RuleActionType { get; set; }
+    public string? CalculationType { get; set; }
     public decimal? RateAmount { get; set; }
+    public int? QuantityFieldDefinitionId { get; set; }
     public int? UserId { get; set; }
     public int Priority { get; set; }
     public string? RuleGroup { get; set; }
@@ -46,7 +49,9 @@ public class CreateRTSRuleDto
     public string ConditionMatchType { get; set; } = "ALL";
     public List<RTSRuleConditionDto> Conditions { get; set; } = [];
     public string? RuleActionType { get; set; }
+    public string? CalculationType { get; set; }
     public decimal? RateAmount { get; set; }
+    public int? QuantityFieldDefinitionId { get; set; }
     public int? UserId { get; set; }
     public int Priority { get; set; } = 1;
     public string? RuleGroup { get; set; }
@@ -72,7 +77,9 @@ public class UpdateRTSRuleDto
     public string ConditionMatchType { get; set; } = "ALL";
     public List<RTSRuleConditionDto> Conditions { get; set; } = [];
     public string? RuleActionType { get; set; }
+    public string? CalculationType { get; set; }
     public decimal? RateAmount { get; set; }
+    public int? QuantityFieldDefinitionId { get; set; }
     public int? UserId { get; set; }
     public int Priority { get; set; } = 1;
     public string? RuleGroup { get; set; }
@@ -86,4 +93,30 @@ public class RTSRuleMasterResponseDto
     public int ServiceId { get; set; }
     public int RuleCount { get; set; }
     public List<RTSRuleMasterDto> Rules { get; set; } = [];
+}
+
+public class RTSRuleServiceCardQueryParameters : BaseQueryParameters
+{
+    [Required]
+    [StringLength(100)]
+    public string RuleGroup { get; set; } = string.Empty;
+
+    [Range(1, int.MaxValue)]
+    public int? DepartmentId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? ServiceId { get; set; }
+
+    public bool? IsActive { get; set; }
+}
+
+public class RTSRuleServiceCardDto
+{
+    public int ServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public int DepartmentId { get; set; }
+    public string DepartmentName { get; set; } = string.Empty;
+    public string RuleGroup { get; set; } = string.Empty;
+    public int RuleCount { get; set; }
+    public int ActiveRuleCount { get; set; }
 }
