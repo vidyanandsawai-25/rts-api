@@ -42,6 +42,46 @@ public class ProcessRTSAppealActionDto : UpdateBaseDtos
     }
 
     public string? Status { get; set; }
+
+    /// <summary>
+    /// Statutory date and time of personal hearing (MRTSA 2015 Section 8(2)).
+    /// </summary>
+    public DateTime? HearingDate { get; set; }
+
+    /// <summary>
+    /// Official notice, hearing agenda, or summons remark dispatched to the appellant / designated officer.
+    /// </summary>
+    [StringLength(1000)]
+    public string? HearingNoticeRemarks { get; set; }
+
+    /// <summary>
+    /// Statutory appellate order category: "DirectionToDeliverService", "RejectionOrder", "PenaltyImposed", "Dismissed", "Remanded".
+    /// </summary>
+    [StringLength(100)]
+    public string? OrderType { get; set; }
+
+    /// <summary>
+    /// Statutory deadline stipulated by the Appellate Authority for the designated officer to provide the public service.
+    /// </summary>
+    public DateTime? ServiceDeliveryDueDate { get; set; }
+
+    /// <summary>
+    /// Statutory penalty amount imposed on the defaulting designated officer (MRTSA 2015 Section 9: ₹250/day up to ₹5,000).
+    /// </summary>
+    [Range(0, 5000, ErrorMessage = "Penalty amount must be between ₹0 and ₹5,000 as per MRTSA 2015 Section 9.")]
+    public decimal? PenaltyAmount { get; set; }
+
+    /// <summary>
+    /// Official justification and breakdown for penalty or departmental inquiry recommendation (Section 10).
+    /// </summary>
+    [StringLength(1000)]
+    public string? PenaltyRemarks { get; set; }
+
+    /// <summary>
+    /// File path or reference to uploaded signed appellate order document.
+    /// </summary>
+    [StringLength(500)]
+    public string? OrderDocumentPath { get; set; }
 }
 
 /// <summary>

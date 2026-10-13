@@ -19,7 +19,17 @@ public class RTSAppealProcessDetailsDto
     public DateTime? FilingDate { get; set; }
     public int AppealTypeId { get; set; }
     public string AppealTypeName { get; set; } = string.Empty;
+    public string? AppealTypeNameLocal { get; set; }
     public string ReasonForComplaint { get; set; } = string.Empty;
+
+    // Statutory Hearing & Adjudication (MRTSA 2015)
+    public DateTime? HearingDate { get; set; }
+    public string? HearingNoticeRemarks { get; set; }
+    public string? OrderType { get; set; }
+    public DateTime? ServiceDeliveryDueDate { get; set; }
+    public decimal? PenaltyAmount { get; set; }
+    public string? PenaltyRemarks { get; set; }
+    public string? OrderDocumentPath { get; set; }
 
     // Appellate Decision & remarks
     public string? ActionRemarks { get; set; }
