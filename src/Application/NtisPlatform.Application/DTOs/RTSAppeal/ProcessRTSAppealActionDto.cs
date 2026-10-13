@@ -26,6 +26,21 @@ public class ProcessRTSAppealActionDto : UpdateBaseDtos
     [StringLength(1000, ErrorMessage = "Remark cannot exceed 1000 characters.")]
     public string Remark { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Backward-compatible alias for frontend payloads sending "remarks".
+    /// </summary>
+    public string? Remarks
+    {
+        get => Remark;
+        set
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                Remark = value;
+            }
+        }
+    }
+
     public string? Status { get; set; }
 }
 

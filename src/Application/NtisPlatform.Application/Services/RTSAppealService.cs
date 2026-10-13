@@ -916,6 +916,11 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
             throw new ArgumentException("Invalid appeal action request.");
         }
 
+        if (string.IsNullOrWhiteSpace(dto.Remark) && !string.IsNullOrWhiteSpace(dto.Remarks))
+        {
+            dto.Remark = dto.Remarks;
+        }
+
         if (string.IsNullOrWhiteSpace(dto.Remark))
         {
             throw new ArgumentException("Remark / official order is mandatory for processing an appeal action.");
