@@ -6331,14 +6331,14 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("AppealTypeMaster", "RTS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Code).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Code).HasMaxLength(100);
             entity.Property(e => e.AppealTypeName).IsRequired().HasMaxLength(250);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
 
             entity.Ignore(e => e.CreatedBy);
-            entity.Ignore(e => e.CreatedDate);
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
-            entity.Ignore(e => e.IsActive);
         });
 
         modelBuilder.Entity<RTSAppealApplicationEntity>(entity =>
@@ -6367,6 +6367,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AppealType)
+                .WithMany()
+                .HasForeignKey(e => e.AppealTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => new { e.ApplicationId, e.AppealLevel });
             entity.HasIndex(e => e.AppealNo);
@@ -6405,12 +6415,16 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
 
+            entity.Property(e => e.AppealLevel)
+                .HasConversion<byte>()
+                .HasColumnType("tinyint");
+
             entity.Property(e => e.CreatedDate)
                 .HasColumnType("datetime")
                 .HasDefaultValueSql("GETDATE()");
 
             entity.HasOne(e => e.AppealApplication)
-                .WithMany()
+                .WithMany(a => a.TrackAppealHistories)
                 .HasForeignKey(e => e.AppealId)
                 .OnDelete(DeleteBehavior.Cascade);
 
