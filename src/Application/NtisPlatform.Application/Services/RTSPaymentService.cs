@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -11,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RTSPayment;
+using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -38,6 +40,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IUlbConfigService _ulbConfigService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
+    private readonly IRTSRuleMasterService _ruleMasterService;
     private readonly ILogger<RTSPaymentService> _logger;
 
     public RTSPaymentService(
@@ -58,6 +61,7 @@ public class RTSPaymentService : IRTSPaymentService
         IRTSSmsNotificationService smsNotificationService,
         IUlbConfigService ulbConfigService,
         IAapleSarkarIntegrationService aapleSarkarService,
+        IRTSRuleMasterService ruleMasterService,
         ILogger<RTSPaymentService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -77,6 +81,7 @@ public class RTSPaymentService : IRTSPaymentService
         _smsNotificationService = smsNotificationService;
         _ulbConfigService = ulbConfigService;
         _aapleSarkarService = aapleSarkarService;
+        _ruleMasterService = ruleMasterService;
         _logger = logger;
     }
 
@@ -250,6 +255,128 @@ public class RTSPaymentService : IRTSPaymentService
         return modes.FirstOrDefault()?.Id;
     }
 
+    private async Task<RTSPaymentTransactionEntity?> GetLatestTransactionAsync(int applicationId, CancellationToken ct)
+    {
+        return await _paymentRepository.GetQueryable()
+            .Include(t => t.PaymentStatus)
+            .Include(t => t.GatewayConfig)
+            .Where(t => t.ApplicationId == applicationId)
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task<RTSPaymentTransactionEntity?> CreatePendingPaymentSnapshotAsync(
+        RTSApplicationDetailsEntity app,
+        decimal? amountOverride,
+        CancellationToken ct)
+    {
+        var amount = amountOverride;
+        if (!amount.HasValue)
+        {
+            var fieldValues = await _fieldValueRepository.GetQueryable()
+                .Include(fieldValue => fieldValue.FieldDefinition)
+                .Where(fieldValue => fieldValue.ApplicationId == app.Id && !fieldValue.MarkedForDeletion)
+                .ToListAsync(ct);
+
+            var feeEvaluation = await _ruleMasterService.EvaluateFeeAsync(
+                new RTSFeeEvaluationRequestDto
+                {
+                    ServiceId = app.ServiceId,
+                    FieldValues = fieldValues.Select(fieldValue => new RTSFeeFieldValueDto
+                    {
+                        FieldDefinitionId = fieldValue.FieldDefinitionId,
+                        FieldCode = fieldValue.FieldDefinition?.FieldCode,
+                        Value = fieldValue.TextValue
+                            ?? fieldValue.NumberValue?.ToString(CultureInfo.InvariantCulture)
+                            ?? fieldValue.DateValue?.ToString("O", CultureInfo.InvariantCulture)
+                            ?? fieldValue.BooleanValue?.ToString()
+                    }).ToList()
+                },
+                ct);
+
+            amount = feeEvaluation.PayableAmount;
+        }
+
+        var payableAmount = Math.Round(amount ?? 0m, 2, MidpointRounding.AwayFromZero);
+        if (payableAmount <= 0)
+        {
+            return null;
+        }
+
+        var pendingStatus = await GetStatusByCodeAsync("PENDING", ct);
+        var gatewayConfig = await GetActiveGatewayConfigAsync(null, ct);
+        var transaction = new RTSPaymentTransactionEntity
+        {
+            TransactionNo = $"TXN/RTS/{DateTime.Now:yyyyMMdd}/{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+            ApplicationId = app.Id,
+            ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
+            ServiceId = app.ServiceId,
+            DepartmentId = app.DepartmentId,
+            GatewayConfigId = gatewayConfig.Id,
+            PaymentStatusId = pendingStatus.Id,
+            BaseAmount = payableAmount,
+            LateFeeAmount = 0,
+            DiscountAmount = 0,
+            TotalAmount = payableAmount,
+            Currency = gatewayConfig.Currency ?? "INR",
+            GatewayOrderId = string.Empty,
+            Remarks = "Payment snapshot created at application submission.",
+            CreatedDate = DateTime.Now,
+            IsActive = true
+        };
+
+        await _paymentRepository.AddAsync(transaction, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return transaction;
+    }
+
+    private static PaymentStatusDto MapPaymentStatus(
+        RTSApplicationDetailsEntity app,
+        RTSPaymentTransactionEntity? transaction)
+    {
+        return new PaymentStatusDto
+        {
+            TransactionId = transaction?.Id,
+            ApplicationId = app.Id,
+            ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
+            ServiceName = app.Service?.ServiceName ?? "RTS Service",
+            RequiredFee = transaction?.TotalAmount ?? 0m,
+            IsFeeRequired = transaction?.TotalAmount > 0m,
+            HasPaymentTransaction = transaction != null,
+            PaymentStatus = transaction?.PaymentStatus?.StatusCode ?? "NOT_REQUIRED",
+            StatusNameEn = transaction?.PaymentStatus?.StatusNameEn,
+            StatusNameMr = transaction?.PaymentStatus?.StatusNameMr,
+            BadgeColor = transaction?.PaymentStatus?.BadgeColor,
+            ReceiptNo = transaction?.ReceiptNo,
+            PaymentDate = transaction?.PaymentDate,
+            GatewayPaymentId = transaction?.GatewayPaymentId
+        };
+    }
+
+    public async Task<PaymentStatusDto> InitializePendingPaymentAsync(int applicationId, CancellationToken ct = default)
+    {
+        var app = await _applicationRepository.GetQueryable()
+            .Include(a => a.Service)
+            .FirstOrDefaultAsync(a => a.Id == applicationId && !a.MarkedForDeletion, ct);
+
+        if (app == null)
+        {
+            throw new ArgumentException($"Application with ID {applicationId} does not exist.");
+        }
+
+        var transaction = await GetLatestTransactionAsync(app.Id, ct);
+        if (transaction == null)
+        {
+            transaction = await CreatePendingPaymentSnapshotAsync(app, null, ct);
+            if (transaction != null)
+            {
+                transaction = await GetLatestTransactionAsync(app.Id, ct);
+            }
+        }
+
+        return MapPaymentStatus(app, transaction);
+    }
+
     public async Task<PaymentOrderResponseDto> CreatePaymentOrderAsync(CreatePaymentOrderRequestDto request, CancellationToken ct = default)
     {
         var app = await _applicationRepository.GetQueryable()
@@ -272,18 +399,39 @@ public class RTSPaymentService : IRTSPaymentService
             throw new InvalidOperationException($"Fee for Application {app.ApplicationNo} has already been paid successfully under Receipt {existingSuccess.ReceiptNo}.");
         }
 
-        // Dynamic Amount Logic from ServiceMaster
-        decimal amount = app.Service?.Fees ?? 0;
-        if (amount <= 0)
+        var fieldValues = await _fieldValueRepository.GetQueryable()
+            .Include(fieldValue => fieldValue.FieldDefinition)
+            .Where(fieldValue => fieldValue.ApplicationId == app.Id && !fieldValue.MarkedForDeletion)
+            .ToListAsync(ct);
+
+        var transaction = await GetLatestTransactionAsync(app.Id, ct);
+        if (transaction == null)
+        {
+            await InitializePendingPaymentAsync(app.Id, ct);
+            transaction = await GetLatestTransactionAsync(app.Id, ct);
+        }
+
+        var currentStatus = transaction?.PaymentStatus?.StatusCode?.ToUpperInvariant();
+        if (currentStatus is "FAILED" or "EXPIRED")
+        {
+            await CreatePendingPaymentSnapshotAsync(app, transaction!.TotalAmount, ct);
+            transaction = await GetLatestTransactionAsync(app.Id, ct);
+            currentStatus = transaction?.PaymentStatus?.StatusCode?.ToUpperInvariant();
+        }
+
+        if (transaction == null || transaction.TotalAmount <= 0)
         {
             throw new InvalidOperationException($"No payable fee configured for service '{app.Service?.ServiceName}'.");
         }
 
-        long amountInPaise = (long)Math.Round(amount * 100);
+        if (currentStatus is not ("PENDING" or "INITIATED"))
+        {
+            throw new InvalidOperationException(
+                $"Payment for Application {app.ApplicationNo} cannot be initiated from status '{currentStatus ?? "UNKNOWN"}'.");
+        }
 
-        // Dynamic Active Gateway from DB
-        var gatewayConfig = await GetActiveGatewayConfigAsync(request.PaymentGateway, ct);
-        var initiatedStatus = await GetStatusByCodeAsync("INITIATED", ct);
+        decimal amount = transaction.TotalAmount;
+        long amountInPaise = decimal.ToInt64(amount * 100m);
 
         // Dynamic Applicant details from FieldValues
         string? applicantName = request.CustomerName;
@@ -292,11 +440,6 @@ public class RTSPaymentService : IRTSPaymentService
 
         if (string.IsNullOrWhiteSpace(applicantName) || string.IsNullOrWhiteSpace(applicantMobile))
         {
-            var fieldValues = await _fieldValueRepository.GetQueryable()
-                .Include(f => f.FieldDefinition)
-                .Where(f => f.ApplicationId == app.Id && !f.MarkedForDeletion)
-                .ToListAsync(ct);
-
             foreach (var fv in fieldValues)
             {
                 var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
@@ -336,6 +479,37 @@ public class RTSPaymentService : IRTSPaymentService
                 ? $"{applicantMobile}@citizen.portal"
                 : $"citizen_{app.ApplicationNo?.Replace("/", "_") ?? app.Id.ToString()}@citizen.portal";
         }
+
+        if (currentStatus == "INITIATED" && !string.IsNullOrWhiteSpace(transaction.GatewayOrderId))
+        {
+            var existingGateway = transaction.GatewayConfig
+                ?? await _gatewayConfigRepository.GetByIdAsync(transaction.GatewayConfigId, ct)
+                ?? throw new InvalidOperationException("The payment gateway for this transaction is unavailable.");
+
+            return new PaymentOrderResponseDto
+            {
+                Success = true,
+                Message = "Existing payment order retrieved successfully.",
+                TransactionId = (int)transaction.Id,
+                ApplicationId = app.Id,
+                ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
+                ServiceName = app.Service?.ServiceName ?? "RTS Service",
+                DepartmentName = app.Department?.DepartmentName ?? "RTS Department",
+                Amount = amount,
+                AmountInPaise = amountInPaise,
+                Currency = transaction.Currency,
+                Gateway = existingGateway.GatewayCode,
+                GatewayOrderId = transaction.GatewayOrderId,
+                KeyId = existingGateway.KeyId,
+                Description = $"Government Service Fee for {app.Service?.ServiceName ?? "RTS Service"}",
+                CustomerName = applicantName,
+                CustomerEmail = applicantEmail,
+                CustomerMobile = applicantMobile
+            };
+        }
+
+        var gatewayConfig = await GetActiveGatewayConfigAsync(request.PaymentGateway, ct);
+        var initiatedStatus = await GetStatusByCodeAsync("INITIATED", ct);
 
         string gatewayOrderId = string.Empty;
 
@@ -391,29 +565,13 @@ public class RTSPaymentService : IRTSPaymentService
             throw new InvalidOperationException("Failed to receive valid order reference from Gateway.");
         }
 
-        string transactionNo = $"TXN/RTS/{DateTime.Now:yyyyMMdd}/{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
-
-        var transaction = new RTSPaymentTransactionEntity
-        {
-            TransactionNo = transactionNo,
-            ApplicationId = app.Id,
-            ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
-            ServiceId = app.ServiceId,
-            DepartmentId = app.DepartmentId,
-            GatewayConfigId = gatewayConfig.Id,
-            PaymentStatusId = initiatedStatus.Id,
-            BaseAmount = amount,
-            LateFeeAmount = 0,
-            DiscountAmount = 0,
-            TotalAmount = amount,
-            Currency = gatewayConfig.Currency ?? "INR",
-            GatewayOrderId = gatewayOrderId,
-            Remarks = $"Order initiated via {gatewayConfig.GatewayName}",
-            CreatedDate = DateTime.Now,
-            IsActive = true
-        };
-
-        await _paymentRepository.AddAsync(transaction, ct);
+        transaction.GatewayConfigId = gatewayConfig.Id;
+        transaction.PaymentStatusId = initiatedStatus.Id;
+        transaction.Currency = gatewayConfig.Currency ?? "INR";
+        transaction.GatewayOrderId = gatewayOrderId;
+        transaction.Remarks = $"Order initiated via {gatewayConfig.GatewayName}";
+        transaction.UpdatedDate = DateTime.Now;
+        await _paymentRepository.UpdateAsync(transaction, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
         return new PaymentOrderResponseDto
@@ -716,13 +874,27 @@ public class RTSPaymentService : IRTSPaymentService
             throw new InvalidOperationException($"Application {app.ApplicationNo} is already paid (Receipt: {existingSuccess.ReceiptNo}).");
         }
 
-        decimal amount = request.Amount.HasValue && request.Amount.Value > 0
-            ? request.Amount.Value
-            : (app.Service?.Fees ?? 0);
-
-        if (amount <= 0 && app.Service != null && app.Service.FeesRequired)
+        // The amount was frozen when the application was submitted. Do not allow a
+        // counter operator (or a stale client) to replace the evaluated fee with the
+        // current Service Master amount.
+        var txn = await GetLatestTransactionAsync(app.Id, ct);
+        if (txn == null)
         {
-            amount = app.Service.Fees ?? 50m;
+            await InitializePendingPaymentAsync(app.Id, ct);
+            txn = await GetLatestTransactionAsync(app.Id, ct);
+        }
+
+        if (txn == null || txn.TotalAmount <= 0)
+        {
+            throw new InvalidOperationException("This application does not have a payable payment snapshot.");
+        }
+
+        decimal amount = Math.Round(txn.TotalAmount, 2, MidpointRounding.AwayFromZero);
+        if (request.Amount.HasValue &&
+            Math.Round(request.Amount.Value, 2, MidpointRounding.AwayFromZero) != amount)
+        {
+            throw new InvalidOperationException(
+                "The submitted counter amount does not match the application's payable fee snapshot.");
         }
 
         var successStatus = await GetStatusByCodeAsync("SUCCESS", ct);
@@ -734,37 +906,20 @@ public class RTSPaymentService : IRTSPaymentService
             offlineConfig = await _gatewayConfigRepository.GetQueryable().FirstOrDefaultAsync(ct);
         }
 
-        string transactionNo = $"TXN/OFFLINE/{DateTime.Now:yyyyMMdd}/{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
         int? paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
 
-        var txn = new RTSPaymentTransactionEntity
-        {
-            TransactionNo = transactionNo,
-            ApplicationId = app.Id,
-            ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
-            ServiceId = app.ServiceId,
-            DepartmentId = app.DepartmentId,
-            GatewayConfigId = offlineConfig?.Id ?? 1,
-            PaymentStatusId = successStatus.Id,
-            PaymentModeId = paymentModeId,
-            BaseAmount = amount,
-            LateFeeAmount = 0,
-            DiscountAmount = 0,
-            TotalAmount = amount,
-            Currency = "INR",
-            GatewayOrderId = $"OFFLINE_{app.Id}_{DateTime.Now:yyyyMMddHHmmss}",
-            GatewayPaymentId = !string.IsNullOrWhiteSpace(request.InstrumentNo) ? request.InstrumentNo : $"OFFLINE_{DateTime.Now:yyyyMMddHHmmss}",
-            BankRefNo = !string.IsNullOrWhiteSpace(request.BankName) ? $"{request.BankName} - {request.InstrumentNo}" : request.InstrumentNo,
-            PayerVpaOrAccount = request.PaymentMode ?? "Cash",
-            ReceiptDate = DateTime.Now,
-            PaymentDate = DateTime.Now,
-            Remarks = $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}",
-            CreatedBy = officerUserId,
-            CreatedDate = DateTime.Now,
-            IsActive = true
-        };
-
-        await _paymentRepository.AddAsync(txn, ct);
+        txn.GatewayConfigId = offlineConfig?.Id ?? txn.GatewayConfigId;
+        txn.PaymentStatusId = successStatus.Id;
+        txn.PaymentModeId = paymentModeId;
+        txn.GatewayOrderId = $"OFFLINE_{app.Id}_{DateTime.Now:yyyyMMddHHmmss}";
+        txn.GatewayPaymentId = !string.IsNullOrWhiteSpace(request.InstrumentNo) ? request.InstrumentNo : $"OFFLINE_{DateTime.Now:yyyyMMddHHmmss}";
+        txn.BankRefNo = !string.IsNullOrWhiteSpace(request.BankName) ? $"{request.BankName} - {request.InstrumentNo}" : request.InstrumentNo;
+        txn.PayerVpaOrAccount = request.PaymentMode ?? "Cash";
+        txn.ReceiptDate = DateTime.Now;
+        txn.PaymentDate = DateTime.Now;
+        txn.Remarks = $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}";
+        txn.UpdatedBy = officerUserId;
+        txn.UpdatedDate = DateTime.Now;
         await _unitOfWork.SaveChangesAsync(ct);
 
         // Update receipt number using generated transaction ID
@@ -1152,39 +1307,74 @@ public class RTSPaymentService : IRTSPaymentService
         return await GetPaymentReceiptByApplicationIdAsync(txn.ApplicationId, ct);
     }
 
-    public async Task<object?> GetPaymentStatusAsync(int applicationId, CancellationToken ct = default)
+    public async Task<PaymentStatusDto?> GetPaymentStatusAsync(int applicationId, CancellationToken ct = default)
     {
-        var txn = await _paymentRepository.GetQueryable()
-            .Include(t => t.PaymentStatus)
-            .Include(t => t.GatewayConfig)
-            .Where(t => t.ApplicationId == applicationId)
-            .OrderByDescending(t => t.Id)
-            .FirstOrDefaultAsync(ct);
-
         var app = await _applicationRepository.GetQueryable()
             .Include(a => a.Service)
-            .FirstOrDefaultAsync(a => a.Id == applicationId, ct);
+            .FirstOrDefaultAsync(a => a.Id == applicationId && !a.MarkedForDeletion, ct);
 
         if (app == null) return null;
 
-        var feeAmount = app.Service?.Fees ?? 0;
-        var isFeeRequired = (app.Service?.FeesRequired == true) || (feeAmount > 0);
+        var transaction = await GetLatestTransactionAsync(applicationId, ct);
+        return MapPaymentStatus(app, transaction);
+    }
 
-        return new
+    public async Task<IReadOnlyList<PaymentStatusDto>> GetPaymentStatusesByApplicationNosAsync(
+        IEnumerable<string> applicationNos,
+        CancellationToken ct = default)
+    {
+        var normalizedApplicationNos = applicationNos
+            .Where(applicationNo => !string.IsNullOrWhiteSpace(applicationNo))
+            .Select(applicationNo => applicationNo.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(100)
+            .ToList();
+
+        if (normalizedApplicationNos.Count == 0)
         {
-            applicationId = app.Id,
-            applicationNo = app.ApplicationNo,
-            serviceName = app.Service?.ServiceName,
-            requiredFee = feeAmount,
-            isFeeRequired,
-            paymentStatus = txn?.PaymentStatus?.StatusCode ?? (isFeeRequired ? "PENDING" : "NOT_REQUIRED"),
-            statusNameEn = txn?.PaymentStatus?.StatusNameEn,
-            statusNameMr = txn?.PaymentStatus?.StatusNameMr,
-            badgeColor = txn?.PaymentStatus?.BadgeColor,
-            receiptNo = txn?.ReceiptNo,
-            paymentDate = txn?.PaymentDate,
-            gatewayPaymentId = txn?.GatewayPaymentId
-        };
+            return Array.Empty<PaymentStatusDto>();
+        }
+
+        var applications = await _applicationRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(application => application.Service)
+            .Where(application =>
+                !application.MarkedForDeletion &&
+                normalizedApplicationNos.Contains(application.ApplicationNo))
+            .ToListAsync(ct);
+
+        if (applications.Count == 0)
+        {
+            return Array.Empty<PaymentStatusDto>();
+        }
+
+        var applicationIds = applications.Select(application => application.Id).ToList();
+        var latestTransactionIds = await _paymentRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(transaction => applicationIds.Contains(transaction.ApplicationId))
+            .GroupBy(transaction => transaction.ApplicationId)
+            .Select(group => new
+            {
+                ApplicationId = group.Key,
+                TransactionId = group.Max(transaction => transaction.Id)
+            })
+            .ToDictionaryAsync(item => item.ApplicationId, item => item.TransactionId, ct);
+
+        var transactions = await _paymentRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(transaction => transaction.PaymentStatus)
+            .Include(transaction => transaction.GatewayConfig)
+            .Where(transaction => latestTransactionIds.Values.Contains(transaction.Id))
+            .ToListAsync(ct);
+        var transactionsByApplicationId = transactions.ToDictionary(transaction => transaction.ApplicationId);
+
+        return applications
+            .Select(application =>
+            {
+                transactionsByApplicationId.TryGetValue(application.Id, out var transaction);
+                return MapPaymentStatus(application, transaction);
+            })
+            .ToList();
     }
 
     public async Task<PagedResult<PaymentTransactionListItemDto>> GetTransactionsAsync(PaymentTransactionQueryDto query, CancellationToken ct = default)

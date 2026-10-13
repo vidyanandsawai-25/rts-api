@@ -25,7 +25,8 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a payment gateway order for an RTS application (amount dynamically resolved from service master)
+    /// Creates or retrieves a payment gateway order for the application's stored
+    /// pending payment snapshot.
     /// </summary>
     [AllowAnonymous]
     [HttpPost("create-order")]
@@ -57,6 +58,38 @@ public class RTSPaymentController : ControllerBase
         {
             _logger.LogError(ex, "Error creating payment order for application {AppId}", request.ApplicationId);
             return BadRequest(new ApiResponse<PaymentOrderResponseDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Creates the stored PENDING fee snapshot for an application when one does
+    /// not already exist. This endpoint is idempotent and is primarily used to
+    /// recover legacy applications submitted before payment snapshots existed.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("initialize-pending/{applicationId:int}")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentStatusDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> InitializePending(int applicationId, CancellationToken ct)
+    {
+        try
+        {
+            var status = await _paymentService.InitializePendingPaymentAsync(applicationId, ct);
+            return Ok(new ApiResponse<PaymentStatusDto>
+            {
+                Success = true,
+                Message = "Payment snapshot is ready.",
+                Items = status
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initializing payment snapshot for application {AppId}", applicationId);
+            return BadRequest(new ApiResponse<PaymentStatusDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -194,6 +227,34 @@ public class RTSPaymentController : ControllerBase
         }
 
         return Ok(new { success = true, data = status });
+    }
+
+    /// <summary>
+    /// Gets the latest payment snapshot for many application numbers in one request.
+    /// Applications owned only by an external legacy system are omitted from the result.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("statuses")]
+    [ProducesResponseType(typeof(ApiResponse<List<PaymentStatusDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetStatuses([FromBody] BulkPaymentStatusRequestDto request, CancellationToken ct)
+    {
+        if (request?.ApplicationNos == null || request.ApplicationNos.Count == 0)
+        {
+            return BadRequest(new ApiResponse<List<PaymentStatusDto>>
+            {
+                Success = false,
+                Message = "At least one application number is required."
+            });
+        }
+
+        var statuses = await _paymentService.GetPaymentStatusesByApplicationNosAsync(request.ApplicationNos, ct);
+        return Ok(new ApiResponse<List<PaymentStatusDto>>
+        {
+            Success = true,
+            Message = "Payment statuses retrieved successfully.",
+            Items = statuses.ToList()
+        });
     }
 
     /// <summary>

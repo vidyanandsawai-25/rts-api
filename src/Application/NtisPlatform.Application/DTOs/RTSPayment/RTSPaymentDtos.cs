@@ -15,6 +15,32 @@ public class CreatePaymentOrderRequestDto
     public string? Email { get; set; }
 
     public string? MobileNo { get; set; }
+
+}
+
+public class PaymentStatusDto
+{
+    public long? TransactionId { get; set; }
+    public int ApplicationId { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public string ServiceName { get; set; } = string.Empty;
+    public decimal RequiredFee { get; set; }
+    public bool IsFeeRequired { get; set; }
+    public bool HasPaymentTransaction { get; set; }
+    public string PaymentStatus { get; set; } = "NOT_REQUIRED";
+    public string? StatusNameEn { get; set; }
+    public string? StatusNameMr { get; set; }
+    public string? BadgeColor { get; set; }
+    public string? ReceiptNo { get; set; }
+    public DateTime? PaymentDate { get; set; }
+    public string? GatewayPaymentId { get; set; }
+}
+
+public class BulkPaymentStatusRequestDto
+{
+    [Required]
+    [MinLength(1)]
+    public List<string> ApplicationNos { get; set; } = new();
 }
 
 public class PaymentOrderResponseDto
