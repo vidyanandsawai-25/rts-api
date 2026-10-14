@@ -53,13 +53,13 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
     private async Task<int> ResolveStageOfficerAsync(RTSApplicationDetailsEntity application,
-        int stageId, int defaultUserId, CancellationToken cancellationToken)
+        int stageId, CancellationToken cancellationToken)
     {
         var values = await _fieldValueRepository.GetQueryable().AsNoTracking()
             .Where(x => x.ApplicationId == application.Id && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
         return await _allocationRules.ResolveOfficerAsync(application.ServiceId, application.ApprovalFlowId,
-            stageId, defaultUserId, _allocationRules.NormalizeValues(values), cancellationToken);
+            stageId, _allocationRules.NormalizeValues(values), cancellationToken);
     }
 
     private async Task EnsurePaymentSnapshotIsSettledAsync(
@@ -395,102 +395,163 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new ArgumentException("Invalid Application ID", nameof(applicationId));
         }
 
-        var result = await _repository
-          .GetQueryable()
-          .AsNoTracking()
-          .Where(x =>
-              !x.MarkedForDeletion &&
-              x.Id == applicationId)
-          .Select(x => new ApplicationApprovalStageDetailsDto
-          {
-              ApprovalStages = x.Service.ApprovalFlows
-                .Where(flow => flow.IsActive && (x.ApprovalFlowId == 0 || flow.Id == x.ApprovalFlowId))
-                .OrderByDescending(flow => flow.Id)
-                .Take(1)
-                .SelectMany(flow => flow.ApprovalFlowStages)
-                .OrderBy(stage => stage.StageOrder)
-                .Select(stage => new ApplicationApprovalStageDto
+        var application = await _repository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => !x.MarkedForDeletion && x.Id == applicationId)
+            .Select(x => new
+            {
+                x.Id,
+                x.ServiceId,
+                x.ApprovalFlowId,
+                x.CurrentApprovalFlowStageId,
+                x.CurrentStageOrder,
+                x.UserId,
+                x.ApplicationStatus,
+                x.IsReverted
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (application == null)
+            return null;
+
+        var stages = await _approvalFlowStageRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(stage => stage.ApprovalFlowId == application.ApprovalFlowId)
+            .OrderBy(stage => stage.StageOrder)
+            .Select(stage => new { stage.Id, stage.StageOrder, stage.StageName })
+            .ToListAsync(cancellationToken);
+
+        // Historical applications may predate the persisted ApprovalFlowId.  Use the current
+        // active service workflow only to build their read-only timeline; never repair data here.
+        if (stages.Count == 0)
+        {
+            var fallbackFlowId = await _approvalFlowStageRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(stage => stage.ApprovalFlow.ServiceId == application.ServiceId)
+                .Select(stage => stage.ApprovalFlowId)
+                .Distinct()
+                .OrderByDescending(flowId => flowId)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (fallbackFlowId > 0)
+            {
+                stages = await _approvalFlowStageRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Where(stage => stage.ApprovalFlowId == fallbackFlowId)
+                    .OrderBy(stage => stage.StageOrder)
+                    .Select(stage => new { stage.Id, stage.StageOrder, stage.StageName })
+                    .ToListAsync(cancellationToken);
+            }
+        }
+
+        var histories = await _historyRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(history => history.ApplicationId == applicationId &&
+                              history.IsActive && history.ApprovalFlowStageId.HasValue)
+            .OrderByDescending(history => history.Id)
+            .Select(history => new
+            {
+                StageId = history.ApprovalFlowStageId!.Value,
+                history.ActionByUserId,
+                history.Status,
+                history.Remark,
+                history.CreatedDate
+            })
+            .ToListAsync(cancellationToken);
+        var latestHistoryByStage = histories
+            .GroupBy(history => history.StageId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var isTerminal = string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase);
+        var revertedToCitizen = application.IsReverted &&
+                                string.Equals(application.ApplicationStatus, ApplicationStatus.Reverted, StringComparison.OrdinalIgnoreCase) &&
+                                !stages.Any(stage => stage.StageOrder < application.CurrentStageOrder);
+
+        // Future stages have not yet produced history and therefore do not have a
+        // persisted application UserId. Resolve their configured allocation from
+        // the saved application values for an informative timeline preview. This
+        // does not write or alter routing; the same resolver runs when the stage
+        // is actually reached.
+        var applicationValues = await _fieldValueRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(value => value.ApplicationId == applicationId &&
+                            value.IsActive && !value.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+        var normalizedValues = _allocationRules.NormalizeValues(applicationValues);
+        var futureStageUserIds = new Dictionary<int, int>();
+        foreach (var stage in stages)
+        {
+            var isCurrentStage = !isTerminal && !revertedToCitizen &&
+                                 stage.Id == application.CurrentApprovalFlowStageId;
+            if (isCurrentStage ||
+                (latestHistoryByStage.TryGetValue(stage.Id, out var history) &&
+                 IsCompletedStatus(history.Status)))
+                continue;
+
+            try
+            {
+                futureStageUserIds[stage.Id] = await _allocationRules.ResolveOfficerAsync(
+                    application.ServiceId,
+                    application.ApprovalFlowId,
+                    stage.Id,
+                    normalizedValues,
+                    cancellationToken);
+            }
+            catch (InvalidOperationException)
+            {
+                // A stage without a resolvable allocation remains unassigned in
+                // the preview. Never substitute RTSApprovalFlowStageMaster.UserId.
+            }
+        }
+
+        var userIds = histories.Where(history => history.ActionByUserId.HasValue)
+            .Select(history => history.ActionByUserId!.Value)
+            .Append(application.UserId ?? 0)
+            .Concat(futureStageUserIds.Values)
+            .Where(userId => userId > 0)
+            .Distinct()
+            .ToList();
+        var users = await _userRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(user => userIds.Contains(user.Id) && !user.MarkedForDeletion)
+            .Select(user => new { user.Id, user.UserName, user.FirstName, user.LastName })
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        var result = new ApplicationApprovalStageDetailsDto
+        {
+            isRevertedToCitizen = revertedToCitizen,
+            ApprovalStages = stages.Select(stage =>
+            {
+                latestHistoryByStage.TryGetValue(stage.Id, out var history);
+                var isCurrentStage = !isTerminal && !revertedToCitizen &&
+                                     stage.Id == application.CurrentApprovalFlowStageId;
+                // Current assignment is persisted on the application, completed
+                // stages show their recorded actor, and upcoming stages show the
+                // allocation-rule preview. The legacy stage UserId is never used.
+                var assignedUserId = isCurrentStage
+                    ? (application.UserId is > 0 ? application.UserId : null)
+                    : history != null && IsCompletedStatus(history.Status)
+                        ? history.ActionByUserId
+                        : futureStageUserIds.GetValueOrDefault(stage.Id);
+                users.TryGetValue(assignedUserId ?? 0, out var user);
+
+                return new ApplicationApprovalStageDto
                 {
                     ApprovalFlowStageId = stage.Id,
                     StageOrder = stage.StageOrder,
                     StageName = stage.StageName,
-
-                    UserName= stage.User.UserName,
-                    FirstName = stage.User.FirstName,
-                    LastName= stage.User.LastName,
-
-                Status = stage.TrackApplicationHistory
-                    .Where(h =>
-                        h.IsActive &&
-                        h.ApplicationId == applicationId)
-                    .OrderByDescending(h => h.Id)
-                    .Select(h => h.Status)
-                    .FirstOrDefault() ?? ApplicationStatus.Pending,
-
-                 Remark = stage.TrackApplicationHistory
-                    .Where(h =>
-                        h.IsActive &&
-                        h.ApplicationId == applicationId)
-                    .OrderByDescending(h => h.Id)
-                    .Select(h => h.Remark)
-                    .FirstOrDefault(),
-
-                CreatedDate = stage.TrackApplicationHistory
-                    .Where(h =>
-                        h.IsActive &&
-                        h.ApplicationId == applicationId)
-                    .OrderByDescending(h => h.Id)
-                    .Select(h => h.CreatedDate)
-                    .FirstOrDefault()
-                }).ToList()
-          }).SingleOrDefaultAsync(cancellationToken);
-
-        if (result == null)
-        {
-            return result;
-        }
-
-        // Check if this application was reverted by the Clerk (first stage) to the Citizen
-        var application = await _historyRepository.GetQueryable()
-            .AsNoTracking()
-            .Where(x => x.ApplicationId == applicationId && x.IsActive)
-            .OrderByDescending(x => x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (application != null && application.ApprovalFlowId != 0)
-        {
-            var currentStages = await _approvalFlowStageRepository
-                .GetQueryable()
-                .AsNoTracking()
-                .Where(stage => stage.Id == application.ApprovalFlowStageId)
-                .Select(stage => new
-                {
-                    stage.ApprovalFlowId,
-                    stage.StageOrder
-                })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (currentStages != null && application.Status==ApplicationStatus.Reverted)
-            {
-                var hasPreviousStage = await _approvalFlowStageRepository
-                    .GetQueryable()
-                    .AnyAsync(stage =>
-                        stage.ApprovalFlowId == currentStages.ApprovalFlowId &&
-                        stage.StageOrder < currentStages.StageOrder,
-                        cancellationToken);
-
-                result.isRevertedToCitizen = !hasPreviousStage;
-            }
-        }
-
+                    Status = history?.Status ?? ApplicationStatus.Pending,
+                    Remark = history?.Remark,
+                    CreatedDate = history?.CreatedDate,
+                    UserName = user?.UserName,
+                    FirstName = user?.FirstName,
+                    LastName = user?.LastName,
+                    IsCurrentStage = isCurrentStage
+                };
+            }).ToList()
+        };
 
         result.TotalApprovalStages = result.ApprovalStages.Count;
-        result.CompletedStages = result.ApprovalStages.Count(x => IsCompletedStatus(x.Status));
-        var currentStage = result.ApprovalStages.OrderBy(x => x.StageOrder).FirstOrDefault(x => !IsCompletedStatus(x.Status));
-        if (currentStage != null)
-        {
-            currentStage.IsCurrentStage = true;
-        }
+        result.CompletedStages = result.ApprovalStages.Count(stage => IsCompletedStatus(stage.Status));
         return result;
     }
 
@@ -658,7 +719,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.ApprovalFlowId,
                 stage.StageOrder,
                 stage.StageName,
-                stage.UserId,
                 stage.SLADays,
                 stage.CanVerifyDocument,
                 stage.CanApprove,
@@ -682,7 +742,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var officer = await _userRepository
             .GetQueryable()
             .AsNoTracking()
-            .Where(user => user.Id == (result.UserId ?? currentStage.UserId))
+            .Where(user => result.UserId.HasValue && user.Id == result.UserId.Value &&
+                user.IsActive && !user.MarkedForDeletion)
             .Select(user => new
             {
                 user.Id,
@@ -696,7 +757,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (officer == null)
         {
             throw new InvalidOperationException(
-                $"Officer configured for stage '{currentStage.StageName}' was not found.");
+                $"The application has no active assigned officer for stage '{currentStage.StageName}'.");
         }
 
         var paymentTxn = await _paymentRepository.GetQueryable()
@@ -819,7 +880,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.ApprovalFlowId == application.ApprovalFlowId &&
                 stage.StageOrder > application.CurrentStageOrder)
             .OrderBy(stage => stage.StageOrder)
-            .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
+            .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (nextStage == null)
@@ -828,7 +889,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         //this Update ApplicationDetails Table
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
-        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, nextStage.UserId, cancellationToken);
+        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, cancellationToken);
         application.ApplicationStatus = ApplicationStatus.DocumentVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
@@ -941,7 +1002,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                stage.ApprovalFlowId == application.ApprovalFlowId &&
                stage.StageOrder > application.CurrentStageOrder)
            .OrderBy(stage => stage.StageOrder)
-           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName, stage.UserId })
+           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName })
            .FirstOrDefaultAsync(cancellationToken);
 
         // Finalize approval only if current stage is final and there are no subsequent stages
@@ -1012,7 +1073,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
-        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, nextStage.UserId, cancellationToken);
+        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, cancellationToken);
         application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
@@ -1085,8 +1146,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.StageName,
                 stage.IsFinalStage,
                 stage.Id,
-                stage.StageOrder,
-                stage.UserId
+                stage.StageOrder
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -1328,7 +1388,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.IsFinalStage,
                 stage.Id,
                 stage.StageOrder,
-                stage.UserId,
                 stage.ApprovalFlowId
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -1353,8 +1412,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             {
                 StageId = stage.Id,
                 stage.StageOrder,
-                stage.StageName,
-                stage.UserId
+                stage.StageName
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -1363,7 +1421,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             // Officer-wise revert: move application back to the previous stage/officer
             application.CurrentApprovalFlowStageId = previousStage.StageId;
             application.CurrentStageOrder = previousStage.StageOrder;
-            application.UserId = await ResolveStageOfficerAsync(application, previousStage.StageId, previousStage.UserId, cancellationToken);
+            application.UserId = await ResolveStageOfficerAsync(application, previousStage.StageId, cancellationToken);
             application.ApplicationStatus = ApplicationStatus.Reverted;
             application.Remark = dto.Remark;
             application.IsReverted = true;

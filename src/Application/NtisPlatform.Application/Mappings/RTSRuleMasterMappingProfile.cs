@@ -8,10 +8,16 @@ public class RTSRuleMasterMappingProfile : Profile
 {
     public RTSRuleMasterMappingProfile()
     {
-        CreateMap<RTSRuleConditionEntity, RTSRuleConditionDto>();
+        CreateMap<RTSRuleConditionEntity, RTSRuleConditionDto>()
+            .ForMember(dest => dest.Children,
+                opt => opt.MapFrom(src => src.ChildConditions.OrderBy(x => x.ConditionOrder)));
         // Entity -> Read DTO
         CreateMap<RTSRuleMasterEntity, RTSRuleMasterDto>()
-            .ForMember(dest => dest.Conditions, opt => opt.MapFrom(src => src.Conditions.OrderBy(x => x.ConditionOrder)));
+            .ForMember(dest => dest.UserDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.Conditions,
+                opt => opt.MapFrom(src => src.Conditions
+                    .Where(x => !x.ParentConditionId.HasValue)
+                    .OrderBy(x => x.ConditionOrder)));
 
         // Create DTO -> Entity
         CreateMap<CreateRTSRuleDto, RTSRuleMasterEntity>()

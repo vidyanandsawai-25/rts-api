@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.RTSApplication;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
@@ -43,12 +45,99 @@ public class RTSApplicationController : ControllerBase
     }
 
     [HttpPost]
-    public Task<IActionResult> Create([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
-        => this.ExecuteCreate(_service, dto, _logger, ct);
+    public async Task<IActionResult> Create([FromBody] CreateRTSApplicationDetailsDto dto, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.CreateAsync(dto, ct);
+            return Ok(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = true,
+                Message = "Record inserted successfully",
+                Items = result
+            });
+        }
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "RTS application submission validation failed");
+            return BadRequest(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Officer routing is configuration-driven. Return its actionable message rather
+            // than hiding it behind the generic CRUD extension's HTTP 500 response.
+            _logger.LogWarning(ex, "RTS application submission configuration failed");
+            return BadRequest(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RTS application submission failed");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<RTSApplicationDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while creating the application."
+                });
+        }
+    }
 
     [HttpPut("{id}")]
-    public Task<IActionResult> Update(int id, [FromBody] UpdateRTSApplicationDetailsDto dto, CancellationToken ct)
-        => this.ExecuteUpdate(_service, id, dto, _logger, ct);
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateRTSApplicationDetailsDto dto, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.UpdateAsync(id, dto, ct);
+            if (result == null)
+                return NotFound(new ApiResponse<RTSApplicationDetailsDto>
+                {
+                    Success = false,
+                    Message = "Application not found."
+                });
+
+            return Ok(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = true,
+                Message = "Record updated successfully",
+                Items = result
+            });
+        }
+        catch (ValidationException ex)
+        {
+            _logger.LogWarning(ex, "RTS application resubmission validation failed for {ApplicationId}", id);
+            return BadRequest(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "RTS application resubmission configuration failed for {ApplicationId}", id);
+            return BadRequest(new ApiResponse<RTSApplicationDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RTS application resubmission failed for {ApplicationId}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<RTSApplicationDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while updating the application."
+                });
+        }
+    }
 
 
     [HttpPost("aaple-sarkar-mapping")]

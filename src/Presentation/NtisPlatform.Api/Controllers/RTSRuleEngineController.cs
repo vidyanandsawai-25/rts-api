@@ -160,6 +160,97 @@ public class RTSRuleEngineController : ControllerBase
         }
     }
 
+    [HttpPut("priorities")]
+    public async Task<IActionResult> UpdatePriorities(
+        [FromBody] UpdateRTSRulePrioritiesRequestDto updateDto,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            await _service.UpdatePrioritiesAsync(updateDto, ct);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Rule priorities updated successfully."
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Update rule priorities operation failed");
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while updating rule priorities."
+            });
+        }
+    }
+
+    [HttpPut("{id}/active")]
+    public async Task<IActionResult> SetActive(
+        int id,
+        [FromBody] UpdateRTSRuleMasterStatusRequestDto updateDto,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            await _service.SetActiveAsync(id, updateDto, ct);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = updateDto.IsActive ? "Rule activated successfully." : "Rule deactivated successfully."
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Update rule active status operation failed");
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while updating the rule status."
+            });
+        }
+    }
+
+    [HttpDelete("{id}/permanent")]
+    public async Task<IActionResult> PermanentlyDelete(int id, CancellationToken ct)
+    {
+        try
+        {
+            await _service.PermanentlyDeleteAsync(id, ct);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Rule permanently deleted successfully."
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Permanent rule delete operation failed");
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while permanently deleting the rule."
+            });
+        }
+    }
 
     [AllowAnonymous]
     [HttpDelete("{id}")]

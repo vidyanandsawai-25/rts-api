@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
+using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
@@ -81,7 +82,6 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                         StageId = s.Id,
                         s.StageName,
                         s.StageOrder,
-                        s.UserId,
                         s.IsFinalStage
                     })
                     .FirstOrDefault()
@@ -89,6 +89,14 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             .FirstOrDefaultAsync(cancellationToken);
 
         var rtsService = await _serviceRepository.GetByIdAsync(createDto.ServiceId, cancellationToken);
+        if (rtsService == null || !rtsService.IsActive)
+            throw new ValidationException("The selected RTS service is unavailable.", OperationType.Create);
+
+        var approvalFlow = approvalFlowData ?? throw new InvalidOperationException(
+            "This service has no active approval workflow stage. Configure an active workflow and stage allocation before accepting applications.");
+
+        var firstStage = approvalFlow.FirstStage ?? throw new InvalidOperationException(
+            "This service has no active approval workflow stage. Configure an active workflow and stage allocation before accepting applications.");
 
         bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0;
 
@@ -97,15 +105,18 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         entity.Remark = ApplicationStatus.Remark;
         entity.ApplicationStatus = ApplicationStatus.Pending;
-        entity.UserId = approvalFlowData?.FirstStage?.UserId ?? 0;
-        entity.ApprovalFlowId = approvalFlowData?.ApprovalFlowId ?? 0;
-        entity.CurrentApprovalFlowStageId = approvalFlowData?.FirstStage?.StageId ?? 0;
-        entity.CurrentStageOrder = approvalFlowData?.FirstStage?.StageOrder ?? 0;
+        entity.UserId = 0;
+        entity.ApprovalFlowId = approvalFlow.ApprovalFlowId;
+        entity.CurrentApprovalFlowStageId = firstStage.StageId;
+        entity.CurrentStageOrder = firstStage.StageOrder;
 
 
-        if (createDto.FieldValues?.Any() == true)
+        var submittedFieldValues = createDto.FieldValues ?? new List<CreateRTSFieldValueDto>();
+        await ValidateFieldValuesAsync(createDto.ServiceId, submittedFieldValues.Select(x => x.FieldDefinitionId), cancellationToken);
+
+        if (submittedFieldValues.Count != 0)
         {
-            entity.FieldValueData = createDto.FieldValues
+            entity.FieldValueData = submittedFieldValues
                 .Select(f =>
                 {
                     var field = _mapper.Map<RTSFieldValueEntity>(f);
@@ -115,30 +126,36 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 .ToList();
         }
 
-        if (approvalFlowData?.FirstStage != null)
-            entity.UserId = await _allocationRules.ResolveOfficerAsync(
-                createDto.ServiceId, approvalFlowData.ApprovalFlowId,
-                approvalFlowData.FirstStage.StageId, approvalFlowData.FirstStage.UserId,
-                _allocationRules.NormalizeValues(entity.FieldValueData), cancellationToken);
+        entity.UserId = await _allocationRules.ResolveOfficerAsync(
+            createDto.ServiceId, approvalFlow.ApprovalFlowId,
+            firstStage.StageId,
+            _allocationRules.NormalizeValues(entity.FieldValueData), cancellationToken);
 
         TrackApplicationHistoryEntity? submissionHistory = null;
-        if (approvalFlowData != null)
+        submissionHistory = new TrackApplicationHistoryEntity
         {
-            submissionHistory = new TrackApplicationHistoryEntity
-            {
-                ApprovalFlowId = approvalFlowData.ApprovalFlowId,
-                ApprovalFlowStageId = approvalFlowData?.FirstStage?.StageId ?? 0,
-                Status = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
-                Remark = ApplicationStatus.Remark,
-                Action = ApplicationStatus.Submitted,
-                IsReverted = false,
-                IsActive = true
-            };
-            entity.TrackApplicationHistory.Add(submissionHistory);
-        }
+            ApprovalFlowId = approvalFlow.ApprovalFlowId,
+            ApprovalFlowStageId = firstStage.StageId,
+            Status = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
+            Remark = ApplicationStatus.Remark,
+            Action = ApplicationStatus.Submitted,
+            IsReverted = false,
+            IsActive = true
+        };
+        entity.TrackApplicationHistory.Add(submissionHistory);
 
-        await _repository.AddAsync(entity, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _repository.AddAsync(entity, cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
 
         await DispatchSubmissionSmsAsync(entity, createDto, cancellationToken);
 
@@ -185,14 +202,28 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        foreach (var item in updateDto.FieldValues)
+        var submittedFieldValues = updateDto.FieldValues ?? new List<UpdateRTSFieldValueDto>();
+        await ValidateFieldValuesAsync(application.ServiceId, submittedFieldValues.Select(x => x.FieldDefinitionId), cancellationToken);
+
+        foreach (var item in submittedFieldValues)
         {
             var fieldValue = fieldValues.FirstOrDefault(x =>
                 x.ApplicationId == Id &&
                 x.FieldDefinitionId == item.FieldDefinitionId);
 
             if (fieldValue == null)
-                continue;
+            {
+                fieldValue = new RTSFieldValueEntity
+                {
+                    ApplicationId = application.Id,
+                    FieldDefinitionId = item.FieldDefinitionId,
+                    IsActive = true,
+                    CreatedBy = updateDto.UpdatedBy,
+                    CreatedDate = DateTime.Now
+                };
+                fieldValues.Add(fieldValue);
+                await _fieldValueRepository.AddAsync(fieldValue, cancellationToken);
+            }
 
             fieldValue.TextValue = item.TextValue;
             fieldValue.NumberValue = item.NumberValue;
@@ -201,8 +232,16 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             fieldValue.DocumentGuid = item.DocumentGuid;
             fieldValue.UpdatedBy = updateDto.UpdatedBy;
             fieldValue.UpdatedDate = DateTime.Now;
-            await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
+            if (fieldValue.Id != 0)
+                await _fieldValueRepository.UpdateAsync(fieldValue, cancellationToken);
         }
+
+        application.UserId = await _allocationRules.ResolveOfficerAsync(
+            application.ServiceId,
+            application.ApprovalFlowId,
+            application.CurrentApprovalFlowStageId,
+            _allocationRules.NormalizeValues(fieldValues),
+            cancellationToken);
 
         var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0;
 
@@ -222,15 +261,18 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         application.ApplicationStatus = (isPaymentRequired && !isPaymentSuccessful) ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
         application.IsReverted = false;
-        application.Remark = "Application Resubmitted";
         application.UpdatedBy = updateDto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
 
-        if (!string.IsNullOrEmpty(updateDto.ApplicantName) && !string.IsNullOrEmpty(updateDto.ApplicantMobileNo))
-        {
+        if (!string.IsNullOrWhiteSpace(updateDto.ApplicantName))
             application.ApplicantName = updateDto.ApplicantName;
+        if (!string.IsNullOrWhiteSpace(updateDto.ApplicantMobileNo))
             application.ApplicantMobileNo = updateDto.ApplicantMobileNo;
-        }
+
+        var resubmitRemark = string.IsNullOrWhiteSpace(updateDto.Remark)
+            ? "Application Resubmitted"
+            : updateDto.Remark.Trim();
+        application.Remark = resubmitRemark;
 
 
         var history = new TrackApplicationHistoryEntity
@@ -241,16 +283,25 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             ActionByUserId = updateDto.UpdatedBy,
             Status = application.ApplicationStatus,
             Action = "Application Resubmitted By Citizen",
-            Remark = "Application Resubmitted",
+            Remark = resubmitRemark,
             IsReverted = false,
             IsActive = true,
             CreatedBy = updateDto.UpdatedBy,
             CreatedDate = DateTime.Now
         };
 
-        await _historyRepository.AddAsync(history, cancellationToken);
-
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await _historyRepository.AddAsync(history, cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
 
 
         var statusText = "RESUBMITTED";
@@ -269,6 +320,36 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         return _mapper.Map<RTSApplicationDetailsDto>(application);
 
+    }
+
+    /// <summary>
+    /// The same values which are persisted for an application are supplied to the
+    /// nested fee and allocation rule matchers.  Reject foreign or duplicate fields
+    /// before an application can be routed with data from another service.
+    /// </summary>
+    private async Task ValidateFieldValuesAsync(
+        int serviceId,
+        IEnumerable<int> fieldDefinitionIds,
+        CancellationToken cancellationToken)
+    {
+        var fieldIds = fieldDefinitionIds.ToList();
+        if (fieldIds.Any(id => id <= 0))
+            throw new ValidationException("Each submitted field value must identify a valid field.", OperationType.Create);
+
+        var distinctIds = fieldIds.Distinct().ToList();
+        if (distinctIds.Count != fieldIds.Count)
+            throw new ValidationException("A field can be submitted only once.", OperationType.Create);
+        if (distinctIds.Count == 0)
+            return;
+
+        var validCount = await _fieldDefinitionRepository.GetQueryable()
+            .AsNoTracking()
+            .CountAsync(field => field.ServiceId == serviceId && field.IsActive &&
+                !field.MarkedForDeletion && distinctIds.Contains(field.Id), cancellationToken);
+        if (validCount != distinctIds.Count)
+            throw new ValidationException(
+                "Every submitted field must be an active field of the selected RTS service.",
+                OperationType.Create);
     }
 
 

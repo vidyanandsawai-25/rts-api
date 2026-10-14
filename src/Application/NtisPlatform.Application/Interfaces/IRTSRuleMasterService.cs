@@ -12,6 +12,15 @@ public interface IRTSRuleMasterService: ICommonCrudService<RTSRuleMasterEntity, 
 
     Task<RTSRuleMasterResponseDto> UpdateRulesAsync(int serviceId, UpdateRTSRuleMasterRequestDto updateDto, CancellationToken cancellationToken = default);
 
+    Task UpdatePrioritiesAsync(UpdateRTSRulePrioritiesRequestDto updateDto, CancellationToken cancellationToken = default);
+
+    Task SetActiveAsync(
+        int id,
+        UpdateRTSRuleMasterStatusRequestDto updateDto,
+        CancellationToken cancellationToken = default);
+
+    Task PermanentlyDeleteAsync(int id, CancellationToken cancellationToken = default);
+
     Task<RTSFeeEvaluationResponseDto> EvaluateFeeAsync(
         RTSFeeEvaluationRequestDto request,
         CancellationToken cancellationToken = default);
@@ -39,7 +48,6 @@ public interface IRTSStageAllocationRuleService
         int serviceId,
         int approvalFlowId,
         int stageId,
-        int defaultUserId,
         IReadOnlyDictionary<int, string> values,
         CancellationToken cancellationToken = default);
 

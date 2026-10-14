@@ -3,17 +3,18 @@ using NtisPlatform.Application.DTOs.Queries;
 
 namespace NtisPlatform.Application.DTOs.RTSRuleMaster;
 
-/// <summary>
-/// One ordered field condition belonging to an RTS rule. Fee and user-allocation
-/// rules both persist their conditions in RTS.RuleCondition.
-/// </summary>
+/// <summary>A recursive group or predicate node in an RTS rule expression.</summary>
 public class RTSRuleConditionDto
 {
-    public int Id { get; set; }
-    public int FieldDefinitionId { get; set; }
-    public string ComparisonOperator { get; set; } = string.Empty;
-    public string ExpectedValue { get; set; } = string.Empty;
+    public int? Id { get; set; }
+    public int? ParentConditionId { get; set; }
+    public string ConditionType { get; set; } = "PREDICATE";
+    public string? ConditionMatchType { get; set; }
+    public int? FieldDefinitionId { get; set; }
+    public string? ComparisonOperator { get; set; }
+    public string? ExpectedValue { get; set; }
     public int ConditionOrder { get; set; }
+    public List<RTSRuleConditionDto> Children { get; set; } = [];
 }
 
 public class RTSRuleMasterDto : BaseDtos
@@ -27,10 +28,19 @@ public class RTSRuleMasterDto : BaseDtos
     public decimal? RateAmount { get; set; }
     public int? QuantityFieldDefinitionId { get; set; }
     public int? UserId { get; set; }
+    public RTSRuleUserDetailsDto? UserDetails { get; set; }
     public int Priority { get; set; }
     public string? RuleGroup { get; set; }
     public string? ActionValue { get; set; }
     public bool IsCumulative { get; set; }
+}
+
+/// <summary>Safe officer identity returned only for USER_ALLOCATION rule displays.</summary>
+public class RTSRuleUserDetailsDto
+{
+    public int Id { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public string UserFullName { get; set; } = string.Empty;
 }
 
 public class CreateRTSRuleMasterRequestDto : CreateBaseDtos
@@ -86,6 +96,36 @@ public class UpdateRTSRuleDto
     public string? ActionValue { get; set; }
     public bool IsCumulative { get; set; }
     public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Atomically replaces the display/evaluation order for one service rule group.</summary>
+public class UpdateRTSRulePrioritiesRequestDto : UpdateBaseDtos
+{
+    [Range(1, int.MaxValue, ErrorMessage = "ServiceId must be greater than 0.")]
+    public int ServiceId { get; set; }
+
+    [Required]
+    [RegularExpression("^(FEE|USER_ALLOCATION)$", ErrorMessage = "RuleGroup must be FEE or USER_ALLOCATION.")]
+    public string RuleGroup { get; set; } = string.Empty;
+
+    [Required]
+    [MinLength(1, ErrorMessage = "At least one ordered rule is required.")]
+    public List<RTSRulePriorityDto> Priorities { get; set; } = [];
+}
+
+/// <summary>Updates only the active state of a persisted RTS rule.</summary>
+public class UpdateRTSRuleMasterStatusRequestDto : UpdateBaseDtos
+{
+    public bool IsActive { get; set; }
+}
+
+public class RTSRulePriorityDto
+{
+    [Range(1, int.MaxValue)]
+    public int RuleId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int Priority { get; set; }
 }
 
 public class RTSRuleMasterResponseDto

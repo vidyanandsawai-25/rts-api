@@ -77,20 +77,24 @@ public sealed class RtsFeeEvaluationRuleService : IRtsFeeEvaluationRuleService
         var action = Upper(ruleActionType); var calculation = Upper(calculationType); var match = Upper(conditionMatchType);
         if (action is not ("BASE_FEE" or "ADDON_FEE")) throw new InvalidOperationException("Fee rules must use BASE_FEE or ADDON_FEE.");
         if (match is not ("ALL" or "ANY")) throw new InvalidOperationException("Condition match type must be ALL or ANY.");
-        if (calculation is not ("FIXED" or "PER_UNIT" or "PERCENTAGE")) throw new InvalidOperationException("Calculation type must be FIXED, PER_UNIT, or PERCENTAGE.");
-        if (action == "BASE_FEE" && calculation == "PERCENTAGE") throw new InvalidOperationException("BASE_FEE supports FIXED and PER_UNIT calculations only.");
+        if (calculation is not ("FIXED" or "PER_UNIT" or "PER_SQUARE_METER" or "PER_SQUARE_FOOT" or "PERCENTAGE")) throw new InvalidOperationException("Calculation type must be FIXED, PER_UNIT, PER_SQUARE_METER, PER_SQUARE_FOOT, or PERCENTAGE.");
+        if (action == "BASE_FEE" && calculation == "PERCENTAGE") throw new InvalidOperationException("BASE_FEE supports fixed and quantity/area-based calculations only.");
         if (!rateAmount.HasValue || rateAmount.Value < 0) throw new InvalidOperationException("Fee rate must be zero or greater.");
-        if (calculation == "PER_UNIT" && !quantityFieldDefinitionId.HasValue) throw new InvalidOperationException("PER_UNIT rules require a quantity field.");
-        if (calculation != "PER_UNIT" && quantityFieldDefinitionId.HasValue) throw new InvalidOperationException("Only PER_UNIT rules can have a quantity field.");
-        if (conditions.Count == 0) throw new InvalidOperationException("At least one condition is required.");
-        var ids = conditions.Select(x => x.FieldDefinitionId).Append(quantityFieldDefinitionId ?? 0).Where(x => x > 0).Distinct().ToList();
+        if (IsQuantityCalculation(calculation) && !quantityFieldDefinitionId.HasValue) throw new InvalidOperationException($"{calculation} rules require a numeric {QuantityFieldLabel(calculation)} field.");
+        if (!IsQuantityCalculation(calculation) && quantityFieldDefinitionId.HasValue) throw new InvalidOperationException("Only per-unit or per-area rules can have a quantity field.");
+        var predicates = RTSRuleConditionTree.GetPredicateConditions(conditionMatchType, conditions);
+        var ids = predicates.Select(x => x.FieldDefinitionId!.Value)
+            .Append(quantityFieldDefinitionId ?? 0).Where(x => x > 0).Distinct().ToList();
         var fields = await _fields.GetQueryable().AsNoTracking().Where(x => x.ServiceId == serviceId && x.IsActive && !x.MarkedForDeletion && ids.Contains(x.Id)).ToListAsync(ct);
         if (fields.Count != ids.Count) throw new InvalidOperationException("Conditions and quantity field must be active fields of the selected service.");
-        foreach (var condition in conditions)
+        foreach (var condition in predicates)
         {
-            var field = fields.Single(x => x.Id == condition.FieldDefinitionId);
-            if (!RTSRuleConditionMatcher.IsValidOperator(field.FieldType, condition.ComparisonOperator)) throw new InvalidOperationException($"Operator {condition.ComparisonOperator} is not valid for {field.FieldLabel}.");
+            var field = fields.Single(x => x.Id == condition.FieldDefinitionId!.Value);
+            if (!RTSRuleConditionMatcher.IsValidOperator(field.FieldType, condition.ComparisonOperator!)) throw new InvalidOperationException($"Operator {condition.ComparisonOperator} is not valid for {field.FieldLabel}.");
             if (string.IsNullOrWhiteSpace(condition.ExpectedValue)) throw new InvalidOperationException("Every condition requires an expected value.");
+            if (!RTSRuleConditionMatcher.IsValidExpectedValue(
+                    field.FieldType, condition.ExpectedValue, condition.ComparisonOperator!, out var validationError))
+                throw new InvalidOperationException(validationError);
         }
         if (quantityFieldDefinitionId.HasValue && !IsNumeric(fields.Single(x => x.Id == quantityFieldDefinitionId.Value).FieldType)) throw new InvalidOperationException("The quantity field must be numeric.");
     }
@@ -100,13 +104,39 @@ public sealed class RtsFeeEvaluationRuleService : IRtsFeeEvaluationRuleService
         var type = Upper(rule.CalculationType);
         if (type == "FIXED") return Round(rule.RateAmount ?? 0m);
         if (type == "PERCENTAGE") return Round(selectedBase * (rule.RateAmount ?? 0m) / 100m);
+        if (!IsQuantityCalculation(type)) throw new InvalidOperationException($"Unsupported fee calculation type '{type}'.");
         if (!rule.QuantityFieldDefinitionId.HasValue || !values.TryGetValue(rule.QuantityFieldDefinitionId.Value, out var raw) || !decimal.TryParse(raw, out var quantity) || quantity < 0)
-            throw new InvalidOperationException($"A valid non-negative quantity is required for fee rule '{rule.RuleDescription}'.");
+            throw new InvalidOperationException($"A valid non-negative {QuantityFieldLabel(type)} value is required for fee rule '{rule.RuleDescription}'.");
         return Round((rule.RateAmount ?? 0m) * quantity);
     }
+
+    private static bool IsQuantityCalculation(string calculation) => calculation is "PER_UNIT" or "PER_SQUARE_METER" or "PER_SQUARE_FOOT";
+
+    private static string QuantityFieldLabel(string calculation) => calculation switch
+    {
+        "PER_SQUARE_METER" => "square-meter area",
+        "PER_SQUARE_FOOT" => "square-foot area",
+        _ => "quantity"
+    };
 
     private static bool IsNumeric(string type) => Upper(type) is "NUMBER" or "DECIMAL" or "INTEGER" or "INT" or "CURRENCY";
     private static string Upper(string? value) => value?.Trim().ToUpperInvariant() ?? string.Empty;
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
-    private static RTSFeeMatchedRuleDto ToMatched(RTSRuleMasterEntity rule, decimal amount) => new() { RuleId = rule.Id, RuleActionType = rule.RuleActionType, ConditionFieldDefinitionId = rule.Conditions.OrderBy(x => x.ConditionOrder).FirstOrDefault()?.FieldDefinitionId, ExpectedValue = rule.Conditions.OrderBy(x => x.ConditionOrder).FirstOrDefault()?.ExpectedValue, Amount = amount, Priority = rule.Priority, CalculationType = rule.CalculationType };
+    private static RTSFeeMatchedRuleDto ToMatched(RTSRuleMasterEntity rule, decimal amount)
+    {
+        var first = rule.Conditions
+            .Where(x => string.Equals(x.ConditionType, "PREDICATE", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x.ConditionOrder)
+            .FirstOrDefault();
+        return new RTSFeeMatchedRuleDto
+        {
+            RuleId = rule.Id,
+            RuleActionType = rule.RuleActionType,
+            ConditionFieldDefinitionId = first?.FieldDefinitionId,
+            ExpectedValue = first?.ExpectedValue,
+            Amount = amount,
+            Priority = rule.Priority,
+            CalculationType = rule.CalculationType
+        };
+    }
 }

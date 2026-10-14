@@ -21,21 +21,55 @@ public class RTSRuleMasterService : BaseCommonCrudService<RTSRuleMasterEntity, R
 {
     private readonly IRtsFeeEvaluationRuleService _feeRules;
     private readonly IRTSStageAllocationRuleService _allocationRules;
+    private readonly IRepository<RTSRuleConditionEntity, int> _conditionRepository;
+    private readonly IRepository<UserEntity, int> _users;
 
     public RTSRuleMasterService(
         IRepository<RTSRuleMasterEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
         IRtsFeeEvaluationRuleService feeRules,
-        IRTSStageAllocationRuleService allocationRules)
+        IRTSStageAllocationRuleService allocationRules,
+        IRepository<RTSRuleConditionEntity, int> conditionRepository,
+        IRepository<UserEntity, int> users)
         : base(repository, unitOfWork, mapper)
     {
         _feeRules = feeRules;
         _allocationRules = allocationRules;
+        _conditionRepository = conditionRepository;
+        _users = users;
     }
 
     protected override IQueryable<RTSRuleMasterEntity> ApplyIncludes(IQueryable<RTSRuleMasterEntity> query) =>
         query.Include(x => x.Conditions);
+
+    public override async Task<PagedResult<RTSRuleMasterDto>> GetAllAsync(
+        RTSRuleMasterQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
+    {
+        // Let the base service retain the standard filtering, sorting and paging behavior,
+        // then rehydrate the selected rules into their recursive condition shape.
+        var page = await base.GetAllAsync(queryParameters, cancellationToken);
+        var ids = page.Items.Select(rule => rule.Id).Where(id => id > 0).ToList();
+        if (ids.Count == 0)
+            return page;
+
+        var rules = await _repository.GetQueryable()
+            .AsNoTracking()
+            .Include(rule => rule.Conditions)
+            .Where(rule => ids.Contains(rule.Id))
+            .ToDictionaryAsync(rule => rule.Id, cancellationToken);
+
+        var items = page.Items.Select(summary =>
+                rules.TryGetValue(summary.Id, out var rule)
+                    ? ToRuleDto(rule)
+                    : summary)
+            .ToList();
+
+        await PopulateUserDetailsAsync(items, cancellationToken);
+        return new PagedResult<RTSRuleMasterDto>(
+            items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
 
     public override async Task<RTSRuleMasterDto?> GetByIdAsync(
         int id,
@@ -46,7 +80,12 @@ public class RTSRuleMasterService : BaseCommonCrudService<RTSRuleMasterEntity, R
             .Include(x => x.Conditions)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
-        return entity == null ? null : _mapper.Map<RTSRuleMasterDto>(entity);
+        if (entity == null)
+            return null;
+
+        var dto = ToRuleDto(entity);
+        await PopulateUserDetailsAsync([dto], cancellationToken);
+        return dto;
     }
 
     public async Task<RTSRuleMasterResponseDto> CreateRulesAsync(
@@ -56,8 +95,19 @@ public class RTSRuleMasterService : BaseCommonCrudService<RTSRuleMasterEntity, R
         if (request.Rules.Count == 0)
             throw new InvalidOperationException("At least one rule is required.");
 
+        var nextPriorityByGroup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in request.Rules.Select(rule => NormalizeGroup(rule.RuleGroup)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var highestPriority = await _repository.GetQueryable()
+                .Where(rule => rule.ServiceId == request.ServiceId && rule.RuleGroup == group)
+                .Select(rule => (int?)rule.Priority)
+                .MaxAsync(cancellationToken) ?? 0;
+            nextPriorityByGroup[group] = highestPriority + 1;
+        }
+
         foreach (var rule in request.Rules)
         {
+            rule.Priority = nextPriorityByGroup[NormalizeGroup(rule.RuleGroup)]++;
             ValidateAction(rule.RuleGroup, rule.RuleActionType);
             ValidateDetails(rule.RuleDescription, rule.Priority);
             if (IsFee(rule.RuleGroup))
@@ -156,14 +206,122 @@ public class RTSRuleMasterService : BaseCommonCrudService<RTSRuleMasterEntity, R
                     cancellationToken);
             }
 
-            Apply(rule, entity);
-            entity.IsActive = rule.IsActive;
-            entity.UpdatedBy = request.UpdatedBy;
-            entity.UpdatedDate = DateTime.UtcNow;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // RuleCondition has a unique sibling-order index.  Deleting the old tree in a
+            // separate save prevents an old top-level node and its replacement from both
+            // occupying (RuleMasterId, ParentConditionId, ConditionOrder) during one flush.
+            await DeleteConditionTreesAsync(entities.Values, cancellationToken);
+
+            foreach (var rule in request.Rules)
+            {
+                var entity = entities[rule.Id!.Value];
+                Apply(rule, entity);
+                entity.IsActive = rule.IsActive;
+                entity.UpdatedBy = request.UpdatedBy;
+                entity.UpdatedDate = DateTime.UtcNow;
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
+
         return Response(serviceId, entities.Values);
+    }
+
+    public async Task UpdatePrioritiesAsync(
+        UpdateRTSRulePrioritiesRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var group = NormalizeGroup(request.RuleGroup);
+        if (request.ServiceId <= 0 || group is not ("FEE" or "USER_ALLOCATION"))
+            throw new InvalidOperationException("Select a valid service and rule group.");
+
+        var requested = request.Priorities;
+        var ids = requested.Select(item => item.RuleId).ToList();
+        if (ids.Distinct().Count() != ids.Count)
+            throw new InvalidOperationException("Each rule can appear only once in the priority order.");
+        if (requested.Select(item => item.Priority).Distinct().Count() != requested.Count ||
+            !requested.Select(item => item.Priority).OrderBy(priority => priority)
+                .SequenceEqual(Enumerable.Range(1, requested.Count)))
+            throw new InvalidOperationException("Priorities must be consecutive values starting at 1.");
+
+        var rules = await _repository.GetQueryable()
+            .Where(rule => rule.ServiceId == request.ServiceId && rule.RuleGroup == group)
+            .ToListAsync(cancellationToken);
+        if (rules.Count != requested.Count || !rules.Select(rule => rule.Id).OrderBy(id => id)
+                .SequenceEqual(ids.OrderBy(id => id)))
+            throw new InvalidOperationException("The priority request must include every rule in the selected service and group.");
+
+        var priorityById = requested.ToDictionary(item => item.RuleId, item => item.Priority);
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var rule in rules)
+            {
+                rule.Priority = priorityById[rule.Id];
+                rule.UpdatedBy = request.UpdatedBy;
+                rule.UpdatedDate = DateTime.UtcNow;
+            }
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
+    }
+
+    public async Task SetActiveAsync(
+        int id,
+        UpdateRTSRuleMasterStatusRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var rule = await _repository.GetQueryable()
+            .FirstOrDefaultAsync(entity => entity.Id == id, cancellationToken);
+        if (rule == null)
+            throw new InvalidOperationException("The rule was not found.");
+
+        rule.IsActive = request.IsActive;
+        rule.UpdatedBy = request.UpdatedBy;
+        rule.UpdatedDate = DateTime.UtcNow;
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task PermanentlyDeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var rule = await _repository.GetQueryable()
+            .Include(entity => entity.Conditions)
+            .FirstOrDefaultAsync(entity => entity.Id == id, cancellationToken);
+        if (rule == null)
+            throw new InvalidOperationException("The rule was not found.");
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // The self-reference is Restrict, so remove descendants before their parents.
+            // This also makes the operation safe for databases where the RuleMaster cascade
+            // was created manually rather than by the EF migration.
+            await DeleteConditionTreesAsync([rule], cancellationToken);
+            await _repository.HardDeleteAsync(rule, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _unitOfWork.DiscardChanges();
+            throw;
+        }
     }
 
     public Task<RTSFeeEvaluationResponseDto> EvaluateFeeAsync(
@@ -251,45 +409,196 @@ public class RTSRuleMasterService : BaseCommonCrudService<RTSRuleMasterEntity, R
     private static string NormalizeGroup(string? group) =>
         group?.Trim().ToUpperInvariant() ?? string.Empty;
 
+    private async Task DeleteConditionTreesAsync(
+        IEnumerable<RTSRuleMasterEntity> rules,
+        CancellationToken cancellationToken)
+    {
+        var conditions = rules.SelectMany(rule => rule.Conditions).ToList();
+        if (conditions.Count == 0)
+            return;
+
+        var byId = conditions.Where(condition => condition.Id > 0)
+            .ToDictionary(condition => condition.Id);
+        foreach (var condition in conditions.OrderByDescending(condition =>
+                     GetConditionDepth(condition, byId)))
+        {
+            await _conditionRepository.HardDeleteAsync(condition, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // The rows are no longer tracked after the hard delete.  Clear their navigation
+        // collections before the new tree is attached to the same rule master.
+        foreach (var rule in rules)
+            rule.Conditions.Clear();
+    }
+
+    private static int GetConditionDepth(
+        RTSRuleConditionEntity condition,
+        IReadOnlyDictionary<int, RTSRuleConditionEntity> byId)
+    {
+        var depth = 0;
+        var parentId = condition.ParentConditionId;
+        var visited = new HashSet<int>();
+        while (parentId.HasValue && byId.TryGetValue(parentId.Value, out var parent) &&
+               visited.Add(parent.Id))
+        {
+            depth++;
+            parentId = parent.ParentConditionId;
+        }
+
+        return depth;
+    }
+
     private static void ReplaceConditions(
         IEnumerable<RTSRuleConditionDto> conditions,
         RTSRuleMasterEntity target)
     {
-        var existing = target.Conditions.OrderBy(x => x.ConditionOrder).ToList();
-        var requested = conditions.OrderBy(x => x.ConditionOrder).ToList();
+        target.Conditions.Clear();
 
-        for (var index = 0; index < requested.Count; index++)
+        void AddNodes(
+            IEnumerable<RTSRuleConditionDto> source,
+            RTSRuleConditionEntity? parent)
         {
-            var condition = requested[index];
-            var row = index < existing.Count
-                ? existing[index]
-                : new RTSRuleConditionEntity { CreatedDate = DateTime.UtcNow };
-
-            row.FieldDefinitionId = condition.FieldDefinitionId;
-            row.ComparisonOperator = condition.ComparisonOperator.Trim().ToUpperInvariant();
-            row.ExpectedValue = condition.ExpectedValue.Trim();
-            row.ConditionOrder = index + 1;
-            row.IsActive = true;
-
-            if (index >= existing.Count)
+            var ordered = source.OrderBy(x => x.ConditionOrder).ToList();
+            for (var index = 0; index < ordered.Count; index++)
+            {
+                var condition = ordered[index];
+                var type = condition.ConditionType.Trim().ToUpperInvariant();
+                var row = new RTSRuleConditionEntity
+                {
+                    ConditionType = type,
+                    ConditionMatchType = type == "GROUP"
+                        ? condition.ConditionMatchType?.Trim().ToUpperInvariant()
+                        : null,
+                    FieldDefinitionId = type == "PREDICATE" ? condition.FieldDefinitionId : null,
+                    ComparisonOperator = type == "PREDICATE"
+                        ? condition.ComparisonOperator?.Trim().ToUpperInvariant()
+                        : null,
+                    ExpectedValue = type == "PREDICATE" ? condition.ExpectedValue?.Trim() : null,
+                    ConditionOrder = index + 1,
+                    IsActive = true,
+                    CreatedDate = DateTime.UtcNow,
+                    ParentCondition = parent
+                };
                 target.Conditions.Add(row);
+                if (parent != null)
+                    parent.ChildConditions.Add(row);
+                AddNodes(condition.Children, row);
+            }
         }
 
-        foreach (var stale in existing.Skip(requested.Count))
-            target.Conditions.Remove(stale);
+        AddNodes(conditions, null);
     }
 
     private RTSRuleMasterResponseDto Response(
         int serviceId,
         IEnumerable<RTSRuleMasterEntity> entities)
     {
-        var rules = entities.Select(x => _mapper.Map<RTSRuleMasterDto>(x)).ToList();
+        var rules = entities.Select(x =>
+            ToRuleDto(x)).ToList();
         return new RTSRuleMasterResponseDto
         {
             ServiceId = serviceId,
             RuleCount = rules.Count,
             Rules = rules
         };
+    }
+
+    private RTSRuleMasterDto ToRuleDto(RTSRuleMasterEntity rule)
+    {
+        var dto = _mapper.Map<RTSRuleMasterDto>(rule);
+        var nodes = rule.Conditions.ToList();
+        var children = nodes.ToDictionary(
+            node => node,
+            parent => nodes.Where(child => IsChildOf(child, parent))
+                .OrderBy(child => child.ConditionOrder)
+                .ThenBy(child => child.Id)
+                .ToList());
+        var nestedNodes = children.Values.SelectMany(value => value).ToHashSet();
+
+        dto.Conditions = nodes
+            .Where(node => !nestedNodes.Contains(node))
+            .OrderBy(node => node.ConditionOrder)
+            .ThenBy(node => node.Id)
+            .Select(node => ToConditionDto(node, children, new HashSet<RTSRuleConditionEntity>()))
+            .ToList();
+        return dto;
+    }
+
+    private async Task PopulateUserDetailsAsync(
+        IReadOnlyCollection<RTSRuleMasterDto> rules,
+        CancellationToken cancellationToken)
+    {
+        var userIds = rules
+            .Where(rule => string.Equals(rule.RuleGroup, "USER_ALLOCATION", StringComparison.OrdinalIgnoreCase) &&
+                           rule.UserId is > 0)
+            .Select(rule => rule.UserId!.Value)
+            .Distinct()
+            .ToList();
+        if (userIds.Count == 0)
+            return;
+
+        var users = await _users.GetQueryable()
+            .AsNoTracking()
+            .Where(user => userIds.Contains(user.Id) && !user.MarkedForDeletion)
+            .Select(user => new
+            {
+                user.Id,
+                user.UserName,
+                user.FirstName,
+                user.MiddleName,
+                user.LastName
+            })
+            .ToListAsync(cancellationToken);
+        var detailsById = users.ToDictionary(user => user.Id, user => new RTSRuleUserDetailsDto
+        {
+            Id = user.Id,
+            UserName = user.UserName,
+            UserFullName = string.Join(" ", new[] { user.FirstName, user.MiddleName, user.LastName }
+                .Where(name => !string.IsNullOrWhiteSpace(name)))
+        });
+
+        foreach (var rule in rules)
+        {
+            if (rule.UserId is > 0 && detailsById.TryGetValue(rule.UserId.Value, out var details))
+                rule.UserDetails = details;
+        }
+    }
+
+    private static bool IsChildOf(
+        RTSRuleConditionEntity child,
+        RTSRuleConditionEntity parent) =>
+        ReferenceEquals(child.ParentCondition, parent) ||
+        (child.ParentConditionId.HasValue && parent.Id > 0 &&
+            child.ParentConditionId.Value == parent.Id);
+
+    private static RTSRuleConditionDto ToConditionDto(
+        RTSRuleConditionEntity node,
+        IReadOnlyDictionary<RTSRuleConditionEntity, List<RTSRuleConditionEntity>> children,
+        ISet<RTSRuleConditionEntity> ancestry)
+    {
+        if (!ancestry.Add(node))
+            throw new InvalidOperationException("The rule contains a cyclic condition hierarchy.");
+
+        var dto = new RTSRuleConditionDto
+        {
+            Id = node.Id > 0 ? node.Id : null,
+            ParentConditionId = node.ParentConditionId,
+            ConditionType = node.ConditionType,
+            ConditionMatchType = node.ConditionMatchType,
+            FieldDefinitionId = node.FieldDefinitionId,
+            ComparisonOperator = node.ComparisonOperator,
+            ExpectedValue = node.ExpectedValue,
+            ConditionOrder = node.ConditionOrder,
+            Children = children[node]
+                .Select(child => ToConditionDto(child, children,
+                    new HashSet<RTSRuleConditionEntity>(ancestry)))
+                .ToList()
+        };
+
+        ancestry.Remove(node);
+        return dto;
     }
 }
 
@@ -424,16 +733,8 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
         CancellationToken cancellationToken = default)
     {
         if (serviceId <= 0) throw new InvalidOperationException("Select an RTS service.");
-        if (conditionMatchType?.Trim().ToUpperInvariant() is not ("ALL" or "ANY"))
-            throw new InvalidOperationException("Condition match type must be ALL or ANY.");
-        if (conditions.Count == 0)
-            throw new InvalidOperationException("At least one condition is required.");
-        if (conditions.Any(x => x.FieldDefinitionId <= 0 ||
-            string.IsNullOrWhiteSpace(x.ExpectedValue) || x.ExpectedValue.Length > 500))
-            throw new InvalidOperationException(
-                "Every condition requires a field and expected value (up to 500 characters).");
-
-        var fieldIds = conditions.Select(x => x.FieldDefinitionId).Distinct().ToList();
+        var predicates = RTSRuleConditionTree.GetPredicateConditions(conditionMatchType, conditions);
+        var fieldIds = predicates.Select(x => x.FieldDefinitionId!.Value).Distinct().ToList();
         var fields = await _fields.GetQueryable().AsNoTracking()
             .Where(x => x.ServiceId == serviceId && x.IsActive &&
                 !x.MarkedForDeletion && fieldIds.Contains(x.Id))
@@ -442,13 +743,16 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
             throw new InvalidOperationException(
                 "Every condition field must be active and belong to this service.");
 
-        foreach (var condition in conditions)
+        foreach (var condition in predicates)
         {
-            var field = fields[condition.FieldDefinitionId];
+            var field = fields[condition.FieldDefinitionId!.Value];
             if (!RTSRuleConditionMatcher.IsValidOperator(
-                field.FieldType, condition.ComparisonOperator))
+                field.FieldType, condition.ComparisonOperator!))
                 throw new InvalidOperationException(
                     $"Operator {condition.ComparisonOperator} is not valid for {field.FieldLabel}.");
+            if (!RTSRuleConditionMatcher.IsValidExpectedValue(
+                    field.FieldType, condition.ExpectedValue!, condition.ComparisonOperator!, out var validationError))
+                throw new InvalidOperationException(validationError);
         }
 
         var (stageId, stageOrder) = ParseStage(actionValue);
@@ -458,7 +762,7 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
             .OrderByDescending(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
         if (flow == null || !flow.ApprovalFlowStages.Any(x =>
-            x.Id == stageId && x.StageOrder == stageOrder && x.IsActive))
+            x.Id == stageId && x.StageOrder == stageOrder))
             throw new InvalidOperationException(
                 "Select a stage in the service's active approval workflow.");
         if (!userId.HasValue || userId.Value <= 0 ||
@@ -471,10 +775,17 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
         int serviceId,
         int approvalFlowId,
         int stageId,
-        int defaultUserId,
         IReadOnlyDictionary<int, string> values,
         CancellationToken cancellationToken = default)
     {
+        var stageBelongsToFlow = await _flows.GetQueryable().AsNoTracking()
+            .AnyAsync(x => x.Id == approvalFlowId && x.ServiceId == serviceId && x.IsActive &&
+                x.ApprovalFlowStages.Any(stage => stage.Id == stageId),
+                cancellationToken);
+        if (!stageBelongsToFlow)
+            throw new InvalidOperationException(
+                $"Stage {stageId} does not belong to the application's active approval flow.");
+
         var candidates = await _rules.GetQueryable().AsNoTracking()
             .Include(x => x.Conditions)
             .Where(x => x.ServiceId == serviceId && x.IsActive &&
@@ -487,16 +798,51 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
             .OrderBy(x => x.Priority)
             .ThenBy(x => x.Id)
             .ToList();
-        if (matches.Count == 0) return defaultUserId;
+        if (matches.Count == 0)
+        {
+            var allocatedOfficers = await (
+                from allocation in _allocations.GetQueryable().AsNoTracking()
+                join user in _users.GetQueryable().AsNoTracking()
+                    on allocation.UserId equals user.Id
+                where allocation.ApprovalFlowStageId == stageId &&
+                      allocation.UserId.HasValue &&
+                      allocation.IsActive &&
+                      user.IsActive &&
+                      !user.MarkedForDeletion
+                select new
+                {
+                    UserId = allocation.UserId.Value,
+                    allocation.Priority
+                })
+                .ToListAsync(cancellationToken);
+
+            var fallbackCandidates = allocatedOfficers
+                .GroupBy(x => x.UserId)
+                .Select(group => new
+                {
+                    UserId = group.Key,
+                    Priority = group.Min(x => x.Priority ?? int.MaxValue)
+                })
+                .OrderBy(x => x.Priority)
+                .ThenBy(x => x.UserId)
+                .ToList();
+
+            if (fallbackCandidates.Count == 0)
+                throw new InvalidOperationException(
+                    $"No active officer is allocated to stage {stageId}.");
+            if (fallbackCandidates.Count > 1 &&
+                fallbackCandidates[0].Priority == fallbackCandidates[1].Priority)
+                throw new InvalidOperationException(
+                    $"Multiple stage officers share the best allocation priority for stage {stageId}.");
+
+            return fallbackCandidates[0].UserId;
+        }
         if (matches.Count > 1 && matches[0].Priority == matches[1].Priority)
             throw new InvalidOperationException(
                 $"Multiple allocation rules match stage {stageId} at priority {matches[0].Priority}.");
 
         var winner = matches[0];
-        var stageBelongsToFlow = await _flows.GetQueryable().AsNoTracking()
-            .AnyAsync(x => x.Id == approvalFlowId && x.ServiceId == serviceId &&
-                x.ApprovalFlowStages.Any(stage => stage.Id == stageId), cancellationToken);
-        if (!stageBelongsToFlow || !winner.UserId.HasValue ||
+        if (!winner.UserId.HasValue ||
             !await IsEligibleAsync(stageId, winner.UserId.Value, cancellationToken))
             throw new InvalidOperationException(
                 $"The selected officer for allocation rule {winner.Id} is no longer valid for stage {stageId}.");
@@ -552,29 +898,120 @@ public sealed class RTSStageAllocationRuleService : IRTSStageAllocationRuleServi
     }
 }
 
+public static class RTSRuleConditionTree
+{
+    public const int MaximumDepth = 5;
+    public const int MaximumNodes = 100;
+
+    /// <summary>Validates the expression and returns every predicate node.</summary>
+    public static IReadOnlyList<RTSRuleConditionDto> GetPredicateConditions(
+        string? rootMatchType,
+        IReadOnlyCollection<RTSRuleConditionDto> conditions)
+    {
+        if (!IsMatchType(rootMatchType))
+            throw new InvalidOperationException("Condition match type must be ALL or ANY.");
+        if (conditions.Count == 0)
+            throw new InvalidOperationException("At least one condition is required.");
+
+        var predicates = new List<RTSRuleConditionDto>();
+        var total = 0;
+
+        void ValidateNodes(IEnumerable<RTSRuleConditionDto> nodes, int depth)
+        {
+            if (depth > MaximumDepth)
+                throw new InvalidOperationException($"Condition groups cannot exceed {MaximumDepth} levels.");
+
+            var ordered = nodes.OrderBy(x => x.ConditionOrder).ToList();
+            if (ordered.Count == 0)
+                throw new InvalidOperationException("Every condition group requires at least one child condition.");
+            if (ordered.Any(x => x.ConditionOrder <= 0) ||
+                ordered.Select(x => x.ConditionOrder).Distinct().Count() != ordered.Count)
+                throw new InvalidOperationException("Condition order must be positive and unique within each group.");
+
+            foreach (var node in ordered)
+            {
+                if (++total > MaximumNodes)
+                    throw new InvalidOperationException($"A rule cannot contain more than {MaximumNodes} condition nodes.");
+
+                var type = node.ConditionType?.Trim().ToUpperInvariant();
+                if (type == "GROUP")
+                {
+                    if (!IsMatchType(node.ConditionMatchType) || node.FieldDefinitionId.HasValue ||
+                        !string.IsNullOrWhiteSpace(node.ComparisonOperator) ||
+                        !string.IsNullOrWhiteSpace(node.ExpectedValue))
+                        throw new InvalidOperationException(
+                            "A condition group requires ALL or ANY and cannot contain a field comparison.");
+                    ValidateNodes(node.Children, depth + 1);
+                    continue;
+                }
+
+                if (type != "PREDICATE" || !node.FieldDefinitionId.HasValue ||
+                    node.FieldDefinitionId.Value <= 0 ||
+                    string.IsNullOrWhiteSpace(node.ComparisonOperator) ||
+                    string.IsNullOrWhiteSpace(node.ExpectedValue) ||
+                    node.ExpectedValue.Trim().Length > 500 ||
+                    !string.IsNullOrWhiteSpace(node.ConditionMatchType) || node.Children.Count != 0)
+                    throw new InvalidOperationException(
+                        "Every predicate requires a field, operator, and expected value, and cannot contain child conditions.");
+
+                predicates.Add(node);
+            }
+        }
+
+        ValidateNodes(conditions, 1);
+        return predicates;
+    }
+
+    public static bool IsMatchType(string? value) =>
+        value?.Trim().ToUpperInvariant() is "ALL" or "ANY";
+}
+
 public static class RTSRuleConditionMatcher
 {
+    private const string DatePartsPrefix = "DATE_PARTS:";
+    private const string DateTimePartsPrefix = "DATETIME_PARTS:";
+
     public static bool Matches(
         RTSRuleMasterEntity rule,
         IReadOnlyDictionary<int, string> values)
     {
-        var conditions = rule.Conditions
+        const int RootConditionKey = 0;
+        var byParent = rule.Conditions
             .Where(x => x.IsActive)
-            .OrderBy(x => x.ConditionOrder)
-            .ToList();
-        if (conditions.Count == 0) return false;
-        var results = conditions.Select(condition =>
-            values.TryGetValue(condition.FieldDefinitionId, out var actual) &&
-            !string.IsNullOrWhiteSpace(actual) &&
-            Compare(actual, condition.ExpectedValue, condition.ComparisonOperator));
-        return string.Equals(rule.ConditionMatchType, "ANY", StringComparison.OrdinalIgnoreCase)
-            ? results.Any(x => x)
-            : results.All(x => x);
+            .GroupBy(x => x.ParentConditionId ?? RootConditionKey)
+            .ToDictionary(x => x.Key, x => x.OrderBy(y => y.ConditionOrder).ToList());
+
+        bool EvaluateChildren(int? parentId, string? matchType)
+        {
+            if (!byParent.TryGetValue(parentId ?? RootConditionKey, out var children) || children.Count == 0)
+                return false;
+
+            var results = children.Select(EvaluateNode);
+            return string.Equals(matchType, "ANY", StringComparison.OrdinalIgnoreCase)
+                ? results.Any(x => x)
+                : results.All(x => x);
+        }
+
+        bool EvaluateNode(RTSRuleConditionEntity node)
+        {
+            if (string.Equals(node.ConditionType, "GROUP", StringComparison.OrdinalIgnoreCase))
+                return EvaluateChildren(node.Id, node.ConditionMatchType);
+
+            return string.Equals(node.ConditionType, "PREDICATE", StringComparison.OrdinalIgnoreCase) &&
+                node.FieldDefinitionId.HasValue &&
+                !string.IsNullOrWhiteSpace(node.ComparisonOperator) &&
+                !string.IsNullOrWhiteSpace(node.ExpectedValue) &&
+                values.TryGetValue(node.FieldDefinitionId.Value, out var actual) &&
+                !string.IsNullOrWhiteSpace(actual) &&
+                Compare(actual, node.ExpectedValue!, node.ComparisonOperator!);
+        }
+
+        return EvaluateChildren(null, rule.ConditionMatchType);
     }
 
     public static bool IsValidOperator(string fieldType, string comparisonOperator)
     {
-        var type = fieldType.Trim().ToUpperInvariant();
+        var type = NormalizeTemporalFieldType(fieldType);
         var op = comparisonOperator.Trim().ToUpperInvariant();
         if (op is "=" or "!=") return true;
         if (op == "CONTAINS")
@@ -586,15 +1023,78 @@ public static class RTSRuleConditionMatcher
                 "AMOUNT" or "YEAR" or "DATE" or "DATETIME" or "TIME" or "MONTH";
     }
 
+    /// <summary>
+    /// Validates feature-specific expected-value encodings before a rule is persisted.
+    /// Date component rules use DATE_PARTS:day-month-year, where * means unspecified.
+    /// Datetime component rules use DATETIME_PARTS:day-month-year|HH:mm, where * means unspecified.
+    /// </summary>
+    public static bool IsValidExpectedValue(
+        string fieldType,
+        string expectedValue,
+        string comparisonOperator,
+        out string validationError)
+    {
+        validationError = string.Empty;
+        var normalizedFieldType = NormalizeTemporalFieldType(fieldType);
+        var isDateParts = expectedValue.StartsWith(DatePartsPrefix, StringComparison.OrdinalIgnoreCase);
+        var isDateTimeParts = expectedValue.StartsWith(DateTimePartsPrefix, StringComparison.OrdinalIgnoreCase);
+        if (!isDateParts && !isDateTimeParts)
+            return true;
+
+        if ((isDateParts && normalizedFieldType != "DATE") ||
+            (isDateTimeParts && normalizedFieldType != "DATETIME"))
+        {
+            validationError = "The expected value encoding does not match the selected field type.";
+            return false;
+        }
+
+        if (comparisonOperator.Trim() is not ("=" or "!="))
+        {
+            validationError = "Partial date and datetime conditions support only Equal to or Not equal to.";
+            return false;
+        }
+
+        if ((isDateParts && TryParseDateParts(expectedValue, out _)) ||
+            (isDateTimeParts && TryParseDateTimeParts(expectedValue, out _)))
+            return true;
+
+        validationError = isDateTimeParts
+            ? "Enter at least one valid datetime component: day, month, year, or time."
+            : "Enter at least one valid date component: day, month, or year.";
+        return false;
+    }
+
     public static bool Compare(string actual, string expected, string comparisonOperator)
     {
         var op = comparisonOperator.Trim().ToUpperInvariant();
+        if (expected.StartsWith(DatePartsPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            if (op is not ("=" or "!=") || !TryParseDateParts(expected, out var parts) ||
+                !TryParseDate(actual, out var applicationDate))
+                return false;
+
+            var matches = (!parts.Day.HasValue || applicationDate.Day == parts.Day.Value) &&
+                          (!parts.Month.HasValue || applicationDate.Month == parts.Month.Value) &&
+                          (!parts.Year.HasValue || applicationDate.Year == parts.Year.Value);
+            return op == "=" ? matches : !matches;
+        }
+        if (expected.StartsWith(DateTimePartsPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            if (op is not ("=" or "!=") || !TryParseDateTimeParts(expected, out var parts) ||
+                !TryParseDate(actual, out var dateTime))
+                return false;
+
+            var matches = (!parts.Day.HasValue || dateTime.Day == parts.Day.Value) &&
+                          (!parts.Month.HasValue || dateTime.Month == parts.Month.Value) &&
+                          (!parts.Year.HasValue || dateTime.Year == parts.Year.Value) &&
+                          (!parts.Time.HasValue || dateTime.TimeOfDay == parts.Time.Value);
+            return op == "=" ? matches : !matches;
+        }
         if (op == "CONTAINS")
             return actual.Contains(expected, StringComparison.OrdinalIgnoreCase);
         if (op is "=" or "!=")
         {
-            var equal = string.Equals(
-                actual.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase);
+            var equal = ValuesAreEqual(actual, expected);
             return op == "=" ? equal : !equal;
         }
         if (decimal.TryParse(actual, NumberStyles.Number, CultureInfo.InvariantCulture,
@@ -607,6 +1107,119 @@ public static class RTSRuleConditionMatcher
             DateTime.TryParse(expected, CultureInfo.InvariantCulture, DateTimeStyles.None,
                 out var expectedDate))
             return CompareOrdered(date, expectedDate, op);
+        return false;
+    }
+
+    private static bool TryParseDateParts(string expected, out DateParts parts)
+    {
+        parts = default;
+        if (!expected.StartsWith(DatePartsPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var tokens = expected[DatePartsPrefix.Length..].Split('-', StringSplitOptions.TrimEntries);
+        if (tokens.Length != 3 ||
+            !TryParseOptionalPart(tokens[0], 1, 31, out var day) ||
+            !TryParseOptionalPart(tokens[1], 1, 12, out var month) ||
+            !TryParseOptionalPart(tokens[2], 1, 9999, out var year) ||
+            (!day.HasValue && !month.HasValue && !year.HasValue))
+            return false;
+
+        // A year-independent 29 February is valid, but impossible dates are not.
+        if (day.HasValue && month.HasValue &&
+            day.Value > DateTime.DaysInMonth(year ?? 2000, month.Value))
+            return false;
+
+        parts = new DateParts(day, month, year);
+        return true;
+    }
+
+    private static bool TryParseOptionalPart(string token, int minimum, int maximum, out int? value)
+    {
+        value = null;
+        if (token == "*") return true;
+        if (!int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) ||
+            parsed < minimum || parsed > maximum)
+            return false;
+        value = parsed;
+        return true;
+    }
+
+    private static bool TryParseDateTimeParts(string expected, out DateTimeParts parts)
+    {
+        parts = default;
+        if (!expected.StartsWith(DateTimePartsPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var tokens = expected[DateTimePartsPrefix.Length..].Split('|', StringSplitOptions.TrimEntries);
+        var dateTokens = tokens.Length == 2
+            ? tokens[0].Split('-', StringSplitOptions.TrimEntries)
+            : Array.Empty<string>();
+        if (dateTokens.Length != 3 ||
+            !TryParseOptionalPart(dateTokens[0], 1, 31, out var day) ||
+            !TryParseOptionalPart(dateTokens[1], 1, 12, out var month) ||
+            !TryParseOptionalPart(dateTokens[2], 1, 9999, out var year))
+            return false;
+
+        TimeSpan? time = null;
+        TimeSpan parsedTime = default;
+        if (tokens[1] != "*" && !TimeSpan.TryParseExact(tokens[1], @"hh\:mm", CultureInfo.InvariantCulture, out parsedTime))
+            return false;
+        if (tokens[1] != "*") time = parsedTime;
+
+        if (!day.HasValue && !month.HasValue && !year.HasValue && !time.HasValue)
+            return false;
+        if (day.HasValue && month.HasValue &&
+            day.Value > DateTime.DaysInMonth(year ?? 2000, month.Value))
+            return false;
+
+        parts = new DateTimeParts(day, month, year, time);
+        return true;
+    }
+
+    private static string NormalizeTemporalFieldType(string? fieldType) =>
+        fieldType?.Trim().Replace("_", string.Empty).Replace("-", string.Empty).ToUpperInvariant() switch
+        {
+            "DATETIME" or "DATETIMELOCAL" => "DATETIME",
+            "DATE" => "DATE",
+            _ => fieldType?.Trim().ToUpperInvariant() ?? string.Empty
+        };
+
+    private static bool TryParseDate(string value, out DateTime date)
+    {
+        var formats = new[] { "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-ddTHH:mm:ss.FFFFFFFK", "dd/MM/yyyy", "d/M/yyyy" };
+        return DateTime.TryParseExact(value.Trim(), formats, CultureInfo.InvariantCulture,
+                   DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.RoundtripKind, out date) ||
+               DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out date);
+    }
+
+    private readonly record struct DateParts(int? Day, int? Month, int? Year);
+    private readonly record struct DateTimeParts(int? Day, int? Month, int? Year, TimeSpan? Time);
+
+    private static bool ValuesAreEqual(string actual, string expected)
+    {
+        if (string.Equals(actual.Trim(), expected.Trim(), StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (decimal.TryParse(actual, NumberStyles.Number, CultureInfo.InvariantCulture,
+                out var number) &&
+            decimal.TryParse(expected, NumberStyles.Number, CultureInfo.InvariantCulture,
+                out var expectedNumber))
+            return number == expectedNumber;
+
+        // Dynamic-form date controls persist ISO values while rule configuration
+        // may use a date-only value. Treat equivalent calendar dates as equal.
+        if (DateTime.TryParse(actual, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
+                out var date) &&
+            DateTime.TryParse(expected, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
+                out var expectedDate))
+        {
+            // Preserve time for time/datetime fields while retaining date-only
+            // equivalence for date controls that submit an ISO calendar date.
+            var includesTime = actual.Contains(':') || expected.Contains(':') ||
+                               actual.Contains('T') || expected.Contains('T');
+            return includesTime ? date == expectedDate : date.Date == expectedDate.Date;
+        }
+
         return false;
     }
 
