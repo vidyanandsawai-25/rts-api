@@ -1,6 +1,5 @@
-using System;
-using System.Globalization;
 using System.Linq;
+using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -8,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -34,6 +34,8 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
+    private readonly IRepository<BankMasterEntity, int> _bankRepository;
+    private readonly IRepository<RTSReceiptCancellationLogEntity, int> _cancellationLogRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -55,6 +57,8 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
         IRepository<UserEntity, int> userRepository,
+        IRepository<BankMasterEntity, int> bankRepository,
+        IRepository<RTSReceiptCancellationLogEntity, int> cancellationLogRepository,
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
@@ -75,6 +79,8 @@ public class RTSPaymentService : IRTSPaymentService
         _fieldValueRepository = fieldValueRepository;
         _historyRepository = historyRepository;
         _userRepository = userRepository;
+        _bankRepository = bankRepository;
+        _cancellationLogRepository = cancellationLogRepository;
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _httpClientFactory = httpClientFactory;
@@ -908,47 +914,103 @@ public class RTSPaymentService : IRTSPaymentService
 
         int? paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
 
+        bool isInstrument = (request.PaymentMode?.IndexOf("CHEQUE", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || (request.PaymentMode?.IndexOf("धनादेश", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || (request.PaymentMode?.IndexOf("DD", StringComparison.OrdinalIgnoreCase) >= 0)
+                         || (request.PaymentMode?.IndexOf("DEMAND", StringComparison.OrdinalIgnoreCase) >= 0);
+
+        var pendingClearanceStatus = isInstrument ? await GetStatusByCodeAsync("PENDING_CLEARANCE", ct) : null;
+        var initialStatus = isInstrument ? pendingClearanceStatus! : successStatus;
+
+        // Preserve the transaction snapshot created at submission. Recording an
+        // offline payment changes its state; it must not create a second payment
+        // record with a potentially different fee calculation.
         txn.GatewayConfigId = offlineConfig?.Id ?? txn.GatewayConfigId;
-        txn.PaymentStatusId = successStatus.Id;
+        txn.PaymentStatusId = initialStatus.Id;
         txn.PaymentModeId = paymentModeId;
         txn.GatewayOrderId = $"OFFLINE_{app.Id}_{DateTime.Now:yyyyMMddHHmmss}";
-        txn.GatewayPaymentId = !string.IsNullOrWhiteSpace(request.InstrumentNo) ? request.InstrumentNo : $"OFFLINE_{DateTime.Now:yyyyMMddHHmmss}";
-        txn.BankRefNo = !string.IsNullOrWhiteSpace(request.BankName) ? $"{request.BankName} - {request.InstrumentNo}" : request.InstrumentNo;
+        txn.GatewayPaymentId = !string.IsNullOrWhiteSpace(request.InstrumentNo)
+            ? request.InstrumentNo
+            : $"OFFLINE_{DateTime.Now:yyyyMMddHHmmss}";
+        txn.BankRefNo = !string.IsNullOrWhiteSpace(request.BankName)
+            ? $"{request.BankName} - {request.InstrumentNo}"
+            : request.InstrumentNo;
+        txn.BankId = request.BankId;
+        txn.BankName = request.BankName;
+        txn.BranchName = request.BranchName;
+        txn.InstrumentNo = request.InstrumentNo;
+        txn.InstrumentDate = request.InstrumentDate;
+        txn.ClearanceDate = isInstrument ? null : DateTime.Now;
+        txn.ApprovalStatus = isInstrument ? "PENDING" : "APPROVED";
+        txn.ApprovedBy = isInstrument ? null : officerUserId;
+        txn.ApprovedDate = isInstrument ? null : DateTime.Now;
         txn.PayerVpaOrAccount = request.PaymentMode ?? "Cash";
-        txn.ReceiptDate = DateTime.Now;
-        txn.PaymentDate = DateTime.Now;
-        txn.Remarks = $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}";
+        txn.ReceiptDate = isInstrument ? null : DateTime.Now;
+        txn.PaymentDate = isInstrument ? null : DateTime.Now;
+        txn.Remarks = isInstrument
+            ? $"Offline Cheque/DD accepted at counter by Officer ID {officerUserId}. Pending bank clearance. Mode: {request.PaymentMode}. {request.Remarks}"
+            : $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}";
         txn.UpdatedBy = officerUserId;
         txn.UpdatedDate = DateTime.Now;
         await _unitOfWork.SaveChangesAsync(ct);
 
         // Update receipt number using generated transaction ID
-        string receiptNo = $"REC/RTS/{DateTime.Now:yyyyMMdd}/{txn.Id:D6}";
+        string receiptNo = isInstrument
+            ? $"PROV/RTS/{DateTime.Now:yyyyMMdd}/{txn.Id:D6}"
+            : $"REC/RTS/{DateTime.Now:yyyyMMdd}/{txn.Id:D6}";
         txn.ReceiptNo = receiptNo;
 
-        // Advance application workflow state if pending payment
-        if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
+        if (isInstrument)
         {
-            app.ApplicationStatus = "In Progress";
-            app.UpdatedDate = DateTime.Now;
-            app.UpdatedBy = officerUserId;
+            if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
+            {
+                app.ApplicationStatus = "Pending Clearance";
+                app.UpdatedDate = DateTime.Now;
+                app.UpdatedBy = officerUserId;
+            }
+
+            var history = new TrackApplicationHistoryEntity
+            {
+                ApplicationId = app.Id,
+                ApprovalFlowId = app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ActionByUserId = officerUserId,
+                Action = "Instrument Received (Pending Clearance)",
+                Status = "Pending Clearance",
+                Remark = $"Cheque/DD No. {request.InstrumentNo} ({request.BankName}) received at counter for ₹{amount:F2}. Provisional No: {receiptNo}. Clearance pending.",
+                CreatedDate = DateTime.Now,
+                IsActive = true,
+                CreatedBy = officerUserId
+            };
+            await _historyRepository.AddAsync(history, ct);
+        }
+        else
+        {
+            if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
+            {
+                app.ApplicationStatus = "Pending";
+                app.UpdatedDate = DateTime.Now;
+                app.UpdatedBy = officerUserId;
+            }
+
+            var history = new TrackApplicationHistoryEntity
+            {
+                ApplicationId = app.Id,
+                ApprovalFlowId = app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ActionByUserId = officerUserId,
+                Action = "Offline Payment Received",
+                Status = "Payment Done",
+                Remark = $"Government fee of ₹{amount:F2} received at counter via {request.PaymentMode}. Receipt: {receiptNo}. {request.Remarks}",
+                CreatedDate = DateTime.Now,
+                IsActive = true,
+                CreatedBy = officerUserId
+            };
+            await _historyRepository.AddAsync(history, ct);
         }
 
-        var history = new TrackApplicationHistoryEntity
-        {
-            ApplicationId = app.Id,
-            ApprovalFlowId = app.ApprovalFlowId,
-            ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
-            ActionByUserId = officerUserId,
-            Action = "Offline Payment Received",
-            Status = "Payment Done",
-            Remark = $"Government fee of ₹{amount:F2} received at counter via {request.PaymentMode}. Receipt: {receiptNo}. {request.Remarks}",
-            CreatedDate = DateTime.Now,
-            IsActive = true,
-            CreatedBy = officerUserId
-        };
-        await _historyRepository.AddAsync(history, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
         // Return receipt DTO
@@ -1073,7 +1135,7 @@ public class RTSPaymentService : IRTSPaymentService
                 var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
                 if (app != null)
                 {
-                    app.ApplicationStatus = "In Progress";
+                    app.ApplicationStatus = "Pending";
                     app.UpdatedDate = DateTime.Now;
 
                     var history = new TrackApplicationHistoryEntity
@@ -1517,5 +1579,735 @@ public class RTSPaymentService : IRTSPaymentService
         if (whole == 1000) return "एक हजार रुपये फक्त";
         if (whole == 2000) return "दोन हजार रुपये फक्त";
         return $"{whole} रुपये फक्त";
+    }
+
+    public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto query, CancellationToken ct = default)
+    {
+        var q = _paymentRepository.GetQueryable().AsNoTracking()
+            .Include(t => t.Service)
+            .Include(t => t.Department)
+            .Include(t => t.PaymentMode)
+            .Include(t => t.PaymentStatus)
+            .AsQueryable();
+
+        // Payment Mode Filter
+        if (!string.IsNullOrWhiteSpace(query.PaymentMode) && query.PaymentMode.ToUpper() != "ALL")
+        {
+            var pMode = query.PaymentMode.Trim().ToUpperInvariant();
+            if (pMode == "CHEQUE" || pMode == "धनादेश")
+            {
+                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("Cheque")) || (t.Remarks != null && t.Remarks.Contains("Cheque"))));
+            }
+            else if (pMode == "DD" || pMode == "DEMAND_DRAFT")
+            {
+                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "DD" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("DD")) || (t.Remarks != null && t.Remarks.Contains("DD"))));
+            }
+            else if (pMode == "ONLINE")
+            {
+                q = q.Where(t => t.PaymentMode == null || (t.PaymentMode.ModeCode != "CASH" && t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "OFFLINE_CHALLAN"));
+            }
+            else if (pMode == "CASH" || pMode == "रोख")
+            {
+                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
+            }
+            else
+            {
+                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
+            }
+        }
+
+        // Status Filter
+        if (!string.IsNullOrWhiteSpace(query.StatusCode) && query.StatusCode.ToUpper() != "ALL")
+        {
+            var code = query.StatusCode.Trim().ToUpperInvariant();
+            q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
+        }
+
+        // Date Range
+        if (query.FromDate.HasValue)
+        {
+            var from = query.FromDate.Value.Date;
+            q = q.Where(t => t.CreatedDate >= from);
+        }
+        if (query.ToDate.HasValue)
+        {
+            var to = query.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            q = q.Where(t => t.CreatedDate <= to);
+        }
+
+        // Department Filter
+        if (query.DepartmentId.HasValue && query.DepartmentId.Value > 0)
+        {
+            q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
+        }
+
+        // Service Filter
+        if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
+        {
+            q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+        }
+
+        // Search Text
+        if (!string.IsNullOrWhiteSpace(query.SearchText))
+        {
+            var st = query.SearchText.Trim();
+            q = q.Where(t =>
+                t.ApplicationNo.Contains(st) ||
+                t.TransactionNo.Contains(st) ||
+                (t.InstrumentNo != null && t.InstrumentNo.Contains(st)) ||
+                (t.BankName != null && t.BankName.Contains(st)) ||
+                (t.ReceiptNo != null && t.ReceiptNo.Contains(st)) ||
+                (t.BankRefNo != null && t.BankRefNo.Contains(st)));
+        }
+
+        var totalCount = await q.CountAsync(ct);
+        var totalAmountSum = await q.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
+
+        int pageNumber = query.PageNumber > 0 ? query.PageNumber : 1;
+        int pageSize = query.PageSize > 0 ? query.PageSize : 10;
+
+        var items = await q.OrderByDescending(t => t.Id)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        // Populate applicant details
+        var appIds = items.Select(x => x.ApplicationId).Distinct().ToList();
+        var fieldValues = await _fieldValueRepository.GetQueryable()
+            .Include(f => f.FieldDefinition)
+            .Where(f => appIds.Contains(f.ApplicationId) && !f.MarkedForDeletion)
+            .ToListAsync(ct);
+
+        var applicantNames = new Dictionary<int, string>();
+        var applicantMobiles = new Dictionary<int, string>();
+
+        foreach (var appId in appIds)
+        {
+            var fvs = fieldValues.Where(f => f.ApplicationId == appId).ToList();
+            string? name = null;
+            string? mobile = null;
+            foreach (var fv in fvs)
+            {
+                var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
+                var val = fv.TextValue?.Trim();
+                if (string.IsNullOrWhiteSpace(val)) continue;
+
+                if (string.IsNullOrWhiteSpace(name) && (label.Contains("full name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
+                    name = val;
+                else if (string.IsNullOrWhiteSpace(mobile) && (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल")))
+                    mobile = val;
+            }
+            if (!string.IsNullOrWhiteSpace(name)) applicantNames[appId] = name;
+            if (!string.IsNullOrWhiteSpace(mobile)) applicantMobiles[appId] = mobile;
+        }
+
+        var dtoList = items.Select(t => new PendingClearanceItemDto
+        {
+            TransactionId = t.Id,
+            TransactionNo = t.TransactionNo,
+            ApplicationId = t.ApplicationId,
+            ApplicationNo = t.ApplicationNo,
+            CitizenName = applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant",
+            CitizenMobile = applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : "",
+            ServiceName = t.Service?.ServiceName ?? "RTS Service",
+            ServiceNameLocal = t.Service?.ServiceNameLocal,
+            DepartmentName = t.Department?.DepartmentName ?? "RTS Department",
+            DepartmentNameLocal = t.Department?.DepartmentNameLocal,
+            PaymentMode = t.PaymentMode?.ModeNameEn ?? (t.PayerVpaOrAccount ?? "Online"),
+            TotalAmount = t.TotalAmount,
+            Currency = t.Currency ?? "INR",
+            BankId = t.BankId,
+            BankName = t.BankName,
+            BranchName = t.BranchName,
+            InstrumentNo = t.InstrumentNo ?? t.BankRefNo,
+            InstrumentDate = t.InstrumentDate,
+            ClearanceDate = t.ClearanceDate,
+            BankRefNo = t.BankRefNo,
+            GatewayPaymentId = t.GatewayPaymentId,
+            ReceiptNo = t.ReceiptNo,
+            ReceiptDate = t.ReceiptDate,
+            PaymentDate = t.PaymentDate,
+            PaymentStatus = t.PaymentStatus?.StatusCode ?? "UNKNOWN",
+            StatusBadgeColor = t.PaymentStatus?.BadgeColor ?? "bg-slate-50 text-slate-700",
+            ApprovalStatus = t.ApprovalStatus ?? (t.PaymentStatus?.StatusCode == "SUCCESS" ? "APPROVED" : "PENDING"),
+            IsReceiptCancelled = t.IsReceiptCancelled,
+            CancellationReason = t.ReceiptCancellationReason,
+            FailureReason = t.FailureReason,
+            Remarks = t.Remarks,
+            CreatedDate = t.CreatedDate
+        }).ToList();
+
+        var pagedResult = new PagedResult<PendingClearanceItemDto>(dtoList, totalCount, pageNumber, pageSize);
+        pagedResult.TotalAmount = totalAmountSum;
+        return pagedResult;
+    }
+
+    public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(CancellationToken ct = default)
+    {
+        var today = DateTime.Today;
+
+        var pendingDdChequeCount = await _paymentRepository.GetQueryable()
+            .CountAsync(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING_CLEARANCE") ||
+                (t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || t.PaymentMode.ModeCode == "DD") && t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING"), ct);
+
+        var pendingOnlineCount = await _paymentRepository.GetQueryable()
+            .CountAsync(t => t.PaymentStatus != null && (t.PaymentStatus.StatusCode == "PENDING" || t.PaymentStatus.StatusCode == "INITIATED") &&
+                (t.PaymentMode == null || (t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "CASH")), ct);
+
+        var clearedTodayQuery = _paymentRepository.GetQueryable()
+            .Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == "SUCCESS" && !t.IsReceiptCancelled &&
+                ((t.ClearanceDate.HasValue && t.ClearanceDate.Value >= today) || (t.PaymentDate.HasValue && t.PaymentDate.Value >= today)));
+
+        var clearedTodayCount = await clearedTodayQuery.CountAsync(ct);
+        var clearedTodayAmount = await clearedTodayQuery.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
+
+        var bouncedCount = await _paymentRepository.GetQueryable()
+            .CountAsync(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "BOUNCED") || t.ApprovalStatus == "DISAPPROVED", ct);
+
+        var cancelledCount = await _paymentRepository.GetQueryable()
+            .CountAsync(t => t.IsReceiptCancelled || (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "CANCELLED"), ct);
+
+        return new PendingClearanceStatsDto
+        {
+            TotalPendingDdCheque = pendingDdChequeCount,
+            TotalPendingOnline = pendingOnlineCount,
+            TotalClearedToday = clearedTodayCount,
+            TotalClearedAmountToday = clearedTodayAmount,
+            TotalBounced = bouncedCount,
+            TotalCancelled = cancelledCount
+        };
+    }
+
+    public async Task<VerifyPaymentResponseDto> ApproveTransactionAsync(ApprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
+    {
+        if (request == null || request.TransactionId <= 0)
+            throw new ArgumentException("Valid Transaction ID is required.");
+
+        var txn = await _paymentRepository.GetQueryable()
+            .Include(t => t.PaymentStatus)
+            .Include(t => t.PaymentMode)
+            .FirstOrDefaultAsync(t => t.Id == request.TransactionId, ct);
+
+        if (txn == null)
+            throw new ArgumentException($"Transaction with ID {request.TransactionId} not found.");
+
+        if (txn.IsReceiptCancelled)
+            throw new InvalidOperationException($"Receipt for Transaction {txn.TransactionNo} has been cancelled and cannot be approved.");
+
+        var successStatus = await GetStatusByCodeAsync("SUCCESS", ct);
+
+        var clearanceDate = request.ClearanceDate ?? DateTime.Now;
+        txn.PaymentStatusId = successStatus.Id;
+        txn.ApprovalStatus = "APPROVED";
+        txn.ApprovedBy = officerUserId;
+        txn.ApprovedDate = DateTime.Now;
+        txn.ClearanceDate = clearanceDate;
+        txn.PaymentDate = clearanceDate;
+
+        if (!string.IsNullOrWhiteSpace(request.BankRefNo))
+            txn.BankRefNo = request.BankRefNo.Trim();
+
+        if (string.IsNullOrWhiteSpace(txn.ReceiptNo) || txn.ReceiptNo.StartsWith("PROV/"))
+        {
+            txn.ReceiptNo = $"REC/RTS/{DateTime.Now:yyyyMMdd}/{txn.Id:D6}";
+        }
+        txn.ReceiptDate = DateTime.Now;
+
+        txn.Remarks = !string.IsNullOrWhiteSpace(request.Remarks)
+            ? $"{txn.Remarks} | Approved on {clearanceDate:dd/MM/yyyy}: {request.Remarks}"
+            : $"{txn.Remarks} | Approved on {clearanceDate:dd/MM/yyyy}";
+
+        txn.UpdatedBy = officerUserId;
+        txn.UpdatedDate = DateTime.Now;
+
+        // Advance Application Details
+        var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
+        if (app != null)
+        {
+            if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Pending Clearance", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Payment Verification Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                app.ApplicationStatus = "Pending";
+                app.UpdatedDate = DateTime.Now;
+                app.UpdatedBy = officerUserId;
+            }
+
+            var history = new TrackApplicationHistoryEntity
+            {
+                ApplicationId = app.Id,
+                ApprovalFlowId = app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ActionByUserId = officerUserId,
+                Action = "Payment Approved & Cleared",
+                Status = "Payment Done",
+                Remark = $"Payment of ₹{txn.TotalAmount:F2} cleared & approved by Officer ID {officerUserId}. Receipt: {txn.ReceiptNo}. Mode: {txn.PaymentMode?.ModeNameEn ?? "Instrument"}. Clearance Date: {clearanceDate:dd/MM/yyyy}",
+                CreatedDate = DateTime.Now,
+                IsActive = true,
+                CreatedBy = officerUserId
+            };
+            await _historyRepository.AddAsync(history, ct);
+
+            // Notify Aaple Sarkar
+            if (!string.IsNullOrWhiteSpace(app.ApplicationNo))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _aapleSarkarService.UpdateStatusAsync(app.ApplicationNo, "PaymentDone", ct: CancellationToken.None);
+                        await Task.Delay(1000);
+                        await _aapleSarkarService.UpdateStatusAsync(app.ApplicationNo, "UnderScrutiny", ct: CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to update Aaple Sarkar status after clearance approval for {AppNo}", app.ApplicationNo);
+                    }
+                });
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return new VerifyPaymentResponseDto
+        {
+            Success = true,
+            Message = $"Payment transaction approved and cleared successfully. Receipt: {txn.ReceiptNo}",
+            ReceiptNo = txn.ReceiptNo,
+            TransactionId = txn.Id.ToString(),
+            ApplicationNo = txn.ApplicationNo,
+            Amount = txn.TotalAmount,
+            PaymentDate = txn.PaymentDate,
+            PaymentStatus = "SUCCESS"
+        };
+    }
+
+    public async Task<VerifyPaymentResponseDto> DisapproveTransactionAsync(DisapprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
+    {
+        if (request == null || request.TransactionId <= 0)
+            throw new ArgumentException("Valid Transaction ID is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new ArgumentException("Mandatory rejection / bounce reason is required.");
+
+        var txn = await _paymentRepository.GetQueryable()
+            .Include(t => t.PaymentStatus)
+            .Include(t => t.PaymentMode)
+            .FirstOrDefaultAsync(t => t.Id == request.TransactionId, ct);
+
+        if (txn == null)
+            throw new ArgumentException($"Transaction with ID {request.TransactionId} not found.");
+
+        var bouncedStatus = await GetStatusByCodeAsync("BOUNCED", ct);
+
+        txn.PaymentStatusId = bouncedStatus.Id;
+        txn.ApprovalStatus = "DISAPPROVED";
+        txn.ApprovedBy = officerUserId;
+        txn.ApprovedDate = DateTime.Now;
+        txn.FailureReason = request.Reason.Trim();
+        txn.ApprovalRemarks = request.Remarks?.Trim();
+        txn.Remarks = $"{txn.Remarks} | Disapproved / Bounced: {request.Reason}";
+        txn.UpdatedBy = officerUserId;
+        txn.UpdatedDate = DateTime.Now;
+
+        // Revert Application Details back to Payment Pending
+        var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
+        if (app != null)
+        {
+            app.ApplicationStatus = "Payment Pending";
+            app.UpdatedDate = DateTime.Now;
+            app.UpdatedBy = officerUserId;
+
+            var history = new TrackApplicationHistoryEntity
+            {
+                ApplicationId = app.Id,
+                ApprovalFlowId = app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ActionByUserId = officerUserId,
+                Action = "Payment Disapproved / Bounced",
+                Status = "Payment Failed",
+                Remark = $"Instrument {txn.InstrumentNo ?? txn.TransactionNo} was disapproved / bounced by Officer ID {officerUserId}. Reason: {request.Reason}. Applicant must re-pay.",
+                CreatedDate = DateTime.Now,
+                IsActive = true,
+                CreatedBy = officerUserId
+            };
+            await _historyRepository.AddAsync(history, ct);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return new VerifyPaymentResponseDto
+        {
+            Success = true,
+            Message = $"Payment transaction marked as Disapproved / Bounced. Reason: {request.Reason}",
+            TransactionId = txn.Id.ToString(),
+            ApplicationNo = txn.ApplicationNo,
+            Amount = txn.TotalAmount,
+            PaymentDate = txn.PaymentDate,
+            PaymentStatus = "BOUNCED"
+        };
+    }
+
+    public async Task<VerifyPaymentResponseDto> CancelReceiptAsync(CancelReceiptRequestDto request, int officerUserId, CancellationToken ct = default)
+    {
+        if (request == null || request.TransactionId <= 0)
+            throw new ArgumentException("Valid Transaction ID is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            throw new ArgumentException("Mandatory cancellation reason is required.");
+
+        var txn = await _paymentRepository.GetQueryable()
+            .Include(t => t.PaymentStatus)
+            .Include(t => t.PaymentMode)
+            .FirstOrDefaultAsync(t => t.Id == request.TransactionId, ct);
+
+        if (txn == null)
+            throw new ArgumentException($"Transaction with ID {request.TransactionId} not found.");
+
+        if (txn.IsReceiptCancelled)
+            throw new InvalidOperationException($"Receipt {txn.ReceiptNo} is already cancelled.");
+
+        var cancelledStatus = await GetStatusByCodeAsync("CANCELLED", ct);
+
+        txn.PaymentStatusId = cancelledStatus.Id;
+        txn.IsReceiptCancelled = true;
+        txn.ReceiptCancelledDate = DateTime.Now;
+        txn.ReceiptCancelledBy = officerUserId;
+        txn.ReceiptCancellationReason = request.Reason.Trim();
+        txn.Remarks = $"{txn.Remarks} | Receipt Cancelled by Officer ID {officerUserId}: {request.Reason}";
+        txn.UpdatedBy = officerUserId;
+        txn.UpdatedDate = DateTime.Now;
+
+        // Revert Application Details back to Payment Pending
+        var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
+        if (app != null)
+        {
+            app.ApplicationStatus = "Payment Pending";
+            app.UpdatedDate = DateTime.Now;
+            app.UpdatedBy = officerUserId;
+
+            var history = new TrackApplicationHistoryEntity
+            {
+                ApplicationId = app.Id,
+                ApprovalFlowId = app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ActionByUserId = officerUserId,
+                Action = "Receipt Cancelled",
+                Status = "Payment Pending",
+                Remark = $"Official receipt {txn.ReceiptNo} cancelled by Officer ID {officerUserId}. Reason: {request.Reason}. {request.Remarks}",
+                CreatedDate = DateTime.Now,
+                IsActive = true,
+                CreatedBy = officerUserId
+            };
+            await _historyRepository.AddAsync(history, ct);
+        }
+
+        // Insert immutable Audit Record in RTS.ReceiptCancellationLog
+        var cancelLog = new RTSReceiptCancellationLogEntity
+        {
+            TransactionId = txn.Id,
+            ApplicationId = txn.ApplicationId,
+            ReceiptNumber = txn.ReceiptNo ?? $"TXN-{txn.Id}",
+            OriginalAmount = txn.TotalAmount,
+            PaymentMode = txn.PaymentMode?.ModeCode ?? (txn.PayerVpaOrAccount ?? "OFFLINE"),
+            InstrumentNo = txn.InstrumentNo,
+            BankId = txn.BankId,
+            BankName = txn.BankName,
+            CancelledBy = officerUserId,
+            CancelledByName = $"Officer #{officerUserId}",
+            CancelledDate = DateTime.Now,
+            CancellationReason = request.Reason.Trim(),
+            ApprovalRemarks = request.Remarks,
+            CreatedDate = DateTime.Now
+        };
+        await _cancellationLogRepository.AddAsync(cancelLog, ct);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return new VerifyPaymentResponseDto
+        {
+            Success = true,
+            Message = $"Official receipt {txn.ReceiptNo} successfully cancelled.",
+            ReceiptNo = txn.ReceiptNo,
+            TransactionId = txn.Id.ToString(),
+            ApplicationNo = txn.ApplicationNo,
+            Amount = txn.TotalAmount,
+            PaymentStatus = "CANCELLED"
+        };
+    }
+
+    public async Task<BulkClearanceResponseDto> BulkClearanceUploadAsync(Stream stream, int officerUserId, CancellationToken ct = default)
+    {
+        var response = new BulkClearanceResponseDto();
+        using var workbook = new XLWorkbook(stream);
+        var worksheet = workbook.Worksheets.FirstOrDefault();
+        if (worksheet == null)
+        {
+            throw new ArgumentException("Uploaded Excel file has no worksheets.");
+        }
+
+        var rows = worksheet.RangeUsed()?.RowsUsed()?.ToList();
+        if (rows == null || rows.Count <= 1)
+        {
+            throw new ArgumentException("Excel file contains no data rows (only header or empty).");
+        }
+
+        // Header Row = row 1
+        var headerRow = rows[0];
+        int colAppNo = -1, colTxnNo = -1, colInstrumentNo = -1, colBankName = -1, colClearanceDate = -1, colAction = -1, colRemarks = -1;
+
+        for (int c = 1; c <= headerRow.CellCount(); c++)
+        {
+            var h = headerRow.Cell(c).GetString().Trim().ToLowerInvariant();
+            if (h.Contains("app") || h.Contains("अर्ज")) colAppNo = c;
+            else if (h.Contains("txn") || h.Contains("trans") || h.Contains("व्यवहार")) colTxnNo = c;
+            else if (h.Contains("instrument") || h.Contains("cheque") || h.Contains("धनादेश") || h.Contains("dd")) colInstrumentNo = c;
+            else if (h.Contains("bank") || h.Contains("बँक")) colBankName = c;
+            else if (h.Contains("date") || h.Contains("तारीख")) colClearanceDate = c;
+            else if (h.Contains("action") || h.Contains("status") || h.Contains("कृती")) colAction = c;
+            else if (h.Contains("remark") || h.Contains("reason") || h.Contains("शेरा")) colRemarks = c;
+        }
+
+        // Fallbacks if headers didn't match keywords
+        if (colAppNo == -1) colAppNo = 1;
+        if (colInstrumentNo == -1) colInstrumentNo = 2;
+        if (colBankName == -1) colBankName = 3;
+        if (colClearanceDate == -1) colClearanceDate = 4;
+        if (colAction == -1) colAction = 5;
+        if (colRemarks == -1) colRemarks = 6;
+
+        response.TotalRows = rows.Count - 1;
+
+        for (int i = 1; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            int rowIdx = i + 1;
+            string appNo = colAppNo > 0 ? row.Cell(colAppNo).GetString().Trim() : "";
+            string txnNo = colTxnNo > 0 ? row.Cell(colTxnNo).GetString().Trim() : "";
+            string instrumentNo = colInstrumentNo > 0 ? row.Cell(colInstrumentNo).GetString().Trim() : "";
+            string bankName = colBankName > 0 ? row.Cell(colBankName).GetString().Trim() : "";
+            string actionStr = colAction > 0 ? row.Cell(colAction).GetString().Trim().ToUpperInvariant() : "APPROVE";
+            string remarks = colRemarks > 0 ? row.Cell(colRemarks).GetString().Trim() : "";
+
+            DateTime? clearanceDate = null;
+            if (colClearanceDate > 0)
+            {
+                var cell = row.Cell(colClearanceDate);
+                if (cell.DataType == XLDataType.DateTime)
+                    clearanceDate = cell.GetDateTime();
+                else if (DateTime.TryParse(cell.GetString(), out var dt))
+                    clearanceDate = dt;
+            }
+            if (!clearanceDate.HasValue) clearanceDate = DateTime.Now;
+
+            if (string.IsNullOrWhiteSpace(appNo) && string.IsNullOrWhiteSpace(txnNo) && string.IsNullOrWhiteSpace(instrumentNo))
+            {
+                continue; // empty row
+            }
+
+            response.ProcessedCount++;
+
+            try
+            {
+                // Match transaction
+                var txnQuery = _paymentRepository.GetQueryable()
+                    .Include(t => t.PaymentStatus)
+                    .Include(t => t.PaymentMode)
+                    .AsQueryable();
+
+                RTSPaymentTransactionEntity? matchedTxn = null;
+
+                if (!string.IsNullOrWhiteSpace(appNo))
+                {
+                    matchedTxn = await txnQuery.FirstOrDefaultAsync(t => t.ApplicationNo == appNo && t.PaymentStatus != null && t.PaymentStatus.StatusCode != "SUCCESS", ct);
+                    if (matchedTxn == null)
+                        matchedTxn = await txnQuery.OrderByDescending(t => t.Id).FirstOrDefaultAsync(t => t.ApplicationNo == appNo, ct);
+                }
+
+                if (matchedTxn == null && !string.IsNullOrWhiteSpace(txnNo))
+                {
+                    matchedTxn = await txnQuery.FirstOrDefaultAsync(t => t.TransactionNo == txnNo, ct);
+                }
+
+                if (matchedTxn == null && !string.IsNullOrWhiteSpace(instrumentNo))
+                {
+                    matchedTxn = await txnQuery.FirstOrDefaultAsync(t => (t.InstrumentNo == instrumentNo || (t.BankRefNo != null && t.BankRefNo.Contains(instrumentNo))) && t.PaymentStatus != null && t.PaymentStatus.StatusCode != "SUCCESS", ct);
+                }
+
+                if (matchedTxn == null)
+                {
+                    response.FailureCount++;
+                    response.Results.Add(new BulkClearanceRowResultDto
+                    {
+                        RowIndex = rowIdx,
+                        ApplicationNo = appNo,
+                        InstrumentNo = instrumentNo,
+                        Action = actionStr,
+                        Success = false,
+                        Message = $"No matching payment transaction found for App: '{appNo}', Instrument: '{instrumentNo}'."
+                    });
+                    continue;
+                }
+
+                if (actionStr.Contains("DISAPPROVE") || actionStr.Contains("REJECT") || actionStr.Contains("BOUNCE"))
+                {
+                    await DisapproveTransactionAsync(new DisapprovePaymentRequestDto
+                    {
+                        TransactionId = matchedTxn.Id,
+                        Reason = !string.IsNullOrWhiteSpace(remarks) ? remarks : "Bounced in bulk bank clearance scroll",
+                        Remarks = remarks
+                    }, officerUserId, ct);
+
+                    response.SuccessCount++;
+                    response.Results.Add(new BulkClearanceRowResultDto
+                    {
+                        RowIndex = rowIdx,
+                        ApplicationNo = matchedTxn.ApplicationNo,
+                        InstrumentNo = matchedTxn.InstrumentNo ?? instrumentNo,
+                        Action = "DISAPPROVED",
+                        Success = true,
+                        Message = "Transaction successfully disapproved / marked bounced."
+                    });
+                }
+                else
+                {
+                    // Approve
+                    await ApproveTransactionAsync(new ApprovePaymentRequestDto
+                    {
+                        TransactionId = matchedTxn.Id,
+                        ClearanceDate = clearanceDate,
+                        BankRefNo = !string.IsNullOrWhiteSpace(instrumentNo) ? instrumentNo : matchedTxn.BankRefNo,
+                        Remarks = !string.IsNullOrWhiteSpace(remarks) ? remarks : "Bulk bank clearance approved"
+                    }, officerUserId, ct);
+
+                    response.SuccessCount++;
+                    response.Results.Add(new BulkClearanceRowResultDto
+                    {
+                        RowIndex = rowIdx,
+                        ApplicationNo = matchedTxn.ApplicationNo,
+                        InstrumentNo = matchedTxn.InstrumentNo ?? instrumentNo,
+                        Action = "APPROVED",
+                        Success = true,
+                        Message = $"Approved successfully. Receipt: {matchedTxn.ReceiptNo}"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                response.FailureCount++;
+                response.Results.Add(new BulkClearanceRowResultDto
+                {
+                    RowIndex = rowIdx,
+                    ApplicationNo = appNo,
+                    InstrumentNo = instrumentNo,
+                    Action = actionStr,
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+        }
+
+        return response;
+    }
+
+    public Task<byte[]> DownloadClearanceTemplateAsync(CancellationToken ct = default)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Clearance_Template");
+
+        // Headers
+        ws.Cell(1, 1).Value = "ApplicationNo";
+        ws.Cell(1, 2).Value = "TransactionNo";
+        ws.Cell(1, 3).Value = "InstrumentNo";
+        ws.Cell(1, 4).Value = "BankName";
+        ws.Cell(1, 5).Value = "ClearanceDate";
+        ws.Cell(1, 6).Value = "Action";
+        ws.Cell(1, 7).Value = "Remarks";
+
+        // Styling Header
+        var headerRange = ws.Range(1, 1, 1, 7);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Font.FontColor = XLColor.White;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(30, 58, 138); // Dark Navy Blue
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Sample Data
+        ws.Cell(2, 1).Value = "RTS/2026/00001";
+        ws.Cell(2, 2).Value = "TXN/OFFLINE/20261011/A1B2C3D4";
+        ws.Cell(2, 3).Value = "458921";
+        ws.Cell(2, 4).Value = "State Bank of India";
+        ws.Cell(2, 5).Value = DateTime.Today.ToString("yyyy-MM-dd");
+        ws.Cell(2, 6).Value = "APPROVE";
+        ws.Cell(2, 7).Value = "Bank clearance scroll matched";
+
+        ws.Cell(3, 1).Value = "RTS/2026/00002";
+        ws.Cell(3, 2).Value = "";
+        ws.Cell(3, 3).Value = "982143";
+        ws.Cell(3, 4).Value = "Bank of Maharashtra";
+        ws.Cell(3, 5).Value = DateTime.Today.ToString("yyyy-MM-dd");
+        ws.Cell(3, 6).Value = "DISAPPROVE";
+        ws.Cell(3, 7).Value = "Insufficient funds in drawer account";
+
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        return Task.FromResult(ms.ToArray());
+    }
+
+    public async Task<List<RTSBankLookupDto>> GetBanksAsync(CancellationToken ct = default)
+    {
+        return await _bankRepository.GetQueryable()
+            .Where(b => b.IsActive)
+            .OrderBy(b => b.BankName)
+            .Select(b => new RTSBankLookupDto
+            {
+                Id = b.Id,
+                BankCode = b.BankCode,
+                BankName = b.BankName,
+                BranchName = b.BranchName,
+                IFSCCode = b.IFSCCode
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<ReceiptCancellationLogDto>> GetCancellationLogsAsync(int? applicationId = null, long? transactionId = null, CancellationToken ct = default)
+    {
+        var query = _cancellationLogRepository.GetQueryable();
+        if (applicationId.HasValue && applicationId.Value > 0)
+        {
+            query = query.Where(c => c.ApplicationId == applicationId.Value);
+        }
+        if (transactionId.HasValue && transactionId.Value > 0)
+        {
+            query = query.Where(c => c.TransactionId == transactionId.Value);
+        }
+
+        return await query
+            .OrderByDescending(c => c.CancelledDate)
+            .Select(c => new ReceiptCancellationLogDto
+            {
+                Id = c.Id,
+                TransactionId = c.TransactionId,
+                ApplicationId = c.ApplicationId,
+                ReceiptNumber = c.ReceiptNumber,
+                OriginalAmount = c.OriginalAmount,
+                PaymentMode = c.PaymentMode,
+                InstrumentNo = c.InstrumentNo,
+                BankId = c.BankId,
+                BankName = c.BankName,
+                CancelledBy = c.CancelledBy,
+                CancelledByName = c.CancelledByName,
+                CancelledDate = c.CancelledDate,
+                CancellationReason = c.CancellationReason,
+                ApprovedBy = c.ApprovedBy,
+                ApprovedByName = c.ApprovedByName,
+                ApprovedDate = c.ApprovedDate,
+                ApprovalRemarks = c.ApprovalRemarks,
+                CreatedDate = c.CreatedDate
+            })
+            .ToListAsync(ct);
     }
 }

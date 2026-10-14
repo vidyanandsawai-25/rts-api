@@ -14,6 +14,16 @@ public class RTSAppealTypeMasterEntity : BaseEntity
     /// Descriptive name of the appeal type.
     /// </summary>
     public string AppealTypeName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Devanagari Marathi localized name of the appeal ground.
+    /// </summary>
+    public string? AppealTypeNameLocal { get; set; }
+
+    /// <summary>
+    /// Statutory description citing MRTSA 2015 provisions.
+    /// </summary>
+    public string? Description { get; set; }
 }
 
 /// <summary>

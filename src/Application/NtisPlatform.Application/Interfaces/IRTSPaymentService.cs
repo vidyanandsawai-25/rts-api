@@ -19,4 +19,14 @@ public interface IRTSPaymentService
         CancellationToken ct = default);
     Task<bool> ProcessWebhookAsync(string webhookPayload, string? signatureHeader, CancellationToken ct = default);
     Task<NtisPlatform.Application.Models.PagedResult<PaymentTransactionListItemDto>> GetTransactionsAsync(PaymentTransactionQueryDto query, CancellationToken ct = default);
+    Task<NtisPlatform.Application.Models.PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto query, CancellationToken ct = default);
+    Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(CancellationToken ct = default);
+    Task<VerifyPaymentResponseDto> ApproveTransactionAsync(ApprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default);
+    Task<VerifyPaymentResponseDto> DisapproveTransactionAsync(DisapprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default);
+    Task<VerifyPaymentResponseDto> CancelReceiptAsync(CancelReceiptRequestDto request, int officerUserId, CancellationToken ct = default);
+    Task<BulkClearanceResponseDto> BulkClearanceUploadAsync(System.IO.Stream stream, int officerUserId, CancellationToken ct = default);
+    Task<byte[]> DownloadClearanceTemplateAsync(CancellationToken ct = default);
+    Task<System.Collections.Generic.List<RTSBankLookupDto>> GetBanksAsync(CancellationToken ct = default);
+    Task<System.Collections.Generic.List<ReceiptCancellationLogDto>> GetCancellationLogsAsync(int? applicationId = null, long? transactionId = null, CancellationToken ct = default);
 }
+

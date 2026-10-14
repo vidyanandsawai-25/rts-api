@@ -12,7 +12,7 @@ public enum RTSCertificateType : byte
     None = 0,
 
     /// <summary>
-    /// डिजिटल सिस्टीम प्रमाणपत्र - System generates certificate dynamically from active CertificateTemplateMaster with DSC and QR.
+    /// डिजिटल सिस्टीम प्रमाणपत्र - System generates certificate dynamically from active ServiceCertificateMaster with DSC and QR.
     /// </summary>
     Digital = 1,
 

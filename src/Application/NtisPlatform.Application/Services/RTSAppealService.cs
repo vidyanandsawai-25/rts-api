@@ -73,7 +73,9 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
             {
                 Id = t.Id,
                 Code = t.Code,
-                AppealTypeName = t.AppealTypeName
+                AppealTypeName = t.AppealTypeName,
+                AppealTypeNameLocal = t.AppealTypeNameLocal,
+                Description = t.Description
             })
             .ToListAsync(ct);
     }
@@ -883,7 +885,15 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
             FilingDate = appeal.CreatedDate,
             AppealTypeId = appeal.AppealTypeId,
             AppealTypeName = appealType?.AppealTypeName ?? "Statutory RTS Appeal",
+            AppealTypeNameLocal = appealType?.AppealTypeNameLocal,
             ReasonForComplaint = appeal.ReasonForComplaint ?? "",
+            HearingDate = appeal.HearingDate,
+            HearingNoticeRemarks = appeal.HearingNoticeRemarks,
+            OrderType = appeal.OrderType,
+            ServiceDeliveryDueDate = appeal.ServiceDeliveryDueDate,
+            PenaltyAmount = appeal.PenaltyAmount,
+            PenaltyRemarks = appeal.PenaltyRemarks,
+            OrderDocumentPath = appeal.OrderDocumentPath,
             ActionRemarks = appeal.ActionRemarks,
             ApplicationId = appeal.ApplicationId,
             ApplicationNo = app?.ApplicationNo ?? "",
@@ -914,6 +924,11 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
         if (dto.AppealId <= 0 || string.IsNullOrWhiteSpace(dto.Action))
         {
             throw new ArgumentException("Invalid appeal action request.");
+        }
+
+        if (string.IsNullOrWhiteSpace(dto.Remark) && !string.IsNullOrWhiteSpace(dto.Remarks))
+        {
+            dto.Remark = dto.Remarks;
         }
 
         if (string.IsNullOrWhiteSpace(dto.Remark))
@@ -1006,8 +1021,48 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
             appeal.UpdatedDate = now;
             appeal.UpdatedBy = officerUserId;
 
+            // Persist statutory adjudication details (MRTSA 2015 Sections 8, 9, 10)
+            if (dto.HearingDate.HasValue)
+            {
+                appeal.HearingDate = dto.HearingDate.Value;
+            }
+            if (!string.IsNullOrWhiteSpace(dto.HearingNoticeRemarks))
+            {
+                appeal.HearingNoticeRemarks = dto.HearingNoticeRemarks;
+            }
+            if (!string.IsNullOrWhiteSpace(dto.OrderType))
+            {
+                appeal.OrderType = dto.OrderType;
+            }
+            if (dto.ServiceDeliveryDueDate.HasValue)
+            {
+                appeal.ServiceDeliveryDueDate = dto.ServiceDeliveryDueDate.Value;
+            }
+            if (dto.PenaltyAmount.HasValue)
+            {
+                appeal.PenaltyAmount = dto.PenaltyAmount.Value;
+            }
+            if (!string.IsNullOrWhiteSpace(dto.PenaltyRemarks))
+            {
+                appeal.PenaltyRemarks = dto.PenaltyRemarks;
+            }
+            if (!string.IsNullOrWhiteSpace(dto.OrderDocumentPath))
+            {
+                appeal.OrderDocumentPath = dto.OrderDocumentPath;
+            }
+
             await _appealRepository.UpdateAsync(appeal, ct);
             await _unitOfWork.SaveChangesAsync(ct);
+
+            string historyRemark = dto.Remark;
+            if (dto.PenaltyAmount.HasValue && dto.PenaltyAmount.Value > 0)
+            {
+                historyRemark += $" | शास्ती (दंड): ₹{dto.PenaltyAmount.Value}";
+            }
+            if (dto.ServiceDeliveryDueDate.HasValue)
+            {
+                historyRemark += $" | सेवा देण्याची मुदत: {dto.ServiceDeliveryDueDate.Value:dd/MM/yyyy}";
+            }
 
             var historyEntry = new RTSTrackAppealHistoryEntity
             {
@@ -1019,7 +1074,7 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
                 ActionByUserId = officerUserId,
                 Status = newAppealStatus,
                 Action = timelineAction,
-                Remark = dto.Remark,
+                Remark = historyRemark,
                 IsActive = true,
                 CreatedDate = now
             };

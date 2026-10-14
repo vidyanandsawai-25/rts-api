@@ -266,6 +266,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
     public DbSet<RTSRuleConditionEntity> RTSRuleConditions { get; set; } = null!;
     public DbSet<RTSApprovalFlowStageUserAllocationMasterEntity> RTSApprovalFlowStageUserAllocationMasters { get; set; } = null!;
+    public DbSet<RTSReceiptCancellationLogEntity> RTSReceiptCancellationLogs { get; set; } = null!;
     public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarCredentials { get; set; } = null!;
     public DbSet<RTSAapleSarkarConfigurationEntity> RTSAapleSarkarConfigurations => RTSAapleSarkarCredentials;
     public DbSet<RTSAapleSarkarServiceMappingEntity> RTSAapleSarkarServiceMappings { get; set; } = null!;
@@ -6330,14 +6331,14 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("AppealTypeMaster", "RTS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Code).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Code).HasMaxLength(100);
             entity.Property(e => e.AppealTypeName).IsRequired().HasMaxLength(250);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
 
             entity.Ignore(e => e.CreatedBy);
-            entity.Ignore(e => e.CreatedDate);
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
-            entity.Ignore(e => e.IsActive);
         });
 
         modelBuilder.Entity<RTSAppealApplicationEntity>(entity =>
@@ -6366,6 +6367,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AppealType)
+                .WithMany()
+                .HasForeignKey(e => e.AppealTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => new { e.ApplicationId, e.AppealLevel });
             entity.HasIndex(e => e.AppealNo);
@@ -6404,12 +6415,16 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
 
+            entity.Property(e => e.AppealLevel)
+                .HasConversion<byte>()
+                .HasColumnType("tinyint");
+
             entity.Property(e => e.CreatedDate)
                 .HasColumnType("datetime")
                 .HasDefaultValueSql("GETDATE()");
 
             entity.HasOne(e => e.AppealApplication)
-                .WithMany()
+                .WithMany(a => a.TrackAppealHistories)
                 .HasForeignKey(e => e.AppealId)
                 .OnDelete(DeleteBehavior.Cascade);
 
@@ -6624,6 +6639,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.GatewayFee).HasColumnType("decimal(18,2)");
             entity.Property(e => e.GatewayTax).HasColumnType("decimal(18,2)");
             entity.Property(e => e.BankRefNo).HasMaxLength(100);
+            entity.Property(e => e.BankId);
+            entity.Property(e => e.BankName).HasMaxLength(150);
+            entity.Property(e => e.BranchName).HasMaxLength(150);
+            entity.Property(e => e.InstrumentNo).HasMaxLength(50);
+            entity.Property(e => e.InstrumentDate).HasColumnType("datetime");
+            entity.Property(e => e.ClearanceDate).HasColumnType("datetime");
+            entity.Property(e => e.ApprovalStatus).HasMaxLength(50);
+            entity.Property(e => e.ApprovedBy);
+            entity.Property(e => e.ApprovedDate).HasColumnType("datetime");
+            entity.Property(e => e.ApprovalRemarks).HasMaxLength(500);
+            entity.Property(e => e.IsReceiptCancelled).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ReceiptCancelledDate).HasColumnType("datetime");
+            entity.Property(e => e.ReceiptCancelledBy);
+            entity.Property(e => e.ReceiptCancellationReason).HasMaxLength(500);
             entity.Property(e => e.PayerVpaOrAccount).HasMaxLength(150);
             entity.Property(e => e.ReceiptNo).HasMaxLength(100);
             entity.Property(e => e.ReceiptDate).HasColumnType("datetime");
@@ -6663,6 +6692,41 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.PaymentMode)
                 .WithMany()
                 .HasForeignKey(e => e.PaymentModeId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RTSReceiptCancellationLogEntity>(entity =>
+        {
+            entity.ToTable("ReceiptCancellationLog", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TransactionId).IsRequired();
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.ReceiptNumber).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.OriginalAmount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.PaymentMode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.InstrumentNo).HasMaxLength(50);
+            entity.Property(e => e.BankId);
+            entity.Property(e => e.BankName).HasMaxLength(150);
+            entity.Property(e => e.CancelledBy);
+            entity.Property(e => e.CancelledByName).HasMaxLength(150);
+            entity.Property(e => e.CancelledDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CancellationReason).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.ApprovedBy);
+            entity.Property(e => e.ApprovedByName).HasMaxLength(150);
+            entity.Property(e => e.ApprovedDate).HasColumnType("datetime");
+            entity.Property(e => e.ApprovalRemarks).HasMaxLength(500);
+            entity.Property(e => e.IPAddress).HasMaxLength(50);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+
+            entity.HasOne(e => e.PaymentTransaction)
+                .WithMany()
+                .HasForeignKey(e => e.TransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

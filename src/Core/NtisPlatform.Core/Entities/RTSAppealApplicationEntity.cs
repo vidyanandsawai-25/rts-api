@@ -65,6 +65,41 @@ public class RTSAppealApplicationEntity : BaseEntity
     public DateTime? ActionDate { get; set; }
 
     /// <summary>
+    /// Date scheduled for statutory appeal hearing under MRTSA 2015.
+    /// </summary>
+    public DateTime? HearingDate { get; set; }
+
+    /// <summary>
+    /// Official hearing notice details and location instructions.
+    /// </summary>
+    public string? HearingNoticeRemarks { get; set; }
+
+    /// <summary>
+    /// Official order category: Allowed, Dismissed, or Remanded.
+    /// </summary>
+    public string? OrderType { get; set; }
+
+    /// <summary>
+    /// Statutory date by which the competent authority must provide the service to the citizen if appeal is allowed.
+    /// </summary>
+    public DateTime? ServiceDeliveryDueDate { get; set; }
+
+    /// <summary>
+    /// Statutory penalty amount imposed on the defaulting officer under MRTSA Section 9 (up to Rs. 5000).
+    /// </summary>
+    public decimal? PenaltyAmount { get; set; }
+
+    /// <summary>
+    /// Official justification for penalty or departmental inquiry recommendation under Section 10.
+    /// </summary>
+    public string? PenaltyRemarks { get; set; }
+
+    /// <summary>
+    /// File path or GUID of the signed appellate order document.
+    /// </summary>
+    public string? OrderDocumentPath { get; set; }
+
+    /// <summary>
     /// Soft-delete flag.
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
