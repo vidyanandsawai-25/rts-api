@@ -6749,12 +6749,18 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("RuleCondition", "RTS");
             entity.HasKey(x => x.Id);
             entity.Property(x => x.ConditionOrder).IsRequired();
-            entity.Property(x => x.ComparisonOperator).HasMaxLength(20).IsRequired();
-            entity.Property(x => x.ExpectedValue).HasMaxLength(500).IsRequired();
+            entity.Property(x => x.ConditionType).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.ConditionMatchType).HasMaxLength(3);
+            entity.Property(x => x.ComparisonOperator).HasMaxLength(20);
+            entity.Property(x => x.ExpectedValue).HasMaxLength(500);
             entity.Property(x => x.IsActive).HasDefaultValue(true).IsRequired();
             entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()").IsRequired();
             entity.HasOne(x => x.Rule).WithMany(x => x.Conditions).HasForeignKey(x => x.RuleMasterId).OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(x => new { x.RuleMasterId, x.ConditionOrder }).IsUnique();
+            entity.HasOne(x => x.ParentCondition)
+                .WithMany(x => x.ChildConditions)
+                .HasForeignKey(x => x.ParentConditionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => new { x.RuleMasterId, x.ParentConditionId, x.ConditionOrder }).IsUnique();
         });
 
         // ----------------------------------------------------------------
