@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.RTSApplication;
@@ -236,6 +237,66 @@ public class RTSApplicationApprovalController : ControllerBase
         {
             Success = true,
             Message = "Application Track History & Audit Trail Retrieved Successfully",
+            Items = result
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{applicationId}/stage-documents")]
+    [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<RTSStageDocumentDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetStageDocuments(int applicationId, CancellationToken ct)
+    {
+        var result = await _service.GetStageDocumentsAsync(applicationId, ct);
+        return Ok(new ApiResponse<IReadOnlyList<RTSStageDocumentDto>>
+        {
+            Success = true,
+            Message = "Stage Documents Retrieved Successfully",
+            Items = result
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("{applicationId}/stage-documents")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ApiResponse<RTSStageDocumentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UploadStageDocument(
+        int applicationId,
+        IFormFile file,
+        [FromForm] string? documentTitle,
+        [FromForm] string? remarks,
+        [FromForm] int? uploadedBy,
+        CancellationToken ct)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "File is required"
+            });
+        }
+
+        var officerUserId = ResolveOfficerUserId(uploadedBy);
+
+        using var stream = file.OpenReadStream();
+        var result = await _service.UploadStageDocumentAsync(
+            applicationId,
+            stream,
+            file.FileName,
+            file.ContentType,
+            file.Length,
+            documentTitle,
+            remarks,
+            officerUserId,
+            ct);
+
+        return Ok(new ApiResponse<RTSStageDocumentDto>
+        {
+            Success = true,
+            Message = "Stage Document Uploaded Successfully",
             Items = result
         });
     }

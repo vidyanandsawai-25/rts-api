@@ -304,6 +304,7 @@ public static class ServiceCollectionExtensions
                 ptisDepartmentId,
                 logger);
         });
+        services.AddScoped<IDocumentAuthorizationHandler, RtsDocumentAuthorizationHandler>();
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
         services.AddScoped<IPropertyPhotoService, PropertyPhotoService>();
         services.AddScoped<IDynamicEntityLoader, DynamicEntityLoader>();
@@ -368,6 +369,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, InventoryDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, ULBDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, RTSApplicationDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();

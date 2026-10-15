@@ -38,4 +38,7 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
     // Complete ERP & Digital Signature Audit Trail History
     // </summary>
     Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(int applicationId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<RTSStageDocumentDto>> GetStageDocumentsAsync(int applicationId, CancellationToken cancellationToken = default);
+    Task<RTSStageDocumentDto> UploadStageDocumentAsync(int applicationId, Stream fileStream, string fileName, string contentType, long fileLength, string? documentTitle, string? remarks, int officerUserId, CancellationToken cancellationToken = default);
 }

@@ -28,11 +28,14 @@ public class CurrentApprovalOfficerDto
     public bool CanIssueCertificate { get; set; }
     public bool IsManualCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
+    public bool CanUploadDocument { get; set; }
     public int CertificateType { get; set; }
     public bool IsCertificateRequired { get; set; } = true;
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }
+    public decimal? ServiceFees { get; set; }
+    public bool FeesRequired { get; set; }
     /// <summary>Immutable fee snapshot from the latest RTS payment transaction.</summary>
     public long? PaymentTransactionId { get; set; }
     public decimal? PayableFee { get; set; }

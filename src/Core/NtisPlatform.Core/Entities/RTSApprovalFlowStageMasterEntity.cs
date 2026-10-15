@@ -13,6 +13,7 @@ public class RTSApprovalFlowStageMasterEntity:BaseEntity
     public int SLADays { get; set; }
     public bool CanVerifyDocument { get; set; }
     public bool CanViewNoteSheet { get; set; }
+    public bool CanUploadDocument { get; set; }
     public bool CanApprove { get; set; }
     public bool CanReject { get; set; }
     public bool CanReturn { get; set; }

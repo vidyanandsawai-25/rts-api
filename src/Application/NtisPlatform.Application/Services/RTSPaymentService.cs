@@ -165,7 +165,7 @@ public class RTSPaymentService : IRTSPaymentService
                 cashMode = new RTSPaymentModeMasterEntity
                 {
                     ModeCode = "CASH",
-                    ModeNameEn = "Cash (रोख)",
+                    ModeNameEn = "Cash",
                     ModeNameMr = "रोख",
                     IconName = "Banknote",
                     IsActive = true,
@@ -870,14 +870,24 @@ public class RTSPaymentService : IRTSPaymentService
         if (app == null)
             throw new ArgumentException($"Application with ID {request.ApplicationId} not found.");
 
-        // Check if already paid
-        var existingSuccess = await _paymentRepository.GetQueryable()
+        // Check if already paid or has a payment pending clearance
+        var activePayment = await _paymentRepository.GetQueryable()
             .Include(p => p.PaymentStatus)
-            .FirstOrDefaultAsync(p => p.ApplicationId == request.ApplicationId && p.PaymentStatus.StatusCode == "SUCCESS", ct);
+            .Where(p => p.ApplicationId == request.ApplicationId && p.IsActive)
+            .Where(p => p.PaymentStatus.StatusCode == "SUCCESS" || p.PaymentStatus.StatusCode == "PENDING_CLEARANCE")
+            .OrderByDescending(p => p.Id)
+            .FirstOrDefaultAsync(ct);
 
-        if (existingSuccess != null)
+        if (activePayment != null)
         {
-            throw new InvalidOperationException($"Application {app.ApplicationNo} is already paid (Receipt: {existingSuccess.ReceiptNo}).");
+            if (activePayment.PaymentStatus?.StatusCode == "SUCCESS")
+            {
+                throw new InvalidOperationException($"Application {app.ApplicationNo} is already paid (Receipt: {activePayment.ReceiptNo}).");
+            }
+            if (activePayment.PaymentStatus?.StatusCode == "PENDING_CLEARANCE")
+            {
+                throw new InvalidOperationException($"Application {app.ApplicationNo} already has a payment awaiting clearance (Receipt: {activePayment.ReceiptNo}, Instrument: {activePayment.InstrumentNo}). Duplicate payment cannot be recorded.");
+            }
         }
 
         // The amount was frozen when the application was submitted. Do not allow a
@@ -892,7 +902,16 @@ public class RTSPaymentService : IRTSPaymentService
 
         if (txn == null || txn.TotalAmount <= 0)
         {
-            throw new InvalidOperationException("This application does not have a payable payment snapshot.");
+            decimal officialFee = app.Service?.Fees ?? 0;
+            if (officialFee > 0 && txn != null)
+            {
+                txn.TotalAmount = officialFee;
+                txn.BaseAmount = officialFee;
+            }
+            else
+            {
+                throw new InvalidOperationException("This application does not have a payable payment snapshot.");
+            }
         }
 
         decimal amount = Math.Round(txn.TotalAmount, 2, MidpointRounding.AwayFromZero);
@@ -1186,7 +1205,7 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(t => t.GatewayConfig)
             .Include(t => t.PaymentMode)
             .Include(t => t.PaymentStatus)
-            .Where(t => t.ApplicationId == applicationId && t.PaymentStatusId == successStatus.Id)
+            .Where(t => t.ApplicationId == applicationId && (t.PaymentStatusId == successStatus.Id || t.ReceiptNo != null))
             .OrderByDescending(t => t.Id)
             .FirstOrDefaultAsync(ct);
 
@@ -1353,8 +1372,6 @@ public class RTSPaymentService : IRTSPaymentService
 
     public async Task<PaymentReceiptDto?> GetPaymentReceiptByReceiptNoAsync(string receiptNo, CancellationToken ct = default)
     {
-        var successStatus = await GetStatusByCodeAsync("SUCCESS", ct);
-
         var txn = await _paymentRepository.GetQueryable()
             .Include(t => t.Service)
             .Include(t => t.Department)
@@ -1362,7 +1379,8 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(t => t.GatewayConfig)
             .Include(t => t.PaymentMode)
             .Include(t => t.PaymentStatus)
-            .FirstOrDefaultAsync(t => t.ReceiptNo == receiptNo && t.PaymentStatusId == successStatus.Id, ct);
+            .OrderByDescending(t => t.Id)
+            .FirstOrDefaultAsync(t => t.ReceiptNo == receiptNo, ct);
 
         if (txn == null) return null;
 

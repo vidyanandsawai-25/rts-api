@@ -62,6 +62,7 @@ public class RTSApprovalFlowStageMasterDto
     public bool CanVerifyDocument { get; set; }
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
+    public bool CanUploadDocument { get; set; }
     public bool CanIssueCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }
@@ -91,6 +92,7 @@ public class CreateRTSApprovalFlowStageMasterDto
     public bool CanVerifyDocument { get; set; }
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
+    public bool CanUploadDocument { get; set; }
     public bool CanIssueCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }
@@ -117,6 +119,7 @@ public class UpdateRTSApprovalFlowStageMasterDto
     public bool CanVerifyDocument { get; set; }
     public bool CanEdit { get; set; }
     public bool CanViewNoteSheet { get; set; }
+    public bool CanUploadDocument { get; set; }
     public bool CanIssueCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
     public bool CanApprove { get; set; }

@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
+using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.Extensions;
@@ -24,6 +25,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRTSSmsNotificationService _smsNotificationService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
     private readonly IRTSStageAllocationRuleService _allocationRules;
+    private readonly IDocumentApplicationService _documentApplicationService;
+    private readonly IRepository<DocumentEntity, int> _documentRepository;
+    private readonly IRepository<DocumentBindingEntity, int> _bindingRepository;
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -37,6 +41,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRTSSmsNotificationService smsNotificationService,
           IAapleSarkarIntegrationService aapleSarkarService,
           IRTSStageAllocationRuleService allocationRules,
+          IDocumentApplicationService documentApplicationService,
+          IRepository<DocumentEntity, int> documentRepository,
+          IRepository<DocumentBindingEntity, int> bindingRepository,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -50,6 +57,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _issuedCertificateRepository = issuedCertificateRepository;
         _aapleSarkarService = aapleSarkarService;
         _allocationRules = allocationRules;
+        _documentApplicationService = documentApplicationService;
+        _documentRepository = documentRepository;
+        _bindingRepository = bindingRepository;
     }
 
     private async Task<int> ResolveStageOfficerAsync(RTSApplicationDetailsEntity application,
@@ -729,6 +739,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 stage.CanViewNoteSheet,
                 stage.CanIssueCertificate,
                 stage.CanViewCertificate,
+                stage.CanUploadDocument,
                 stage.IsFinalStage
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -769,7 +780,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .FirstOrDefaultAsync(cancellationToken);
 
         bool isPaid = string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
-        string paymentStatus = paymentTxn?.PaymentStatus?.StatusCode ?? "NOT_REQUIRED";
+        string paymentStatus = paymentTxn?.PaymentStatus?.StatusCode ?? (result.FeesRequired ? "PENDING" : "NOT_REQUIRED");
         string? receiptNo = paymentTxn?.ReceiptNo;
 
         return new CurrentApprovalOfficerDto
@@ -800,14 +811,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             CanViewNoteSheet = currentStage.CanViewNoteSheet,
             CanIssueCertificate = requiresCertificate && currentStage.CanIssueCertificate,
             CanViewCertificate = requiresCertificate && currentStage.CanViewCertificate,
+            CanUploadDocument = currentStage.CanUploadDocument,
             IsManualCertificate = requiresCertificate && result.CertificateType == NtisPlatform.Core.Enums.RTSCertificateType.Manual,
             CertificateType = (int)result.CertificateType,
             IsCertificateRequired = result.IsCertificateRequired,
 
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
+            ServiceFees = result.ServiceFees,
+            FeesRequired = result.FeesRequired,
             PaymentTransactionId = paymentTxn?.Id,
-            PayableFee = paymentTxn?.TotalAmount,
+            PayableFee = paymentTxn?.TotalAmount ?? result.ServiceFees,
             HasPaymentTransaction = paymentTxn != null,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
@@ -1639,6 +1653,124 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         return result;
     }
 
+    public async Task<IReadOnlyList<RTSStageDocumentDto>> GetStageDocumentsAsync(int applicationId, CancellationToken cancellationToken = default)
+    {
+        var bindings = await _bindingRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(b => b.Document)
+            .Where(b => b.ReferenceTableName == "ApplicationDetails"
+                     && b.ReferenceTableId == applicationId
+                     && b.BindingPurpose == "StageScrutiny"
+                     && b.IsActive && !b.MarkedForDeletion
+                     && b.Document != null && b.Document.IsActive && !b.Document.MarkedForDeletion)
+            .OrderByDescending(b => b.CreatedDate)
+            .ToListAsync(cancellationToken);
 
+        if (bindings.Count == 0)
+            return Array.Empty<RTSStageDocumentDto>();
+
+        var userIds = bindings.Select(b => b.Document!.UploadedByUserId).Distinct().ToList();
+        var users = await _userRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(u => userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => new
+            {
+                u.UserName,
+                FullName = ($"{u.FirstName ?? ""} {u.LastName ?? ""}").Trim()
+            }, cancellationToken);
+
+        return bindings.Select(b =>
+        {
+            var doc = b.Document!;
+            users.TryGetValue(doc.UploadedByUserId, out var userInfo);
+            return new RTSStageDocumentDto
+            {
+                BindingId = b.Id,
+                DocumentId = doc.Id,
+                DocumentGuid = doc.DocumentGuid,
+                DocumentTitle = !string.IsNullOrWhiteSpace(doc.DocumentTitle) ? doc.DocumentTitle : doc.OriginalFileName,
+                FileName = doc.FileName,
+                OriginalFileName = doc.OriginalFileName,
+                FileSizeBytes = doc.FileSizeBytes,
+                Remarks = doc.Description,
+                UploadedByUserId = doc.UploadedByUserId,
+                UploadedByUserName = userInfo?.UserName,
+                UploadedByFullName = !string.IsNullOrWhiteSpace(userInfo?.FullName) ? userInfo.FullName : userInfo?.UserName,
+                UploadedDate = doc.CreatedDate
+            };
+        }).ToList();
+    }
+
+    public async Task<RTSStageDocumentDto> UploadStageDocumentAsync(
+        int applicationId,
+        Stream fileStream,
+        string fileName,
+        string contentType,
+        long fileLength,
+        string? documentTitle,
+        string? remarks,
+        int officerUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var app = await _repository.GetByIdAsync(applicationId, cancellationToken);
+        if (app == null)
+            throw new KeyNotFoundException($"Application with ID {applicationId} was not found.");
+
+        var currentOfficer = await GetCurrentApprovalOfficerAsync(applicationId, cancellationToken);
+        if (currentOfficer != null && !currentOfficer.CanUploadDocument)
+        {
+            throw new InvalidOperationException("The current workflow stage does not have permission to upload scrutiny documents.");
+        }
+
+        var uploadDto = new DocumentUploadDto
+        {
+            DepartmentId = 5,
+            ModuleId = 1005,
+            ReferenceTableName = "ApplicationDetails",
+            ReferenceTableId = applicationId,
+            ReferencePropertyName = "Id",
+            BindingPurpose = "StageScrutiny",
+            DocumentType = "Stage Scrutiny Document",
+            IsPrimaryDocument = false,
+        };
+
+        var uploadResult = await _documentApplicationService.UploadDocumentAsync(
+            fileStream,
+            fileName,
+            contentType,
+            fileLength,
+            uploadDto,
+            officerUserId,
+            cancellationToken);
+
+        var doc = await _documentRepository.GetByIdAsync(uploadResult.DocumentId, cancellationToken);
+        if (doc != null)
+        {
+            if (!string.IsNullOrWhiteSpace(documentTitle))
+                doc.DocumentTitle = documentTitle;
+            if (!string.IsNullOrWhiteSpace(remarks))
+                doc.Description = remarks;
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        var officer = await _userRepository.GetByIdAsync(officerUserId, cancellationToken);
+        var fullName = officer != null ? ($"{officer.FirstName ?? ""} {officer.LastName ?? ""}").Trim() : null;
+
+        return new RTSStageDocumentDto
+        {
+            BindingId = uploadResult.DocumentBindingId ?? 0,
+            DocumentId = uploadResult.DocumentId,
+            DocumentGuid = uploadResult.DocumentGuid,
+            DocumentTitle = !string.IsNullOrWhiteSpace(documentTitle) ? documentTitle : fileName,
+            FileName = uploadResult.FileName,
+            OriginalFileName = fileName,
+            FileSizeBytes = fileLength,
+            Remarks = remarks,
+            UploadedByUserId = officerUserId,
+            UploadedByUserName = officer?.UserName,
+            UploadedByFullName = !string.IsNullOrWhiteSpace(fullName) ? fullName : officer?.UserName,
+            UploadedDate = DateTime.Now
+        };
+    }
 }
 

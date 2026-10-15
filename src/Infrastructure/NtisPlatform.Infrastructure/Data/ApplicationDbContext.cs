@@ -1213,11 +1213,11 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.BankCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.BankName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.BranchName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.IFSCCode).IsRequired().HasMaxLength(11);
-            entity.Property(e => e.City).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.State).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Pincode).IsRequired().HasMaxLength(6);
+            entity.Property(e => e.BranchName).HasMaxLength(200);
+            entity.Property(e => e.IFSCCode).HasMaxLength(11);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.State).HasMaxLength(100);
+            entity.Property(e => e.Pincode).HasMaxLength(6);
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
@@ -6286,6 +6286,10 @@ public class ApplicationDbContext : DbContext
                 .HasDefaultValue(false);
 
             entity.Property(e => e.CanViewNoteSheet)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanUploadDocument)
                 .IsRequired()
                 .HasDefaultValue(false);
 
