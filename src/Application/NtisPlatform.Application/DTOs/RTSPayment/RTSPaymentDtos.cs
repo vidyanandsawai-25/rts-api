@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace NtisPlatform.Application.DTOs.RTSPayment;
 
@@ -41,6 +42,17 @@ public class BulkPaymentStatusRequestDto
     [Required]
     [MinLength(1)]
     public List<string> ApplicationNos { get; set; } = new();
+}
+
+/// <summary>
+/// Multipart form payload for a bank-clearance spreadsheet upload.
+/// Keeping the file inside a form DTO allows Swagger to generate a valid
+/// multipart/form-data operation.
+/// </summary>
+public class BulkClearanceUploadRequestDto
+{
+    [Required(ErrorMessage = "Excel file (.xlsx) is required for bulk clearance upload.")]
+    public IFormFile File { get; set; } = null!;
 }
 
 public class PaymentOrderResponseDto

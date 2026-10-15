@@ -541,11 +541,12 @@ public class RTSPaymentController : ControllerBase
     /// </summary>
     [AllowAnonymous]
     [HttpPost("bulk-clearance-upload")]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ApiResponse<BulkClearanceResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> BulkClearanceUpload([FromForm] IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> BulkClearanceUpload([FromForm] BulkClearanceUploadRequestDto request, CancellationToken ct)
     {
-        if (file == null || file.Length == 0)
+        if (request?.File == null || request.File.Length == 0)
         {
             return BadRequest(new ApiResponse<BulkClearanceResponseDto>
             {
@@ -560,7 +561,7 @@ public class RTSPaymentController : ControllerBase
             var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
             if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId)) userId = parsedId;
 
-            using var stream = file.OpenReadStream();
+            using var stream = request.File.OpenReadStream();
             var result = await _paymentService.BulkClearanceUploadAsync(stream, userId, ct);
 
             return Ok(new ApiResponse<BulkClearanceResponseDto>
