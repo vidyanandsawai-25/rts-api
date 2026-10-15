@@ -684,7 +684,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IHistoricalNetTaxBaselineService, NtisPlatform.Application.Services.TaxEngine.HistoricalNetTaxBaselineService>();
 
         //RTS SERVICES DepenedencyInjection
-        // services.AddScoped<IRtsUserService, RtsUserService>();
+        services.AddScoped<IRtsUserService, RtsUserService>();
         services.AddScoped<IRTSDepartmentService, RTSDepartmentService>();  //rts service di
         services.AddScoped<IRTSFieldDefinitionService, RTSFieldDefinitionService>();
         services.AddScoped<IRTSApplicationService, RTSApplicationService>();

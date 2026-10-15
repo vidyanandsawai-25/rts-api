@@ -6293,6 +6293,10 @@ public class ApplicationDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.CanEdit)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             entity.Property(e => e.CanIssueCertificate)
                 .IsRequired()
                 .HasDefaultValue(false);
