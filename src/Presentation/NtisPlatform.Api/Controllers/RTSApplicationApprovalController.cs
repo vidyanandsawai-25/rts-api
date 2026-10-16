@@ -166,6 +166,7 @@ public class RTSApplicationApprovalController : ControllerBase
         });
     }
 
+
     [AllowAnonymous]
     [HttpPut("{applicationId}/verify-and-correct")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]

@@ -1,5 +1,4 @@
 using NtisPlatform.Application.DTOs.RTSFieldValue;
-
 namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
 public  class UpdateRTSApplicationVerificationDto : UpdateBaseDtos
@@ -15,7 +14,6 @@ public class UpdateRTSApplicationProcessDto : UpdateBaseDtos
     public string? Remark { get; set; }
     public string? Status { get; set; }
     public Guid? IssuedCertificateGuid { get; set; }
-
 }
 
 public class RTSApplicationApprovalResponseDto
