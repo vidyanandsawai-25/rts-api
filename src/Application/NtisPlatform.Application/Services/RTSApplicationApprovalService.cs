@@ -128,7 +128,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
     {
-        var query = _repository.GetQueryable().AsNoTracking().Where(x => !x.MarkedForDeletion);
+        var query = _repository.GetQueryable().AsNoTracking().Where(x => x.IsActive && x.Service.IsActive && x.Department.IsActive && !x.MarkedForDeletion);
         var dashboard = await query
             .GroupBy(x => 1)
             .Select(g => new
@@ -186,7 +186,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var today = DateTime.Today;
 
         var query = _repository.GetQueryable()
-         .Where(x => !x.MarkedForDeletion && x.IsActive)
+         .Where(x => x.IsActive && x.Service.IsActive && x.Department.IsActive && !x.MarkedForDeletion)
          .AsQueryable();
 
         if (queryParameters.DepartmentId > 0)
