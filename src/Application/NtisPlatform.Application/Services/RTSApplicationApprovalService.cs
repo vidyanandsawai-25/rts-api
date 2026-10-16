@@ -647,9 +647,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         }
 
         return result;
-
     }
-
 
     // <summary>
     // Get the current approval officer for a given application. and it Access and Name Role and Email and Stage Details 
@@ -682,6 +680,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 application.CurrentApprovalFlowStageId,
                 application.UserId,
                 application.ServiceId,
+                IsPaymentAfterApproval = application.Service.IsPaymentAfterApproval,
                 ServiceName = application.Service != null ? application.Service.ServiceName : null,
                 ServiceFees = application.Service != null ? application.Service.Fees : null,
                 FeesRequired = application.Service != null && application.Service.FeesRequired,
@@ -819,6 +818,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ServiceId = result.ServiceId,
             ServiceName = result.ServiceName,
             ServiceFees = result.ServiceFees,
+            IsPaymentAfterApproval=result.IsPaymentAfterApproval,
             FeesRequired = result.FeesRequired,
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = paymentTxn?.TotalAmount ?? result.ServiceFees,

@@ -98,13 +98,12 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         var firstStage = approvalFlow.FirstStage ?? throw new InvalidOperationException(
             "This service has no active approval workflow stage. Configure an active workflow and stage allocation before accepting applications.");
 
-        bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0;
-
+        bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0 && !rtsService.IsPaymentAfterApproval;
 
         var entity = _mapper.Map<RTSApplicationDetailsEntity>(createDto);
 
         entity.Remark = ApplicationStatus.Remark;
-        entity.ApplicationStatus = ApplicationStatus.Pending;
+        entity.ApplicationStatus = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
         entity.UserId = 0;
         entity.ApprovalFlowId = approvalFlow.ApprovalFlowId;
         entity.CurrentApprovalFlowStageId = firstStage.StageId;
@@ -243,7 +242,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             _allocationRules.NormalizeValues(fieldValues),
             cancellationToken);
 
-        var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0;
+        var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0 && application.Service.IsPaymentAfterApproval;
 
         var isPaymentSuccessful = false;
 

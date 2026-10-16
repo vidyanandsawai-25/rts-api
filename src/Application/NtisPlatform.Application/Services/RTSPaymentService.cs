@@ -1440,6 +1440,8 @@ public class RTSPaymentService : IRTSPaymentService
             })
             .ToDictionaryAsync(item => item.ApplicationId, item => item.TransactionId, ct);
 
+        
+
         var transactions = await _paymentRepository.GetQueryable()
             .AsNoTracking()
             .Include(transaction => transaction.PaymentStatus)
@@ -1447,6 +1449,9 @@ public class RTSPaymentService : IRTSPaymentService
             .Where(transaction => latestTransactionIds.Values.Contains(transaction.Id))
             .ToListAsync(ct);
         var transactionsByApplicationId = transactions.ToDictionary(transaction => transaction.ApplicationId);
+
+
+        
 
         return applications
             .Select(application =>

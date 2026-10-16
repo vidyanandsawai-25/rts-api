@@ -5976,6 +5976,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsCertificateRequired)
                 .IsRequired()
                 .HasDefaultValue(true);
+            entity.Property(e => e.IsPaymentAfterApproval)
+                .IsRequired()
+                .HasDefaultValue(false);
             entity.Property(e => e.IsSmsEnabled)
                 .IsRequired()
                 .HasDefaultValue(true);

@@ -29,6 +29,7 @@ public class CurrentApprovalOfficerDto
     public bool IsManualCertificate { get; set; }
     public bool CanViewCertificate { get; set; }
     public bool CanUploadDocument { get; set; }
+    public bool IsPaymentAfterApproval { get; set; }
     public int CertificateType { get; set; }
     public bool IsCertificateRequired { get; set; } = true;
 

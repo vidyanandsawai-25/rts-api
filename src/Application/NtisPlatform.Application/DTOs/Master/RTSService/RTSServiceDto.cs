@@ -1,14 +1,11 @@
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 using NtisPlatform.Core.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
 
 public class RTSServiceDto : BaseDtos
 {
     public int DepartmentId { get; set; }
-
-
     public string ServiceName { get; set; } = string.Empty;
     public string? ServiceNameLocal { get; set; }
     public string? Description { get; set; }
@@ -18,6 +15,7 @@ public class RTSServiceDto : BaseDtos
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public bool IsPaymentAfterApproval { get; set; }
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsCertificateRequired { get; set; } = true;
     public bool IsSmsEnabled { get; set; } = true;
@@ -49,6 +47,7 @@ public class CreateRTSServiceDto : CreateBaseDtos
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public bool IsPaymentAfterApproval { get; set; }
     public bool IsCertificateRequired { get; set; } = true;
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsSmsEnabled { get; set; } = true;
@@ -82,6 +81,7 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
     public bool IsCertificateRequired { get; set; } = true;
+    public bool IsPaymentAfterApproval { get; set; }
     public RTSCertificateType CertificateType { get; set; } = RTSCertificateType.None;
     public bool IsSmsEnabled { get; set; } = true;
 }
