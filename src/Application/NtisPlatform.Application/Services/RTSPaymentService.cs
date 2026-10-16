@@ -1643,7 +1643,14 @@ public class RTSPaymentService : IRTSPaymentService
         if (!string.IsNullOrWhiteSpace(query.StatusCode) && query.StatusCode.ToUpper() != "ALL")
         {
             var code = query.StatusCode.Trim().ToUpperInvariant();
-            q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
+            if (code == "PENDING_CLEARANCE")
+            {
+                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code && (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"));
+            }
+            else
+            {
+                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
+            }
         }
 
         // Date Range
@@ -1771,8 +1778,9 @@ public class RTSPaymentService : IRTSPaymentService
         var today = DateTime.Today;
 
         var pendingDdChequeCount = await _paymentRepository.GetQueryable()
-            .CountAsync(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING_CLEARANCE") ||
-                (t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || t.PaymentMode.ModeCode == "DD") && t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING"), ct);
+            .CountAsync(t => ((t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING_CLEARANCE") ||
+                (t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || t.PaymentMode.ModeCode == "DD") && t.PaymentStatus != null && t.PaymentStatus.StatusCode == "PENDING")) &&
+                (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"), ct);
 
         var pendingOnlineCount = await _paymentRepository.GetQueryable()
             .CountAsync(t => t.PaymentStatus != null && (t.PaymentStatus.StatusCode == "PENDING" || t.PaymentStatus.StatusCode == "INITIATED") &&
