@@ -70,6 +70,72 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Creates or updates a statutory fee demand before payment (e.g. from rule engine fee assessment)
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("demand")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentDemandDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateOrUpdateDemand([FromBody] CreatePaymentDemandRequestDto request, CancellationToken ct)
+    {
+        if (request == null || request.ApplicationId <= 0)
+        {
+            return BadRequest(new ApiResponse<PaymentDemandDto>
+            {
+                Success = false,
+                Message = "Valid ApplicationId is required."
+            });
+        }
+
+        try
+        {
+            var result = await _paymentService.CreateOrUpdatePaymentDemandAsync(request, ct);
+            return Ok(new ApiResponse<PaymentDemandDto>
+            {
+                Success = true,
+                Message = "Statutory fee demand assessed and saved successfully.",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating fee demand for application {AppId}", request.ApplicationId);
+            return BadRequest(new ApiResponse<PaymentDemandDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets the statutory fee demand for an application
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("demand/{applicationId:int}")]
+    [ProducesResponseType(typeof(ApiResponse<PaymentDemandDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDemand(int applicationId, CancellationToken ct)
+    {
+        var demand = await _paymentService.GetPaymentDemandAsync(applicationId, ct);
+        if (demand == null)
+        {
+            return NotFound(new ApiResponse<PaymentDemandDto>
+            {
+                Success = false,
+                Message = $"No fee demand found for application {applicationId}."
+            });
+        }
+
+        return Ok(new ApiResponse<PaymentDemandDto>
+        {
+            Success = true,
+            Message = "Statutory fee demand retrieved successfully.",
+            Items = demand
+        });
+    }
+
+    /// <summary>
     /// Creates the stored PENDING fee snapshot for an application when one does
     /// not already exist. This endpoint is idempotent and is primarily used to
     /// recover legacy applications submitted before payment snapshots existed.

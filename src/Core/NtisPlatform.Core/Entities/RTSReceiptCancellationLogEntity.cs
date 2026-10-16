@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 public class RTSReceiptCancellationLogEntity
 {
     public int Id { get; set; }
+    public long? DemandId { get; set; }
     public long TransactionId { get; set; }
     public int ApplicationId { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;
@@ -24,6 +25,7 @@ public class RTSReceiptCancellationLogEntity
     public string? IPAddress { get; set; }
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
+    public virtual RTSPaymentDemandEntity? PaymentDemand { get; set; }
     public virtual RTSPaymentTransactionEntity? PaymentTransaction { get; set; }
     public virtual RTSApplicationDetailsEntity? Application { get; set; }
 }

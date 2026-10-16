@@ -19,6 +19,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
+    private readonly IRepository<RTSPaymentDemandEntity, long> _demandRepository;
     private readonly IRepository<RTSPaymentTransactionEntity, long> _paymentRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
@@ -35,6 +36,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IRepository<TrackApplicationHistoryEntity, int> historyRepository,
           IRepository<UserEntity, int> userRepository,
           IRepository<RTSFieldValueEntity, int> fieldValueRepository,
+          IRepository<RTSPaymentDemandEntity, long> demandRepository,
           IRepository<RTSPaymentTransactionEntity, long> paymentRepository,
           IRepository<RTSServiceEntity, int> serviceRepository,
           IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
@@ -51,6 +53,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _userRepository = userRepository;
         _historyRepository = historyRepository;
         _fieldValueRepository = fieldValueRepository;
+        _demandRepository = demandRepository;
         _paymentRepository = paymentRepository;
         _serviceRepository = serviceRepository;
         _smsNotificationService = smsNotificationService;
@@ -78,22 +81,49 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         string action,
         CancellationToken cancellationToken)
     {
-        var paymentSnapshot = await _paymentRepository.GetQueryable()
+        var demand = await _demandRepository.GetQueryable()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.ApplicationId == applicationId && d.IsActive, cancellationToken);
+
+        if (demand != null && demand.TotalAmount > 0)
+        {
+            if (string.Equals(demand.DemandStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var paymentSnapshot = await _paymentRepository.GetQueryable()
+                .AsNoTracking()
+                .Include(payment => payment.PaymentStatus)
+                .Where(payment => payment.ApplicationId == applicationId && payment.IsActive && !payment.IsReceiptCancelled)
+                .OrderByDescending(payment => payment.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (paymentSnapshot != null &&
+                string.Equals(paymentSnapshot.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot {action} application {applicationNo}. Statutory fee of ₹{demand.TotalAmount:F2} is pending under Demand {demand.DemandNo}. Payment must be recorded before proceeding.");
+        }
+
+        var legacyPayment = await _paymentRepository.GetQueryable()
             .AsNoTracking()
             .Include(payment => payment.PaymentStatus)
-            .Where(payment => payment.ApplicationId == applicationId)
-            .OrderByDescending(payment => payment.CreatedDate)
-            .ThenByDescending(payment => payment.Id)
+            .Where(payment => payment.ApplicationId == applicationId && payment.IsActive && !payment.IsReceiptCancelled)
+            .OrderByDescending(payment => payment.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (paymentSnapshot == null || paymentSnapshot.TotalAmount <= 0 ||
-            string.Equals(paymentSnapshot.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+        if (legacyPayment == null || legacyPayment.TotalAmount <= 0 ||
+            string.Equals(legacyPayment.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         throw new InvalidOperationException(
-            $"Cannot {action} application {applicationNo}. Government statutory fee of ₹{paymentSnapshot.TotalAmount:F2} is pending. Payment must be recorded before proceeding.");
+            $"Cannot {action} application {applicationNo}. Statutory fee of ₹{legacyPayment.TotalAmount:F2} is pending. Payment must be recorded before proceeding.");
     }
 
     public async Task<RTSApplicationDashboardCardsCountDto> GetDashboardCardsDataAsync(CancellationToken cancellationToken = default)
@@ -770,16 +800,24 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 $"The application has no active assigned officer for stage '{currentStage.StageName}'.");
         }
 
+        var demand = await _demandRepository.GetQueryable()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.ApplicationId == result.ApplicationId && d.IsActive, cancellationToken);
+
         var paymentTxn = await _paymentRepository.GetQueryable()
             .AsNoTracking()
             .Include(p => p.PaymentStatus)
-            .Where(p => p.ApplicationId == result.ApplicationId)
-            .OrderByDescending(p => p.CreatedDate)
-            .ThenByDescending(p => p.Id)
+            .Where(p => p.ApplicationId == result.ApplicationId && p.IsActive && !p.IsReceiptCancelled)
+            .OrderByDescending(p => p.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool isPaid = string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
-        string paymentStatus = paymentTxn?.PaymentStatus?.StatusCode ?? (result.FeesRequired ? "PENDING" : "NOT_REQUIRED");
+        bool isPaid = string.Equals(demand?.DemandStatus, "Paid", StringComparison.OrdinalIgnoreCase) ||
+                      string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
+
+        decimal fee = demand?.TotalAmount ?? paymentTxn?.TotalAmount ?? result.ServiceFees ?? 0m;
+        string paymentStatus = isPaid
+            ? "SUCCESS"
+            : (paymentTxn?.PaymentStatus?.StatusCode ?? (fee > 0 ? "PENDING" : "NOT_REQUIRED"));
         string? receiptNo = paymentTxn?.ReceiptNo;
 
         return new CurrentApprovalOfficerDto
@@ -819,9 +857,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             ServiceName = result.ServiceName,
             ServiceFees = result.ServiceFees,
             IsPaymentAfterApproval=result.IsPaymentAfterApproval,
-            FeesRequired = result.FeesRequired,
+            FeesRequired = result.FeesRequired || fee > 0,
             PaymentTransactionId = paymentTxn?.Id,
-            PayableFee = paymentTxn?.TotalAmount ?? result.ServiceFees,
+            PayableFee = fee,
             HasPaymentTransaction = paymentTxn != null,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,

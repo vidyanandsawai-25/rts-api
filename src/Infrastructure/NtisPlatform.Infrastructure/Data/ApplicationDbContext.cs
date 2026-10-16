@@ -262,6 +262,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RTSPaymentStatusMasterEntity> RTSPaymentStatusMasters { get; set; } = null!;
     public DbSet<RTSPaymentModeMasterEntity> RTSPaymentModeMasters { get; set; } = null!;
     public DbSet<RTSPaymentGatewayConfigEntity> RTSPaymentGatewayConfigs { get; set; } = null!;
+    public DbSet<RTSPaymentDemandEntity> RTSPaymentDemands { get; set; } = null!;
+    public DbSet<RTSPaymentGatewayOrderEntity> RTSPaymentGatewayOrders { get; set; } = null!;
     public DbSet<RTSPaymentTransactionEntity> RTSPaymentTransactions { get; set; } = null!;
     public DbSet<RTSRuleMasterEntity> RTSRuleMasters { get; set; } = null!;
     public DbSet<RTSRuleConditionEntity> RTSRuleConditions { get; set; } = null!;
@@ -6624,6 +6626,93 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
         });
 
+        modelBuilder.Entity<RTSPaymentDemandEntity>(entity =>
+        {
+            entity.ToTable("PaymentDemand", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.DemandNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.ApplicationNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.DepartmentId).IsRequired();
+
+            entity.Property(e => e.BaseAmount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.LateFeeAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.DiscountAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("INR");
+            entity.Property(e => e.DemandStatus).IsRequired().HasMaxLength(30).HasDefaultValue("Pending");
+            entity.Property(e => e.RuleDetailsJson);
+            entity.Property(e => e.Remarks).HasMaxLength(500);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<RTSPaymentGatewayOrderEntity>(entity =>
+        {
+            entity.ToTable("PaymentGatewayOrder", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.DemandId).IsRequired();
+            entity.Property(e => e.ApplicationId).IsRequired();
+            entity.Property(e => e.GatewayConfigId).IsRequired();
+            entity.Property(e => e.GatewayCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.GatewayOrderId).IsRequired().HasMaxLength(100);
+
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("INR");
+            entity.Property(e => e.OrderStatus).IsRequired().HasMaxLength(30).HasDefaultValue("Initiated");
+
+            entity.Property(e => e.GatewayPaymentId).HasMaxLength(100);
+            entity.Property(e => e.GatewaySignature).HasMaxLength(500);
+            entity.Property(e => e.GatewayFee).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GatewayTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GatewayResponseJson);
+            entity.Property(e => e.FailureReason).HasMaxLength(500);
+
+            entity.Property(e => e.CustomerName).HasMaxLength(150);
+            entity.Property(e => e.CustomerEmail).HasMaxLength(150);
+            entity.Property(e => e.CustomerMobile).HasMaxLength(20);
+
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Demand)
+                .WithMany()
+                .HasForeignKey(e => e.DemandId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Application)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.GatewayConfig)
+                .WithMany()
+                .HasForeignKey(e => e.GatewayConfigId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<RTSPaymentTransactionEntity>(entity =>
         {
             entity.ToTable("PaymentTransaction", "RTS");
@@ -6635,7 +6724,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ApplicationNo).IsRequired().HasMaxLength(50);
             entity.Property(e => e.ServiceId).IsRequired();
             entity.Property(e => e.DepartmentId).IsRequired();
-            entity.Property(e => e.GatewayConfigId).IsRequired();
+            entity.Property(e => e.DemandId);
+            entity.Property(e => e.GatewayOrderRowId);
+            entity.Property(e => e.GatewayConfigId);
             entity.Property(e => e.PaymentStatusId).IsRequired();
 
             entity.Property(e => e.BaseAmount).HasColumnType("decimal(18,2)").IsRequired();
@@ -6644,7 +6735,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TotalAmount).HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.Currency).IsRequired().HasMaxLength(10).HasDefaultValue("INR");
 
-            entity.Property(e => e.GatewayOrderId).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.GatewayOrderId).HasMaxLength(100);
             entity.Property(e => e.GatewayPaymentId).HasMaxLength(100);
             entity.Property(e => e.GatewaySignature).HasMaxLength(500);
             entity.Property(e => e.GatewayFee).HasColumnType("decimal(18,2)");
@@ -6664,6 +6755,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ReceiptCancelledDate).HasColumnType("datetime");
             entity.Property(e => e.ReceiptCancelledBy);
             entity.Property(e => e.ReceiptCancellationReason).HasMaxLength(500);
+            entity.Property(e => e.PayerName).HasMaxLength(150);
+            entity.Property(e => e.PayerMobile).HasMaxLength(20);
             entity.Property(e => e.PayerVpaOrAccount).HasMaxLength(150);
             entity.Property(e => e.ReceiptNo).HasMaxLength(100);
             entity.Property(e => e.ReceiptDate).HasColumnType("datetime");
@@ -6688,6 +6781,16 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Department)
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Demand)
+                .WithMany()
+                .HasForeignKey(e => e.DemandId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.GatewayOrder)
+                .WithMany()
+                .HasForeignKey(e => e.GatewayOrderRowId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.GatewayConfig)
@@ -6733,6 +6836,11 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.PaymentTransaction)
                 .WithMany()
                 .HasForeignKey(e => e.TransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PaymentDemand)
+                .WithMany()
+                .HasForeignKey(e => e.DemandId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Application)
