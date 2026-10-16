@@ -12,7 +12,9 @@ public class RTSPaymentTransactionEntity
     public int ServiceId { get; set; }
     public int DepartmentId { get; set; }
 
-    public int GatewayConfigId { get; set; }
+    public long? DemandId { get; set; }
+    public long? GatewayOrderRowId { get; set; }
+    public int? GatewayConfigId { get; set; }
     public int PaymentStatusId { get; set; }
     public int? PaymentModeId { get; set; }
 
@@ -42,6 +44,8 @@ public class RTSPaymentTransactionEntity
     public DateTime? ReceiptCancelledDate { get; set; }
     public int? ReceiptCancelledBy { get; set; }
     public string? ReceiptCancellationReason { get; set; }
+    public string? PayerName { get; set; }
+    public string? PayerMobile { get; set; }
     public string? PayerVpaOrAccount { get; set; }
     public string? ReceiptNo { get; set; }
     public DateTime? ReceiptDate { get; set; }
@@ -60,7 +64,9 @@ public class RTSPaymentTransactionEntity
     public virtual RTSApplicationDetailsEntity Application { get; set; } = null!;
     public virtual RTSServiceEntity Service { get; set; } = null!;
     public virtual RTSDepartmentEntity Department { get; set; } = null!;
-    public virtual RTSPaymentGatewayConfigEntity GatewayConfig { get; set; } = null!;
+    public virtual RTSPaymentDemandEntity? Demand { get; set; }
+    public virtual RTSPaymentGatewayOrderEntity? GatewayOrder { get; set; }
+    public virtual RTSPaymentGatewayConfigEntity? GatewayConfig { get; set; }
     public virtual RTSPaymentStatusMasterEntity PaymentStatus { get; set; } = null!;
     public virtual RTSPaymentModeMasterEntity? PaymentMode { get; set; }
 }

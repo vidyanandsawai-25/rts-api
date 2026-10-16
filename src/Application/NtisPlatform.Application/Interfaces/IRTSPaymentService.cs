@@ -7,6 +7,8 @@ namespace NtisPlatform.Application.Interfaces;
 
 public interface IRTSPaymentService
 {
+    Task<PaymentDemandDto> CreateOrUpdatePaymentDemandAsync(CreatePaymentDemandRequestDto request, CancellationToken ct = default);
+    Task<PaymentDemandDto?> GetPaymentDemandAsync(int applicationId, CancellationToken ct = default);
     Task<PaymentOrderResponseDto> CreatePaymentOrderAsync(CreatePaymentOrderRequestDto request, CancellationToken ct = default);
     Task<PaymentStatusDto> InitializePendingPaymentAsync(int applicationId, CancellationToken ct = default);
     Task<VerifyPaymentResponseDto> VerifyPaymentAsync(VerifyPaymentRequestDto request, CancellationToken ct = default);

@@ -19,6 +19,47 @@ public class CreatePaymentOrderRequestDto
 
 }
 
+public class PaymentDemandDto
+{
+    public long Id { get; set; }
+    public string DemandNo { get; set; } = string.Empty;
+    public int ApplicationId { get; set; }
+    public string ApplicationNo { get; set; } = string.Empty;
+    public int ServiceId { get; set; }
+    public int DepartmentId { get; set; }
+    public decimal BaseAmount { get; set; }
+    public decimal LateFeeAmount { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string Currency { get; set; } = "INR";
+    public string DemandStatus { get; set; } = "Pending";
+    public string? RuleDetailsJson { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
+public class CreatePaymentDemandRequestDto
+{
+    [Required]
+    public int ApplicationId { get; set; }
+    public decimal? AmountOverride { get; set; }
+    public string? Remarks { get; set; }
+}
+
+public class PaymentGatewayOrderDto
+{
+    public long Id { get; set; }
+    public long DemandId { get; set; }
+    public int ApplicationId { get; set; }
+    public string GatewayCode { get; set; } = "RAZORPAY";
+    public string GatewayOrderId { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "INR";
+    public string OrderStatus { get; set; } = "Initiated";
+    public string? GatewayPaymentId { get; set; }
+    public DateTime CreatedDate { get; set; }
+}
+
 public class PaymentStatusDto
 {
     public long? TransactionId { get; set; }
@@ -131,6 +172,7 @@ public class VerifyPaymentResponseDto
 public class PaymentReceiptDto
 {
     public int TransactionId { get; set; }
+    public string? DemandNo { get; set; }
     public int ApplicationId { get; set; }
     public string ApplicationNo { get; set; } = string.Empty;
     public string ServiceName { get; set; } = string.Empty;
@@ -185,6 +227,7 @@ public class PaymentTransactionListItemDto
 {
     public long Id { get; set; }
     public string TransactionNo { get; set; } = string.Empty;
+    public string? DemandNo { get; set; }
     public int ApplicationId { get; set; }
     public string ApplicationNo { get; set; } = string.Empty;
     public string ServiceName { get; set; } = string.Empty;
@@ -257,6 +300,7 @@ public class PendingClearanceItemDto
 {
     public long TransactionId { get; set; }
     public string TransactionNo { get; set; } = string.Empty;
+    public string? DemandNo { get; set; }
     public int ApplicationId { get; set; }
     public string ApplicationNo { get; set; } = string.Empty;
     public string? CitizenName { get; set; }
@@ -330,6 +374,7 @@ public class RTSBankLookupDto
 public class ReceiptCancellationLogDto
 {
     public int Id { get; set; }
+    public long? DemandId { get; set; }
     public long TransactionId { get; set; }
     public int ApplicationId { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;
