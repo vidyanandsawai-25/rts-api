@@ -1837,7 +1837,19 @@ public class RTSPaymentService : IRTSPaymentService
         txn.PaymentDate = clearanceDate;
 
         if (!string.IsNullOrWhiteSpace(request.BankRefNo))
+        {
             txn.BankRefNo = request.BankRefNo.Trim();
+            if (string.IsNullOrWhiteSpace(txn.GatewayPaymentId))
+            {
+                txn.GatewayPaymentId = txn.BankRefNo;
+            }
+        }
+
+        // If PaymentModeId was null (e.g. pending online snapshot reconciled manually), default to Netbanking / Online
+        if (!txn.PaymentModeId.HasValue || txn.PaymentModeId.Value <= 0)
+        {
+            txn.PaymentModeId = 2; // Default to NetBanking (Internet Banking / UTR Transfer)
+        }
 
         if (string.IsNullOrWhiteSpace(txn.ReceiptNo) || txn.ReceiptNo.StartsWith("PROV/"))
         {
