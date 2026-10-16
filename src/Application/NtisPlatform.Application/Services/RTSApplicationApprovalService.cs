@@ -860,7 +860,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             FeesRequired = result.FeesRequired || fee > 0,
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = fee,
-            HasPaymentTransaction = paymentTxn != null,
+            HasPaymentTransaction = paymentTxn != null || (demand != null && demand.TotalAmount > 0) || fee > 0,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo
