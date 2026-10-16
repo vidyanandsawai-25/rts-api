@@ -932,11 +932,10 @@ public class RTSPaymentService : IRTSPaymentService
         }
 
         int? paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
-
-        bool isInstrument = (request.PaymentMode?.IndexOf("CHEQUE", StringComparison.OrdinalIgnoreCase) >= 0)
-                         || (request.PaymentMode?.IndexOf("धनादेश", StringComparison.OrdinalIgnoreCase) >= 0)
-                         || (request.PaymentMode?.IndexOf("DD", StringComparison.OrdinalIgnoreCase) >= 0)
-                         || (request.PaymentMode?.IndexOf("DEMAND", StringComparison.OrdinalIgnoreCase) >= 0);
+        var modeEntity = paymentModeId.HasValue ? await _modeRepository.GetByIdAsync(paymentModeId.Value, ct) : null;
+        bool isInstrument = modeEntity != null
+            ? (modeEntity.ModeCode == "CHEQUE" || modeEntity.ModeCode == "DD")
+            : (!string.IsNullOrWhiteSpace(request.PaymentMode) && (request.PaymentMode.Contains("CHEQUE", StringComparison.OrdinalIgnoreCase) || request.PaymentMode.Contains("DD", StringComparison.OrdinalIgnoreCase) || request.PaymentMode.Contains("धनादेश", StringComparison.OrdinalIgnoreCase)));
 
         var pendingClearanceStatus = isInstrument ? await GetStatusByCodeAsync("PENDING_CLEARANCE", ct) : null;
         var initialStatus = isInstrument ? pendingClearanceStatus! : successStatus;
@@ -1591,22 +1590,74 @@ public class RTSPaymentService : IRTSPaymentService
     {
         long whole = (long)Math.Floor(amount);
         if (whole == 0) return "शून्य रुपये फक्त";
-        if (whole == 30) return "तीस रुपये फक्त";
-        if (whole == 50) return "पन्नास रुपये फक्त";
-        if (whole == 100) return "एकशे रुपये फक्त";
-        if (whole == 150) return "एकशे पन्नास रुपये फक्त";
-        if (whole == 200) return "दोनशे रुपये फक्त";
-        if (whole == 300) return "तीनशे रुपये फक्त";
-        if (whole == 500) return "पाचशे रुपये फक्त";
-        if (whole == 700) return "सातशे रुपये फक्त";
-        if (whole == 1000) return "एक हजार रुपये फक्त";
-        if (whole == 2000) return "दोन हजार रुपये फक्त";
-        return $"{whole} रुपये फक्त";
+        string words = NumberToWordsMr(whole);
+        return $"{words} रुपये फक्त";
+    }
+
+    private static string NumberToWordsMr(long number)
+    {
+        if (number == 0) return "शून्य";
+        if (number < 0) return "उणे " + NumberToWordsMr(Math.Abs(number));
+
+        string words = "";
+
+        if ((number / 10000000) > 0)
+        {
+            words += NumberToWordsMr(number / 10000000) + " कोटी ";
+            number %= 10000000;
+        }
+
+        if ((number / 100000) > 0)
+        {
+            words += NumberToWordsMr(number / 100000) + " लाख ";
+            number %= 100000;
+        }
+
+        if ((number / 1000) > 0)
+        {
+            words += NumberToWordsMr(number / 1000) + " हजार ";
+            number %= 1000;
+        }
+
+        if ((number / 100) > 0)
+        {
+            words += NumberToWordsMr(number / 100) + " शे ";
+            number %= 100;
+        }
+
+        if (number > 0)
+        {
+            var mrNumbers = new[]
+            {
+                "", "एक", "दोन", "तीन", "चार", "पाच", "सहा", "सात", "आठ", "नऊ", "दहा",
+                "अकरा", "बारा", "तेरा", "चौदा", "पंधरा", "सोळा", "सतरा", "अठरा", "एकोणीस", "वीस",
+                "एकवीस", "बावीस", "तेवीस", "चोवीस", "पंचवीस", "सव्वीस", "सत्तावीस", "अठ्ठावीस", "एकोणतीस", "तीस",
+                "एकतीस", "बत्तीस", "तेहेतीस", "चौतीस", "पस्तीस", "छत्तीस", "सदतीस", "अडतीस", "एकेचाळीस", "चाळीस",
+                "एक्केचाळीस", "बेचाळीस", "त्रेचाळीस", "चव्वेचाळीस", "पंचेचाळीस", "शेहेचाळीस", "सत्तेचाळीस", "अठ्ठेचाळीस", "एकोणपन्नास", "पन्नास",
+                "एक्कावन्न", "बावन्न", "त्रेपन्न", "चोपन्न", "पंचावन्न", "छप्पन्न", "सत्तावन्न", "अठ्ठावन्न", "एकोणसाठ", "साठ",
+                "एकसष्ठ", "बासष्ठ", "त्रेसष्ठ", "चौसष्ठ", "पासष्ठ", "सहासष्ठ", "सदुसष्ठ", "अडुसष्ठ", "एकोणसत्तर", "सत्तर",
+                "एकाहत्तर", "बाहत्तर", "त्र्याहत्तर", "चौऱ्याहत्तर", "पंचाहत्तर", "शहात्तर", "सत्त्याहत्तर", "अठ्ठ्याहत्तर", "एकोणऐंशी", "ऐंशी",
+                "ऐंशी", "ब्याऐंशी", "त्र्याऐंशी", "चौऱ्याऐंशी", "पंच्याऐंशी", "शहाऐंशी", "सत्त्याऐंशी", "अठ्ठ्याऐंशी", "एकोणनव्वद", "नव्वद",
+                "एक्याण्णव", "ब्याण्णव", "त्र्याण्णव", "चौऱ्याण्णव", "पंच्याण्णव", "शहाण्णव", "सत्त्याण्णव", "अठ्ठ्याण्णव", "नव्व्याण्णव"
+            };
+
+            if (number < mrNumbers.Length)
+            {
+                words += mrNumbers[number];
+            }
+            else
+            {
+                words += number.ToString();
+            }
+        }
+
+        return words.Trim();
     }
 
     public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto query, CancellationToken ct = default)
     {
         var q = _paymentRepository.GetQueryable().AsNoTracking()
+            .Include(t => t.Application)
             .Include(t => t.Service)
             .Include(t => t.Department)
             .Include(t => t.PaymentMode)
@@ -1684,6 +1735,8 @@ public class RTSPaymentService : IRTSPaymentService
             q = q.Where(t =>
                 t.ApplicationNo.Contains(st) ||
                 t.TransactionNo.Contains(st) ||
+                (t.Application != null && t.Application.ApplicantName != null && t.Application.ApplicantName.Contains(st)) ||
+                (t.Application != null && t.Application.ApplicantMobileNo != null && t.Application.ApplicantMobileNo.Contains(st)) ||
                 (t.InstrumentNo != null && t.InstrumentNo.Contains(st)) ||
                 (t.BankName != null && t.BankName.Contains(st)) ||
                 (t.ReceiptNo != null && t.ReceiptNo.Contains(st)) ||
@@ -1738,8 +1791,12 @@ public class RTSPaymentService : IRTSPaymentService
             TransactionNo = t.TransactionNo,
             ApplicationId = t.ApplicationId,
             ApplicationNo = t.ApplicationNo,
-            CitizenName = applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant",
-            CitizenMobile = applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : "",
+            CitizenName = !string.IsNullOrWhiteSpace(t.Application?.ApplicantName)
+                ? t.Application.ApplicantName
+                : (applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant"),
+            CitizenMobile = !string.IsNullOrWhiteSpace(t.Application?.ApplicantMobileNo)
+                ? t.Application.ApplicantMobileNo
+                : (applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : ""),
             ServiceName = t.Service?.ServiceName ?? "RTS Service",
             ServiceNameLocal = t.Service?.ServiceNameLocal,
             DepartmentName = t.Department?.DepartmentName ?? "RTS Department",
@@ -2251,7 +2308,9 @@ public class RTSPaymentService : IRTSPaymentService
                         TransactionId = matchedTxn.Id,
                         ClearanceDate = clearanceDate,
                         BankRefNo = !string.IsNullOrWhiteSpace(instrumentNo) ? instrumentNo : matchedTxn.BankRefNo,
-                        Remarks = !string.IsNullOrWhiteSpace(remarks) ? remarks : "Bulk bank clearance approved"
+                        Remarks = !string.IsNullOrWhiteSpace(remarks) ? remarks : "Bulk bank clearance approved",
+                        PaymentModeId = matchedTxn.PaymentModeId,
+                        BankId = matchedTxn.BankId
                     }, officerUserId, ct);
 
                     response.SuccessCount++;
