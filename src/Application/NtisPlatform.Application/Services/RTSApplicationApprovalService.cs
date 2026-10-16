@@ -902,12 +902,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!currentStage.CanVerifyDocument)
             throw new InvalidOperationException("This stage does not permit document verification.");
 
-        // The transaction snapshot, not today's Service Master fee, is authoritative.
-        await EnsurePaymentSnapshotIsSettledAsync(
-            applicationId,
-            application.ApplicationNo,
-            "process",
-            cancellationToken);
+        // Default workflow: statutory fee is settled before verification and
+        // stage advancement. Payment-after-approval services intentionally
+        // defer this check until the approved-payment step.
+        if (application.Service?.IsPaymentAfterApproval != true)
+        {
+            await EnsurePaymentSnapshotIsSettledAsync(
+                applicationId,
+                application.ApplicationNo,
+                "process",
+                cancellationToken);
+        }
 
         var currentHistory = await _historyRepository
         .GetQueryable()
@@ -1028,12 +1033,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application approval.");
 
-        // The transaction snapshot, not today's Service Master fee, is authoritative.
-        await EnsurePaymentSnapshotIsSettledAsync(
-            applicationId,
-            application.ApplicationNo,
-            "approve",
-            cancellationToken);
+        // Default workflow: statutory fee is settled before approval.
+        // Payment-after-approval services defer this check until payment is due.
+        if (application.Service?.IsPaymentAfterApproval != true)
+        {
+            await EnsurePaymentSnapshotIsSettledAsync(
+                applicationId,
+                application.ApplicationNo,
+                "approve",
+                cancellationToken);
+        }
 
         var currentHistory = await _historyRepository
                 .GetQueryable()
