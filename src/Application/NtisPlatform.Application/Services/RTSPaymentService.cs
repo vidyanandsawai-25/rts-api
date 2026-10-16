@@ -311,9 +311,14 @@ public class RTSPaymentService : IRTSPaymentService
 
         var pendingStatus = await GetStatusByCodeAsync("PENDING", ct);
         var gatewayConfig = await GetActiveGatewayConfigAsync(null, ct);
+        // A snapshot is created before a payment gateway order exists. The
+        // database currently requires GatewayOrderId to be unique and non-null,
+        // so keep a unique internal placeholder until the online or offline
+        // payment flow replaces it with the actual order reference.
+        var transactionNo = $"{DateTime.Now:yyyyMMdd}_{Guid.NewGuid().ToString("N")[..8].ToUpper()}";
         var transaction = new RTSPaymentTransactionEntity
         {
-            TransactionNo = $"TXN/RTS/{DateTime.Now:yyyyMMdd}/{Guid.NewGuid().ToString("N")[..8].ToUpper()}",
+            TransactionNo = transactionNo,
             ApplicationId = app.Id,
             ApplicationNo = app.ApplicationNo ?? $"APP{app.Id}",
             ServiceId = app.ServiceId,
@@ -325,7 +330,7 @@ public class RTSPaymentService : IRTSPaymentService
             DiscountAmount = 0,
             TotalAmount = payableAmount,
             Currency = gatewayConfig.Currency ?? "INR",
-            GatewayOrderId = string.Empty,
+            GatewayOrderId = $"PENDING_{transactionNo}",
             Remarks = "Payment snapshot created at application submission.",
             CreatedDate = DateTime.Now,
             IsActive = true
