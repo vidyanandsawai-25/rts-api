@@ -631,6 +631,35 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Gets list of active payment modes from master lookup
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("payment-modes")]
+    [ProducesResponseType(typeof(ApiResponse<List<RTSPaymentModeLookupDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaymentModes(CancellationToken ct)
+    {
+        try
+        {
+            var modes = await _paymentService.GetPaymentModesAsync(ct);
+            return Ok(new ApiResponse<List<RTSPaymentModeLookupDto>>
+            {
+                Success = true,
+                Message = "Payment modes fetched successfully.",
+                Items = modes
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching payment modes");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<List<RTSPaymentModeLookupDto>>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Gets audit log of cancelled receipts
     /// </summary>
     [AllowAnonymous]

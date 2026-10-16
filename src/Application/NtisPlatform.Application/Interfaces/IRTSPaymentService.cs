@@ -27,6 +27,7 @@ public interface IRTSPaymentService
     Task<BulkClearanceResponseDto> BulkClearanceUploadAsync(System.IO.Stream stream, int officerUserId, CancellationToken ct = default);
     Task<byte[]> DownloadClearanceTemplateAsync(CancellationToken ct = default);
     Task<System.Collections.Generic.List<RTSBankLookupDto>> GetBanksAsync(CancellationToken ct = default);
+    Task<System.Collections.Generic.List<RTSPaymentModeLookupDto>> GetPaymentModesAsync(CancellationToken ct = default);
     Task<System.Collections.Generic.List<ReceiptCancellationLogDto>> GetCancellationLogsAsync(int? applicationId = null, long? transactionId = null, CancellationToken ct = default);
 }
 

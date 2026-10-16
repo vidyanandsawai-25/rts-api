@@ -1845,10 +1845,32 @@ public class RTSPaymentService : IRTSPaymentService
             }
         }
 
-        // If PaymentModeId was null (e.g. pending online snapshot reconciled manually), default to Netbanking / Online
-        if (!txn.PaymentModeId.HasValue || txn.PaymentModeId.Value <= 0)
+        // Dynamically assign or resolve Payment Mode (no hardcoded IDs)
+        if (request.PaymentModeId.HasValue && request.PaymentModeId.Value > 0)
         {
-            txn.PaymentModeId = 2; // Default to NetBanking (Internet Banking / UTR Transfer)
+            txn.PaymentModeId = request.PaymentModeId.Value;
+        }
+        else if (!txn.PaymentModeId.HasValue || txn.PaymentModeId.Value <= 0)
+        {
+            var defaultMode = await _modeRepository.GetQueryable()
+                .Where(m => m.IsActive)
+                .OrderBy(m => m.ModeCode == "NETBANKING" ? 0 : (m.ModeCode == "ONLINE" ? 1 : 2))
+                .FirstOrDefaultAsync(ct);
+            if (defaultMode != null)
+            {
+                txn.PaymentModeId = defaultMode.Id;
+            }
+        }
+
+        // Dynamically assign Bank if selected by officer
+        if (request.BankId.HasValue && request.BankId.Value > 0)
+        {
+            txn.BankId = request.BankId.Value;
+            var bank = await _bankRepository.GetByIdAsync(request.BankId.Value, ct);
+            if (bank != null)
+            {
+                txn.BankName = bank.BankName;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(txn.ReceiptNo) || txn.ReceiptNo.StartsWith("PROV/"))
@@ -1878,6 +1900,13 @@ public class RTSPaymentService : IRTSPaymentService
                 app.UpdatedBy = officerUserId;
             }
 
+            var dynamicModeName = txn.PaymentMode?.ModeNameEn;
+            if (string.IsNullOrWhiteSpace(dynamicModeName) && txn.PaymentModeId.HasValue)
+            {
+                var modeEntity = await _modeRepository.GetByIdAsync(txn.PaymentModeId.Value, ct);
+                dynamicModeName = modeEntity?.ModeNameEn;
+            }
+
             var history = new TrackApplicationHistoryEntity
             {
                 ApplicationId = app.Id,
@@ -1886,7 +1915,7 @@ public class RTSPaymentService : IRTSPaymentService
                 ActionByUserId = officerUserId,
                 Action = "Payment Approved & Cleared",
                 Status = "Payment Done",
-                Remark = $"Payment of ₹{txn.TotalAmount:F2} cleared & approved by Officer ID {officerUserId}. Receipt: {txn.ReceiptNo}. Mode: {txn.PaymentMode?.ModeNameEn ?? "Instrument"}. Clearance Date: {clearanceDate:dd/MM/yyyy}",
+                Remark = $"Payment of ₹{txn.TotalAmount:F2} cleared & approved by Officer ID {officerUserId}. Receipt: {txn.ReceiptNo}. Mode: {dynamicModeName ?? "Instrument"}. Clearance Date: {clearanceDate:dd/MM/yyyy}",
                 CreatedDate = DateTime.Now,
                 IsActive = true,
                 CreatedBy = officerUserId
@@ -2312,6 +2341,23 @@ public class RTSPaymentService : IRTSPaymentService
                 BankName = b.BankName,
                 BranchName = b.BranchName,
                 IFSCCode = b.IFSCCode
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<RTSPaymentModeLookupDto>> GetPaymentModesAsync(CancellationToken ct = default)
+    {
+        return await _modeRepository.GetQueryable()
+            .Where(m => m.IsActive)
+            .OrderBy(m => m.Id)
+            .Select(m => new RTSPaymentModeLookupDto
+            {
+                Id = m.Id,
+                ModeCode = m.ModeCode,
+                ModeNameEn = m.ModeNameEn,
+                ModeNameMr = m.ModeNameMr,
+                IconName = m.IconName,
+                IsActive = m.IsActive
             })
             .ToListAsync(ct);
     }

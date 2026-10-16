@@ -212,6 +212,10 @@ public class ApprovePaymentRequestDto
     public string? BankRefNo { get; set; }
 
     public string? Remarks { get; set; }
+
+    public int? PaymentModeId { get; set; }
+
+    public int? BankId { get; set; }
 }
 
 public class DisapprovePaymentRequestDto
@@ -345,4 +349,12 @@ public class ReceiptCancellationLogDto
     public DateTime CreatedDate { get; set; }
 }
 
-
+public class RTSPaymentModeLookupDto
+{
+    public int Id { get; set; }
+    public string ModeCode { get; set; } = string.Empty;
+    public string ModeNameEn { get; set; } = string.Empty;
+    public string ModeNameMr { get; set; } = string.Empty;
+    public string? IconName { get; set; }
+    public bool IsActive { get; set; }
+}
