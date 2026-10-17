@@ -970,10 +970,20 @@ public static class RTSRuleConditionMatcher
 {
     private const string DatePartsPrefix = "DATE_PARTS:";
     private const string DateTimePartsPrefix = "DATETIME_PARTS:";
+    private const string DateAgeDaysPrefix = "DATE_AGE_DAYS:";
+    private static readonly HashSet<string> DateAgeDaysOperators = new(StringComparer.Ordinal)
+    {
+        "DATE_AGE_DAYS_LT",
+        "DATE_AGE_DAYS_LTE",
+        "DATE_AGE_DAYS_GT",
+        "DATE_AGE_DAYS_GTE",
+        "DATE_AGE_DAYS_BETWEEN"
+    };
 
     public static bool Matches(
         RTSRuleMasterEntity rule,
-        IReadOnlyDictionary<int, string> values)
+        IReadOnlyDictionary<int, string> values,
+        DateTime? referenceDate = null)
     {
         const int RootConditionKey = 0;
         var byParent = rule.Conditions
@@ -1003,7 +1013,7 @@ public static class RTSRuleConditionMatcher
                 !string.IsNullOrWhiteSpace(node.ExpectedValue) &&
                 values.TryGetValue(node.FieldDefinitionId.Value, out var actual) &&
                 !string.IsNullOrWhiteSpace(actual) &&
-                Compare(actual, node.ExpectedValue!, node.ComparisonOperator!);
+                Compare(actual, node.ExpectedValue!, node.ComparisonOperator!, referenceDate);
         }
 
         return EvaluateChildren(null, rule.ConditionMatchType);
@@ -1013,6 +1023,7 @@ public static class RTSRuleConditionMatcher
     {
         var type = NormalizeTemporalFieldType(fieldType);
         var op = comparisonOperator.Trim().ToUpperInvariant();
+        if (DateAgeDaysOperators.Contains(op)) return type == "DATE";
         if (op is "=" or "!=") return true;
         if (op == "CONTAINS")
             return type is not ("NUMBER" or "DECIMAL" or "INTEGER" or "INT" or
@@ -1036,6 +1047,30 @@ public static class RTSRuleConditionMatcher
     {
         validationError = string.Empty;
         var normalizedFieldType = NormalizeTemporalFieldType(fieldType);
+        var normalizedOperator = comparisonOperator.Trim().ToUpperInvariant();
+        var isDateAgeDays = expectedValue.StartsWith(DateAgeDaysPrefix, StringComparison.OrdinalIgnoreCase);
+        if (DateAgeDaysOperators.Contains(normalizedOperator))
+        {
+            if (normalizedFieldType != "DATE")
+            {
+                validationError = "Days-since-date conditions are supported only for Date fields.";
+                return false;
+            }
+
+            if (TryParseDateAgeDays(expectedValue, normalizedOperator, out _)) return true;
+
+            validationError = normalizedOperator == "DATE_AGE_DAYS_BETWEEN"
+                ? "Enter whole-number minimum and maximum days, with the minimum no greater than the maximum."
+                : "Enter a whole-number day value of zero or greater.";
+            return false;
+        }
+
+        if (isDateAgeDays)
+        {
+            validationError = "The days-since-date value must use a days-since-date comparison operator.";
+            return false;
+        }
+
         var isDateParts = expectedValue.StartsWith(DatePartsPrefix, StringComparison.OrdinalIgnoreCase);
         var isDateTimeParts = expectedValue.StartsWith(DateTimePartsPrefix, StringComparison.OrdinalIgnoreCase);
         if (!isDateParts && !isDateTimeParts)
@@ -1064,9 +1099,26 @@ public static class RTSRuleConditionMatcher
         return false;
     }
 
-    public static bool Compare(string actual, string expected, string comparisonOperator)
+    public static bool Compare(
+        string actual,
+        string expected,
+        string comparisonOperator,
+        DateTime? referenceDate = null)
     {
         var op = comparisonOperator.Trim().ToUpperInvariant();
+        if (DateAgeDaysOperators.Contains(op))
+        {
+            if (!TryParseDateAgeDays(expected, op, out var days) ||
+                !TryParseDate(actual, out var applicationDate))
+                return false;
+
+            var elapsedDays = ((referenceDate?.Date ?? GetIndianLocalDate()) - applicationDate.Date).Days;
+            if (elapsedDays < 0) return false;
+
+            return op == "DATE_AGE_DAYS_BETWEEN"
+                ? elapsedDays >= days.Minimum && elapsedDays <= days.Maximum!.Value
+                : CompareOrdered(elapsedDays, days.Minimum, DateAgeDaysComparisonOperator(op));
+        }
         if (expected.StartsWith(DatePartsPrefix, StringComparison.OrdinalIgnoreCase))
         {
             if (op is not ("=" or "!=") || !TryParseDateParts(expected, out var parts) ||
@@ -1108,6 +1160,68 @@ public static class RTSRuleConditionMatcher
                 out var expectedDate))
             return CompareOrdered(date, expectedDate, op);
         return false;
+    }
+
+    private static bool TryParseDateAgeDays(
+        string expected,
+        string comparisonOperator,
+        out DateAgeDays days)
+    {
+        days = default;
+        if (!expected.StartsWith(DateAgeDaysPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var values = expected[DateAgeDaysPrefix.Length..]
+            .Split(':', StringSplitOptions.TrimEntries);
+        if (!int.TryParse(values.FirstOrDefault(), NumberStyles.None, CultureInfo.InvariantCulture, out var minimum) ||
+            minimum < 0)
+            return false;
+
+        if (comparisonOperator == "DATE_AGE_DAYS_BETWEEN")
+        {
+            if (values.Length != 2 ||
+                !int.TryParse(values[1], NumberStyles.None, CultureInfo.InvariantCulture, out var maximum) ||
+                maximum < minimum)
+                return false;
+
+            days = new DateAgeDays(minimum, maximum);
+            return true;
+        }
+
+        if (values.Length != 1) return false;
+        days = new DateAgeDays(minimum, null);
+        return true;
+    }
+
+    private static string DateAgeDaysComparisonOperator(string comparisonOperator) => comparisonOperator switch
+    {
+        "DATE_AGE_DAYS_LT" => "<",
+        "DATE_AGE_DAYS_LTE" => "<=",
+        "DATE_AGE_DAYS_GT" => ">",
+        "DATE_AGE_DAYS_GTE" => ">=",
+        _ => string.Empty
+    };
+
+    private static DateTime GetIndianLocalDate()
+    {
+        foreach (var timeZoneId in new[] { "India Standard Time", "Asia/Kolkata" })
+        {
+            try
+            {
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+                    TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)).Date;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Try the platform-specific alternative.
+            }
+            catch (InvalidTimeZoneException)
+            {
+                // Fall back to UTC if this host has an invalid timezone entry.
+            }
+        }
+
+        return DateTime.UtcNow.Date;
     }
 
     private static bool TryParseDateParts(string expected, out DateParts parts)
@@ -1194,6 +1308,7 @@ public static class RTSRuleConditionMatcher
 
     private readonly record struct DateParts(int? Day, int? Month, int? Year);
     private readonly record struct DateTimeParts(int? Day, int? Month, int? Year, TimeSpan? Time);
+    private readonly record struct DateAgeDays(int Minimum, int? Maximum);
 
     private static bool ValuesAreEqual(string actual, string expected)
     {
