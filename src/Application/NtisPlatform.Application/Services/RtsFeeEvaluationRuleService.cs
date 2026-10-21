@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
@@ -34,10 +35,11 @@ public sealed class RtsFeeEvaluationRuleService : IRtsFeeEvaluationRuleService
             ?? throw new InvalidOperationException("The selected RTS service is unavailable.");
         var values = request.FieldValues.Where(x => x.FieldDefinitionId > 0)
             .GroupBy(x => x.FieldDefinitionId).ToDictionary(x => x.Key, x => x.Last().Value?.Trim() ?? string.Empty);
+        var evaluationDate = RTSRuleConditionMatcher.GetIndianLocalDate();
         var rules = await _rules.GetQueryable().AsNoTracking().Include(x => x.Conditions)
             .Where(x => x.ServiceId == request.ServiceId && x.IsActive && x.RuleGroup == "FEE")
             .OrderBy(x => x.Priority).ThenBy(x => x.Id).ToListAsync(cancellationToken);
-        var matches = rules.Where(x => RTSRuleConditionMatcher.Matches(x, values)).ToList();
+        var matches = rules.Where(x => RTSRuleConditionMatcher.Matches(x, values, evaluationDate)).ToList();
         var baseRules = matches.Where(x => x.RuleActionType == "BASE_FEE").ToList();
         var fallback = baseRules.Count == 0;
         RTSRuleMasterEntity? selectedBase = null;
@@ -52,16 +54,16 @@ public sealed class RtsFeeEvaluationRuleService : IRtsFeeEvaluationRuleService
             baseFee = Calculate(selectedBase, values, service.Fees ?? 0m);
         }
         var matched = new List<RTSFeeMatchedRuleDto>();
-        if (selectedBase is not null) matched.Add(ToMatched(selectedBase, baseFee));
+        if (selectedBase is not null) matched.Add(ToMatched(selectedBase, baseFee, values, evaluationDate, baseFee));
         decimal addons = 0m;
         foreach (var addon in matches.Where(x => x.RuleActionType == "ADDON_FEE"))
         {
             var amount = Calculate(addon, values, baseFee);
             addons += amount;
-            matched.Add(ToMatched(addon, amount));
+            matched.Add(ToMatched(addon, amount, values, evaluationDate, baseFee));
         }
         addons = Round(addons);
-        return new RTSFeeEvaluationResponseDto { ServiceId = request.ServiceId, StaticServiceFee = service.Fees ?? 0m, BaseFee = baseFee, AddonFee = addons, PayableAmount = Round(baseFee + addons), UsedServiceFeeFallback = fallback, MatchedRules = matched };
+        return new RTSFeeEvaluationResponseDto { ServiceId = request.ServiceId, EvaluationDate = evaluationDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), StaticServiceFee = service.Fees ?? 0m, BaseFee = baseFee, AddonFee = addons, PayableAmount = Round(baseFee + addons), UsedServiceFeeFallback = fallback, MatchedRules = matched };
     }
 
     public async Task ValidateRuleAsync(
@@ -122,18 +124,40 @@ public sealed class RtsFeeEvaluationRuleService : IRtsFeeEvaluationRuleService
     private static bool IsNumeric(string type) => Upper(type) is "NUMBER" or "DECIMAL" or "INTEGER" or "INT" or "CURRENCY";
     private static string Upper(string? value) => value?.Trim().ToUpperInvariant() ?? string.Empty;
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
-    private static RTSFeeMatchedRuleDto ToMatched(RTSRuleMasterEntity rule, decimal amount)
+    private static RTSFeeMatchedRuleDto ToMatched(
+        RTSRuleMasterEntity rule,
+        decimal amount,
+        IReadOnlyDictionary<int, string> values,
+        DateTime evaluationDate,
+        decimal selectedBase)
     {
-        var first = rule.Conditions
-            .Where(x => string.Equals(x.ConditionType, "PREDICATE", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(x => x.ConditionOrder)
-            .FirstOrDefault();
+        var predicates = RTSRuleConditionMatcher.MatchWithEvidence(rule, values, evaluationDate).Predicates;
+        var first = predicates.FirstOrDefault();
+        decimal? quantity = null;
+        if (rule.QuantityFieldDefinitionId is int quantityFieldId &&
+            values.TryGetValue(quantityFieldId, out var rawQuantity) &&
+            decimal.TryParse(rawQuantity, out var parsedQuantity))
+            quantity = parsedQuantity;
         return new RTSFeeMatchedRuleDto
         {
             RuleId = rule.Id,
             RuleActionType = rule.RuleActionType,
             ConditionFieldDefinitionId = first?.FieldDefinitionId,
             ExpectedValue = first?.ExpectedValue,
+            RateAmount = rule.RateAmount,
+            QuantityFieldDefinitionId = rule.QuantityFieldDefinitionId,
+            QuantityValue = quantity,
+            PercentageBaseAmount = string.Equals(rule.CalculationType, "PERCENTAGE", StringComparison.OrdinalIgnoreCase)
+                ? selectedBase : null,
+            MatchedConditions = predicates
+                .Where(x => x.FieldDefinitionId.HasValue && values.ContainsKey(x.FieldDefinitionId.Value))
+                .Select(x => new RTSFeeMatchedConditionDto
+                {
+                    FieldDefinitionId = x.FieldDefinitionId!.Value,
+                    ComparisonOperator = x.ComparisonOperator ?? string.Empty,
+                    ActualValue = values[x.FieldDefinitionId!.Value],
+                    ExpectedValue = x.ExpectedValue ?? string.Empty
+                }).ToList(),
             Amount = amount,
             Priority = rule.Priority,
             CalculationType = rule.CalculationType

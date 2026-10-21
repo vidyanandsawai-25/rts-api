@@ -984,6 +984,12 @@ public static class RTSRuleConditionMatcher
         RTSRuleMasterEntity rule,
         IReadOnlyDictionary<int, string> values,
         DateTime? referenceDate = null)
+        => MatchWithEvidence(rule, values, referenceDate).IsMatch;
+
+    public static (bool IsMatch, List<RTSRuleConditionEntity> Predicates) MatchWithEvidence(
+        RTSRuleMasterEntity rule,
+        IReadOnlyDictionary<int, string> values,
+        DateTime? referenceDate = null)
     {
         const int RootConditionKey = 0;
         var byParent = rule.Conditions
@@ -991,29 +997,33 @@ public static class RTSRuleConditionMatcher
             .GroupBy(x => x.ParentConditionId ?? RootConditionKey)
             .ToDictionary(x => x.Key, x => x.OrderBy(y => y.ConditionOrder).ToList());
 
-        bool EvaluateChildren(int? parentId, string? matchType)
+        (bool IsMatch, List<RTSRuleConditionEntity> Predicates) EvaluateChildren(int? parentId, string? matchType)
         {
             if (!byParent.TryGetValue(parentId ?? RootConditionKey, out var children) || children.Count == 0)
-                return false;
+                return (false, []);
 
-            var results = children.Select(EvaluateNode);
-            return string.Equals(matchType, "ANY", StringComparison.OrdinalIgnoreCase)
-                ? results.Any(x => x)
-                : results.All(x => x);
+            var results = children.Select(EvaluateNode).ToList();
+            var isMatch = string.Equals(matchType, "ANY", StringComparison.OrdinalIgnoreCase)
+                ? results.Any(x => x.IsMatch)
+                : results.All(x => x.IsMatch);
+            return isMatch
+                ? (true, results.Where(x => x.IsMatch).SelectMany(x => x.Predicates).ToList())
+                : (false, []);
         }
 
-        bool EvaluateNode(RTSRuleConditionEntity node)
+        (bool IsMatch, List<RTSRuleConditionEntity> Predicates) EvaluateNode(RTSRuleConditionEntity node)
         {
             if (string.Equals(node.ConditionType, "GROUP", StringComparison.OrdinalIgnoreCase))
                 return EvaluateChildren(node.Id, node.ConditionMatchType);
 
-            return string.Equals(node.ConditionType, "PREDICATE", StringComparison.OrdinalIgnoreCase) &&
+            var isMatch = string.Equals(node.ConditionType, "PREDICATE", StringComparison.OrdinalIgnoreCase) &&
                 node.FieldDefinitionId.HasValue &&
                 !string.IsNullOrWhiteSpace(node.ComparisonOperator) &&
                 !string.IsNullOrWhiteSpace(node.ExpectedValue) &&
                 values.TryGetValue(node.FieldDefinitionId.Value, out var actual) &&
                 !string.IsNullOrWhiteSpace(actual) &&
                 Compare(actual, node.ExpectedValue!, node.ComparisonOperator!, referenceDate);
+            return isMatch ? (true, [node]) : (false, []);
         }
 
         return EvaluateChildren(null, rule.ConditionMatchType);
@@ -1202,7 +1212,7 @@ public static class RTSRuleConditionMatcher
         _ => string.Empty
     };
 
-    private static DateTime GetIndianLocalDate()
+    internal static DateTime GetIndianLocalDate()
     {
         foreach (var timeZoneId in new[] { "India Standard Time", "Asia/Kolkata" })
         {

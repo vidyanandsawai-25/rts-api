@@ -68,6 +68,7 @@ public class PaymentStatusDto
     public string ServiceName { get; set; } = string.Empty;
     public decimal RequiredFee { get; set; }
     public bool IsFeeRequired { get; set; }
+    public bool IsPaymentAfterApproval { get; set; }
     public bool HasPaymentTransaction { get; set; }
     public string PaymentStatus { get; set; } = "NOT_REQUIRED";
     public string? StatusNameEn { get; set; }

@@ -450,6 +450,7 @@ public class RTSPaymentService : IRTSPaymentService
             ServiceName = app.Service?.ServiceName ?? "RTS Service",
             RequiredFee = fee,
             IsFeeRequired = fee > 0m,
+            IsPaymentAfterApproval = app.Service?.IsPaymentAfterApproval ?? false,
             HasPaymentTransaction = transaction != null || (demand != null && demand.TotalAmount > 0) || fee > 0m,
             PaymentStatus = statusCode,
             StatusNameEn = statusEn,

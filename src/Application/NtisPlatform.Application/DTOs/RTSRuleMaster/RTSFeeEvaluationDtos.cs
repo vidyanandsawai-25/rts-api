@@ -32,13 +32,27 @@ public sealed class RTSFeeMatchedRuleDto
     public int? ConditionFieldDefinitionId { get; set; }
     public string? ConditionField { get; set; }
     public string? ExpectedValue { get; set; }
+    public decimal? RateAmount { get; set; }
+    public int? QuantityFieldDefinitionId { get; set; }
+    public decimal? QuantityValue { get; set; }
+    public decimal? PercentageBaseAmount { get; set; }
+    public List<RTSFeeMatchedConditionDto> MatchedConditions { get; set; } = [];
     public decimal Amount { get; set; }
     public int Priority { get; set; }
+}
+
+public sealed class RTSFeeMatchedConditionDto
+{
+    public int FieldDefinitionId { get; set; }
+    public string ComparisonOperator { get; set; } = string.Empty;
+    public string ActualValue { get; set; } = string.Empty;
+    public string ExpectedValue { get; set; } = string.Empty;
 }
 
 public sealed class RTSFeeEvaluationResponseDto
 {
     public int ServiceId { get; set; }
+    public string EvaluationDate { get; set; } = string.Empty;
     public decimal StaticServiceFee { get; set; }
     public decimal BaseFee { get; set; }
     public decimal AddonFee { get; set; }
