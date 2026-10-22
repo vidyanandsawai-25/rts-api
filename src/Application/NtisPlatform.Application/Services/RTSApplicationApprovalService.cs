@@ -891,6 +891,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .Where(stage => stage.Id == application.CurrentApprovalFlowStageId)
             .Select(stage => new {
                 stage.CanVerifyDocument,
+                stage.CanPay,
                 stage.StageName,
                 stage.Id
             })
@@ -902,10 +903,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (!currentStage.CanVerifyDocument)
             throw new InvalidOperationException("This stage does not permit document verification.");
 
-        // Default workflow: statutory fee is settled before verification and
-        // stage advancement. Payment-after-approval services intentionally
-        // defer this check until the approved-payment step.
-        if (application.Service?.IsPaymentAfterApproval != true)
+        // A payment-before-approval service may pass through earlier stages
+        // that do not collect payment. A configured payment stage is the
+        // checkpoint at which its demand must be settled.
+        if (RTSPaymentWorkflowGuard.RequiresSettlementBeforeVerification(
+                application.Service?.IsPaymentAfterApproval == true,
+                currentStage.CanPay))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
                 applicationId,
@@ -1017,6 +1020,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .Select(stage => new
             {
                 stage.CanApprove,
+                stage.CanPay,
                 stage.StageName,
                 stage.IsFinalStage,
                 stage.Id,
@@ -1033,9 +1037,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application approval.");
 
-        // Default workflow: statutory fee is settled before approval.
-        // Payment-after-approval services defer this check until payment is due.
-        if (application.Service?.IsPaymentAfterApproval != true)
+        // Payment is required at configured collection stages. Final approval
+        // remains a safeguard if a normal workflow has no reachable payment stage.
+        if (RTSPaymentWorkflowGuard.RequiresSettlementBeforeApproval(
+                application.Service?.IsPaymentAfterApproval == true,
+                currentStage.CanPay,
+                currentStage.IsFinalStage))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
                 applicationId,
