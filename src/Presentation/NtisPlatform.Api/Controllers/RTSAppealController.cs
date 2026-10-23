@@ -156,6 +156,7 @@ public class RTSAppealController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("dashboard-cards")]
     [ProducesResponseType(typeof(ApiResponse<RTSAppealDashboardCardsCountDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -170,6 +171,7 @@ public class RTSAppealController : ControllerBase
         });
     }
 
+    [AllowAnonymous]
     [HttpGet]
     [HttpGet("dashboard")]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<RTSAppealDashboardDetailsDto>>), StatusCodes.Status200OK)]
@@ -185,6 +187,7 @@ public class RTSAppealController : ControllerBase
         });
     }
 
+    [AllowAnonymous]
     [HttpGet("{appealId}/details")]
     [HttpGet("{appealId}/process-details")]
     [ProducesResponseType(typeof(ApiResponse<RTSAppealProcessDetailsDto>), StatusCodes.Status200OK)]
@@ -210,6 +213,7 @@ public class RTSAppealController : ControllerBase
         });
     }
 
+    [AllowAnonymous]
     [HttpPost("process-action")]
     [HttpPost("process-appeal")]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]

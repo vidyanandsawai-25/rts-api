@@ -500,8 +500,26 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
                 CreatedDate = DateTime.Now
             };
             await _appealHistoryRepository.AddAsync(historyEntry, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
 
+            if (app.TrackApplicationHistory == null)
+            {
+                app.TrackApplicationHistory = new List<TrackApplicationHistoryEntity>();
+            }
+
+            app.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
+            {
+                ApplicationId = appId,
+                ApprovalFlowId = approvalFlowId > 0 ? approvalFlowId : app.ApprovalFlowId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId > 0 ? app.CurrentApprovalFlowStageId : null,
+                ActionByUserId = resolvedCreatedBy,
+                Status = $"{levelCheck.AppealLevel} Submitted",
+                Action = $"{levelCheck.AppealLevel} Filed ({appealEntity.AppealNo})",
+                Remark = dto.ReasonForAppeal.Length > 1000 ? dto.ReasonForAppeal.Substring(0, 1000) : dto.ReasonForAppeal,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            });
+
+            await _unitOfWork.SaveChangesAsync(ct);
             await _unitOfWork.CommitTransactionAsync(ct);
         }
         catch
@@ -725,6 +743,7 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
 
             return new RTSAppealGridItemDto
             {
+                Id = a.Id,
                 AppealId = a.Id,
                 AppealNo = a.AppealNo,
                 AppealLevel = a.AppealLevel,
@@ -737,12 +756,14 @@ public class RTSAppealService : IRTSAppealService, IRtsAppealService
                 DepartmentName = departmentName,
                 ApplicantName = applicantName,
                 ApplicantMobile = a.MobileNumber ?? app?.ApplicantMobileNo ?? "",
+                ApplicantMobileNo = a.MobileNumber ?? app?.ApplicantMobileNo ?? "",
                 ApplicantEmail = a.EmailAddress ?? "",
                 AppealTypeId = a.AppealTypeId,
                 AppealTypeName = typeName ?? "Statutory RTS Appeal",
                 ReasonForComplaint = a.ReasonForComplaint ?? "",
                 AppealStatus = a.AppealStatus ?? "Pending",
                 FilingDate = a.CreatedDate,
+                CreatedDate = a.CreatedDate,
                 FilingCategory = isDelayed ? "Delayed" : "Normal",
                 CurrentStageOrder = appealStage?.StageOrder ?? a.AppealLevel,
                 CurrentStageName = appealStage?.StageName ?? (a.AppealLevel == 2 ? "Second Appellate Authority" : "First Appellate Authority"),
