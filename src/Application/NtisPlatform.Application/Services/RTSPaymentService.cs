@@ -246,6 +246,49 @@ public class RTSPaymentService : IRTSPaymentService
             return posMode.Id;
         }
 
+        // Counter modes must resolve explicitly. Do not allow a Bank Challan
+        // selection to be interpreted as generic net banking because its text
+        // happens to contain "BANK".
+        if (normalized.Contains("CHALLAN"))
+        {
+            var challanMode = modes.FirstOrDefault(m => m.ModeCode == "OFFLINE_CHALLAN");
+            if (challanMode == null)
+            {
+                challanMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "OFFLINE_CHALLAN",
+                    ModeNameEn = "Bank Challan",
+                    ModeNameMr = "बँक चलन",
+                    IconName = "FileText",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(challanMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return challanMode.Id;
+        }
+
+        if (normalized == "OTHER" || normalized.Contains("OTHER OFFLINE"))
+        {
+            var otherMode = modes.FirstOrDefault(m => m.ModeCode == "OTHER");
+            if (otherMode == null)
+            {
+                otherMode = new RTSPaymentModeMasterEntity
+                {
+                    ModeCode = "OTHER",
+                    ModeNameEn = "Other Offline Mode",
+                    ModeNameMr = "इतर ऑफलाइन पद्धत",
+                    IconName = "CreditCard",
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                await _modeRepository.AddAsync(otherMode, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+            }
+            return otherMode.Id;
+        }
+
         if (normalized.Contains("UPI") || normalized.Contains("QR") || normalized.Contains("GPAY") || normalized.Contains("PHONEPE"))
             return modes.FirstOrDefault(m => m.ModeCode == "UPI")?.Id;
 
@@ -261,10 +304,9 @@ public class RTSPaymentService : IRTSPaymentService
         if (normalized.Contains("WALLET"))
             return modes.FirstOrDefault(m => m.ModeCode == "WALLET")?.Id;
 
-        if (normalized.Contains("CHALLAN"))
-            return modes.FirstOrDefault(m => m.ModeCode == "OFFLINE_CHALLAN")?.Id;
-
-        return modes.FirstOrDefault()?.Id;
+        // An unknown value must never silently use the first active mode
+        // (usually CASH), which creates an incorrect statutory receipt.
+        return null;
     }
 
     private async Task<RTSPaymentTransactionEntity?> GetLatestTransactionAsync(int applicationId, CancellationToken ct)
