@@ -420,6 +420,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                     applicantMobile,
                     service?.ServiceName ?? "RTS Service",
                     feeAmount,
+                    service?.IsPaymentAfterApproval ?? false,
                     ct);
             }
         }

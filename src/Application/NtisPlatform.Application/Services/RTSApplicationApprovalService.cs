@@ -4,6 +4,8 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
+using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -1011,7 +1013,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             cancellationToken);
 
         if (application == null)
-            throw new InvalidOperationException("Application not found.");
+          throw new ValidationException("Application not found.", OperationType.Update);
+
 
         var currentStage = await _approvalFlowStageRepository
             .GetQueryable()
@@ -1121,6 +1124,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                         name,
                         mobile,
                         serviceName,
+                        application.Service?.Fees??0,
+                        application.Service?.IsPaymentAfterApproval??false,
                         cancellationToken);
                 }
             }

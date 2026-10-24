@@ -246,11 +246,12 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string mobileNo,
         string serviceName,
         decimal fees = 0,
+        bool IsPaymentAfterApproval = false,
         CancellationToken ct = default)
     {
         var baseUrl = await GetPortalBaseUrlAsync(ct);
-        var status = fees > 0 ? "FEE PENDING" : "SUBMITTED";
-        var url = fees > 0
+        var status = fees > 0 && !IsPaymentAfterApproval  ? "FEE PENDING" : "SUBMITTED";
+        var url = fees > 0 && !IsPaymentAfterApproval 
             ? $"{baseUrl}?pay={Uri.EscapeDataString(applicationNo)}"
             : $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
 
@@ -284,11 +285,15 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         string citizenName,
         string mobileNo,
         string serviceName,
+        decimal fees = 0,
+        bool IsPaymentAfterApproval = false,
         CancellationToken ct = default)
     {
+        
+        var status = fees > 0 && IsPaymentAfterApproval ? "Approved Make Payment" : "Approved";
         var baseUrl = await GetPortalBaseUrlAsync(ct);
-        var certUrl = $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
-        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "APPROVED", certUrl, ct);
+        var certUrl = fees > 0 && IsPaymentAfterApproval ? $"{baseUrl}?pay={Uri.EscapeDataString(applicationNo)}" : $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
+        await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, status, certUrl, ct);
     }
 
     /// <summary>

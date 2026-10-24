@@ -19,7 +19,7 @@ public interface IRTSSmsNotificationService
     /// <summary>
     /// Sends SMS when citizen submits an RTS application
     /// </summary>
-    Task SendApplicationSubmittedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal fees = 0, CancellationToken ct = default);
+    Task SendApplicationSubmittedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal fees = 0, bool IsPaymentAfterApproval=false,CancellationToken ct = default);
 
     /// <summary>
     /// Sends SMS when online/counter payment is completed and verified (includes receipt link)
@@ -34,7 +34,7 @@ public interface IRTSSmsNotificationService
     /// <summary>
     /// Sends SMS when application is approved at final stage
     /// </summary>
-    Task SendApplicationApprovedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, CancellationToken ct = default);
+    Task SendApplicationApprovedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, decimal fees = 0, bool IsPaymentAfterApproval = false, CancellationToken ct = default);
 
     /// <summary>
     /// Sends SMS when certificate is generated & digitally signed after Certificate Decision & Inputs
