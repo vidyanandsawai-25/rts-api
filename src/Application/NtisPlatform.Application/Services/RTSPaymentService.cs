@@ -1076,8 +1076,34 @@ public class RTSPaymentService : IRTSPaymentService
                 $"The submitted counter amount (₹{request.Amount.Value:F2}) does not match the assessed statutory fee demand (₹{amount:F2}).");
         }
 
-        int? paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
-        var modeEntity = paymentModeId.HasValue ? await _modeRepository.GetByIdAsync(paymentModeId.Value, ct) : null;
+        RTSPaymentModeMasterEntity? modeEntity = null;
+        int? paymentModeId;
+
+        if (request.PaymentModeId.HasValue && request.PaymentModeId.Value > 0)
+        {
+            // The counter screen obtains this ID from the active payment-mode
+            // master. Validate it again so a stale or tampered ID is rejected.
+            modeEntity = await _modeRepository.GetQueryable()
+                .FirstOrDefaultAsync(m => m.Id == request.PaymentModeId.Value && m.IsActive, ct);
+
+            if (modeEntity == null)
+            {
+                throw new ArgumentException("The selected payment mode is no longer available.");
+            }
+
+            paymentModeId = modeEntity.Id;
+        }
+        else
+        {
+            // Backward compatibility for existing callers that still submit
+            // only PaymentMode text.
+            paymentModeId = await ResolvePaymentModeIdAsync(request.PaymentMode ?? "Cash", ct);
+            modeEntity = paymentModeId.HasValue
+                ? await _modeRepository.GetByIdAsync(paymentModeId.Value, ct)
+                : null;
+        }
+
+        var resolvedPaymentMode = modeEntity?.ModeCode ?? request.PaymentMode ?? "Cash";
         bool isInstrument = modeEntity != null
             ? (modeEntity.ModeCode == "CHEQUE" || modeEntity.ModeCode == "DD")
             : (!string.IsNullOrWhiteSpace(request.PaymentMode) && (request.PaymentMode.Contains("CHEQUE", StringComparison.OrdinalIgnoreCase) || request.PaymentMode.Contains("DD", StringComparison.OrdinalIgnoreCase) || request.PaymentMode.Contains("धनादेश", StringComparison.OrdinalIgnoreCase)));
@@ -1123,13 +1149,13 @@ public class RTSPaymentService : IRTSPaymentService
             ApprovalStatus = isInstrument ? "PENDING" : "APPROVED",
             ApprovedBy = isInstrument ? null : officerUserId,
             ApprovedDate = isInstrument ? null : DateTime.Now,
-            PayerVpaOrAccount = request.PaymentMode ?? "Cash",
+            PayerVpaOrAccount = resolvedPaymentMode,
             ReceiptNo = receiptNo,
             ReceiptDate = DateTime.Now,
             PaymentDate = isInstrument ? null : DateTime.Now,
             Remarks = isInstrument
-                ? $"Offline Cheque/DD accepted at counter by Officer ID {officerUserId}. Pending bank clearance. Mode: {request.PaymentMode}. {request.Remarks}"
-                : $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {request.PaymentMode}. {request.Remarks}",
+                ? $"Offline Cheque/DD accepted at counter by Officer ID {officerUserId}. Pending bank clearance. Mode: {resolvedPaymentMode}. {request.Remarks}"
+                : $"Offline municipal counter fee collected by Officer ID {officerUserId}. Mode: {resolvedPaymentMode}. {request.Remarks}",
             CreatedBy = officerUserId,
             CreatedDate = DateTime.Now,
             IsActive = true
@@ -1190,7 +1216,7 @@ public class RTSPaymentService : IRTSPaymentService
                 ActionByUserId = officerUserId,
                 Action = "Offline Payment Received",
                 Status = "Payment Done",
-                Remark = $"Government fee of ₹{amount:F2} received at counter via {request.PaymentMode}. Receipt: {receiptNo}. {request.Remarks}",
+                Remark = $"Government fee of ₹{amount:F2} received at counter via {resolvedPaymentMode}. Receipt: {receiptNo}. {request.Remarks}",
                 CreatedDate = DateTime.Now,
                 IsActive = true,
                 CreatedBy = officerUserId

@@ -143,6 +143,12 @@ public class RecordOfflinePaymentRequestDto
     [Required]
     public string PaymentMode { get; set; } = "Cash";
 
+    /// <summary>
+    /// Active RTS.PaymentModeMaster row selected by the counter officer.
+    /// When supplied, this is authoritative over the display/code text.
+    /// </summary>
+    public int? PaymentModeId { get; set; }
+
     public decimal? Amount { get; set; }
 
     public string? InstrumentNo { get; set; }
