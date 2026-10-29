@@ -1823,7 +1823,7 @@ public class RTSPaymentService : IRTSPaymentService
 
         if ((number / 100) > 0)
         {
-            words += NumberToWordsMr(number / 100) + " शे ";
+            words += NumberToWordsMr(number / 100) + "शे ";
             number %= 100;
         }
 
