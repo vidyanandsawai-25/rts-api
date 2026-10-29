@@ -1,6 +1,6 @@
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
-using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 
@@ -37,7 +37,7 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
     // <summary>
     // Complete ERP & Digital Signature Audit Trail History
     // </summary>
-    Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(int applicationId, CancellationToken cancellationToken = default);
+    Task<List<RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(int applicationId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<RTSStageDocumentDto>> GetStageDocumentsAsync(int applicationId, CancellationToken cancellationToken = default);
     Task<RTSStageDocumentDto> UploadStageDocumentAsync(int applicationId, Stream fileStream, string fileName, string contentType, long fileLength, string? documentTitle, string? remarks, int officerUserId, CancellationToken cancellationToken = default);

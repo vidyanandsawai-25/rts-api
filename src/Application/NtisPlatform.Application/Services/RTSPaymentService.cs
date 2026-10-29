@@ -2420,6 +2420,12 @@ public class RTSPaymentService : IRTSPaymentService
             await _historyRepository.AddAsync(history, ct);
         }
 
+        var officerName = await _userRepository.GetQueryable().AsNoTracking()
+         .Where(x => x.Id == officerUserId
+             && x.IsActive
+             && !x.MarkedForDeletion)
+         .Select(x => x.FirstName + " " + x.LastName).FirstOrDefaultAsync();
+
         // Insert immutable Audit Record in RTS.ReceiptCancellationLog
         var cancelLog = new RTSReceiptCancellationLogEntity
         {
@@ -2433,7 +2439,7 @@ public class RTSPaymentService : IRTSPaymentService
             BankId = txn.BankId,
             BankName = txn.BankName,
             CancelledBy = officerUserId,
-            CancelledByName = $"Officer #{officerUserId}",
+            CancelledByName = officerName??"Officier",
             CancelledDate = DateTime.Now,
             CancellationReason = request.Reason.Trim(),
             ApprovalRemarks = request.Remarks,
