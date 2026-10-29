@@ -24,15 +24,15 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
 
     // <summary>
     // Clerk opertation verify Document Revert Application and Make Minor Correction In Application
-    Task<RTSApplicationApprovalResponseDto> VerifyDocumentsAndProcessApplicationAsync(int applicationId, UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
+    Task<RTSApplicationApprovalResponseDto> VerifyDocumentsAndProcessApplicationAsync(UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
     Task<RTSApplicationApprovalResponseDto> VerifyAndCorrectApplicationAsync(int applicationId,UpdateRTSApplicationVerificationDto dto, CancellationToken cancellationToken = default);
-    Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(int applicationId, UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);
+    Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);
 
 
     // <summary>
     //Application approval officers operation verify application and sent to next approval officer or reject application Until last approval
-    Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync(int applicationId, UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
-    Task<RTSApplicationApprovalResponseDto> RejectApplicationByOfficerAsync (int applicationId, UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);
+    Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync(UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
+    Task<RTSApplicationApprovalResponseDto> RejectApplicationByOfficerAsync (UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);
 
     // <summary>
     // Complete ERP & Digital Signature Audit Trail History

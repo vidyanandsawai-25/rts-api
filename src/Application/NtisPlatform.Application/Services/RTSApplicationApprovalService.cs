@@ -873,7 +873,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     // Verify the documents for a given application and process it to the next approval stage if applicable. By Clerk Screen
     // </summary>
     public async Task<RTSApplicationApprovalResponseDto> VerifyDocumentsAndProcessApplicationAsync(
-    int applicationId,
     UpdateRTSApplicationProcessDto dto,
     CancellationToken cancellationToken = default)
     {
@@ -881,7 +880,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .GetQueryable()
             .Include(x => x.Service)
             .FirstOrDefaultAsync(x =>
-                x.Id == applicationId && x.IsActive && !x.MarkedForDeletion,
+                x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion,
                 cancellationToken);
 
         if (application == null)
@@ -913,7 +912,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 currentStage.CanPay))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
-                applicationId,
+                dto.ApplicationId,
                 application.ApplicationNo,
                 "process",
                 cancellationToken);
@@ -922,7 +921,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var currentHistory = await _historyRepository
         .GetQueryable()
         .Where(history =>
-        history.ApplicationId == applicationId &&
+        history.ApplicationId == dto.ApplicationId &&
         history.ApprovalFlowId == application.ApprovalFlowId &&
         history.ApprovalFlowStageId == application.CurrentApprovalFlowStageId &&
         history.IsActive)
@@ -1003,13 +1002,12 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
     public async Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync(
-    int applicationId,
     UpdateRTSApplicationProcessDto dto,
     CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
             .Include(x => x.Service)
-            .FirstOrDefaultAsync(x => x.Id == applicationId && x.IsActive && !x.MarkedForDeletion,
+            .FirstOrDefaultAsync(x => x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion,
             cancellationToken);
 
         if (application == null)
@@ -1048,7 +1046,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 currentStage.IsFinalStage))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
-                applicationId,
+                dto.ApplicationId,
                 application.ApplicationNo,
                 "approve",
                 cancellationToken);
@@ -1057,7 +1055,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var currentHistory = await _historyRepository
                 .GetQueryable()
                 .Where(history =>
-                    history.ApplicationId == applicationId &&
+                    history.ApplicationId == dto.ApplicationId &&
                     history.IsActive)
                 .OrderByDescending(history => history.Id)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -1198,12 +1196,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
     public async Task<RTSApplicationApprovalResponseDto> RejectApplicationByOfficerAsync(
-    int applicationId,
     UpdateRTSApplicationProcessDto dto,
     CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
-            .SingleOrDefaultAsync (x => x.Id == applicationId && x.IsActive && !x.MarkedForDeletion,
+            .SingleOrDefaultAsync (x => x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion,
             cancellationToken);
 
         if (application == null)
@@ -1233,7 +1230,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var currentHistory = await _historyRepository
                 .GetQueryable()
                 .Where(history =>
-                    history.ApplicationId == applicationId &&
+                    history.ApplicationId == dto.ApplicationId &&
                     history.IsActive)
                 .OrderByDescending(history => history.Id)
                 .FirstOrDefaultAsync(cancellationToken);
@@ -1342,14 +1339,14 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         foreach (var item in dto.FieldValue)
         {
             var fieldValue = fieldValues.FirstOrDefault(x =>
-                x.ApplicationId == applicationId &&
+                x.ApplicationId == application.Id &&
                 x.FieldDefinitionId == item.FieldDefinitionId);
 
             if (fieldValue == null)
             {
                 var newFieldValue = new RTSFieldValueEntity
                 {
-                    ApplicationId = applicationId,
+                    ApplicationId = application.Id,
                     FieldDefinitionId = item.FieldDefinitionId,
                     TextValue = item.TextValue,
                     NumberValue = item.NumberValue,
@@ -1388,7 +1385,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         var history = new TrackApplicationHistoryEntity
         {
-            ApplicationId = applicationId,
+            ApplicationId = application.Id,
             ApprovalFlowId = application.ApprovalFlowId,
             ApprovalFlowStageId = application.CurrentApprovalFlowStageId,
             ActionByUserId = dto.UpdatedBy,
@@ -1439,12 +1436,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     /// If the current stage is the first stage, the application is reverted to the citizen.
     /// </summary>
     public async Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(
-        int applicationId,
         UpdateRTSApplicationProcessDto dto,
         CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
-            .Where(x => x.Id == applicationId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (application == null)

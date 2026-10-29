@@ -11,6 +11,7 @@ public  class UpdateRTSApplicationVerificationDto : UpdateBaseDtos
 
 public class UpdateRTSApplicationProcessDto : UpdateBaseDtos
 {
+    public int ApplicationId { get; set; }
     public string? Remark { get; set; }
     public string? Status { get; set; }
     public Guid? IssuedCertificateGuid { get; set; }

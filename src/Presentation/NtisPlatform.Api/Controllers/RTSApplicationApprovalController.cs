@@ -131,14 +131,14 @@ public class RTSApplicationApprovalController : ControllerBase
 
 
     [AllowAnonymous]
-    [HttpPut("{applicationId}/verify-documents")]
+    [HttpPost("verify-documents")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> VerifyDocumentsAndProcessApplication(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
+    public async Task<IActionResult> VerifyDocumentsAndProcessApplication([FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
         dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
-        var result = await _service.VerifyDocumentsAndProcessApplicationAsync(applicationId, dto, ct);
+        var result = await _service.VerifyDocumentsAndProcessApplicationAsync( dto, ct);
 
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
@@ -150,14 +150,14 @@ public class RTSApplicationApprovalController : ControllerBase
 
 
     [AllowAnonymous]
-    [HttpPut("{applicationId}/process-approval")]
+    [HttpPost("process-approval")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> VerifyApplicationAndSentToApprove(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
+    public async Task<IActionResult> VerifyApplicationAndSentToApprove([FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
         dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
-        var result = await _service.VerifyApplicationAndSentToApproveAsync(applicationId, dto, ct);
+        var result = await _service.VerifyApplicationAndSentToApproveAsync(dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
@@ -172,10 +172,10 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> VerifyAndCorrectApplication(int applicationId, [FromBody] UpdateRTSApplicationVerificationDto dto, CancellationToken ct)
+    public async Task<IActionResult> VerifyAndCorrectApplication(int applicationId,[FromBody] UpdateRTSApplicationVerificationDto dto, CancellationToken ct)
     {
         dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
-        var result = await _service.VerifyAndCorrectApplicationAsync(applicationId, dto, ct);
+        var result = await _service.VerifyAndCorrectApplicationAsync(applicationId,dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
@@ -186,14 +186,14 @@ public class RTSApplicationApprovalController : ControllerBase
 
 
     [AllowAnonymous]
-    [HttpPut("{applicationId}/Rejected-Application")]
+    [HttpPost("Rejected-Application")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> RejectApplicationByOfficerAsync(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
+    public async Task<IActionResult> RejectApplicationByOfficerAsync([FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
         dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
-        var result = await _service.RejectApplicationByOfficerAsync(applicationId, dto, ct);
+        var result = await _service.RejectApplicationByOfficerAsync(dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
@@ -208,14 +208,14 @@ public class RTSApplicationApprovalController : ControllerBase
 
 
     [AllowAnonymous]
-    [HttpPut("{applicationId}/Revert-Application")]
+    [HttpPost("Revert-Application")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> VerifyAndRevertApplication(int applicationId, [FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
+    public async Task<IActionResult> VerifyAndRevertApplication([FromBody] UpdateRTSApplicationProcessDto dto, CancellationToken ct)
     {
         dto.UpdatedBy = ResolveOfficerUserId(dto.UpdatedBy);
-        var result = await _service.VerifyAndRevertApplicationAsync(applicationId, dto, ct);
+        var result = await _service.VerifyAndRevertApplicationAsync(dto, ct);
         return Ok(new ApiResponse<RTSApplicationApprovalResponseDto>
         {
             Success = true,
