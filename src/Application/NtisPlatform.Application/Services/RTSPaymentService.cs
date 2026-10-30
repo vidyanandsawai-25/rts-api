@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RTSPayment;
+using NtisPlatform.Application.DTOs.RTSApplicationApproval;
 using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -45,6 +46,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IUlbConfigService _ulbConfigService;
     private readonly IAapleSarkarIntegrationService _aapleSarkarService;
     private readonly IRTSRuleMasterService _ruleMasterService;
+    private readonly IRTSApplicationApprovalService _applicationApprovalService;
     private readonly ILogger<RTSPaymentService> _logger;
 
     public RTSPaymentService(
@@ -70,6 +72,7 @@ public class RTSPaymentService : IRTSPaymentService
         IUlbConfigService ulbConfigService,
         IAapleSarkarIntegrationService aapleSarkarService,
         IRTSRuleMasterService ruleMasterService,
+        IRTSApplicationApprovalService applicationApprovalService,
         ILogger<RTSPaymentService> logger)
     {
         _paymentRepository = paymentRepository;
@@ -94,6 +97,7 @@ public class RTSPaymentService : IRTSPaymentService
         _ulbConfigService = ulbConfigService;
         _aapleSarkarService = aapleSarkarService;
         _ruleMasterService = ruleMasterService;
+        _applicationApprovalService = applicationApprovalService;
         _logger = logger;
     }
 
@@ -1022,6 +1026,12 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(a => a.Department)
             .FirstOrDefaultAsync(a => a.Id == request.ApplicationId && a.IsActive && !a.MarkedForDeletion, ct)
             ?? throw new ArgumentException($"Application with ID {request.ApplicationId} not found.");
+
+        await _applicationApprovalService.EnsurePostApprovalActionAuthorizedAsync(
+            app.Id,
+            officerUserId,
+            PostApprovalActionPermission.Payment,
+            ct);
 
         // Check if already paid or has a payment pending clearance
         var activePayment = await _paymentRepository.GetQueryable()
