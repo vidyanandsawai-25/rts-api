@@ -294,13 +294,15 @@ public class PendingClearanceQueryDto
 {
     public string? PaymentMode { get; set; }
     public string? StatusCode { get; set; }
+    public string? BankName { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
     public string? SearchText { get; set; }
     public int? DepartmentId { get; set; }
     public int? ServiceId { get; set; }
-    public int PageNumber { get; set; } = 1;
-    public int PageSize { get; set; } = 10;
+    public int? UserId { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
 }
 
 public class PendingClearanceItemDto

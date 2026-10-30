@@ -26,5 +26,9 @@
 	  <Folder Include="Services\PropertySignature\" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <None Include="DTOs\RTSPayment\RTSPaymentClearanceQueryParameters.cs" />
+	</ItemGroup>
+
  
 </Project>

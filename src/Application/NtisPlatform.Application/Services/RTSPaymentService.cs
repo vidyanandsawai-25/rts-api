@@ -1925,10 +1925,20 @@ public class RTSPaymentService : IRTSPaymentService
             q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
         }
 
+        if (query.UserId.HasValue && query.UserId.Value > 0)
+        {
+            q = q.Where(t => t.CreatedBy == query.UserId.Value);
+        }
+
         // Service Filter
         if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
         {
             q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+        }
+        
+        if (!string.IsNullOrWhiteSpace(query.BankName))
+        {
+            q = q.Where(t => t.BankName == query.BankName);
         }
 
         // Search Text

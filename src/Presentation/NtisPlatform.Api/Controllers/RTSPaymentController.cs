@@ -422,29 +422,21 @@ public class RTSPaymentController : ControllerBase
     [AllowAnonymous]
     [HttpGet("pending-clearance")]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<PendingClearanceItemDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetPendingClearance(
-        [FromQuery] string? paymentMode,
-        [FromQuery] string? statusCode,
-        [FromQuery] DateTime? fromDate,
-        [FromQuery] DateTime? toDate,
-        [FromQuery] string? searchText,
-        [FromQuery] int? departmentId,
-        [FromQuery] int? serviceId,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
-        CancellationToken ct = default)
+    public async Task<IActionResult> GetPendingClearance([FromQuery] RTSPaymentClearanceQueryParameters queryParameters, CancellationToken ct = default)
     {
         var query = new PendingClearanceQueryDto
         {
-            PaymentMode = paymentMode,
-            StatusCode = statusCode,
-            FromDate = fromDate,
-            ToDate = toDate,
-            SearchText = searchText,
-            DepartmentId = departmentId,
-            ServiceId = serviceId,
-            PageNumber = pageNumber,
-            PageSize = pageSize
+            PaymentMode = queryParameters.PaymentMode,
+            StatusCode = queryParameters.StatusCode,
+            BankName = queryParameters.BankName,
+            FromDate = queryParameters.FromDate,
+            ToDate = queryParameters.ToDate,
+            SearchText = queryParameters.SearchText,
+            DepartmentId = queryParameters.DepartmentId,
+            ServiceId = queryParameters.ServiceId,
+            UserId = queryParameters.UserId,
+            PageNumber = queryParameters.PageNumber,
+            PageSize = queryParameters.PageSize
         };
 
         var result = await _paymentService.GetPendingClearancePaymentsAsync(query, ct);
