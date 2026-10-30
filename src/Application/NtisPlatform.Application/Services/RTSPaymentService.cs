@@ -1,12 +1,3 @@
-using System.Linq;
-using System.Globalization;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +10,11 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using System.Globalization;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace NtisPlatform.Application.Services;
 
@@ -37,6 +33,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
+    private readonly IRepository<UserRoleAllocationEntity, int> _userRoleAllocationRepository;
     private readonly IRepository<BankMasterEntity, int> _bankRepository;
     private readonly IRepository<RTSReceiptCancellationLogEntity, int> _cancellationLogRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -62,6 +59,7 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
+        IRepository<UserRoleAllocationEntity, int> userRoleAllocationRepository,
         IRepository<UserEntity, int> userRepository,
         IRepository<BankMasterEntity, int> bankRepository,
         IRepository<RTSReceiptCancellationLogEntity, int> cancellationLogRepository,
@@ -88,6 +86,7 @@ public class RTSPaymentService : IRTSPaymentService
         _fieldValueRepository = fieldValueRepository;
         _historyRepository = historyRepository;
         _userRepository = userRepository;
+        _userRoleAllocationRepository = userRoleAllocationRepository;
         _bankRepository = bankRepository;
         _cancellationLogRepository = cancellationLogRepository;
         _unitOfWork = unitOfWork;
@@ -1935,9 +1934,15 @@ public class RTSPaymentService : IRTSPaymentService
             q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
         }
 
-        if (query.UserId.HasValue && query.UserId.Value > 0)
+ 
+        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == query.UserId && x.IsActive);
+
+        if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase))
         {
-            q = q.Where(t => t.CreatedBy == query.UserId.Value);
+            if (query.UserId.HasValue && query.UserId.Value > 0)
+            {
+                q = q.Where(t => t.CreatedBy == query.UserId.Value);
+            }
         }
 
         // Service Filter
@@ -1950,6 +1955,8 @@ public class RTSPaymentService : IRTSPaymentService
         {
             q = q.Where(t => t.BankName == query.BankName);
         }
+
+
 
         // Search Text
         if (!string.IsNullOrWhiteSpace(query.SearchText))
