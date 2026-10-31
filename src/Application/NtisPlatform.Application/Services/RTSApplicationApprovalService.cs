@@ -77,6 +77,181 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             stageId, _allocationRules.NormalizeValues(values), cancellationToken);
     }
 
+    private async Task<IReadOnlyList<PostApprovalStageAuthorizationDto>> ResolvePostApprovalAuthorizationsAsync(
+        RTSApplicationDetailsEntity application,
+        CancellationToken cancellationToken)
+    {
+        var flowId = application.ApprovalFlowId;
+        var allStages = await _approvalFlowStageRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(stage => stage.ApprovalFlowId == flowId)
+            .OrderBy(stage => stage.StageOrder)
+            .Select(stage => new
+            {
+                stage.Id,
+                stage.StageName,
+                stage.StageOrder,
+                stage.CanPay,
+                stage.CanIssueCertificate
+            })
+            .ToListAsync(cancellationToken);
+        var stages = allStages
+            .Where(stage => stage.CanPay || stage.CanIssueCertificate)
+            .ToList();
+
+        // Historical applications can lack their original persisted flow. Match the timeline's
+        // read-only fallback, but never use the legacy stage UserId as an authorization fallback.
+        if (allStages.Count == 0)
+        {
+            flowId = await _approvalFlowStageRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(stage => stage.ApprovalFlow.ServiceId == application.ServiceId)
+                .Select(stage => stage.ApprovalFlowId)
+                .Distinct()
+                .OrderByDescending(id => id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (flowId > 0)
+            {
+                allStages = await _approvalFlowStageRepository.GetQueryable()
+                    .AsNoTracking()
+                    .Where(stage => stage.ApprovalFlowId == flowId)
+                    .OrderBy(stage => stage.StageOrder)
+                    .Select(stage => new
+                    {
+                        stage.Id,
+                        stage.StageName,
+                        stage.StageOrder,
+                        stage.CanPay,
+                        stage.CanIssueCertificate
+                    })
+                    .ToListAsync(cancellationToken);
+                stages = allStages
+                    .Where(stage => stage.CanPay || stage.CanIssueCertificate)
+                    .ToList();
+            }
+        }
+
+        if (stages.Count == 0 || flowId <= 0)
+            return Array.Empty<PostApprovalStageAuthorizationDto>();
+
+        var values = await _fieldValueRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(value => value.ApplicationId == application.Id && value.IsActive && !value.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+        var normalizedValues = _allocationRules.NormalizeValues(values);
+        var resolvedStages = new List<(int StageId, string StageName, int StageOrder, bool CanPay, bool CanIssueCertificate, int UserId)>();
+
+        foreach (var stage in stages)
+        {
+            // ResolveOfficerAsync applies configured rule precedence, allocation priority, and
+            // active-user validation. Do not expose unresolvable fallback allocations.
+            try
+            {
+                var userId = await _allocationRules.ResolveOfficerAsync(
+                    application.ServiceId,
+                    flowId,
+                    stage.Id,
+                    normalizedValues,
+                    cancellationToken);
+                resolvedStages.Add((stage.Id, stage.StageName, stage.StageOrder, stage.CanPay, stage.CanIssueCertificate, userId));
+            }
+            catch (InvalidOperationException)
+            {
+                // The read endpoint returns only valid resolved assignments. The command guard
+                // below still fails closed when no eligible assignment authorizes the caller.
+            }
+        }
+
+        var userIds = resolvedStages.Select(stage => stage.UserId).Distinct().ToList();
+        var users = await _userRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(user => userIds.Contains(user.Id) && user.IsActive && !user.MarkedForDeletion)
+            .Select(user => new { user.Id, user.UserName, user.FirstName, user.LastName })
+            .ToDictionaryAsync(user => user.Id, cancellationToken);
+
+        return resolvedStages
+            .Where(stage => users.ContainsKey(stage.UserId))
+            .Select(stage =>
+            {
+                var user = users[stage.UserId];
+                var displayName = !string.IsNullOrWhiteSpace(user.UserName)
+                    ? user.UserName
+                    : string.Join(" ", new[] { user.FirstName, user.LastName }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                return new PostApprovalStageAuthorizationDto
+                {
+                    StageId = stage.StageId,
+                    StageName = stage.StageName,
+                    StageOrder = stage.StageOrder,
+                    UserId = stage.UserId,
+                    UserName = displayName,
+                    CanPay = stage.CanPay,
+                    CanIssueCertificate = stage.CanIssueCertificate
+                };
+            })
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<PostApprovalStageAuthorizationDto>> GetPostApprovalAuthorizationsAsync(
+        int applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (applicationId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(applicationId), "Invalid application ID.");
+
+        var application = await _repository.GetQueryable()
+            .AsNoTracking()
+            .Include(item => item.Service)
+            .FirstOrDefaultAsync(item => item.Id == applicationId && !item.MarkedForDeletion, cancellationToken)
+            ?? throw new KeyNotFoundException($"Application with ID {applicationId} was not found.");
+
+        if (application.Service?.IsPaymentAfterApproval != true ||
+            !string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase))
+        {
+            return Array.Empty<PostApprovalStageAuthorizationDto>();
+        }
+
+        return await ResolvePostApprovalAuthorizationsAsync(application, cancellationToken);
+    }
+
+    public async Task EnsurePostApprovalActionAuthorizedAsync(
+        int applicationId,
+        int officerUserId,
+        PostApprovalActionPermission permission,
+        CancellationToken cancellationToken = default)
+    {
+        if (officerUserId <= 0)
+            throw new UnauthorizedAccessException("An authenticated officer is required.");
+
+        var application = await _repository.GetQueryable()
+            .AsNoTracking()
+            .Include(item => item.Service)
+            .FirstOrDefaultAsync(item => item.Id == applicationId && !item.MarkedForDeletion, cancellationToken)
+            ?? throw new KeyNotFoundException($"Application with ID {applicationId} was not found.");
+
+        // The new guard applies only to payment-after-approval services. Normal workflow
+        // authorization remains intentionally unchanged.
+        if (application.Service?.IsPaymentAfterApproval != true)
+            return;
+
+        if (!string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Post-approval payment and certificate actions are available only after final approval.");
+
+        var authorizations = await ResolvePostApprovalAuthorizationsAsync(application, cancellationToken);
+        var allowed = permission switch
+        {
+            PostApprovalActionPermission.Payment => authorizations.Any(item => item.UserId == officerUserId && item.CanPay),
+            PostApprovalActionPermission.Certificate => authorizations.Any(item => item.UserId == officerUserId && item.CanIssueCertificate),
+            _ => false
+        };
+
+        if (!allowed)
+        {
+            var actionName = permission == PostApprovalActionPermission.Payment ? "record payment" : "issue a certificate";
+            throw new UnauthorizedAccessException($"You are not assigned to {actionName} for this application.");
+        }
+    }
+
     private async Task EnsurePaymentSnapshotIsSettledAsync(
         int applicationId,
         string? applicationNo,

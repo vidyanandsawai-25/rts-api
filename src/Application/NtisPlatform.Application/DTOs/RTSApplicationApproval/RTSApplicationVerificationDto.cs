@@ -45,3 +45,24 @@ public class CurrentApprovalOfficerDto
     public string? PaymentStatus { get; set; }
     public string? ReceiptNo { get; set; }
 }
+
+/// <summary>
+/// A resolved officer assignment for a completed, payment-after-approval workflow.
+/// This is derived from the application's persisted field values and stage allocation rules.
+/// </summary>
+public sealed class PostApprovalStageAuthorizationDto
+{
+    public int StageId { get; set; }
+    public string StageName { get; set; } = string.Empty;
+    public int StageOrder { get; set; }
+    public int UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public bool CanPay { get; set; }
+    public bool CanIssueCertificate { get; set; }
+}
+
+public enum PostApprovalActionPermission
+{
+    Payment,
+    Certificate
+}
