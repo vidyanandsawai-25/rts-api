@@ -33,11 +33,15 @@ public class CurrentApprovalOfficerDto
     public int CertificateType { get; set; }
     public bool IsCertificateRequired { get; set; } = true;
 
+    // <summary>Id of the officer who can collect payment for this application.</summary>
+    public int CollectPayementByUserId { get; set; } = 0;
+    public int IssueCertificateByUserId { get; set; } = 0;
+
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }
     public decimal? ServiceFees { get; set; }
     public bool FeesRequired { get; set; }
-    /// <summary>Immutable fee snapshot from the latest RTS payment transaction.</summary>
+    //<summary>Immutable fee snapshot from the latest RTS payment transaction.</summary>
     public long? PaymentTransactionId { get; set; }
     public decimal? PayableFee { get; set; }
     public bool HasPaymentTransaction { get; set; }
