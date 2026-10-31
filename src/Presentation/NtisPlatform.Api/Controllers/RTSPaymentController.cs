@@ -210,7 +210,7 @@ public class RTSPaymentController : ControllerBase
     /// <summary>
     /// Records an offline municipal counter payment (Cash/Cheque/DD/POS/Challan) by authorized counter officer
     /// </summary>
-    [AllowAnonymous]
+    [Authorize]
     [HttpPost("record-offline")]
     [ProducesResponseType(typeof(ApiResponse<PaymentReceiptDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -227,12 +227,17 @@ public class RTSPaymentController : ControllerBase
 
         try
         {
-            // Extract user id from token or claim if authenticated, fallback to 1
-            int userId = 1;
-            var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId))
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("UserId")
+                ?? User.FindFirst("id")
+                ?? User.FindFirst("sub");
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId) || userId <= 0)
             {
-                userId = parsedId;
+                return Unauthorized(new ApiResponse<PaymentReceiptDto>
+                {
+                    Success = false,
+                    Message = "An authenticated officer is required to record an offline payment."
+                });
             }
 
             var receipt = await _paymentService.RecordOfflinePaymentAsync(request, userId, ct);
@@ -241,6 +246,15 @@ public class RTSPaymentController : ControllerBase
                 Success = true,
                 Message = "Offline counter payment recorded successfully.",
                 Items = receipt
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized offline payment attempt for application {AppId}", request.ApplicationId);
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<PaymentReceiptDto>
+            {
+                Success = false,
+                Message = ex.Message
             });
         }
         catch (Exception ex)
