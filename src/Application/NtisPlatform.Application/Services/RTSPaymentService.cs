@@ -2068,8 +2068,7 @@ public class RTSPaymentService : IRTSPaymentService
     {
         var today = DateTime.Today;
 
-
-       var payments = await _paymentRepository.GetQueryable()
+        var payments = await _paymentRepository.GetQueryable()
            .Where(x => x.IsActive)
            .Select(t => new
            {

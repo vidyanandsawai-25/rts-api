@@ -1,4 +1,5 @@
 using AutoMapper;
+using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.Document;
@@ -991,6 +992,31 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         bool isPaid = string.Equals(demand?.DemandStatus, "Paid", StringComparison.OrdinalIgnoreCase) ||
                       string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
 
+       
+        var OfficerAccess = await _approvalFlowStageRepository
+              .GetQueryable()
+              .AsNoTracking()
+              .Where(x => x.ApprovalFlowId == result.ApprovalFlowId)
+              .Select(x => new
+              {
+                  x.CanPay,
+                  x.CanIssueCertificate,
+                  x.UserId
+              })
+              .ToListAsync(cancellationToken);
+
+        int CollectPayementByUserId = 0;
+        int IssueCertificateByUserId = 0;
+
+        if (result.IsPaymentAfterApproval&&result.ApplicationStatus=="Approved")
+        {
+            CollectPayementByUserId = OfficerAccess.FirstOrDefault(x => x.CanPay)?.UserId ?? 0;
+            IssueCertificateByUserId = OfficerAccess.FirstOrDefault(x => x.CanIssueCertificate)?.UserId ?? 0;
+
+        }
+
+
+
         decimal fee = demand?.TotalAmount ?? paymentTxn?.TotalAmount ?? result.ServiceFees ?? 0m;
         string paymentStatus = isPaid
             ? "SUCCESS"
@@ -1038,6 +1064,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = fee,
             HasPaymentTransaction = paymentTxn != null || (demand != null && demand.TotalAmount > 0) || fee > 0,
+            CollectPayementByUserId = CollectPayementByUserId,
+            IssueCertificateByUserId = IssueCertificateByUserId,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo
