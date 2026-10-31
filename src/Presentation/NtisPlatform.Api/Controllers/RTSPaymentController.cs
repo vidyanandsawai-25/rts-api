@@ -454,9 +454,9 @@ public class RTSPaymentController : ControllerBase
     [AllowAnonymous]
     [HttpGet("clearance-stats")]
     [ProducesResponseType(typeof(ApiResponse<PendingClearanceStatsDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetClearanceStats(CancellationToken ct)
+    public async Task<IActionResult> GetClearanceStats(int UserId,CancellationToken ct)
     {
-        var stats = await _paymentService.GetPendingClearanceStatsAsync(ct);
+        var stats = await _paymentService.GetPendingClearanceStatsAsync(UserId,ct);
         return Ok(new ApiResponse<PendingClearanceStatsDto>
         {
             Success = true,
