@@ -30,6 +30,13 @@ public class RTSPaymentClearanceQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     public string? StatusCode { get; set; }
+    [Filterable]
+    [Sortable]
+    public decimal? BaseAmount { get; set; }
+
+    [Filterable]
+    [Sortable]
+    public DateTime? ReceiptDate { get; set; }
 
     public DateTime? FromDate { get; set; }
 
