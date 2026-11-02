@@ -2766,6 +2766,25 @@ public class RTSPaymentService : IRTSPaymentService
             .ToListAsync(ct);
     }
 
+    public async Task<List<RTSPaymentStatusLookupDto>> GetPaymentStatusesAsync(CancellationToken ct = default)
+    {
+        return await _statusRepository.GetQueryable()
+            .Where(status => status.IsActive)
+            .OrderBy(status => status.DisplayOrder)
+            .ThenBy(status => status.Id)
+            .Select(status => new RTSPaymentStatusLookupDto
+            {
+                Id = status.Id,
+                StatusCode = status.StatusCode,
+                StatusNameEn = status.StatusNameEn,
+                StatusNameMr = status.StatusNameMr,
+                BadgeColor = status.BadgeColor,
+                DisplayOrder = status.DisplayOrder,
+                IsActive = status.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
     public async Task<List<ReceiptCancellationLogDto>> GetCancellationLogsAsync(int? applicationId = null, long? transactionId = null, CancellationToken ct = default)
     {
         var query = _cancellationLogRepository.GetQueryable();

@@ -732,6 +732,35 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Gets list of active payment statuses from master lookup.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("payment-statuses")]
+    [ProducesResponseType(typeof(ApiResponse<List<RTSPaymentStatusLookupDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaymentStatuses(CancellationToken ct)
+    {
+        try
+        {
+            var statuses = await _paymentService.GetPaymentStatusesAsync(ct);
+            return Ok(new ApiResponse<List<RTSPaymentStatusLookupDto>>
+            {
+                Success = true,
+                Message = "Payment statuses fetched successfully.",
+                Items = statuses
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching payment statuses");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<List<RTSPaymentStatusLookupDto>>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Gets audit log of cancelled receipts
     /// </summary>
     [AllowAnonymous]
