@@ -2,7 +2,7 @@ using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using NtisPlatform.Application.DTOs.RTSPayment;
+using NtisPlatform.Application.DTOs.RTSPayment;  
 using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -2062,7 +2062,7 @@ public class RTSPaymentService : IRTSPaymentService
             InstrumentNo = t.InstrumentNo ?? t.BankRefNo,
             InstrumentDate = t.InstrumentDate,
             ClearanceDate = t.ClearanceDate,
-            CollectedBy = users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
+            CollectedBy = t.PaymentMode?.ModeNameEn == "Cash" ? users.Where(x => x.Id == t.CreatedBy).Select(x => x.OfficerName).FirstOrDefault(): users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
             BankRefNo = t.BankRefNo,
             GatewayPaymentId = t.GatewayPaymentId,
             ReceiptNo = t.ReceiptNo,
