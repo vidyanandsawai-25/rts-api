@@ -1945,8 +1945,6 @@ public class RTSPaymentService : IRTSPaymentService
             q = q.Where(t => t.BankName == query.BankName);
         }
 
-
-
         // Search Text
         if (!string.IsNullOrWhiteSpace(query.SearchText))
         {
@@ -2004,6 +2002,18 @@ public class RTSPaymentService : IRTSPaymentService
             if (!string.IsNullOrWhiteSpace(mobile)) applicantMobiles[appId] = mobile;
         }
 
+           
+        var users = await _userRepository
+        .GetQueryable()
+        .AsNoTracking()
+        .Where(x => x.IsActive && !x.MarkedForDeletion)
+        .Select(x => new
+        {
+            x.Id,
+            OfficerName = $"{x.FirstName ?? "" } {x.LastName ?? ""}"
+        })
+        .ToListAsync(ct);
+
         var dtoList = items.Select(t => new PendingClearanceItemDto
         {
             TransactionId = t.Id,
@@ -2034,6 +2044,7 @@ public class RTSPaymentService : IRTSPaymentService
             InstrumentNo = t.InstrumentNo ?? t.BankRefNo,
             InstrumentDate = t.InstrumentDate,
             ClearanceDate = t.ClearanceDate,
+            CollectedBy = users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
             BankRefNo = t.BankRefNo,
             GatewayPaymentId = t.GatewayPaymentId,
             ReceiptNo = t.ReceiptNo,

@@ -339,6 +339,7 @@ public class PendingClearanceItemDto
     public string? CancellationReason { get; set; }
     public string? FailureReason { get; set; }
     public string? Remarks { get; set; }
+    public string? CollectedBy { get; set; }
     public DateTime CreatedDate { get; set; }
 }
 
