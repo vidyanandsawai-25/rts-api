@@ -429,12 +429,15 @@ public class RTSPaymentController : ControllerBase
             PaymentMode = queryParameters.PaymentMode,
             StatusCode = queryParameters.StatusCode,
             BankName = queryParameters.BankName,
-            FromDate = queryParameters.FromDate,
-            ToDate = queryParameters.ToDate,
-            SearchText = queryParameters.SearchText,
+            BaseAmount=queryParameters.BaseAmount,
             DepartmentId = queryParameters.DepartmentId,
             ServiceId = queryParameters.ServiceId,
             UserId = queryParameters.UserId,
+            SortBy=queryParameters.SortBy,
+            SortOrder=queryParameters.SortOrder,
+            SearchText = queryParameters.SearchText,
+            FromDate = queryParameters.FromDate,
+            ToDate = queryParameters.ReceiptDate,
             PageNumber = queryParameters.PageNumber,
             PageSize = queryParameters.PageSize
         };

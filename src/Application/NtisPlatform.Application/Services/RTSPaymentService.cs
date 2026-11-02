@@ -1855,9 +1855,9 @@ public class RTSPaymentService : IRTSPaymentService
         return words.Trim();
     }
 
-    public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto query, CancellationToken ct = default)
+    public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto queryParameters, CancellationToken ct = default)
     {
-        var q = _paymentRepository.GetQueryable().AsNoTracking()
+        var query = _paymentRepository.GetQueryable().AsNoTracking()
             .Include(t => t.Demand)
             .Include(t => t.Application)
             .Include(t => t.Service)
@@ -1867,89 +1867,89 @@ public class RTSPaymentService : IRTSPaymentService
             .AsQueryable();
 
         // Payment Mode Filter
-        if (!string.IsNullOrWhiteSpace(query.PaymentMode) && query.PaymentMode.ToUpper() != "ALL")
+        if (!string.IsNullOrWhiteSpace(queryParameters.PaymentMode) && queryParameters.PaymentMode.ToUpper() != "ALL")
         {
-            var pMode = query.PaymentMode.Trim().ToUpperInvariant();
+            var pMode = queryParameters.PaymentMode.Trim().ToUpperInvariant();
             if (pMode == "CHEQUE" || pMode == "धनादेश")
             {
-                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("Cheque")) || (t.Remarks != null && t.Remarks.Contains("Cheque"))));
+                query = query.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("Cheque")) || (t.Remarks != null && t.Remarks.Contains("Cheque"))));
             }
             else if (pMode == "DD" || pMode == "DEMAND_DRAFT")
             {
-                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "DD" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("DD")) || (t.Remarks != null && t.Remarks.Contains("DD"))));
+                query = query.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "DD" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("DD")) || (t.Remarks != null && t.Remarks.Contains("DD"))));
             }
             else if (pMode == "ONLINE")
             {
-                q = q.Where(t => t.PaymentMode == null || (t.PaymentMode.ModeCode != "CASH" && t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "OFFLINE_CHALLAN"));
+                query = query.Where(t => t.PaymentMode == null || (t.PaymentMode.ModeCode != "CASH" && t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "OFFLINE_CHALLAN"));
             }
             else if (pMode == "CASH" || pMode == "रोख")
             {
-                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
+                query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
             }
             else
             {
-                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
+                query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
             }
         }
 
         // Status Filter
-        if (!string.IsNullOrWhiteSpace(query.StatusCode) && query.StatusCode.ToUpper() != "ALL")
+        if (!string.IsNullOrWhiteSpace(queryParameters.StatusCode) && queryParameters.StatusCode.ToUpper() != "ALL")
         {
-            var code = query.StatusCode.Trim().ToUpperInvariant();
+            var code = queryParameters.StatusCode.Trim().ToUpperInvariant();
             if (code == "PENDING_CLEARANCE")
             {
-                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code && (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"));
+                query = query.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code && (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"));
             }
             else
             {
-                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
+                query = query.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
             }
         }
 
         // Date Range
-        if (query.FromDate.HasValue)
+        if (queryParameters.FromDate.HasValue)
         {
-            var from = query.FromDate.Value.Date;
-            q = q.Where(t => t.CreatedDate >= from);
+            var from = queryParameters.FromDate.Value.Date;
+            query = query.Where(t => t.CreatedDate >= from);
         }
-        if (query.ToDate.HasValue)
+        if (queryParameters.ToDate.HasValue)
         {
-            var to = query.ToDate.Value.Date.AddDays(1).AddTicks(-1);
-            q = q.Where(t => t.CreatedDate <= to);
+            var to = queryParameters.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(t => t.CreatedDate <= to);
         }
 
         // Department Filter
-        if (query.DepartmentId.HasValue && query.DepartmentId.Value > 0)
+        if (queryParameters.DepartmentId.HasValue && queryParameters.DepartmentId.Value > 0)
         {
-            q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
+            query = query.Where(t => t.DepartmentId == queryParameters.DepartmentId.Value);
         }
 
  
-        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == query.UserId && x.IsActive);
+        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == queryParameters.UserId && x.IsActive);
 
         if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer!=null)
         {
-           
-                q = q.Where(t => t.CreatedBy == query.UserId);
+
+            query = query.Where(t => t.CreatedBy == queryParameters.UserId);
             
         }
 
         // Service Filter
-        if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
+        if (queryParameters.ServiceId.HasValue && queryParameters.ServiceId.Value > 0)
         {
-            q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+            query = query.Where(t => t.ServiceId == queryParameters.ServiceId.Value);
         }
         
-        if (!string.IsNullOrWhiteSpace(query.BankName))
+        if (!string.IsNullOrWhiteSpace(queryParameters.BankName))
         {
-            q = q.Where(t => t.BankName == query.BankName);
+            query = query.Where(t => t.BankName == queryParameters.BankName);
         }
 
         // Search Text
-        if (!string.IsNullOrWhiteSpace(query.SearchText))
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchText))
         {
-            var st = query.SearchText.Trim();
-            q = q.Where(t =>
+            var st = queryParameters.SearchText.Trim();
+            query = query.Where(t =>
                 t.ApplicationNo.Contains(st) ||
                 t.TransactionNo.Contains(st) ||
                 (t.Application != null && t.Application.ApplicantName != null && t.Application.ApplicantName.Contains(st)) ||
@@ -1960,13 +1960,31 @@ public class RTSPaymentService : IRTSPaymentService
                 (t.BankRefNo != null && t.BankRefNo.Contains(st)));
         }
 
-        var totalCount = await q.CountAsync(ct);
-        var totalAmountSum = await q.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
+        //sorting of reciept date wise and ammont wise 
+        if (string.Equals(queryParameters.SortBy, "ReceiptDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ReceiptDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ReceiptDate).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "BaseAmount", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.BaseAmount).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.BaseAmount).ThenBy(x => x.Id);
+        }
+        else
+        {
+            query = query.OrderByDescending(t => t.Id);
+        }
 
-        int pageNumber = query.PageNumber > 0 ? query.PageNumber : 1;
-        int pageSize = query.PageSize > 0 ? query.PageSize : 10;
+        var totalCount = await query.CountAsync(ct);
+        var totalAmountSum = await query.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
 
-        var items = await q.OrderByDescending(t => t.Id)
+        int pageNumber = queryParameters.PageNumber > 0 ? queryParameters.PageNumber : 1;
+        int pageSize = queryParameters.PageSize > 0 ? queryParameters.PageSize : 10;
+
+        var items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
