@@ -1,5 +1,4 @@
 using AutoMapper;
-using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.Document;
@@ -13,6 +12,7 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using System.Net.NetworkInformation;
 
 namespace NtisPlatform.Application.Services;
 
@@ -32,6 +32,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     private readonly IDocumentApplicationService _documentApplicationService;
     private readonly IRepository<DocumentEntity, int> _documentRepository;
     private readonly IRepository<DocumentBindingEntity, int> _bindingRepository;
+    private readonly IRepository<UserRoleAllocationEntity, int> _userRoleAllocationRepository;
+
 
     public RTSApplicationApprovalService(
           IRepository<RTSApplicationDetailsEntity, int> repository,
@@ -49,6 +51,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
           IDocumentApplicationService documentApplicationService,
           IRepository<DocumentEntity, int> documentRepository,
           IRepository<DocumentBindingEntity, int> bindingRepository,
+          IRepository<UserRoleAllocationEntity, int> userRoleAllocationRepository,
           IUnitOfWork unitOfWork,
           IMapper mapper) : base(repository, unitOfWork, mapper)
     {
@@ -66,6 +69,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         _documentApplicationService = documentApplicationService;
         _documentRepository = documentRepository;
         _bindingRepository = bindingRepository;
+        _userRoleAllocationRepository = userRoleAllocationRepository;
     }
 
     private async Task<int> ResolveStageOfficerAsync(RTSApplicationDetailsEntity application,
@@ -308,16 +312,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ? query.OrderByDescending(x => x.UpdatedDate ?? x.CreatedDate).ThenByDescending(x => x.Id)
                 : query.OrderBy(x => x.UpdatedDate ?? x.CreatedDate).ThenBy(x => x.Id);
         }
-
         //fifo
         else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
         {
+            var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == queryParameters.UserId && x.IsActive);
 
-            if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
-                query = query.Where(x => x.UserId == queryParameters.UserId.Value).OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+            if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer != null)
+                query = query.Where(x => x.UserId == queryParameters.UserId).OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
                 .ThenBy(x => x.CreatedDate)
                 .ThenBy(x => x.Id);
-
             else
             {
                 query = query
@@ -577,12 +580,15 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
                 var isApprovedWithPaymentAfterApproval =  application.Service?.IsPaymentAfterApproval == true && application.ApplicationStatus == ApplicationStatus.Approved;
 
+                var stageStatus = isApprovedWithPaymentAfterApproval  ? application.ApplicationStatus   : history?.Status ?? ApplicationStatus.Pending;
+
+
                 return new ApplicationApprovalStageDto
                 {
                     ApprovalFlowStageId = stage.Id,
                     StageOrder = stage.StageOrder,
                     StageName = stage.StageName,
-                    Status = isApprovedWithPaymentAfterApproval ? application.ApplicationStatus : history?.Status ?? application.ApplicationStatus,
+                    Status = stageStatus,
                     Remark = isApprovedWithPaymentAfterApproval ? application.Remark : history?.Remark,
                     CreatedDate = history?.CreatedDate,
                     UserName = user?.UserName,
