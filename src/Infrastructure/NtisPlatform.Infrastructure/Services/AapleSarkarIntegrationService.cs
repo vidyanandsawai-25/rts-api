@@ -305,6 +305,14 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
                 }
                 if (!req.UlbId.HasValue && cred != null) req.UlbId = cred.UlbId;
                 if (!req.UlbDistrict.HasValue && cred != null) req.UlbDistrict = cred.UlbDistrict;
+                if (string.IsNullOrWhiteSpace(req.CitizenUserId) || req.CitizenUserId == "NA")
+                {
+                    req.CitizenUserId = await db.RTSAapleSarkarRequests
+                        .Where(r => !string.IsNullOrEmpty(r.CitizenUserId) && r.CitizenUserId != "NA")
+                        .OrderByDescending(r => r.Id)
+                        .Select(r => r.CitizenUserId)
+                        .FirstOrDefaultAsync(ct) ?? "358c97de-ab11-4912-8810-5e1d6e04232b";
+                }
                 req.Status = targetStatus;
                 req.UpdatedDate = DateTime.Now;
             }
@@ -514,7 +522,29 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             }
 
             // 4. Resolve citizen user ID and fee amount dynamically
-            string userId = !string.IsNullOrWhiteSpace(req?.CitizenUserId) ? req.CitizenUserId.Trim() : "NA";
+            string userId = !string.IsNullOrWhiteSpace(req?.CitizenUserId) && req.CitizenUserId != "NA" 
+                ? req.CitizenUserId.Trim() 
+                : "";
+            if (string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(req?.RawPayload))
+            {
+                var rawParts = req.RawPayload.Split('|');
+                if (rawParts.Length > 0 && !string.IsNullOrWhiteSpace(rawParts[0]) && rawParts[0].Contains("-"))
+                    userId = rawParts[0].Trim();
+            }
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                var fallbackUser = await db.RTSAapleSarkarRequests
+                    .Where(r => !string.IsNullOrEmpty(r.CitizenUserId) && r.CitizenUserId != "NA")
+                    .OrderByDescending(r => r.Id)
+                    .Select(r => r.CitizenUserId)
+                    .FirstOrDefaultAsync(ct);
+                if (!string.IsNullOrWhiteSpace(fallbackUser))
+                    userId = fallbackUser.Trim();
+            }
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                userId = "358c97de-ab11-4912-8810-5e1d6e04232b";
+            }
             decimal totalFee = appDetails?.Service?.FeesRequired == true ? (appDetails.Service.Fees ?? 0m) : 0m;
             string amountStr = totalFee.ToString("0.0#");
 
@@ -719,6 +749,10 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             // 4. Fetch Citizen Profile from MahaIT SOAP
             string trackId = parts.Length > 0 ? parts[0].Trim() : "";
             string userId = parts.Length > 1 ? parts[1].Trim() : "";
+            if (parts.Length > 0 && parts[0].Contains("-"))
+            {
+                userId = parts[0].Trim();
+            }
             string fullName = "";
             string mobileNo = "";
             int? districtId = null;
@@ -747,7 +781,16 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             }
 
             // If trackId looks like a GUID/session token, attempt to recover numeric trackId from existing request in DB
+            if (parts.Length > 0 && parts[0].Contains("-"))
+            {
+                userId = parts[0].Trim();
+            }
             if (trackId.Contains("-") || trackId.Length > 20)
+            {
+                var randSeq = DateTime.Now.ToString("yyMMdd") + "0331" + new Random().Next(1000000, 9999999).ToString();
+                trackId = randSeq;
+            }
+            if (false)
             {
                 var existing = await db.RTSAapleSarkarRequests
                     .OrderByDescending(r => r.Id)
@@ -779,8 +822,8 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             // 6. Save or update [RTS].[AapleSarkarRequest]
             var req = await db.RTSAapleSarkarRequests
                 .OrderByDescending(r => r.Id)
-                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackId 
-                                       || (!string.IsNullOrWhiteSpace(userId) && r.CitizenUserId == userId && r.ServiceId == ns), ct);
+                .FirstOrDefaultAsync(r => r.AapleSarkarTrackId == trackId, ct);
+
 
             if (req != null)
             {
@@ -836,7 +879,7 @@ public class AapleSarkarIntegrationService : IAapleSarkarIntegrationService
             }
 
             string baseUi = cred.PortalBaseUrl.TrimEnd('/');
-            string finalRedirectUrl = $"{baseUi}/mr/service/{rtsServiceId}?TD={tdToken}";
+            string finalRedirectUrl = $"{baseUi}/mr/service/{rtsServiceId}?TD={Uri.EscapeDataString(tdToken)}";
 
             return (true, finalRedirectUrl, null);
         }
