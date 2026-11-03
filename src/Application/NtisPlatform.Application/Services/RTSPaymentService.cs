@@ -2,7 +2,7 @@ using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using NtisPlatform.Application.DTOs.RTSPayment;
+using NtisPlatform.Application.DTOs.RTSPayment;  
 using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -1989,36 +1989,7 @@ public class RTSPaymentService : IRTSPaymentService
             .Take(pageSize)
             .ToListAsync(ct);
 
-        // Populate applicant details
-        var appIds = items.Select(x => x.ApplicationId).Distinct().ToList();
-        var fieldValues = await _fieldValueRepository.GetQueryable()
-            .Include(f => f.FieldDefinition)
-            .Where(f => appIds.Contains(f.ApplicationId) && !f.MarkedForDeletion)
-            .ToListAsync(ct);
-
-        var applicantNames = new Dictionary<int, string>();
-        var applicantMobiles = new Dictionary<int, string>();
-
-        foreach (var appId in appIds)
-        {
-            var fvs = fieldValues.Where(f => f.ApplicationId == appId).ToList();
-            string? name = null;
-            string? mobile = null;
-            foreach (var fv in fvs)
-            {
-                var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
-                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
-                var val = fv.TextValue?.Trim();
-                if (string.IsNullOrWhiteSpace(val)) continue;
-
-                if (string.IsNullOrWhiteSpace(name) && (label.Contains("full name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
-                    name = val;
-                else if (string.IsNullOrWhiteSpace(mobile) && (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल")))
-                    mobile = val;
-            }
-            if (!string.IsNullOrWhiteSpace(name)) applicantNames[appId] = name;
-            if (!string.IsNullOrWhiteSpace(mobile)) applicantMobiles[appId] = mobile;
-        }
+       
 
            
         var users = await _userRepository
@@ -2039,16 +2010,8 @@ public class RTSPaymentService : IRTSPaymentService
             DemandNo = t.Demand != null ? t.Demand.DemandNo : null,
             ApplicationId = t.ApplicationId,
             ApplicationNo = t.ApplicationNo,
-            CitizenName = !string.IsNullOrWhiteSpace(t.PayerName)
-                ? t.PayerName
-                : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantName)
-                    ? t.Application.ApplicantName
-                    : (applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant")),
-            CitizenMobile = !string.IsNullOrWhiteSpace(t.PayerMobile)
-                ? t.PayerMobile
-                : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantMobileNo)
-                    ? t.Application.ApplicantMobileNo
-                    : (applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : "")),
+            CitizenName = !string.IsNullOrWhiteSpace(t.PayerName)? t.PayerName : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantName) ? t.Application.ApplicantName :  "Applicant"),
+            CitizenMobile = !string.IsNullOrWhiteSpace(t.PayerMobile) ? t.PayerMobile :t.Application?.ApplicantMobileNo,
             ServiceName = t.Service?.ServiceName ?? "RTS Service",
             ServiceNameLocal = t.Service?.ServiceNameLocal,
             DepartmentName = t.Department?.DepartmentName ?? "RTS Department",
@@ -2062,7 +2025,7 @@ public class RTSPaymentService : IRTSPaymentService
             InstrumentNo = t.InstrumentNo ?? t.BankRefNo,
             InstrumentDate = t.InstrumentDate,
             ClearanceDate = t.ClearanceDate,
-            CollectedBy = users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
+            CollectedBy = t.PaymentMode?.ModeNameEn == "Cash" ? users.Where(x => x.Id == t.CreatedBy).Select(x => x.OfficerName).FirstOrDefault(): users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
             BankRefNo = t.BankRefNo,
             GatewayPaymentId = t.GatewayPaymentId,
             ReceiptNo = t.ReceiptNo,
