@@ -295,12 +295,16 @@ public class PendingClearanceQueryDto
     public string? PaymentMode { get; set; }
     public string? StatusCode { get; set; }
     public string? BankName { get; set; }
-    public DateTime? FromDate { get; set; }
-    public DateTime? ToDate { get; set; }
-    public string? SearchText { get; set; }
     public int? DepartmentId { get; set; }
     public int? ServiceId { get; set; }
     public int? UserId { get; set; }
+    public string? SearchText { get; set; }
+    public decimal? BaseAmount { get; set; }
+    public DateTime? ReceiptDate { get; set; }
+    public DateTime? FromDate { get; set; }
+    public DateTime? ToDate { get; set; }
+    public string? SortBy { get; set; }
+    public string? SortOrder { get; set; } 
     public int PageNumber { get; set; }
     public int PageSize { get; set; }
 }
@@ -339,6 +343,7 @@ public class PendingClearanceItemDto
     public string? CancellationReason { get; set; }
     public string? FailureReason { get; set; }
     public string? Remarks { get; set; }
+    public string? CollectedBy { get; set; }
     public DateTime CreatedDate { get; set; }
 }
 
@@ -347,6 +352,7 @@ public class PendingClearanceStatsDto
     public int TotalPendingDdCheque { get; set; }
     public int TotalSettlementCount { get; set; }
     public int TotalPendingOnline { get; set; }
+    public int TotalCleared { get; set; }
     public int TotalClearedToday { get; set; }
     public int TotalBounced { get; set; }
     public int TotalCancelled { get; set; }
@@ -411,5 +417,16 @@ public class RTSPaymentModeLookupDto
     public string ModeNameEn { get; set; } = string.Empty;
     public string ModeNameMr { get; set; } = string.Empty;
     public string? IconName { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class RTSPaymentStatusLookupDto
+{
+    public int Id { get; set; }
+    public string StatusCode { get; set; } = string.Empty;
+    public string StatusNameEn { get; set; } = string.Empty;
+    public string StatusNameMr { get; set; } = string.Empty;
+    public string BadgeColor { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
     public bool IsActive { get; set; }
 }

@@ -2,7 +2,7 @@ using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using NtisPlatform.Application.DTOs.RTSPayment;
+using NtisPlatform.Application.DTOs.RTSPayment;  
 using NtisPlatform.Application.DTOs.RTSRuleMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -1855,9 +1855,9 @@ public class RTSPaymentService : IRTSPaymentService
         return words.Trim();
     }
 
-    public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto query, CancellationToken ct = default)
+    public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto queryParameters, CancellationToken ct = default)
     {
-        var q = _paymentRepository.GetQueryable().AsNoTracking()
+        var query = _paymentRepository.GetQueryable().AsNoTracking()
             .Include(t => t.Demand)
             .Include(t => t.Application)
             .Include(t => t.Service)
@@ -1867,91 +1867,89 @@ public class RTSPaymentService : IRTSPaymentService
             .AsQueryable();
 
         // Payment Mode Filter
-        if (!string.IsNullOrWhiteSpace(query.PaymentMode) && query.PaymentMode.ToUpper() != "ALL")
+        if (!string.IsNullOrWhiteSpace(queryParameters.PaymentMode) && queryParameters.PaymentMode.ToUpper() != "ALL")
         {
-            var pMode = query.PaymentMode.Trim().ToUpperInvariant();
+            var pMode = queryParameters.PaymentMode.Trim().ToUpperInvariant();
             if (pMode == "CHEQUE" || pMode == "धनादेश")
             {
-                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("Cheque")) || (t.Remarks != null && t.Remarks.Contains("Cheque"))));
+                query = query.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "CHEQUE" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("Cheque")) || (t.Remarks != null && t.Remarks.Contains("Cheque"))));
             }
             else if (pMode == "DD" || pMode == "DEMAND_DRAFT")
             {
-                q = q.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "DD" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("DD")) || (t.Remarks != null && t.Remarks.Contains("DD"))));
+                query = query.Where(t => t.PaymentMode != null && (t.PaymentMode.ModeCode == "DD" || (t.PayerVpaOrAccount != null && t.PayerVpaOrAccount.Contains("DD")) || (t.Remarks != null && t.Remarks.Contains("DD"))));
             }
             else if (pMode == "ONLINE")
             {
-                q = q.Where(t => t.PaymentMode == null || (t.PaymentMode.ModeCode != "CASH" && t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "OFFLINE_CHALLAN"));
+                query = query.Where(t => t.PaymentMode == null || (t.PaymentMode.ModeCode != "CASH" && t.PaymentMode.ModeCode != "CHEQUE" && t.PaymentMode.ModeCode != "DD" && t.PaymentMode.ModeCode != "OFFLINE_CHALLAN"));
             }
             else if (pMode == "CASH" || pMode == "रोख")
             {
-                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
+                query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
             }
             else
             {
-                q = q.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
+                query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
             }
         }
 
         // Status Filter
-        if (!string.IsNullOrWhiteSpace(query.StatusCode) && query.StatusCode.ToUpper() != "ALL")
+        if (!string.IsNullOrWhiteSpace(queryParameters.StatusCode) && queryParameters.StatusCode.ToUpper() != "ALL")
         {
-            var code = query.StatusCode.Trim().ToUpperInvariant();
+            var code = queryParameters.StatusCode.Trim().ToUpperInvariant();
             if (code == "PENDING_CLEARANCE")
             {
-                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code && (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"));
+                query = query.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code && (t.PaymentMode == null || t.PaymentMode.ModeCode != "CASH"));
             }
             else
             {
-                q = q.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
+                query = query.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == code);
             }
         }
 
         // Date Range
-        if (query.FromDate.HasValue)
+        if (queryParameters.FromDate.HasValue)
         {
-            var from = query.FromDate.Value.Date;
-            q = q.Where(t => t.CreatedDate >= from);
+            var from = queryParameters.FromDate.Value.Date;
+            query = query.Where(t => t.CreatedDate >= from);
         }
-        if (query.ToDate.HasValue)
+        if (queryParameters.ToDate.HasValue)
         {
-            var to = query.ToDate.Value.Date.AddDays(1).AddTicks(-1);
-            q = q.Where(t => t.CreatedDate <= to);
+            var to = queryParameters.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(t => t.CreatedDate <= to);
         }
 
         // Department Filter
-        if (query.DepartmentId.HasValue && query.DepartmentId.Value > 0)
+        if (queryParameters.DepartmentId.HasValue && queryParameters.DepartmentId.Value > 0)
         {
-            q = q.Where(t => t.DepartmentId == query.DepartmentId.Value);
+            query = query.Where(t => t.DepartmentId == queryParameters.DepartmentId.Value);
         }
 
  
-        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == query.UserId && x.IsActive);
+        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == queryParameters.UserId && x.IsActive);
 
         if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer!=null)
         {
-           
-                q = q.Where(t => t.CreatedBy == query.UserId);
+
+            query = query.Where(t => t.CreatedBy == queryParameters.UserId);
             
         }
 
         // Service Filter
-        if (query.ServiceId.HasValue && query.ServiceId.Value > 0)
+        if (queryParameters.ServiceId.HasValue && queryParameters.ServiceId.Value > 0)
         {
-            q = q.Where(t => t.ServiceId == query.ServiceId.Value);
+            query = query.Where(t => t.ServiceId == queryParameters.ServiceId.Value);
         }
         
-        if (!string.IsNullOrWhiteSpace(query.BankName))
+        if (!string.IsNullOrWhiteSpace(queryParameters.BankName))
         {
-            q = q.Where(t => t.BankName == query.BankName);
+            query = query.Where(t => t.BankName == queryParameters.BankName);
         }
 
-
-
         // Search Text
-        if (!string.IsNullOrWhiteSpace(query.SearchText))
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchText))
         {
-            var st = query.SearchText.Trim();
-            q = q.Where(t =>
+            var st = queryParameters.SearchText.Trim();
+            query = query.Where(t =>
                 t.ApplicationNo.Contains(st) ||
                 t.TransactionNo.Contains(st) ||
                 (t.Application != null && t.Application.ApplicantName != null && t.Application.ApplicantName.Contains(st)) ||
@@ -1962,47 +1960,48 @@ public class RTSPaymentService : IRTSPaymentService
                 (t.BankRefNo != null && t.BankRefNo.Contains(st)));
         }
 
-        var totalCount = await q.CountAsync(ct);
-        var totalAmountSum = await q.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
+        //sorting of reciept date wise and ammont wise 
+        if (string.Equals(queryParameters.SortBy, "ReceiptDate", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.ReceiptDate).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.ReceiptDate).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "BaseAmount", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(x => x.BaseAmount).ThenByDescending(x => x.Id)
+                : query.OrderBy(x => x.BaseAmount).ThenBy(x => x.Id);
+        }
+        else
+        {
+            query = query.OrderByDescending(t => t.Id);
+        }
 
-        int pageNumber = query.PageNumber > 0 ? query.PageNumber : 1;
-        int pageSize = query.PageSize > 0 ? query.PageSize : 10;
+        var totalCount = await query.CountAsync(ct);
+        var totalAmountSum = await query.SumAsync(t => (decimal?)t.TotalAmount, ct) ?? 0m;
 
-        var items = await q.OrderByDescending(t => t.Id)
+        int pageNumber = queryParameters.PageNumber > 0 ? queryParameters.PageNumber : 1;
+        int pageSize = queryParameters.PageSize > 0 ? queryParameters.PageSize : 10;
+
+        var items = await query
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
 
-        // Populate applicant details
-        var appIds = items.Select(x => x.ApplicationId).Distinct().ToList();
-        var fieldValues = await _fieldValueRepository.GetQueryable()
-            .Include(f => f.FieldDefinition)
-            .Where(f => appIds.Contains(f.ApplicationId) && !f.MarkedForDeletion)
-            .ToListAsync(ct);
+       
 
-        var applicantNames = new Dictionary<int, string>();
-        var applicantMobiles = new Dictionary<int, string>();
-
-        foreach (var appId in appIds)
+           
+        var users = await _userRepository
+        .GetQueryable()
+        .AsNoTracking()
+        .Where(x => x.IsActive && !x.MarkedForDeletion)
+        .Select(x => new
         {
-            var fvs = fieldValues.Where(f => f.ApplicationId == appId).ToList();
-            string? name = null;
-            string? mobile = null;
-            foreach (var fv in fvs)
-            {
-                var label = (fv.FieldDefinition?.FieldLabel ?? fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
-                var code = (fv.FieldDefinition?.FieldCode ?? string.Empty).ToLowerInvariant();
-                var val = fv.TextValue?.Trim();
-                if (string.IsNullOrWhiteSpace(val)) continue;
-
-                if (string.IsNullOrWhiteSpace(name) && (label.Contains("full name") || label.Contains("name") || label.Contains("नाव") || code.Contains("name")))
-                    name = val;
-                else if (string.IsNullOrWhiteSpace(mobile) && (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल")))
-                    mobile = val;
-            }
-            if (!string.IsNullOrWhiteSpace(name)) applicantNames[appId] = name;
-            if (!string.IsNullOrWhiteSpace(mobile)) applicantMobiles[appId] = mobile;
-        }
+            x.Id,
+            OfficerName = $"{x.FirstName ?? "" } {x.LastName ?? ""}"
+        })
+        .ToListAsync(ct);
 
         var dtoList = items.Select(t => new PendingClearanceItemDto
         {
@@ -2011,16 +2010,8 @@ public class RTSPaymentService : IRTSPaymentService
             DemandNo = t.Demand != null ? t.Demand.DemandNo : null,
             ApplicationId = t.ApplicationId,
             ApplicationNo = t.ApplicationNo,
-            CitizenName = !string.IsNullOrWhiteSpace(t.PayerName)
-                ? t.PayerName
-                : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantName)
-                    ? t.Application.ApplicantName
-                    : (applicantNames.TryGetValue(t.ApplicationId, out var cName) ? cName : "Applicant")),
-            CitizenMobile = !string.IsNullOrWhiteSpace(t.PayerMobile)
-                ? t.PayerMobile
-                : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantMobileNo)
-                    ? t.Application.ApplicantMobileNo
-                    : (applicantMobiles.TryGetValue(t.ApplicationId, out var cMob) ? cMob : "")),
+            CitizenName = !string.IsNullOrWhiteSpace(t.PayerName)? t.PayerName : (!string.IsNullOrWhiteSpace(t.Application?.ApplicantName) ? t.Application.ApplicantName :  "Applicant"),
+            CitizenMobile = !string.IsNullOrWhiteSpace(t.PayerMobile) ? t.PayerMobile :t.Application?.ApplicantMobileNo,
             ServiceName = t.Service?.ServiceName ?? "RTS Service",
             ServiceNameLocal = t.Service?.ServiceNameLocal,
             DepartmentName = t.Department?.DepartmentName ?? "RTS Department",
@@ -2034,6 +2025,7 @@ public class RTSPaymentService : IRTSPaymentService
             InstrumentNo = t.InstrumentNo ?? t.BankRefNo,
             InstrumentDate = t.InstrumentDate,
             ClearanceDate = t.ClearanceDate,
+            CollectedBy = t.PaymentMode?.ModeNameEn == "Cash" ? users.Where(x => x.Id == t.CreatedBy).Select(x => x.OfficerName).FirstOrDefault(): users.Where(x=>x.Id==t.UpdatedBy).Select(x=>x.OfficerName).FirstOrDefault(),
             BankRefNo = t.BankRefNo,
             GatewayPaymentId = t.GatewayPaymentId,
             ReceiptNo = t.ReceiptNo,
@@ -2097,6 +2089,11 @@ public class RTSPaymentService : IRTSPaymentService
 
             var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
 
+            var clearedCount = payments.Count(t =>
+                t.PaymentStatus != null &&
+                t.PaymentStatus.StatusCode == "SUCCESS" &&
+                !t.IsReceiptCancelled);
+
             var bouncedCount = payments.Count(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "BOUNCED") || t.ApprovalStatus == "DISAPPROVED");
 
             var cancelledCount= payments.Count(t => t.IsReceiptCancelled || (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "CANCELLED"));
@@ -2108,6 +2105,7 @@ public class RTSPaymentService : IRTSPaymentService
                 TotalSettlementCount = totalSettlementCount,
                 TotalPendingDdCheque = pendingDdChequeCount,
                 TotalPendingOnline = pendingOnlineCount,
+                TotalCleared = clearedCount,
                 TotalClearedToday = clearedTodayCount,
                 TotalClearedAmountToday = clearedTodayAmount,
                 TotalBounced = bouncedCount,
@@ -2751,6 +2749,25 @@ public class RTSPaymentService : IRTSPaymentService
                 ModeNameMr = m.ModeNameMr,
                 IconName = m.IconName,
                 IsActive = m.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<RTSPaymentStatusLookupDto>> GetPaymentStatusesAsync(CancellationToken ct = default)
+    {
+        return await _statusRepository.GetQueryable()
+            .Where(status => status.IsActive)
+            .OrderBy(status => status.DisplayOrder)
+            .ThenBy(status => status.Id)
+            .Select(status => new RTSPaymentStatusLookupDto
+            {
+                Id = status.Id,
+                StatusCode = status.StatusCode,
+                StatusNameEn = status.StatusNameEn,
+                StatusNameMr = status.StatusNameMr,
+                BadgeColor = status.BadgeColor,
+                DisplayOrder = status.DisplayOrder,
+                IsActive = status.IsActive
             })
             .ToListAsync(ct);
     }

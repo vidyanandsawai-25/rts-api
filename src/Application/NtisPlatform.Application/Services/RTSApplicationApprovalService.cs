@@ -198,9 +198,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
-        if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
-            query = query.Where(x => x.UserId == queryParameters.UserId.Value);
-
         // ADD DATE FILTER HERE
         if (queryParameters.FromDate.HasValue)
         {
@@ -219,8 +216,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.CreatedDate.HasValue &&
                 x.CreatedDate.Value < toDate);
         }
-
-
 
         var search = (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm)
             ? queryParameters.SearchTerm
@@ -313,23 +308,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ? query.OrderByDescending(x => x.UpdatedDate ?? x.CreatedDate).ThenByDescending(x => x.Id)
                 : query.OrderBy(x => x.UpdatedDate ?? x.CreatedDate).ThenBy(x => x.Id);
         }
+
+        //fifo
         else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
         {
-            // Strict FIFO mode:
-            // 1. Pending/active applications first, then closed (Approved, Rejected, Reverted)
-            // 2. Pending applications assigned to the logged-in officer (CurrentUserId) on top
-            // 3. Earliest CreatedDate first (FIFO)
-            // 4. Id ASC
-            var currentUserId = queryParameters.CurrentUserId;
-            if (currentUserId.HasValue && currentUserId.Value > 0)
-            {
-                var targetUserId = currentUserId.Value;
-                query = query
-                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
-                    .ThenBy(x => x.UserId == targetUserId ? 0 : 1)
-                    .ThenBy(x => x.CreatedDate)
-                    .ThenBy(x => x.Id);
-            }
+
+            if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
+                query = query.Where(x => x.UserId == queryParameters.UserId.Value).OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                .ThenBy(x => x.CreatedDate)
+                .ThenBy(x => x.Id);
+
             else
             {
                 query = query
@@ -371,7 +359,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ServiceNameLocal = x.Service.ServiceNameLocal,
                 Sla = x.Service.Sla,
                 Remark = x.Remark,
-
                 ApplicantMobileNo = x.ApplicantMobileNo,
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
@@ -448,9 +435,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.ApprovalFlowId,
                 x.CurrentApprovalFlowStageId,
                 x.CurrentStageOrder,
+                x.Remark,
                 x.UserId,
                 x.ApplicationStatus,
-                x.IsReverted
+                x.IsReverted,
+
+                Service = x.Service == null ? null : new
+                {
+                    x.Service.Id,
+                    x.Service.ServiceName,
+                    x.Service.IsPaymentAfterApproval,
+                    x.Service.IsCertificateRequired,
+                    x.Service.FeesRequired
+                }
             })
             .SingleOrDefaultAsync(cancellationToken);
         if (application == null)
@@ -577,13 +574,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                         : futureStageUserIds.GetValueOrDefault(stage.Id);
                 users.TryGetValue(assignedUserId ?? 0, out var user);
 
+
+                var isApprovedWithPaymentAfterApproval =  application.Service?.IsPaymentAfterApproval == true && application.ApplicationStatus == ApplicationStatus.Approved;
+
                 return new ApplicationApprovalStageDto
                 {
                     ApprovalFlowStageId = stage.Id,
                     StageOrder = stage.StageOrder,
                     StageName = stage.StageName,
-                    Status = history?.Status ?? ApplicationStatus.Pending,
-                    Remark = history?.Remark,
+                    Status = isApprovedWithPaymentAfterApproval ? application.ApplicationStatus : history?.Status ?? application.ApplicationStatus,
+                    Remark = isApprovedWithPaymentAfterApproval ? application.Remark : history?.Remark,
                     CreatedDate = history?.CreatedDate,
                     UserName = user?.UserName,
                     FirstName = user?.FirstName,
