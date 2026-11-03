@@ -79,6 +79,14 @@ public class AapleSarkarController : ControllerBase
                 Path = "/",
                 Expires = DateTimeOffset.UtcNow.AddHours(2)
             });
+            Response.Cookies.Append("rts_aaplesarkar_td", tdToken, new CookieOptions
+            {
+                HttpOnly = false,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax,
+                Path = "/",
+                Expires = DateTimeOffset.UtcNow.AddHours(2)
+            });
         }
 
         _logger.LogInformation("Redirecting citizen to RTS UI: {Url}", redirectUrl);
@@ -206,5 +214,12 @@ public class AapleSarkarController : ControllerBase
     {
         var logs = await _dashboardService.GetPushLogsAsync(limit, ct);
         return Ok(new { status = true, data = logs });
+    }
+
+    private static int? ParseIntQuery(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var first = value.Split(new[] { ',', ' ', ']', '[', '(', ')' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return int.TryParse(first, out var val) ? val : null;
     }
 }
