@@ -447,9 +447,19 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.ApprovalFlowId,
                 x.CurrentApprovalFlowStageId,
                 x.CurrentStageOrder,
+                x.Remark,
                 x.UserId,
                 x.ApplicationStatus,
-                x.IsReverted
+                x.IsReverted,
+
+                Service = x.Service == null ? null : new
+                {
+                    x.Service.Id,
+                    x.Service.ServiceName,
+                    x.Service.IsPaymentAfterApproval,
+                    x.Service.IsCertificateRequired,
+                    x.Service.FeesRequired
+                }
             })
             .SingleOrDefaultAsync(cancellationToken);
         if (application == null)
@@ -576,13 +586,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                         : futureStageUserIds.GetValueOrDefault(stage.Id);
                 users.TryGetValue(assignedUserId ?? 0, out var user);
 
+
+                var isApprovedWithPaymentAfterApproval =  application.Service?.IsPaymentAfterApproval == true && application.ApplicationStatus == ApplicationStatus.Approved;
+
                 return new ApplicationApprovalStageDto
                 {
                     ApprovalFlowStageId = stage.Id,
                     StageOrder = stage.StageOrder,
                     StageName = stage.StageName,
-                    Status = history?.Status ?? ApplicationStatus.Pending,
-                    Remark = history?.Remark,
+                    Status = isApprovedWithPaymentAfterApproval ? application.ApplicationStatus : history?.Status ?? application.ApplicationStatus,
+                    Remark = isApprovedWithPaymentAfterApproval ? application.Remark : history?.Remark,
                     CreatedDate = history?.CreatedDate,
                     UserName = user?.UserName,
                     FirstName = user?.FirstName,
