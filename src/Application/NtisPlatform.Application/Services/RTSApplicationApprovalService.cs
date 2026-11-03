@@ -198,9 +198,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
 
-        if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
-            query = query.Where(x => x.UserId == queryParameters.UserId.Value);
-
         // ADD DATE FILTER HERE
         if (queryParameters.FromDate.HasValue)
         {
@@ -219,8 +216,6 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 x.CreatedDate.HasValue &&
                 x.CreatedDate.Value < toDate);
         }
-
-
 
         var search = (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm)
             ? queryParameters.SearchTerm
@@ -313,23 +308,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 ? query.OrderByDescending(x => x.UpdatedDate ?? x.CreatedDate).ThenByDescending(x => x.Id)
                 : query.OrderBy(x => x.UpdatedDate ?? x.CreatedDate).ThenBy(x => x.Id);
         }
+
+        //fifo
         else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
         {
-            // Strict FIFO mode:
-            // 1. Pending/active applications first, then closed (Approved, Rejected, Reverted)
-            // 2. Pending applications assigned to the logged-in officer (CurrentUserId) on top
-            // 3. Earliest CreatedDate first (FIFO)
-            // 4. Id ASC
-            var currentUserId = queryParameters.CurrentUserId;
-            if (currentUserId.HasValue && currentUserId.Value > 0)
-            {
-                var targetUserId = currentUserId.Value;
-                query = query
-                    .OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
-                    .ThenBy(x => x.UserId == targetUserId ? 0 : 1)
-                    .ThenBy(x => x.CreatedDate)
-                    .ThenBy(x => x.Id);
-            }
+
+            if (queryParameters.UserId.HasValue && queryParameters.UserId.Value > 0)
+                query = query.Where(x => x.UserId == queryParameters.UserId.Value).OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
+                .ThenBy(x => x.CreatedDate)
+                .ThenBy(x => x.Id);
+
             else
             {
                 query = query
