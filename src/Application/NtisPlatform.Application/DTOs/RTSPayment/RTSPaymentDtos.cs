@@ -352,6 +352,7 @@ public class PendingClearanceStatsDto
     public int TotalPendingDdCheque { get; set; }
     public int TotalSettlementCount { get; set; }
     public int TotalPendingOnline { get; set; }
+    public int TotalCleared { get; set; }
     public int TotalClearedToday { get; set; }
     public int TotalBounced { get; set; }
     public int TotalCancelled { get; set; }

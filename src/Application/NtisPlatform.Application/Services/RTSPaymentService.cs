@@ -2126,6 +2126,11 @@ public class RTSPaymentService : IRTSPaymentService
 
             var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
 
+            var clearedCount = payments.Count(t =>
+                t.PaymentStatus != null &&
+                t.PaymentStatus.StatusCode == "SUCCESS" &&
+                !t.IsReceiptCancelled);
+
             var bouncedCount = payments.Count(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "BOUNCED") || t.ApprovalStatus == "DISAPPROVED");
 
             var cancelledCount= payments.Count(t => t.IsReceiptCancelled || (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "CANCELLED"));
@@ -2137,6 +2142,7 @@ public class RTSPaymentService : IRTSPaymentService
                 TotalSettlementCount = totalSettlementCount,
                 TotalPendingDdCheque = pendingDdChequeCount,
                 TotalPendingOnline = pendingOnlineCount,
+                TotalCleared = clearedCount,
                 TotalClearedToday = clearedTodayCount,
                 TotalClearedAmountToday = clearedTodayAmount,
                 TotalBounced = bouncedCount,
