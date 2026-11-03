@@ -315,9 +315,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         //fifo
         else if (queryParameters.IsFifo == true || string.IsNullOrWhiteSpace(queryParameters.SortBy) || string.Equals(queryParameters.SortBy, "FIFO", StringComparison.OrdinalIgnoreCase))
         {
-            var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == queryParameters.UserId && x.IsActive);
 
-            if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer != null)
+            if (queryParameters.UserId !=null && queryParameters.UserId > 0)
                 query = query.Where(x => x.UserId == queryParameters.UserId).OrderBy(x => (x.ApplicationStatus != ApplicationStatus.Approved && x.ApplicationStatus != ApplicationStatus.Rejected && x.ApplicationStatus != ApplicationStatus.Reverted) ? 0 : 1)
                 .ThenBy(x => x.CreatedDate)
                 .ThenBy(x => x.Id);
