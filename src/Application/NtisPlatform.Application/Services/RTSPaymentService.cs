@@ -2089,6 +2089,11 @@ public class RTSPaymentService : IRTSPaymentService
 
             var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
 
+            var clearedCount = payments.Count(t =>
+                t.PaymentStatus != null &&
+                t.PaymentStatus.StatusCode == "SUCCESS" &&
+                !t.IsReceiptCancelled);
+
             var bouncedCount = payments.Count(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "BOUNCED") || t.ApprovalStatus == "DISAPPROVED");
 
             var cancelledCount= payments.Count(t => t.IsReceiptCancelled || (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "CANCELLED"));
@@ -2100,6 +2105,7 @@ public class RTSPaymentService : IRTSPaymentService
                 TotalSettlementCount = totalSettlementCount,
                 TotalPendingDdCheque = pendingDdChequeCount,
                 TotalPendingOnline = pendingOnlineCount,
+                TotalCleared = clearedCount,
                 TotalClearedToday = clearedTodayCount,
                 TotalClearedAmountToday = clearedTodayAmount,
                 TotalBounced = bouncedCount,
@@ -2743,6 +2749,25 @@ public class RTSPaymentService : IRTSPaymentService
                 ModeNameMr = m.ModeNameMr,
                 IconName = m.IconName,
                 IsActive = m.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<RTSPaymentStatusLookupDto>> GetPaymentStatusesAsync(CancellationToken ct = default)
+    {
+        return await _statusRepository.GetQueryable()
+            .Where(status => status.IsActive)
+            .OrderBy(status => status.DisplayOrder)
+            .ThenBy(status => status.Id)
+            .Select(status => new RTSPaymentStatusLookupDto
+            {
+                Id = status.Id,
+                StatusCode = status.StatusCode,
+                StatusNameEn = status.StatusNameEn,
+                StatusNameMr = status.StatusNameMr,
+                BadgeColor = status.BadgeColor,
+                DisplayOrder = status.DisplayOrder,
+                IsActive = status.IsActive
             })
             .ToListAsync(ct);
     }

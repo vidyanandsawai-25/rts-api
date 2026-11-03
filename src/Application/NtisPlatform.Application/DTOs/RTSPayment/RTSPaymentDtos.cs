@@ -352,6 +352,7 @@ public class PendingClearanceStatsDto
     public int TotalPendingDdCheque { get; set; }
     public int TotalSettlementCount { get; set; }
     public int TotalPendingOnline { get; set; }
+    public int TotalCleared { get; set; }
     public int TotalClearedToday { get; set; }
     public int TotalBounced { get; set; }
     public int TotalCancelled { get; set; }
@@ -416,5 +417,16 @@ public class RTSPaymentModeLookupDto
     public string ModeNameEn { get; set; } = string.Empty;
     public string ModeNameMr { get; set; } = string.Empty;
     public string? IconName { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class RTSPaymentStatusLookupDto
+{
+    public int Id { get; set; }
+    public string StatusCode { get; set; } = string.Empty;
+    public string StatusNameEn { get; set; } = string.Empty;
+    public string StatusNameMr { get; set; } = string.Empty;
+    public string BadgeColor { get; set; } = string.Empty;
+    public int DisplayOrder { get; set; }
     public bool IsActive { get; set; }
 }

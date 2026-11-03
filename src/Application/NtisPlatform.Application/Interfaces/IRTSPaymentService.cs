@@ -26,6 +26,7 @@ public interface IRTSPaymentService
     Task<byte[]> DownloadClearanceTemplateAsync(CancellationToken ct = default);
     Task<List<RTSBankLookupDto>> GetBanksAsync(CancellationToken ct = default);
     Task<List<RTSPaymentModeLookupDto>> GetPaymentModesAsync(CancellationToken ct = default);
+    Task<List<RTSPaymentStatusLookupDto>> GetPaymentStatusesAsync(CancellationToken ct = default);
     Task<List<ReceiptCancellationLogDto>> GetCancellationLogsAsync(int? applicationId = null, long? transactionId = null, CancellationToken ct = default);
 }
 
