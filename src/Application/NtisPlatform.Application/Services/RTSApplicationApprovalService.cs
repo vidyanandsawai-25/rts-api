@@ -848,7 +848,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         bool requiresCertificate = result.IsCertificateRequired && result.CertificateType != NtisPlatform.Core.Enums.RTSCertificateType.None;
 
-        if (result.IsPaymentAfterApproval &&result.ApplicationStatus == "Approved" && requiresCertificate)
+        if (result.ApplicationStatus == "Approved" && requiresCertificate)
         {
             IssueCertificateByUserIds = OfficerAccess
                 .Where(x =>
