@@ -160,7 +160,24 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             throw;
         }
 
-        await DispatchSubmissionSmsAsync(entity, createDto, cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(createDto.ApplicantMobileNo))
+        {
+            string? applicantName = "Citizen";
+
+            var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, cancellationToken);
+            var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
+
+            await _smsNotificationService.SendApplicationSubmittedAsync(
+                entity.Id,
+                entity.ApplicationNo ?? $"RTS{entity.Id:D8}",
+                applicantName ?? "Citizen",
+                createDto.ApplicantMobileNo,
+                service?.ServiceName ?? "RTS Service",
+                feeAmount,
+                service?.IsPaymentAfterApproval ?? false,
+                cancellationToken);
+        }
 
         if (!string.IsNullOrWhiteSpace(createDto.TdToken))
         {
@@ -354,84 +371,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 "Every submitted field must be an active field of the selected RTS service.",
                 OperationType.Create);
     }
-
-
-    private async Task DispatchSubmissionSmsAsync(RTSApplicationDetailsEntity entity, CreateRTSApplicationDetailsDto createDto, CancellationToken ct)
-    {
-        try
-        {
-            string? applicantName = "Citizen";
-            string? applicantMobile = null;
-
-            var fieldDefinitions = await _fieldDefinitionRepository.GetQueryable()
-                .Where(x => x.ServiceId == entity.ServiceId && x.IsActive)
-                .ToListAsync(ct);
-
-            if (createDto.FieldValues != null)
-            {
-                foreach (var f in createDto.FieldValues)
-                {
-                    var def = fieldDefinitions.FirstOrDefault(d => d.Id == f.FieldDefinitionId);
-                    var label = (def?.FieldLabel ?? def?.FieldCode ?? string.Empty).ToLowerInvariant();
-                    var code = (def?.FieldCode ?? string.Empty).ToLowerInvariant();
-                    var val = (!string.IsNullOrWhiteSpace(f.TextValue) ? f.TextValue : f.NumberValue?.ToString())?.Trim();
-
-                    if (string.IsNullOrWhiteSpace(val)) continue;
-
-                    if (string.IsNullOrWhiteSpace(applicantMobile) &&
-                        (label.Contains("mobile") || label.Contains("phone") || label.Contains("contact") || label.Contains("मोबाईल") || code.Contains("mobile") || code.Contains("phone")))
-                    {
-                        applicantMobile = val;
-                    }
-                    else if (string.IsNullOrWhiteSpace(applicantName) &&
-                        (label.Contains("name") || label.Contains("नाव") || code.Contains("name") || code.Contains("fullname")))
-                    {
-                        applicantName = val;
-                    }
-                }
-            }
-
-            // Fallback: If mobile not found in form fields, try fetching from citizen session
-            if (!string.IsNullOrWhiteSpace(entity.SessionId))
-            {
-                try
-                {
-                    var sessionResult = await _sessionService.ValidateAndUpdateSessionAsync(entity.SessionId, ct);
-                    if (sessionResult?.Session != null)
-                    {
-                        if (string.IsNullOrWhiteSpace(applicantMobile) && !string.IsNullOrWhiteSpace(sessionResult.Session.MobileNo))
-                        {
-                            applicantMobile = sessionResult.Session.MobileNo;
-                        }
-                        if (string.IsNullOrWhiteSpace(applicantName) && !string.IsNullOrWhiteSpace(sessionResult.Session.CitizenName))
-                        {
-                            applicantName = sessionResult.Session.CitizenName;
-                        }
-                    }
-                }
-                catch { }
-            }
-
-            if (!string.IsNullOrWhiteSpace(applicantMobile))
-            {
-                var service = await _serviceRepository.GetByIdAsync(entity.ServiceId, ct);
-                var feeAmount = service?.FeesRequired == true ? (service?.Fees ?? 0) : 0;
-
-                await _smsNotificationService.SendApplicationSubmittedAsync(
-                    entity.Id,
-                    entity.ApplicationNo ?? $"RTS{entity.Id:D8}",
-                    applicantName ?? "Citizen",
-                    applicantMobile,
-                    service?.ServiceName ?? "RTS Service",
-                    feeAmount,
-                    service?.IsPaymentAfterApproval ?? false,
-                    ct);
-            }
-        }
-        catch
-        {
-            // Non-blocking for application creation
-        }
+ 
     }
-}
+
 
