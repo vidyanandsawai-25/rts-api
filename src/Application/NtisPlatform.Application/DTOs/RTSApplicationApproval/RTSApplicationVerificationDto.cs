@@ -34,8 +34,8 @@ public class CurrentApprovalOfficerDto
     public bool IsCertificateRequired { get; set; } = true;
 
     // <summary>Id of the officer who can collect payment for this application.</summary>
-    public int CollectPayementByUserId { get; set; } = 0;
-    public int IssueCertificateByUserId { get; set; } = 0;
+    public List<int> CollectPaymentByUserIds { get; set; } = new List<int>();
+    public List<int> IssueCertificateByUserIds { get; set; } = new List<int>();
 
     public int? ServiceId { get; set; }
     public string? ServiceName { get; set; }

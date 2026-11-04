@@ -25,4 +25,5 @@ public class RTSApprovalFlowStageMasterEntity:BaseEntity
     public virtual RTSApprovalFlowMasterEntity ApprovalFlow { get; set; } = null!;
     public virtual UserEntity User { get; set; } = null!;
     public virtual List<TrackApplicationHistoryEntity> TrackApplicationHistory { get; set; } = new List<TrackApplicationHistoryEntity>();
+    public virtual List<RTSApprovalFlowStageUserAllocationMasterEntity> RTSApprovalFlowStageUserAllocations { get; set; } = new List<RTSApprovalFlowStageUserAllocationMasterEntity>();
 }

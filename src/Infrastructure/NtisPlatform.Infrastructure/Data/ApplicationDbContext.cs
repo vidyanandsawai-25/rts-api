@@ -6318,7 +6318,14 @@ public class ApplicationDbContext : DbContext
                 .WithMany(e => e.ApprovalFlowStages)
                 .HasForeignKey(e => e.ApprovalFlowId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
+
+
+            entity.HasMany(e => e.RTSApprovalFlowStageUserAllocations)
+            .WithOne()
+            .HasForeignKey(a => a.ApprovalFlowStageId)
+            .HasPrincipalKey(e => e.Id)
+            .OnDelete(DeleteBehavior.NoAction);
+            });
 
         modelBuilder.Entity<RTSApprovalFlowStageUserAllocationMasterEntity>(entity =>
         {
