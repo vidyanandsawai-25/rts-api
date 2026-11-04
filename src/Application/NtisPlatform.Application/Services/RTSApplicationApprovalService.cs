@@ -696,9 +696,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     {
         if (applicationId <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(applicationId),
-                "Invalid application ID.");
+            throw new ArgumentOutOfRangeException( nameof(applicationId), "Invalid application ID.");
         }
 
         var result = await _repository
@@ -829,26 +827,14 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .Where(a => a.IsActive)
             .Select(a => new
             {
-                try
-                {
-                    var userId = await _allocationRules.ResolveOfficerAsync(
-                        result.ServiceId,
-                        result.ApprovalFlowId,
-                        stage.Id,
-                        normalizedValues,
-                        cancellationToken);
+                a.UserId,
+                x.CanPay,
+                x.CanIssueCertificate
+            }))
+        .ToListAsync(cancellationToken);
 
-                    if (stage.CanPay)
-                        collectPaymentByUserIds.Add(userId);
-                    if (stage.CanIssueCertificate)
-                        issueCertificateByUserIds.Add(userId);
-                }
-                catch (InvalidOperationException)
-                {
-                    // An unmatched rule, tied priority, missing allocation, or
-                    // inactive officer grants no post-approval permission.
-                }
-            }
+        List<int> CollectPaymentByUserIds = new();
+        List<int> IssueCertificateByUserIds = new();
 
         if (result.IsPaymentAfterApproval && result.ApplicationStatus == "Approved")
         {
@@ -919,8 +905,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = fee,
             HasPaymentTransaction = paymentTxn != null || (demand != null && demand.TotalAmount > 0) || fee > 0,
-            CollectPaymentByUserIds = collectPaymentByUserIds,
-            IssueCertificateByUserIds = issueCertificateByUserIds,
+            CollectPaymentByUserIds = CollectPaymentByUserIds,
+            IssueCertificateByUserIds = IssueCertificateByUserIds,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo

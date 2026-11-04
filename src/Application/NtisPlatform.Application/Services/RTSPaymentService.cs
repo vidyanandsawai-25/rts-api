@@ -1929,9 +1929,7 @@ public class RTSPaymentService : IRTSPaymentService
 
         if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer!=null)
         {
-
-            query = query.Where(t => t.CreatedBy == queryParameters.UserId);
-            
+            query = query.Where(t => t.CreatedBy == queryParameters.UserId); 
         }
 
         // Service Filter
@@ -1989,19 +1987,24 @@ public class RTSPaymentService : IRTSPaymentService
             .Take(pageSize)
             .ToListAsync(ct);
 
-       
+        var targetUserIds = items.Select(x => x.CreatedBy)
+            .Concat(items.Select(x => x.UpdatedBy))
+            .Where(x => x.HasValue && x.Value > 0)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToList();
 
-           
         var users = await _userRepository
-        .GetQueryable()
-        .AsNoTracking()
-        .Where(x => x.IsActive && !x.MarkedForDeletion)
-        .Select(x => new
-        {
-            x.Id,
-            OfficerName = $"{x.FirstName ?? "" } {x.LastName ?? ""}"
-        })
-        .ToListAsync(ct);
+            .GetQueryable()
+            .AsNoTracking()
+            .Where(x => targetUserIds.Contains(x.Id))
+            .Select(x => new
+            {
+                x.Id,
+                OfficerName = $"{x.FirstName} {x.LastName}"
+            })
+            .ToListAsync(ct);
+
 
         var dtoList = items.Select(t => new PendingClearanceItemDto
         {
