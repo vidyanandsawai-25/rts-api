@@ -829,14 +829,26 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .Where(a => a.IsActive)
             .Select(a => new
             {
-                a.UserId,
-                x.CanPay,
-                x.CanIssueCertificate
-            }))
-        .ToListAsync(cancellationToken);
+                try
+                {
+                    var userId = await _allocationRules.ResolveOfficerAsync(
+                        result.ServiceId,
+                        result.ApprovalFlowId,
+                        stage.Id,
+                        normalizedValues,
+                        cancellationToken);
 
-        List<int> CollectPaymentByUserIds = new();
-        List<int> IssueCertificateByUserIds = new();
+                    if (stage.CanPay)
+                        collectPaymentByUserIds.Add(userId);
+                    if (stage.CanIssueCertificate)
+                        issueCertificateByUserIds.Add(userId);
+                }
+                catch (InvalidOperationException)
+                {
+                    // An unmatched rule, tied priority, missing allocation, or
+                    // inactive officer grants no post-approval permission.
+                }
+            }
 
         if (result.IsPaymentAfterApproval && result.ApplicationStatus == "Approved")
         {
@@ -907,8 +919,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = fee,
             HasPaymentTransaction = paymentTxn != null || (demand != null && demand.TotalAmount > 0) || fee > 0,
-            CollectPaymentByUserIds = CollectPaymentByUserIds,
-            IssueCertificateByUserIds = IssueCertificateByUserIds,
+            CollectPaymentByUserIds = collectPaymentByUserIds,
+            IssueCertificateByUserIds = issueCertificateByUserIds,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo
