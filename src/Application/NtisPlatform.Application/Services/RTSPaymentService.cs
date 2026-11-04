@@ -2046,71 +2046,77 @@ public class RTSPaymentService : IRTSPaymentService
         return pagedResult;
     }
 
-    public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(int UserId,CancellationToken ct = default)
+
+    public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(int UserId, CancellationToken ct = default)
     {
         var today = DateTime.Today;
 
-        var payments = await _paymentRepository.GetQueryable()
-           .Where(x => x.IsActive)
-           .Select(t => new
-           {
-               StatusCode = t.PaymentStatus != null ? t.PaymentStatus.StatusCode : null,
-               ModeCode = t.PaymentMode != null ? t.PaymentMode.ModeCode : null,
-               t.ApprovalStatus,
-               t.CreatedBy,
-               t.IsReceiptCancelled,
-               t.PaymentStatus,
-               t.ClearanceDate,
-               t.PaymentDate,
-               TotalAmount = (decimal?)t.TotalAmount ?? 0m
-           })
-           .ToListAsync(ct);
+        var officer = await _userRoleAllocationRepository.GetQueryable()
+            .AsNoTracking()
+            .Include(x => x.UserRole)
+            .FirstOrDefaultAsync(x => x.UserId == UserId && x.IsActive, ct);
 
+        bool isAdmin = string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase);
 
-        var officer = await _userRoleAllocationRepository.GetQueryable().AsNoTracking().Include(x => x.UserRole).FirstOrDefaultAsync(x => x.UserId == UserId && x.IsActive);
+        var query = _paymentRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(x => x.IsActive);
 
-        if (!string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase) && officer!=null)
+        if (!isAdmin && officer != null)
         {
-                payments = payments.Where(t => t.CreatedBy == UserId).ToList();
+            query = query.Where(t => t.CreatedBy == UserId);
         }
-
-            var pendingDdChequeCount = payments.Where(x => x.PaymentStatus != null && x.PaymentStatus.StatusCode == "PENDING_CLEARANCE" 
-                || (x.ModeCode != null && (x.ModeCode == "CHEQUE" || x.ModeCode == "DD") && x.PaymentStatus != null && x.PaymentStatus.StatusCode == "PENDING") && 
-                (x.ModeCode == null || x.ModeCode != "CASH")).Count();
-
-
-            var pendingOnlineCount =payments.Where(x=>x.PaymentStatus != null && (x.PaymentStatus.StatusCode == "PENDING"||x.PaymentStatus.StatusCode == "INITIATED"&&
-            x.ModeCode == null || (x.ModeCode != "CHEQUE" && x.ModeCode != "DD" && x.ModeCode != "CASH"))).Count();
-
-            var clearedTodayQuery = payments.Where(t => t.PaymentStatus != null && t.PaymentStatus.StatusCode == "SUCCESS" && !t.IsReceiptCancelled &&
-                ((t.ClearanceDate.HasValue && t.ClearanceDate.Value >= today) || (t.PaymentDate.HasValue && t.PaymentDate.Value >= today)));
-
-            var clearedTodayCount = clearedTodayQuery.Count();
-
-            var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
-
-            var clearedCount = payments.Count(t =>
-                t.PaymentStatus != null &&
-                t.PaymentStatus.StatusCode == "SUCCESS" &&
-                !t.IsReceiptCancelled);
-
-            var bouncedCount = payments.Count(t => (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "BOUNCED") || t.ApprovalStatus == "DISAPPROVED");
-
-            var cancelledCount= payments.Count(t => t.IsReceiptCancelled || (t.PaymentStatus != null && t.PaymentStatus.StatusCode == "CANCELLED"));
-
-            var totalSettlementCount = payments.Count();
-
-            return new PendingClearanceStatsDto
+        // 3. Load ONLY the 7 scalar filter columns (Zero entity objects, zero change tracker overhead)
+        var payments = await query
+            .Select(t => new
             {
-                TotalSettlementCount = totalSettlementCount,
-                TotalPendingDdCheque = pendingDdChequeCount,
-                TotalPendingOnline = pendingOnlineCount,
-                TotalCleared = clearedCount,
-                TotalClearedToday = clearedTodayCount,
-                TotalClearedAmountToday = clearedTodayAmount,
-                TotalBounced = bouncedCount,
-                TotalCancelled = cancelledCount
-            };
+                StatusCode = t.PaymentStatus != null ? t.PaymentStatus.StatusCode : null,
+                ModeCode = t.PaymentMode != null ? t.PaymentMode.ModeCode : null,
+                t.ApprovalStatus,
+                t.IsReceiptCancelled,
+                t.ClearanceDate,
+                t.PaymentDate,
+                TotalAmount = (decimal?)t.TotalAmount ?? 0m
+            })
+            .ToListAsync(ct);
+
+        var pendingDdChequeCount = payments.Count(x =>
+            x.StatusCode == "PENDING_CLEARANCE" ||
+            ((x.ModeCode == "CHEQUE" || x.ModeCode == "DD") && x.StatusCode == "PENDING" && (x.ModeCode == null || x.ModeCode != "CASH")));
+
+        var pendingOnlineCount = payments.Count(x =>
+            x.StatusCode != null &&
+            (x.StatusCode == "PENDING" || (x.StatusCode == "INITIATED" && x.ModeCode == null) || (x.ModeCode != "CHEQUE" && x.ModeCode != "DD" && x.ModeCode != "CASH")));
+
+        var clearedTodayQuery = payments.Where(t =>
+            t.StatusCode == "SUCCESS" &&
+            !t.IsReceiptCancelled &&
+            ((t.ClearanceDate.HasValue && t.ClearanceDate.Value >= today) ||
+             (t.PaymentDate.HasValue && t.PaymentDate.Value >= today)));
+
+        var clearedTodayCount = clearedTodayQuery.Count();
+
+        var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
+
+        var clearedCount = payments.Count(t => t.StatusCode == "SUCCESS" &&  !t.IsReceiptCancelled);
+
+        var bouncedCount = payments.Count(t =>  t.StatusCode == "BOUNCED" || t.ApprovalStatus == "DISAPPROVED");
+
+        var cancelledCount = payments.Count(t => t.IsReceiptCancelled || t.StatusCode == "CANCELLED");
+
+        var totalSettlementCount = payments.Count;
+
+        return new PendingClearanceStatsDto
+        {
+            TotalSettlementCount = totalSettlementCount,
+            TotalPendingDdCheque = pendingDdChequeCount,
+            TotalPendingOnline = pendingOnlineCount,
+            TotalCleared = clearedCount,
+            TotalClearedToday = clearedTodayCount,
+            TotalClearedAmountToday = clearedTodayAmount,
+            TotalBounced = bouncedCount,
+            TotalCancelled = cancelledCount
+        };
     }
 
     public async Task<VerifyPaymentResponseDto> ApproveTransactionAsync(ApprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default)

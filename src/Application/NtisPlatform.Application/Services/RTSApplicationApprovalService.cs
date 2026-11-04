@@ -739,11 +739,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
          x.ApplicationId == applicationId &&
          x.IsActive &&
          !x.MarkedForDeletion,
-            cancellationToken);
+         cancellationToken);
 
         // Application workflow is already completed.
-        bool requiresCertificate = result.IsCertificateRequired && result.CertificateType != NtisPlatform.Core.Enums.RTSCertificateType.None;
-        if (result.ApplicationStatus == ApplicationStatus.Approved && (isCertificateIssued || !requiresCertificate))
+        if (result.ApplicationStatus == ApplicationStatus.Approved && (isCertificateIssued))
         {
             return null;
         }
@@ -822,25 +821,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                       string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
 
 
-        //var OfficerAccess = await _approvalFlowStageRepository
-        //      .GetQueryable()
-        //      .AsNoTracking()
-        //      .Where(x => x.ApprovalFlowId == result.ApprovalFlowId)
-        //      .Include(x => x.RTSApprovalFlowStageUserAllocations)
-        //      .Select(x => new
-        //      {
-        //          x.CanPay,
-        //          x.CanIssueCertificate,
-        //          x.UserId
-        //      })
-        //      .ToListAsync(cancellationToken);
-
-
         var OfficerAccess = await _approvalFlowStageRepository
         .GetQueryable()
         .AsNoTracking()
-        .Where(x => x.ApprovalFlowId == result.ApprovalFlowId
-                 && x.CanPay)
+        .Where(x => x.ApprovalFlowId == result.ApprovalFlowId && x.CanPay)
         .SelectMany(x => x.RTSApprovalFlowStageUserAllocations
             .Where(a => a.IsActive)
             .Select(a => new
@@ -854,25 +838,23 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         List<int> CollectPaymentByUserIds = new();
         List<int> IssueCertificateByUserIds = new();
 
-        List<int> AuthorizedUserIds = new();
-
         if (result.IsPaymentAfterApproval && result.ApplicationStatus == "Approved")
         {
-            AuthorizedUserIds = OfficerAccess
+            CollectPaymentByUserIds = OfficerAccess
                 .Where(x =>
-                    (x.CanPay || x.CanIssueCertificate) &&
-                    x.UserId.HasValue)
+                    (x.CanPay) && 
+                    x.UserId.HasValue) 
                 .Select(x => x.UserId.Value)
                 .Distinct()
                 .ToList();
         }
 
+        bool requiresCertificate = result.IsCertificateRequired && result.CertificateType != NtisPlatform.Core.Enums.RTSCertificateType.None;
 
-        if (result.IsPaymentAfterApproval &&result.ApplicationStatus == "Approved")
+        if (result.IsPaymentAfterApproval &&result.ApplicationStatus == "Approved" && requiresCertificate)
         {
-            AuthorizedUserIds = OfficerAccess
+            IssueCertificateByUserIds = OfficerAccess
                 .Where(x =>
-                    x.CanPay &&
                     x.CanIssueCertificate &&
                     x.UserId.HasValue)
                 .Select(x => x.UserId.Value)
@@ -880,12 +862,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 .ToList();
         }
 
-
-
         decimal fee = demand?.TotalAmount ?? paymentTxn?.TotalAmount ?? result.ServiceFees ?? 0m;
-        string paymentStatus = isPaid
-            ? "SUCCESS"
-            : (paymentTxn?.PaymentStatus?.StatusCode ?? (fee > 0 ? "PENDING" : "NOT_REQUIRED"));
+        string paymentStatus = isPaid ? "SUCCESS" : (paymentTxn?.PaymentStatus?.StatusCode ?? (fee > 0 ? "PENDING" : "NOT_REQUIRED"));
         string? receiptNo = paymentTxn?.ReceiptNo;
 
         return new CurrentApprovalOfficerDto
