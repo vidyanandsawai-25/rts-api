@@ -822,62 +822,63 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                       string.Equals(paymentTxn?.PaymentStatus?.StatusCode, "SUCCESS", StringComparison.OrdinalIgnoreCase);
 
 
-        //var OfficerAccess = await _approvalFlowStageRepository
-        //      .GetQueryable()
-        //      .AsNoTracking()
-        //      .Where(x => x.ApprovalFlowId == result.ApprovalFlowId)
-        //      .Include(x => x.RTSApprovalFlowStageUserAllocations)
-        //      .Select(x => new
-        //      {
-        //          x.CanPay,
-        //          x.CanIssueCertificate,
-        //          x.UserId
-        //      })
-        //      .ToListAsync(cancellationToken);
+        var collectPaymentByUserIds = new List<int>();
+        var issueCertificateByUserIds = new List<int>();
 
+        // Once a deferred-payment application is approved, resolve the effective
+        // officer for every stage that grants a post-approval permission. This is
+        // intentionally the same rule-aware resolution used by approval-stages:
+        // raw allocation rows are candidates, while the saved application values
+        // and allocation rules decide which officer is actually authorized.
+        if (result.IsPaymentAfterApproval &&
+            string.Equals(result.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase))
+        {
+            var authorizationStages = await _approvalFlowStageRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(stage => stage.ApprovalFlowId == result.ApprovalFlowId &&
+                    (stage.CanPay || stage.CanIssueCertificate))
+                .Select(stage => new
+                {
+                    stage.Id,
+                    stage.CanPay,
+                    stage.CanIssueCertificate
+                })
+                .ToListAsync(cancellationToken);
 
-        var OfficerAccess = await _approvalFlowStageRepository
-        .GetQueryable()
-        .AsNoTracking()
-        .Where(x => x.ApprovalFlowId == result.ApprovalFlowId
-                 && x.CanPay)
-        .SelectMany(x => x.RTSApprovalFlowStageUserAllocations
-            .Where(a => a.IsActive)
-            .Select(a => new
+            var applicationValues = await _fieldValueRepository
+                .GetQueryable()
+                .AsNoTracking()
+                .Where(value => value.ApplicationId == applicationId &&
+                    value.IsActive && !value.MarkedForDeletion)
+                .ToListAsync(cancellationToken);
+            var normalizedValues = _allocationRules.NormalizeValues(applicationValues);
+
+            foreach (var stage in authorizationStages)
             {
-                a.UserId,
-                x.CanPay,
-                x.CanIssueCertificate
-            }))
-        .ToListAsync(cancellationToken);
+                try
+                {
+                    var userId = await _allocationRules.ResolveOfficerAsync(
+                        result.ServiceId,
+                        result.ApprovalFlowId,
+                        stage.Id,
+                        normalizedValues,
+                        cancellationToken);
 
-        List<int> CollectPaymentByUserIds = new();
-        List<int> IssueCertificateByUserIds = new();
+                    if (stage.CanPay)
+                        collectPaymentByUserIds.Add(userId);
+                    if (stage.CanIssueCertificate)
+                        issueCertificateByUserIds.Add(userId);
+                }
+                catch (InvalidOperationException)
+                {
+                    // An unmatched rule, tied priority, missing allocation, or
+                    // inactive officer grants no post-approval permission.
+                }
+            }
 
-        List<int> AuthorizedUserIds = new();
-
-        if (result.IsPaymentAfterApproval && result.ApplicationStatus == "Approved")
-        {
-            AuthorizedUserIds = OfficerAccess
-                .Where(x =>
-                    (x.CanPay || x.CanIssueCertificate) &&
-                    x.UserId.HasValue)
-                .Select(x => x.UserId.Value)
-                .Distinct()
-                .ToList();
-        }
-
-
-        if (result.IsPaymentAfterApproval &&result.ApplicationStatus == "Approved")
-        {
-            AuthorizedUserIds = OfficerAccess
-                .Where(x =>
-                    x.CanPay &&
-                    x.CanIssueCertificate &&
-                    x.UserId.HasValue)
-                .Select(x => x.UserId.Value)
-                .Distinct()
-                .ToList();
+            collectPaymentByUserIds = collectPaymentByUserIds.Distinct().ToList();
+            issueCertificateByUserIds = issueCertificateByUserIds.Distinct().ToList();
         }
 
 
@@ -929,8 +930,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             PaymentTransactionId = paymentTxn?.Id,
             PayableFee = fee,
             HasPaymentTransaction = paymentTxn != null || (demand != null && demand.TotalAmount > 0) || fee > 0,
-            CollectPaymentByUserIds = CollectPaymentByUserIds,
-            IssueCertificateByUserIds = IssueCertificateByUserIds,
+            CollectPaymentByUserIds = collectPaymentByUserIds,
+            IssueCertificateByUserIds = issueCertificateByUserIds,
             IsPaid = isPaid,
             PaymentStatus = paymentStatus,
             ReceiptNo = receiptNo
