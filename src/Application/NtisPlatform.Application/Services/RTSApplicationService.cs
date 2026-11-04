@@ -82,11 +82,15 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                         StageId = s.Id,
                         s.StageName,
                         s.StageOrder,
-                        s.IsFinalStage
+                        s.IsFinalStage,
+                        s.CanPay
+                        
                     })
                     .FirstOrDefault()
             })
             .FirstOrDefaultAsync(cancellationToken);
+
+
 
         var rtsService = await _serviceRepository.GetByIdAsync(createDto.ServiceId, cancellationToken);
         if (rtsService == null || !rtsService.IsActive)
@@ -103,7 +107,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         var entity = _mapper.Map<RTSApplicationDetailsEntity>(createDto);
 
         entity.Remark = ApplicationStatus.Remark;
-        entity.ApplicationStatus = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
+        entity.ApplicationStatus = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
         entity.UserId = 0;
         entity.ApprovalFlowId = approvalFlow.ApprovalFlowId;
         entity.CurrentApprovalFlowStageId = firstStage.StageId;
@@ -135,7 +139,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         {
             ApprovalFlowId = approvalFlow.ApprovalFlowId,
             ApprovalFlowStageId = firstStage.StageId,
-            Status = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
+            Status = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
             Remark = ApplicationStatus.Remark,
             Action = ApplicationStatus.Submitted,
             IsReverted = false,

@@ -779,8 +779,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         if (currentStage == null)
         {
-            throw new InvalidOperationException(
-                "Current approval stage configuration was not found.");
+            throw new InvalidOperationException("Current approval stage configuration was not found.");
         }
 
         var officer = await _userRepository
