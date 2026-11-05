@@ -263,7 +263,11 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
             _allocationRules.NormalizeValues(fieldValues),
             cancellationToken);
 
-        var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0 && application.Service.IsPaymentAfterApproval;
+        var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0 ;
+
+       // entity.ApplicationStatus = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
+     //   bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0 && !rtsService.IsPaymentAfterApproval;
+
 
         var isPaymentSuccessful = false;
 
@@ -279,7 +283,16 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                     cancellationToken);
         }
 
-        application.ApplicationStatus = (isPaymentRequired && !isPaymentSuccessful) ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
+
+        var cantakepayment = application.Service?.IsPaymentAfterApproval == true && application.ApplicationStatus == ApplicationStatus.Approved;
+
+
+
+
+      //application.ApplicationStatus =  (isPaymentRequired && !isPaymentSuccessful && application?.Service?.IsPaymentAfterApproval == true)? ApplicationStatus.PaymentPending: ApplicationStatus.Pending;
+
+        //application.ApplicationStatus = (isPaymentRequired && !isPaymentSuccessful&& application?.Service?.IsPaymentAfterApproval) ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
+        application.ApplicationStatus = isPaymentRequired && !isPaymentSuccessful && cantakepayment ? ApplicationStatus.PaymentPending  : ApplicationStatus.Pending;
         application.IsReverted = false;
         application.UpdatedBy = updateDto.UpdatedBy;
         application.UpdatedDate = DateTime.Now;
@@ -295,7 +308,10 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         application.Remark = resubmitRemark;
 
 
-        var history = new TrackApplicationHistoryEntity
+
+
+
+       var history = new TrackApplicationHistoryEntity
         {
             ApplicationId = Id,
             ApprovalFlowId = application.ApprovalFlowId,
