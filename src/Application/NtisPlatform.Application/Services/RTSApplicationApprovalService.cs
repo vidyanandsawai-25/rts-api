@@ -490,22 +490,35 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .OrderByDescending(history => history.Id)
             .Select(history => new
             {
+
                 StageId = history.ApprovalFlowStageId!.Value,
                 history.ActionByUserId,
+                history.Id,
                 history.Status,
                 history.Remark,
                 history.CreatedDate
             })
             .ToListAsync(cancellationToken);
+      
         var latestHistoryByStage = histories
             .GroupBy(history => history.StageId)
             .ToDictionary(group => group.Key, group => group.First());
 
+
         var isTerminal = string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase);
+
+
+        var lastHistory = histories
+            .OrderByDescending(x => x.Id) 
+            .Select(x => new { x.StageId, x.Status })
+            .FirstOrDefault();
+
+        var stageOrder = lastHistory == null ? 0: stages.Where(x => x.Id == lastHistory.StageId).Select(x => x.StageOrder).FirstOrDefault();
+
         var revertedToCitizen = application.IsReverted &&
                                 string.Equals(application.ApplicationStatus, ApplicationStatus.Reverted, StringComparison.OrdinalIgnoreCase) &&
-                                !stages.Any(stage => stage.StageOrder < application.CurrentStageOrder);
+                                !stages.Any(stage => stage.StageOrder < stageOrder);
 
         // Future stages have not yet produced history and therefore do not have a
         // persisted application UserId. Resolve their configured allocation from
