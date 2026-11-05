@@ -1502,10 +1502,17 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (application == null)
             throw new InvalidOperationException("Application not found.");
 
+     var historyStage =  await _historyRepository.GetQueryable().Where(x => x.ApplicationId == dto.ApplicationId).OrderByDescending(x => x.Id).FirstOrDefaultAsync();
+
+        if(historyStage==null)
+        {
+            throw new InvalidOperationException("history not found.");
+        }
+
         var currentStage = await _approvalFlowStageRepository
             .GetQueryable()
             .AsNoTracking()
-            .Where(stage => stage.Id == application.CurrentApprovalFlowStageId)
+            .Where(stage => stage.Id == historyStage.ApprovalFlowStageId)
             .Select(stage => new
             {
                 stage.CanReturn,
