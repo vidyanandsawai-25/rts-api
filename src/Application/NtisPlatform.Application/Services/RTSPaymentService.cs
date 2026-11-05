@@ -2087,12 +2087,20 @@ public class RTSPaymentService : IRTSPaymentService
             x.StatusCode == "PENDING_CLEARANCE" ||
             ((x.ModeCode == "CHEQUE" || x.ModeCode == "DD") && x.StatusCode == "PENDING" && (x.ModeCode == null || x.ModeCode != "CASH")));
 
-       
-        var pendingOnlineCount = payments.Count(x => x.StatusCode != null &&
-        (
-            x.StatusCode == "PENDING" || (x.StatusCode == "INITIATED" && x.ModeCode == null) || (x.ModeCode == "Internet Banking" || x.ModeCode == "UPI / QR Code")
-        ));
 
+        //var pendingOnlineCount = payments.Count(x => x.StatusCode != null &&
+        //(
+        //    x.StatusCode == "PENDING" || (x.StatusCode == "INITIATED" ) || (x.ModeCode == "Internet Banking" || x.ModeCode == "UPI / QR Code")
+        //));
+
+        var pendingOnlineCount = payments.Count(x =>
+    
+    (x.ModeCode == null ||
+     (x.ModeCode != "CASH" &&
+      x.ModeCode != "CHEQUE" &&
+      x.ModeCode != "DD" &&
+      x.ModeCode != "OFFLINE_CHALLAN"))
+);
 
 
 
