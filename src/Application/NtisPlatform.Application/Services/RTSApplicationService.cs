@@ -265,10 +265,6 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         var isPaymentRequired = application.Service != null && application.Service.FeesRequired && (application.Service.Fees ?? 0) > 0 ;
 
-       // entity.ApplicationStatus = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
-     //   bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0 && !rtsService.IsPaymentAfterApproval;
-
-
         var isPaymentSuccessful = false;
 
         if (isPaymentRequired)
@@ -286,12 +282,6 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
 
         var cantakepayment = application.Service?.IsPaymentAfterApproval == true && application.ApplicationStatus == ApplicationStatus.Approved;
 
-
-
-
-      //application.ApplicationStatus =  (isPaymentRequired && !isPaymentSuccessful && application?.Service?.IsPaymentAfterApproval == true)? ApplicationStatus.PaymentPending: ApplicationStatus.Pending;
-
-        //application.ApplicationStatus = (isPaymentRequired && !isPaymentSuccessful&& application?.Service?.IsPaymentAfterApproval) ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
         application.ApplicationStatus = isPaymentRequired && !isPaymentSuccessful && cantakepayment ? ApplicationStatus.PaymentPending  : ApplicationStatus.Pending;
         application.IsReverted = false;
         application.UpdatedBy = updateDto.UpdatedBy;
