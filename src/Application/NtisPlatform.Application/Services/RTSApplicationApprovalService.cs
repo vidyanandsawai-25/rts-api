@@ -642,6 +642,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
     //}
 
+
+
     public async Task<ApplicationApprovalStageDetailsDto?> GetApplicationApprovalStagesAsync(int applicationId, CancellationToken cancellationToken = default)
     {
         if (applicationId <= 0)
@@ -731,16 +733,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         var isTerminal = string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
                          string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase);
 
-        var lastHistory = histories
-            .OrderByDescending(x => x.Id)
-            .Select(x => new { x.StageId, x.Status })
-            .FirstOrDefault();
-
-        var stageOrder = lastHistory == null ? 0 : stages.Where(x => x.Id == lastHistory.StageId).Select(x => x.StageOrder).FirstOrDefault();
-
+        // Reverted to Citizen is TRUE only when application is marked Reverted AND UserId is 0/null (not on any officer's desk)
         var revertedToCitizen = application.IsReverted &&
                                 string.Equals(application.ApplicationStatus, ApplicationStatus.Reverted, StringComparison.OrdinalIgnoreCase) &&
-                                !stages.Any(stage => stage.StageOrder < stageOrder);
+                                (!application.UserId.HasValue || application.UserId.Value <= 0);
 
         // Resolve preview officer only for upcoming stages without any history
         var applicationValues = await _fieldValueRepository.GetQueryable()
@@ -805,7 +801,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
                 // 1. Officer Assignment
                 var assignedUserId = isCurrentStage
-                    ? (revertedToCitizen ? null : (application.UserId is > 0 ? application.UserId : null))
+                    ? (revertedToCitizen ? null : (application.UserId is > 0 ? application.UserId : history?.ActionByUserId ?? futureStageUserIds.GetValueOrDefault(stage.Id)))
                     : (history != null && history.ActionByUserId.HasValue && history.ActionByUserId.Value > 0)
                         ? history.ActionByUserId.Value
                         : futureStageUserIds.GetValueOrDefault(stage.Id);
@@ -825,7 +821,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 }
                 else
                 {
-                    // Each stage faithfully displays its own recorded action from history
+                    // Directly reflect what is recorded in TrackApplicationHistory
                     stageStatus = history?.Status ?? ApplicationStatus.Pending;
                     stageRemark = history?.Remark;
                     stageDate = history?.CreatedDate;
