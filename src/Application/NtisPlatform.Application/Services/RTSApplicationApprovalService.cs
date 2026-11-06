@@ -1487,13 +1487,164 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
 
+    ///// <summary>
+    ///// Revert application to the previous officer/stage in the approval flow.
+    ///// If the current stage is the first stage, the application is reverted to the citizen.
+    ///// </summary>
+    //public async Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(
+    //    UpdateRTSApplicationProcessDto dto,
+    //    CancellationToken cancellationToken = default)
+    //{
+    //    var application = await _repository.GetQueryable()
+    //        .Where(x => x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion)
+    //        .FirstOrDefaultAsync(cancellationToken);
+
+    //    if (application == null)
+    //        throw new InvalidOperationException("Application not found.");
+
+
+    //    var currentStage = await _approvalFlowStageRepository
+    //        .GetQueryable()
+    //        .AsNoTracking()
+    //        .Where(stage => stage.Id == application.CurrentApprovalFlowStageId)
+    //        .Select(stage => new
+    //        {
+    //            stage.CanReturn,
+    //            stage.StageName,
+    //            stage.IsFinalStage,
+    //            stage.Id,
+    //            stage.StageOrder,
+    //            stage.ApprovalFlowId
+    //        })
+    //        .FirstOrDefaultAsync(cancellationToken);
+
+    //    if (currentStage == null)
+    //        throw new InvalidOperationException("No Approval Stage Found");
+
+    //    if (!currentStage.CanReturn)
+    //    {
+    //        throw new InvalidOperationException($"{currentStage.StageName} does not permit application correction.");
+    //    }
+
+    //    // Find the previous stage in the approval flow (officer-wise revert)
+    //    var previousStage = await _approvalFlowStageRepository
+    //        .GetQueryable()
+    //        .AsNoTracking()
+    //        .Where(stage =>
+    //            stage.ApprovalFlowId == currentStage.ApprovalFlowId &&
+    //            stage.StageOrder < currentStage.StageOrder)
+    //        .OrderByDescending(stage => stage.StageOrder)
+    //        .Select(stage => new
+    //        {
+    //            StageId = stage.Id,
+    //            stage.StageOrder,
+    //            stage.StageName
+    //        })
+    //        .FirstOrDefaultAsync(cancellationToken);
+
+    //    if (previousStage != null)
+    //    {
+    //        // Officer-wise revert: move application back to the previous stage/officer
+    //        application.CurrentApprovalFlowStageId = previousStage.StageId;
+    //        application.CurrentStageOrder = previousStage.StageOrder;
+    //        application.UserId = await ResolveStageOfficerAsync(application, previousStage.StageId, cancellationToken);
+    //        application.ApplicationStatus = ApplicationStatus.Reverted;
+    //        application.Remark = dto.Remark;
+    //        application.IsReverted = true;
+    //        application.UpdatedBy = dto.UpdatedBy;
+    //        application.UpdatedDate = DateTime.Now;
+
+    //        // Create a new pending history entry for the previous officer
+    //        application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
+    //        {
+    //            ApprovalFlowId = application.ApprovalFlowId,
+    //            ApprovalFlowStageId = currentStage.Id,
+    //            ActionByUserId = dto.UpdatedBy,
+    //            Status = ApplicationStatus.Reverted,
+    //            Action = $"{ApplicationStatus.Reverted} by {currentStage.StageName}",
+    //            Remark = dto.Remark,
+    //            IsReverted = true,
+    //            IsActive = true,
+    //            CreatedBy = dto.UpdatedBy
+    //        });
+    //    }
+    //    else
+    //    {
+
+    //        var isAlreadyRevertedToCitizen = await _historyRepository
+    //        .GetQueryable()
+    //        .AnyAsync(x =>
+    //        x.ApplicationId == application.Id &&
+    //        x.ApprovalFlowStageId == currentStage.Id &&
+    //        x.IsReverted &&
+    //        x.Status == ApplicationStatus.Reverted &&
+    //        x.IsActive,
+    //        cancellationToken);
+
+    //        if (application.IsReverted == true && isAlreadyRevertedToCitizen)
+    //        {
+    //            throw new InvalidOperationException("Application is already reverted to citizen.");
+    //        }
+
+    //        // First stage — reverted By Clerk to citizen (no previous officer)
+    //        application.ApplicationStatus = ApplicationStatus.Reverted;
+    //        application.Remark = dto.Remark;
+    //        application.IsReverted = true;
+    //        application.UpdatedBy = dto.UpdatedBy;
+    //        application.UpdatedDate = DateTime.Now;
+
+
+    //        await _historyRepository.AddAsync(new TrackApplicationHistoryEntity
+    //        {
+    //            ApplicationId = application.Id,
+    //            ApprovalFlowId = currentStage.ApprovalFlowId,
+    //            ApprovalFlowStageId = currentStage.Id,
+    //            ActionByUserId = dto.UpdatedBy,
+    //            Action = $"{ApplicationStatus.Reverted} by {currentStage.StageName}",
+    //            Status = ApplicationStatus.Reverted,
+    //            Remark = dto.Remark,
+    //            IsReverted = true,
+    //            IsActive = true,
+    //            CreatedBy = dto.UpdatedBy,
+    //            CreatedDate = DateTime.Now
+    //        }, cancellationToken);
+    //    }
+
+    //    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+    //    try
+    //    {
+    //        var (mobile, name, serviceName) = await GetApplicationSmsDetailsAsync(application.Id, application.ServiceId, cancellationToken);
+    //        if (!string.IsNullOrWhiteSpace(mobile))
+    //        {
+    //            await _smsNotificationService.SendApplicationRevertedAsync(
+    //                application.Id,
+    //                application.ApplicationNo ?? $"APP{application.Id}",
+    //                name,
+    //                mobile,
+    //                serviceName,
+    //                dto.Remark,
+    //                cancellationToken);
+    //        }
+    //    }
+    //    catch { }
+
+    //    return new RTSApplicationApprovalResponseDto
+    //    {
+    //        ApplicationId = application.Id,
+    //        ApplicationNo = application.ApplicationNo,
+    //        Status = application.ApplicationStatus,
+    //        Remark = application.Remark
+    //    };
+    //}
+
+
+
     /// <summary>
     /// Revert application to the previous officer/stage in the approval flow.
     /// If the current stage is the first stage, the application is reverted to the citizen.
     /// </summary>
-    public async Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(
-        UpdateRTSApplicationProcessDto dto,
-        CancellationToken cancellationToken = default)
+    public async Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync( UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
             .Where(x => x.Id == dto.ApplicationId && x.IsActive && !x.MarkedForDeletion)
@@ -1502,17 +1653,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (application == null)
             throw new InvalidOperationException("Application not found.");
 
-     var historyStage =  await _historyRepository.GetQueryable().Where(x => x.ApplicationId == dto.ApplicationId).OrderByDescending(x => x.Id).FirstOrDefaultAsync();
-
-        if(historyStage==null)
-        {
-            throw new InvalidOperationException("history not found.");
-        }
-
+        // FIX 1: Fetch currentStage using application.CurrentApprovalFlowStageId (NOT history table)
         var currentStage = await _approvalFlowStageRepository
             .GetQueryable()
             .AsNoTracking()
-            .Where(stage => stage.Id == historyStage.ApprovalFlowStageId)
+            .Where(stage => stage.Id == application.CurrentApprovalFlowStageId)
             .Select(stage => new
             {
                 stage.CanReturn,
@@ -1550,19 +1695,34 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         if (previousStage != null)
         {
-            // Officer-wise revert: move application back to the previous stage/officer
+            // FIX 2: Find the exact officer who previously processed this stage
+            var previousOfficerId = await _historyRepository.GetQueryable()
+                .AsNoTracking()
+                .Where(h => h.ApplicationId == application.Id &&
+                            h.ApprovalFlowStageId == previousStage.StageId &&
+                            h.ActionByUserId.HasValue &&
+                            h.ActionByUserId.Value > 0)
+                .OrderByDescending(h => h.Id)
+                .Select(h => h.ActionByUserId!.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            // If found in history, send it back to that exact officer; otherwise fallback to rule engine
+            int resolvedOfficerId = previousOfficerId > 0? previousOfficerId: await ResolveStageOfficerAsync(application, previousStage.StageId, cancellationToken);
+
+            // Officer-wise revert: move application back to the previous stage and officer
             application.CurrentApprovalFlowStageId = previousStage.StageId;
             application.CurrentStageOrder = previousStage.StageOrder;
-            application.UserId = await ResolveStageOfficerAsync(application, previousStage.StageId, cancellationToken);
+            application.UserId = resolvedOfficerId;
             application.ApplicationStatus = ApplicationStatus.Reverted;
             application.Remark = dto.Remark;
             application.IsReverted = true;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
 
-            // Create a new pending history entry for the previous officer
-            application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
+            // Create history entry recording the revert action
+            await _historyRepository.AddAsync(new TrackApplicationHistoryEntity
             {
+                ApplicationId = application.Id,
                 ApprovalFlowId = application.ApprovalFlowId,
                 ApprovalFlowStageId = currentStage.Id,
                 ActionByUserId = dto.UpdatedBy,
@@ -1571,21 +1731,22 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 Remark = dto.Remark,
                 IsReverted = true,
                 IsActive = true,
-                CreatedBy = dto.UpdatedBy
-            });
+                CreatedBy = dto.UpdatedBy,
+                CreatedDate = DateTime.Now
+            }, cancellationToken);
         }
         else
         {
-
+            // Check if already reverted to citizen to prevent duplicate citizen reverts
             var isAlreadyRevertedToCitizen = await _historyRepository
-            .GetQueryable()
-            .AnyAsync(x =>
-            x.ApplicationId == application.Id &&
-            x.ApprovalFlowStageId == currentStage.Id &&
-            x.IsReverted &&
-            x.Status == ApplicationStatus.Reverted &&
-            x.IsActive,
-            cancellationToken);
+                .GetQueryable()
+                .AnyAsync(x =>
+                    x.ApplicationId == application.Id &&
+                    x.ApprovalFlowStageId == currentStage.Id &&
+                    x.IsReverted &&
+                    x.Status == ApplicationStatus.Reverted &&
+                    x.IsActive,
+                    cancellationToken);
 
             if (application.IsReverted == true && isAlreadyRevertedToCitizen)
             {
@@ -1593,12 +1754,13 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             }
 
             // First stage — reverted By Clerk to citizen (no previous officer)
+            // FIX 3: Reset UserId to 0 so it does not remain on the officer's desk
+            application.UserId = 0;
             application.ApplicationStatus = ApplicationStatus.Reverted;
             application.Remark = dto.Remark;
             application.IsReverted = true;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
-
 
             await _historyRepository.AddAsync(new TrackApplicationHistoryEntity
             {
