@@ -1857,6 +1857,14 @@ public class RTSPaymentService : IRTSPaymentService
 
     public async Task<PagedResult<PendingClearanceItemDto>> GetPendingClearancePaymentsAsync(PendingClearanceQueryDto queryParameters, CancellationToken ct = default)
     {
+
+        var requestedMode = queryParameters.PaymentMode?.Trim().ToUpperInvariant();
+        if (requestedMode == "ONLINE RECONCILIATION" || requestedMode == "ONLINE_RECONCILIATION" || requestedMode == "RECONCILIATION")
+        {
+            return await GetOnlineReconciliationGatewayOrdersAsync(queryParameters, ct);
+        }
+
+
         var query = _paymentRepository.GetQueryable().AsNoTracking()
             .Include(t => t.Demand)
             .Include(t => t.Application)
@@ -1865,6 +1873,10 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(t => t.PaymentMode)
             .Include(t => t.PaymentStatus)
             .AsQueryable();
+
+
+       var onlineReconciliation =  _gatewayOrderRepository.GetQueryable().Where(x => x.OrderStatus == "Initiated").AsNoTracking();
+
 
         // Payment Mode Filter
         if (!string.IsNullOrWhiteSpace(queryParameters.PaymentMode) && queryParameters.PaymentMode.ToUpper() != "ALL")
@@ -1886,6 +1898,10 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == "CASH");
             }
+            //else if(pMode == "Online Reconciliation")
+            //{
+            //    onlineReconciliation = onlineReconciliation.Where(x => x.OrderStatus == "Initiated").AsNoTracking();
+            //}
             else
             {
                 query = query.Where(t => t.PaymentMode != null && t.PaymentMode.ModeCode == pMode);
@@ -2048,6 +2064,162 @@ public class RTSPaymentService : IRTSPaymentService
         pagedResult.TotalAmount = totalAmountSum;
         return pagedResult;
     }
+
+
+    private async Task<PagedResult<PendingClearanceItemDto>> GetOnlineReconciliationGatewayOrdersAsync(
+    PendingClearanceQueryDto queryParameters,
+    CancellationToken ct)
+    {
+        var orderQuery = _gatewayOrderRepository.GetQueryable().AsNoTracking()
+            .Include(o => o.Demand)
+            .Include(o => o.GatewayConfig)
+            .Include(o => o.Application)
+                .ThenInclude(a => a.Service)
+            .Include(o => o.Application)
+                .ThenInclude(a => a.Department)
+            .AsQueryable();
+
+        // 1. OrderStatus Filter (defaults to "Initiated" if not specified or "ALL")
+        if (!string.IsNullOrWhiteSpace(queryParameters.StatusCode) && queryParameters.StatusCode.ToUpper() != "ALL")
+        {
+            var code = queryParameters.StatusCode.Trim().ToUpperInvariant();
+            orderQuery = orderQuery.Where(o => o.OrderStatus.ToUpper() == code);
+        }
+        else
+        {
+            orderQuery = orderQuery.Where(o => o.OrderStatus == "Initiated");
+        }
+
+        // 2. Date Range Filter
+        if (queryParameters.FromDate.HasValue)
+        {
+            var from = queryParameters.FromDate.Value.Date;
+            orderQuery = orderQuery.Where(o => o.CreatedDate >= from);
+        }
+        if (queryParameters.ToDate.HasValue)
+        {
+            var to = queryParameters.ToDate.Value.Date.AddDays(1).AddTicks(-1);
+            orderQuery = orderQuery.Where(o => o.CreatedDate <= to);
+        }
+
+        // 3. Department Filter
+        if (queryParameters.DepartmentId.HasValue && queryParameters.DepartmentId.Value > 0)
+        {
+            orderQuery = orderQuery.Where(o =>
+                (o.Application != null && o.Application.DepartmentId == queryParameters.DepartmentId.Value) ||
+                (o.Demand != null && o.Demand.DepartmentId == queryParameters.DepartmentId.Value));
+        }
+
+        // 4. Service Filter
+        if (queryParameters.ServiceId.HasValue && queryParameters.ServiceId.Value > 0)
+        {
+            orderQuery = orderQuery.Where(o =>
+                (o.Application != null && o.Application.ServiceId == queryParameters.ServiceId.Value) ||
+                (o.Demand != null && o.Demand.ServiceId == queryParameters.ServiceId.Value));
+        }
+
+        // 5. Search Text Filter (Order ID, Payment ID, Customer Name/Mobile, App No, Demand No)
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchText))
+        {
+            var st = queryParameters.SearchText.Trim();
+            orderQuery = orderQuery.Where(o =>
+                o.GatewayOrderId.Contains(st) ||
+                (o.GatewayPaymentId != null && o.GatewayPaymentId.Contains(st)) ||
+                (o.CustomerName != null && o.CustomerName.Contains(st)) ||
+                (o.CustomerMobile != null && o.CustomerMobile.Contains(st)) ||
+                (o.Demand != null && o.Demand.ApplicationNo.Contains(st)) ||
+                (o.Demand != null && o.Demand.DemandNo.Contains(st)) ||
+                (o.Application != null && o.Application.ApplicationNo != null && o.Application.ApplicationNo.Contains(st)) ||
+                (o.Application != null && o.Application.ApplicantName != null && o.Application.ApplicantName.Contains(st)) ||
+                (o.Application != null && o.Application.ApplicantMobileNo != null && o.Application.ApplicantMobileNo.Contains(st)));
+        }
+
+        // 6. Sorting
+        if (string.Equals(queryParameters.SortBy, "BaseAmount", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(queryParameters.SortBy, "TotalAmount", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(queryParameters.SortBy, "Amount", StringComparison.OrdinalIgnoreCase))
+        {
+            orderQuery = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+                ? orderQuery.OrderByDescending(x => x.Amount).ThenByDescending(x => x.Id)
+                : orderQuery.OrderBy(x => x.Amount).ThenBy(x => x.Id);
+        }
+        else if (string.Equals(queryParameters.SortBy, "ReceiptDate", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(queryParameters.SortBy, "CreatedDate", StringComparison.OrdinalIgnoreCase))
+        {
+            orderQuery = string.Equals(queryParameters.SortOrder, "asc", StringComparison.OrdinalIgnoreCase)
+                ? orderQuery.OrderBy(x => x.CreatedDate).ThenBy(x => x.Id)
+                : orderQuery.OrderByDescending(x => x.CreatedDate).ThenByDescending(x => x.Id);
+        }
+        else
+        {
+            orderQuery = queryParameters.SortOrder?.ToLower() == "asc"
+                ? orderQuery.OrderBy(x => x.Id)
+                : orderQuery.OrderByDescending(x => x.Id);
+        }
+
+        // 7. Pagination
+        var totalCount = await orderQuery.CountAsync(ct);
+        var totalAmountSum = await orderQuery.SumAsync(o => (decimal?)o.Amount, ct) ?? 0m;
+
+        int pageNumber = queryParameters.PageNumber > 0 ? queryParameters.PageNumber : 1;
+        int pageSize = queryParameters.PageSize > 0 ? queryParameters.PageSize : 10;
+
+        var orders = await orderQuery
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        // 8. Projection to PendingClearanceItemDto
+        var dtoList = orders.Select(o => new PendingClearanceItemDto
+        {
+            TransactionId = o.Id,
+            TransactionNo = o.GatewayOrderId,
+            DemandNo = o.Demand != null ? o.Demand.DemandNo : null,
+            ApplicationId = o.ApplicationId,
+            ApplicationNo = o.Application?.ApplicationNo ?? o.Demand?.ApplicationNo ?? $"APP{o.ApplicationId}",
+            CitizenName = !string.IsNullOrWhiteSpace(o.CustomerName)
+                ? o.CustomerName
+                : (!string.IsNullOrWhiteSpace(o.Application?.ApplicantName) ? o.Application.ApplicantName : "Applicant"),
+            CitizenMobile = !string.IsNullOrWhiteSpace(o.CustomerMobile)
+                ? o.CustomerMobile
+                : o.Application?.ApplicantMobileNo,
+            ServiceName = o.Application?.Service?.ServiceName ?? "RTS Service",
+            ServiceNameLocal = o.Application?.Service?.ServiceNameLocal,
+            DepartmentName = o.Application?.Department?.DepartmentName ?? "RTS Department",
+            DepartmentNameLocal = o.Application?.Department?.DepartmentNameLocal,
+            PaymentMode = "Online Reconciliation",
+            TotalAmount = o.Amount,
+            Currency = o.Currency ?? "INR",
+            BankId = null,
+            BankName = o.GatewayConfig?.GatewayName ?? o.GatewayCode,
+            BranchName = null,
+            InstrumentNo = o.GatewayOrderId,
+            InstrumentDate = null,
+            ClearanceDate = null,
+            CollectedBy = "Citizen Portal (Online)",
+            BankRefNo = o.GatewayPaymentId,
+            GatewayPaymentId = o.GatewayPaymentId,
+            ReceiptNo = null,
+            ReceiptDate = null,
+            PaymentDate = null,
+            PaymentStatus = o.OrderStatus.ToUpperInvariant(),
+            StatusBadgeColor = "bg-amber-50 text-amber-700 ring-amber-600/20",
+            ApprovalStatus = "PENDING_RECONCILIATION",
+            IsReceiptCancelled = false,
+            CancellationReason = null,
+            FailureReason = o.FailureReason,
+            Remarks = $"Online Gateway Session: {o.GatewayOrderId}. Status: {o.OrderStatus}.",
+            CreatedDate = o.CreatedDate
+        }).ToList();
+
+        var pagedResult = new PagedResult<PendingClearanceItemDto>(dtoList, totalCount, pageNumber, pageSize);
+        pagedResult.TotalAmount = totalAmountSum;
+        return pagedResult;
+    }
+
+
+
+    ///logic 
 
 
     public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(int UserId, CancellationToken ct = default)
