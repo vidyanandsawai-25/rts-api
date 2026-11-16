@@ -1859,7 +1859,7 @@ public class RTSPaymentService : IRTSPaymentService
     {
 
         var requestedMode = queryParameters.PaymentMode?.Trim().ToUpperInvariant();
-        if (requestedMode == "ONLINE RECONCILIATION" || requestedMode == "ONLINE_RECONCILIATION" || requestedMode == "RECONCILIATION")
+        if (requestedMode == "ONLINE")
         {
             return await GetOnlineReconciliationGatewayOrdersAsync(queryParameters, ct);
         }
@@ -1873,10 +1873,6 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(t => t.PaymentMode)
             .Include(t => t.PaymentStatus)
             .AsQueryable();
-
-
-       var onlineReconciliation =  _gatewayOrderRepository.GetQueryable().Where(x => x.OrderStatus == "Initiated").AsNoTracking();
-
 
         // Payment Mode Filter
         if (!string.IsNullOrWhiteSpace(queryParameters.PaymentMode) && queryParameters.PaymentMode.ToUpper() != "ALL")
@@ -2187,7 +2183,7 @@ public class RTSPaymentService : IRTSPaymentService
             ServiceNameLocal = o.Application?.Service?.ServiceNameLocal,
             DepartmentName = o.Application?.Department?.DepartmentName ?? "RTS Department",
             DepartmentNameLocal = o.Application?.Department?.DepartmentNameLocal,
-            PaymentMode = "Online Reconciliation",
+            PaymentMode = "Online",
             TotalAmount = o.Amount,
             Currency = o.Currency ?? "INR",
             BankId = null,
