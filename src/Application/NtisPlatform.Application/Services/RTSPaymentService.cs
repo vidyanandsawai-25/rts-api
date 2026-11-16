@@ -2169,7 +2169,7 @@ public class RTSPaymentService : IRTSPaymentService
         var dtoList = orders.Select(o => new PendingClearanceItemDto
         {
             TransactionId = o.Id,
-            TransactionNo = o.GatewayOrderId,
+            TransactionNo = null,
             DemandNo = o.Demand != null ? o.Demand.DemandNo : null,
             ApplicationId = o.ApplicationId,
             ApplicationNo = o.Application?.ApplicationNo ?? o.Demand?.ApplicationNo ?? $"APP{o.ApplicationId}",
@@ -2187,7 +2187,7 @@ public class RTSPaymentService : IRTSPaymentService
             TotalAmount = o.Amount,
             Currency = o.Currency ?? "INR",
             BankId = null,
-            BankName = o.GatewayConfig?.GatewayName ?? o.GatewayCode,
+            BankName = null,
             BranchName = null,
             InstrumentNo = o.GatewayOrderId,
             InstrumentDate = null,
@@ -2200,7 +2200,7 @@ public class RTSPaymentService : IRTSPaymentService
             PaymentDate = null,
             PaymentStatus = o.OrderStatus.ToUpperInvariant(),
             StatusBadgeColor = "bg-amber-50 text-amber-700 ring-amber-600/20",
-            ApprovalStatus = "PENDING_RECONCILIATION",
+            ApprovalStatus = o.OrderStatus.ToUpperInvariant(),
             IsReceiptCancelled = false,
             CancellationReason = null,
             FailureReason = o.FailureReason,
