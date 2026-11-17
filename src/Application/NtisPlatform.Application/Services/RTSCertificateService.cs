@@ -24,6 +24,7 @@ public class RTSCertificateService : IRTSCertificateService
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRepository<RTSDepartmentEntity, int> _departmentRepository;
+    private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _approvalFlowStageRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
@@ -42,6 +43,7 @@ public class RTSCertificateService : IRTSCertificateService
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<RTSServiceEntity, int> serviceRepository,
         IRepository<RTSDepartmentEntity, int> departmentRepository,
+        IRepository<RTSApprovalFlowStageMasterEntity, int> approvalFlowStageRepository,
         IRepository<UserEntity, int> userRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
@@ -59,6 +61,7 @@ public class RTSCertificateService : IRTSCertificateService
         _fieldValueRepository = fieldValueRepository;
         _serviceRepository = serviceRepository;
         _departmentRepository = departmentRepository;
+        _approvalFlowStageRepository = approvalFlowStageRepository;
         _userRepository = userRepository;
         _ulbRepository = ulbRepository;
         _historyRepository = historyRepository;
@@ -411,8 +414,8 @@ public class RTSCertificateService : IRTSCertificateService
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.ServiceId == app.ServiceId && t.IsActive && !t.MarkedForDeletion, ct);
 
-        // Generate 100% Dynamic Certificate Department Code from DepartmentMaster.DepartmentCode
-        string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)
+        string deptCode = !string.IsNullOrWhiteSpace(app.Department?.DepartmentCode)        // Generate 100% Dynamic Certificate Department Code from DepartmentMaster.DepartmentCode
+
             ? app.Department.DepartmentCode.Trim()
             : (!string.IsNullOrWhiteSpace(app.Service?.Department?.DepartmentCode)
                 ? app.Service.Department.DepartmentCode.Trim()
@@ -520,12 +523,15 @@ public class RTSCertificateService : IRTSCertificateService
             issuedCertId = issuedCert.Id;
         }
 
-        // Immutable ERP Audit Trail
-        var auditHistory = new TrackApplicationHistoryEntity
+       var issueCertificateOfficerStage=  await _approvalFlowStageRepository.GetQueryable().Where(x => x.ApprovalFlowId == app.ApprovalFlowId && x.CanIssueCertificate).FirstOrDefaultAsync();
+
+         // Immutable ERP Audit Trail
+         var auditHistory = new TrackApplicationHistoryEntity
         {
             ApplicationId = app.Id,
             ApprovalFlowId = app.ApprovalFlowId,
-            ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+             //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+            ApprovalFlowStageId = issueCertificateOfficerStage?.Id,
             ActionByUserId = userId,
             Status = ApplicationStatus.Approved,
             Action = isManual ? "IssueManualCertificateAndApprove" : "IssueCertificateAndDigitalSign",
