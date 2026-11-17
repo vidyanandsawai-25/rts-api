@@ -135,6 +135,21 @@ public class VerifyPaymentRequestDto
     public string? PaymentMode { get; set; }
 }
 
+public class RecordPaymentFailureRequestDto
+{
+    [Required]
+    public string GatewayOrderId { get; set; } = string.Empty;
+
+    [Required]
+    public int ApplicationId { get; set; }
+
+    public string? GatewayPaymentId { get; set; }
+
+    public string? FailureReason { get; set; }
+
+    public string? GatewayResponseJson { get; set; }
+}
+
 public class RecordOfflinePaymentRequestDto
 {
     [Required]

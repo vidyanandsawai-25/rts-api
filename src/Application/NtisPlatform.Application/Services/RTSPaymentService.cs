@@ -1011,6 +1011,56 @@ public class RTSPaymentService : IRTSPaymentService
         };
     }
 
+
+    public async Task<bool> RecordPaymentFailureAsync(RecordPaymentFailureRequestDto request, CancellationToken ct = default)
+    {
+        if (request == null || (request.ApplicationId <= 0 && string.IsNullOrWhiteSpace(request.GatewayOrderId)))
+        {
+            throw new ArgumentException("Valid ApplicationId or GatewayOrderId is required.");
+        }
+
+        // 1. Locate the gateway order by GatewayOrderId
+        var gatewayOrder = await _gatewayOrderRepository.GetQueryable()
+            .FirstOrDefaultAsync(o => o.GatewayOrderId == request.GatewayOrderId, ct);
+
+        // Fallback: If GatewayOrderId wasn't matched, find latest initiated order for this ApplicationId
+        if (gatewayOrder == null && request.ApplicationId > 0)
+        {
+            gatewayOrder = await _gatewayOrderRepository.GetQueryable()
+                .OrderByDescending(o => o.Id)
+                .FirstOrDefaultAsync(o => o.ApplicationId == request.ApplicationId && o.OrderStatus == "Initiated", ct);
+        }
+
+        if (gatewayOrder == null)
+        {
+            return false;
+        }
+
+        // 2. Format the failure reason
+        string failureReason = !string.IsNullOrWhiteSpace(request.FailureReason)
+            ? request.FailureReason
+            : "Payment attempt failed on gateway.";
+
+        string errorJson = !string.IsNullOrWhiteSpace(request.GatewayResponseJson)
+            ? request.GatewayResponseJson
+            : JsonSerializer.Serialize(request);
+
+        // 3. ONLY update RTS.PaymentGatewayOrder table
+        gatewayOrder.OrderStatus = "Failed";
+        if (!string.IsNullOrWhiteSpace(request.GatewayPaymentId))
+        {
+            gatewayOrder.GatewayPaymentId = request.GatewayPaymentId;
+        }
+        gatewayOrder.FailureReason = failureReason;
+        gatewayOrder.GatewayResponseJson = errorJson;
+        gatewayOrder.UpdatedDate = DateTime.Now;
+
+        await _gatewayOrderRepository.UpdateAsync(gatewayOrder, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return true;
+    }
+
     public async Task<PaymentReceiptDto> RecordOfflinePaymentAsync(RecordOfflinePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
     {
         if (request == null || request.ApplicationId <= 0)

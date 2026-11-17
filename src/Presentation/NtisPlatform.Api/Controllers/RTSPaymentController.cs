@@ -208,6 +208,45 @@ public class RTSPaymentController : ControllerBase
     }
 
     /// <summary>
+    /// Records client-side payment failure reported by the checkout SDK (e.g. Razorpay payment.failed event)
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("record-failure")]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RecordFailure([FromBody] RecordPaymentFailureRequestDto request, CancellationToken ct)
+    {
+        if (request == null || (request.ApplicationId <= 0 && string.IsNullOrWhiteSpace(request.GatewayOrderId)))
+        {
+            return BadRequest(new ApiResponse<bool>
+            {
+                Success = false,
+                Message = "Valid ApplicationId or GatewayOrderId is required."
+            });
+        }
+
+        try
+        {
+            var result = await _paymentService.RecordPaymentFailureAsync(request, ct);
+            return Ok(new ApiResponse<bool>
+            {
+                Success = true,
+                Message = "Payment failure logged successfully.",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error recording payment failure for application {AppId}, Order {OrderId}", request.ApplicationId, request.GatewayOrderId);
+            return BadRequest(new ApiResponse<bool>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    /// <summary>
     /// Records an offline municipal counter payment (Cash/Cheque/DD/POS/Challan) by authorized counter officer
     /// </summary>
     [Authorize]
