@@ -30,6 +30,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
     private readonly IRepository<RTSDepartmentEntity, int> _departmentRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
+    private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _approvalFlowStageRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<UserRoleAllocationEntity, int> _userRoleAllocationRepository;
@@ -56,6 +57,7 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSServiceEntity, int> serviceRepository,
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
+        IRepository<RTSApprovalFlowStageMasterEntity, int> approvalFlowStageRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
         IRepository<UserRoleAllocationEntity, int> userRoleAllocationRepository,
         IRepository<UserEntity, int> userRepository,
@@ -81,6 +83,7 @@ public class RTSPaymentService : IRTSPaymentService
         _serviceRepository = serviceRepository;
         _departmentRepository = departmentRepository;
         _fieldValueRepository = fieldValueRepository;
+        _approvalFlowStageRepository = approvalFlowStageRepository;
         _historyRepository = historyRepository;
         _userRepository = userRepository;
         _userRoleAllocationRepository = userRoleAllocationRepository;
@@ -1221,6 +1224,13 @@ public class RTSPaymentService : IRTSPaymentService
             await _demandRepository.UpdateAsync(demand, ct);
         }
 
+        var takePaymentStageId = await _approvalFlowStageRepository  //added temp logic for correct officer assigment for payment
+       .GetQueryable()
+       .Where(x => x.ApprovalFlowId == app.ApprovalFlowId &&
+                   x.CanPay)
+       .Select(x => (int?)x.Id)
+       .FirstOrDefaultAsync();
+
         // Advance Application Status & Add History
         if (isInstrument)
         {
@@ -1236,7 +1246,8 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ApprovalFlowStageId= takePaymentStageId,
                 ActionByUserId = officerUserId,
                 Action = "Instrument Received (Pending Clearance)",
                 Status = "Pending Clearance",
@@ -1261,7 +1272,8 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ApprovalFlowStageId = takePaymentStageId,
                 ActionByUserId = officerUserId,
                 Action = "Offline Payment Received",
                 Status = "Payment Done",
@@ -2463,6 +2475,13 @@ public class RTSPaymentService : IRTSPaymentService
                 var modeEntity = await _modeRepository.GetByIdAsync(txn.PaymentModeId.Value, ct);
                 dynamicModeName = modeEntity?.ModeNameEn;
             }
+
+            var takePaymentStageId = await _approvalFlowStageRepository ///temp take payment officer id 
+            .GetQueryable()
+            .Where(x => x.ApprovalFlowId == app.ApprovalFlowId &&
+                        x.CanIssueCertificate)
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync();
 
             var history = new TrackApplicationHistoryEntity
             {

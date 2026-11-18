@@ -171,7 +171,7 @@ public class RTSPaymentController : ControllerBase
     /// Cryptographically verifies the payment signature from the gateway and generates an official receipt
     /// </summary>
     [AllowAnonymous]
-    [HttpPost("verify-payment")]
+    [HttpPost("record-payment-failure")]
     [ProducesResponseType(typeof(ApiResponse<VerifyPaymentResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -216,15 +216,6 @@ public class RTSPaymentController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RecordFailure([FromBody] RecordPaymentFailureRequestDto request, CancellationToken ct)
     {
-        if (request == null || (request.ApplicationId <= 0 && string.IsNullOrWhiteSpace(request.GatewayOrderId)))
-        {
-            return BadRequest(new ApiResponse<bool>
-            {
-                Success = false,
-                Message = "Valid ApplicationId or GatewayOrderId is required."
-            });
-        }
-
         try
         {
             var result = await _paymentService.RecordPaymentFailureAsync(request, ct);
@@ -255,15 +246,7 @@ public class RTSPaymentController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RecordOfflinePayment([FromBody] RecordOfflinePaymentRequestDto request, CancellationToken ct)
     {
-        if (request == null || request.ApplicationId <= 0)
-        {
-            return BadRequest(new ApiResponse<PaymentReceiptDto>
-            {
-                Success = false,
-                Message = "Invalid offline payment request. Valid ApplicationId is required."
-            });
-        }
-
+        
         try
         {
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
@@ -530,15 +513,7 @@ public class RTSPaymentController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ApproveClearance([FromBody] ApprovePaymentRequestDto request, CancellationToken ct)
     {
-        if (request == null || request.TransactionId <= 0)
-        {
-            return BadRequest(new ApiResponse<VerifyPaymentResponseDto>
-            {
-                Success = false,
-                Message = "Valid TransactionId is required."
-            });
-        }
-
+      
         try
         {
             int userId = 1;

@@ -523,7 +523,13 @@ public class RTSCertificateService : IRTSCertificateService
             issuedCertId = issuedCert.Id;
         }
 
-       var issueCertificateOfficerStage=  await _approvalFlowStageRepository.GetQueryable().Where(x => x.ApprovalFlowId == app.ApprovalFlowId && x.CanIssueCertificate).FirstOrDefaultAsync();
+        var issueCertificateStageId = await _approvalFlowStageRepository
+        .GetQueryable()
+        .Where(x => x.ApprovalFlowId == app.ApprovalFlowId &&
+                    x.CanIssueCertificate)
+        .Select(x => (int?)x.Id)
+        .FirstOrDefaultAsync();
+
 
          // Immutable ERP Audit Trail
          var auditHistory = new TrackApplicationHistoryEntity
@@ -531,7 +537,7 @@ public class RTSCertificateService : IRTSCertificateService
             ApplicationId = app.Id,
             ApprovalFlowId = app.ApprovalFlowId,
              //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
-            ApprovalFlowStageId = issueCertificateOfficerStage?.Id,
+            ApprovalFlowStageId = issueCertificateStageId,
             ActionByUserId = userId,
             Status = ApplicationStatus.Approved,
             Action = isManual ? "IssueManualCertificateAndApprove" : "IssueCertificateAndDigitalSign",
