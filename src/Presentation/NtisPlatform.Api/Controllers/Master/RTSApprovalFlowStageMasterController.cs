@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.RTSApprovalFlowMaster;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Exceptions;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -56,6 +58,25 @@ public class RTSApprovalFlowStageMasterController : ControllerBase
     /// Delete ApprovalFlowStage Master
     /// </summary>
     [HttpDelete("{id}")]
-    public Task<IActionResult> Delete(int id, CancellationToken ct)
-        => this.ExecuteDelete(_service, id, _logger, ct);
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        try
+        {
+            var deleted = await _service.DeleteAsync(id, ct);
+            return Ok(new ApiResponse<RTSApprovalFlowStageMasterDto>
+            {
+                Success = deleted,
+                Message = deleted ? "Stage and its allocations deleted" : "Record not found"
+            });
+        }
+        catch (Exception ex) when (ex is not ValidationException)
+        {
+            _logger.LogError(ex, "Delete operation failed for stage id: {Id}", id);
+            return StatusCode(500, new ApiResponse<RTSApprovalFlowStageMasterDto>
+            {
+                Success = false,
+                Message = "An error occurred while deleting the record"
+            });
+        }
+    }
 }
