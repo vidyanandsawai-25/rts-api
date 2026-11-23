@@ -102,12 +102,12 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         var firstStage = approvalFlow.FirstStage ?? throw new InvalidOperationException(
             "This service has no active approval workflow stage. Configure an active workflow and stage allocation before accepting applications.");
 
-        bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0 && !rtsService.IsPaymentAfterApproval;
+        bool isPaymentRequired = rtsService != null && rtsService.FeesRequired && (rtsService.Fees ?? 0) > 0 && firstStage.CanPay;
 
         var entity = _mapper.Map<RTSApplicationDetailsEntity>(createDto);
 
         entity.Remark = ApplicationStatus.Remark;
-        entity.ApplicationStatus = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
+        entity.ApplicationStatus = isPaymentRequired  ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending;
         entity.UserId = 0;
         entity.ApprovalFlowId = approvalFlow.ApprovalFlowId;
         entity.CurrentApprovalFlowStageId = firstStage.StageId;
@@ -139,7 +139,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         {
             ApprovalFlowId = approvalFlow.ApprovalFlowId,
             ApprovalFlowStageId = firstStage.StageId,
-            Status = isPaymentRequired && firstStage.CanPay ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
+            Status = isPaymentRequired ? ApplicationStatus.PaymentPending : ApplicationStatus.Pending,
             Remark = ApplicationStatus.Remark,
             Action = ApplicationStatus.Submitted,
             IsReverted = false,

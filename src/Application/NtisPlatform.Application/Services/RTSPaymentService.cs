@@ -25,6 +25,8 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSPaymentGatewayConfigEntity, int> _gatewayConfigRepository;
     private readonly IRepository<RTSPaymentStatusMasterEntity, int> _statusRepository;
     private readonly IRepository<RTSPaymentModeMasterEntity, int> _modeRepository;
+    private readonly IRTSStageAllocationRuleService _allocationRules;
+    private readonly IRepository<RTSIssuedCertificateEntity, int> _issuedCertificateRepository;
     private readonly IRepository<RTSPaymentWebhookLogEntity, long> _webhookLogRepository;
     private readonly IRepository<RTSApplicationDetailsEntity, int> _applicationRepository;
     private readonly IRepository<RTSServiceEntity, int> _serviceRepository;
@@ -54,7 +56,9 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSPaymentModeMasterEntity, int> modeRepository,
         IRepository<RTSPaymentWebhookLogEntity, long> webhookLogRepository,
         IRepository<RTSApplicationDetailsEntity, int> applicationRepository,
+        IRTSStageAllocationRuleService allocationRules,
         IRepository<RTSServiceEntity, int> serviceRepository,
+        IRepository<RTSIssuedCertificateEntity, int> issuedCertificateRepository,
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<RTSApprovalFlowStageMasterEntity, int> approvalFlowStageRepository,
@@ -82,11 +86,13 @@ public class RTSPaymentService : IRTSPaymentService
         _applicationRepository = applicationRepository;
         _serviceRepository = serviceRepository;
         _departmentRepository = departmentRepository;
+        _issuedCertificateRepository = issuedCertificateRepository;
         _fieldValueRepository = fieldValueRepository;
         _approvalFlowStageRepository = approvalFlowStageRepository;
         _historyRepository = historyRepository;
+        _allocationRules = allocationRules;
         _userRepository = userRepository;
-        _userRoleAllocationRepository = userRoleAllocationRepository;
+        _userRoleAllocationRepository = userRoleAllocationRepository; 
         _bankRepository = bankRepository;
         _cancellationLogRepository = cancellationLogRepository;
         _unitOfWork = unitOfWork;
@@ -748,7 +754,7 @@ public class RTSPaymentService : IRTSPaymentService
         };
     }
 
-    public async Task<VerifyPaymentResponseDto> VerifyPaymentAsync(VerifyPaymentRequestDto request, CancellationToken ct = default)
+    public async Task<VerifyPaymentResponseDto> VerifyPaymentAsync(VerifyPaymentRequestDto request, CancellationToken ct = default) 
     {
         var gatewayOrder = await _gatewayOrderRepository.GetQueryable()
             .Include(o => o.GatewayConfig)
@@ -944,11 +950,19 @@ public class RTSPaymentService : IRTSPaymentService
                 app.UpdatedDate = DateTime.Now;
             }
 
+            var currentstageid = app.CurrentApprovalFlowStageId;   // payment stage, used in history
+
+            // Pre-payment (CanPay stage) + post-payment (legacy rule) handled in one place
+            await AdvanceAfterPaymentAsync(app,
+                legacyShouldAdvance: app.Service?.IsPaymentAfterApproval == true
+                                     && app.Service?.IsCertificateRequired == true,
+                ct);
+
             var history = new TrackApplicationHistoryEntity
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ApprovalFlowStageId = currentstageid,
                 Action = "Payment Received",
                 Status = "Payment Done",
                 Remark = $"Government Fee of ₹{confirmedTxn.TotalAmount:F2} received via {gatewayConfig.GatewayName}. Ref: {request.GatewayPaymentId}, Receipt: {receiptNo}",
@@ -1067,7 +1081,7 @@ public class RTSPaymentService : IRTSPaymentService
     public async Task<PaymentReceiptDto> RecordOfflinePaymentAsync(RecordOfflinePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
     {
         if (request == null || request.ApplicationId <= 0)
-            throw new ArgumentException("Valid Application ID is required.");
+                throw new ArgumentException("Valid Application ID is required.");
 
         var app = await _applicationRepository.GetQueryable()
             .Include(a => a.Service)
@@ -1224,13 +1238,7 @@ public class RTSPaymentService : IRTSPaymentService
             await _demandRepository.UpdateAsync(demand, ct);
         }
 
-        var takePaymentStageId = await _approvalFlowStageRepository  //added temp logic for correct officer assigment for payment
-       .GetQueryable()
-       .Where(x => x.ApprovalFlowId == app.ApprovalFlowId &&
-                   x.CanPay)
-       .Select(x => (int?)x.Id)
-       .FirstOrDefaultAsync();
-
+  
         // Advance Application Status & Add History
         if (isInstrument)
         {
@@ -1246,8 +1254,7 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
-                ApprovalFlowStageId= takePaymentStageId,
+                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
                 ActionByUserId = officerUserId,
                 Action = "Instrument Received (Pending Clearance)",
                 Status = "Pending Clearance",
@@ -1260,20 +1267,30 @@ public class RTSPaymentService : IRTSPaymentService
         }
         else
         {
-            if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase))
+            var CurrentStageId = app.CurrentApprovalFlowStageId;
+
+            bool wasAwaitingPayment =
+               string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(app.ApplicationStatus, "Approved", StringComparison.OrdinalIgnoreCase);
+
+            if (wasAwaitingPayment)
             {
                 app.ApplicationStatus = "Pending";
-                app.UpdatedDate = DateTime.Now;
-                app.UpdatedBy = officerUserId;
             }
+            app.UpdatedDate = DateTime.Now;
+            app.UpdatedBy = officerUserId;
+
+            // Same dynamic logic as online payment (pre + post payment, officer fallback)
+            await AdvanceAfterPaymentAsync(app,
+                legacyShouldAdvance: wasAwaitingPayment && app.Service?.IsCertificateRequired == true,
+                ct);
 
             var history = new TrackApplicationHistoryEntity
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                //ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
-                ApprovalFlowStageId = takePaymentStageId,
+                ApprovalFlowStageId = CurrentStageId,
                 ActionByUserId = officerUserId,
                 Action = "Offline Payment Received",
                 Status = "Payment Done",
@@ -2124,7 +2141,7 @@ public class RTSPaymentService : IRTSPaymentService
     }
 
 
-    private async Task<PagedResult<PendingClearanceItemDto>> GetOnlineReconciliationGatewayOrdersAsync(
+    private async Task<PagedResult<PendingClearanceItemDto>> GetOnlineReconciliationGatewayOrdersAsync(  //online payment transactions 
     PendingClearanceQueryDto queryParameters,
     CancellationToken ct)
     {
@@ -2456,18 +2473,27 @@ public class RTSPaymentService : IRTSPaymentService
         }
 
         // Advance Application Details
-        var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
+        var app = await _applicationRepository.GetQueryable().Include(x=>x.Service).Where(x=>x.Id==txn.ApplicationId).FirstOrDefaultAsync(ct);
         if (app != null)
         {
-            if (string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
+            var CurrentStageId = app.CurrentApprovalFlowStageId;
+
+            bool wasAwaitingPayment =
+                string.Equals(app.ApplicationStatus, "Payment Pending", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(app.ApplicationStatus, "Pending Payment", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(app.ApplicationStatus, "Pending Clearance", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(app.ApplicationStatus, "Payment Verification Pending", StringComparison.OrdinalIgnoreCase))
+                string.Equals(app.ApplicationStatus, "Payment Verification Pending", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(app.ApplicationStatus, "Approved", StringComparison.OrdinalIgnoreCase);
+
+            if (wasAwaitingPayment)
             {
                 app.ApplicationStatus = "Pending";
-                app.UpdatedDate = DateTime.Now;
-                app.UpdatedBy = officerUserId;
             }
+            app.UpdatedDate = DateTime.Now;
+            app.UpdatedBy = officerUserId;
+
+            // Same dynamic logic as online/cash (pre + post payment, officer fallback)
+            await AdvanceAfterPaymentAsync(app,legacyShouldAdvance: wasAwaitingPayment && app.Service?.IsCertificateRequired == true,ct);
 
             var dynamicModeName = txn.PaymentMode?.ModeNameEn;
             if (string.IsNullOrWhiteSpace(dynamicModeName) && txn.PaymentModeId.HasValue)
@@ -2476,18 +2502,11 @@ public class RTSPaymentService : IRTSPaymentService
                 dynamicModeName = modeEntity?.ModeNameEn;
             }
 
-            var takePaymentStageId = await _approvalFlowStageRepository ///temp take payment officer id 
-            .GetQueryable()
-            .Where(x => x.ApprovalFlowId == app.ApprovalFlowId &&
-                        x.CanIssueCertificate)
-            .Select(x => (int?)x.Id)
-            .FirstOrDefaultAsync();
-
             var history = new TrackApplicationHistoryEntity
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ApprovalFlowStageId = CurrentStageId,
                 ActionByUserId = officerUserId,
                 Action = "Payment Approved & Cleared",
                 Status = "Payment Done",
@@ -2682,10 +2701,30 @@ public class RTSPaymentService : IRTSPaymentService
             }
         }
 
-        // Revert Application Details back to Payment Pending
+
+        // Revert Application back to the payment stage + payment officer
         var app = await _applicationRepository.GetByIdAsync(txn.ApplicationId, ct);
         if (app != null)
         {
+            var fromStageId = app.CurrentApprovalFlowStageId;   // capture before revert
+
+            var paymentStage = await _approvalFlowStageRepository.GetQueryable().AsNoTracking()
+                .Where(x => x.ApprovalFlowId == app.ApprovalFlowId && x.CanPay)
+                .OrderBy(x => x.StageOrder)
+                .Select(s => new { s.Id, s.StageOrder, s.UserId })
+                .FirstOrDefaultAsync(ct);
+
+            if (paymentStage != null)
+            {
+                int payOfficerId = await ResolveStageOfficerAsync(app, paymentStage.Id, ct);
+
+                app.CurrentApprovalFlowStageId = paymentStage.Id;
+                app.CurrentStageOrder = paymentStage.StageOrder;
+                app.UserId = payOfficerId > 0 ? payOfficerId
+                           : paymentStage.UserId > 0 ? paymentStage.UserId
+                           : officerUserId;   // cancelling officer has payment access
+            }
+
             app.ApplicationStatus = "Payment Pending";
             app.UpdatedDate = DateTime.Now;
             app.UpdatedBy = officerUserId;
@@ -2694,7 +2733,7 @@ public class RTSPaymentService : IRTSPaymentService
             {
                 ApplicationId = app.Id,
                 ApprovalFlowId = app.ApprovalFlowId,
-                ApprovalFlowStageId = app.CurrentApprovalFlowStageId,
+                ApprovalFlowStageId = fromStageId,
                 ActionByUserId = officerUserId,
                 Action = "Receipt Cancelled",
                 Status = "Payment Pending",
@@ -3057,5 +3096,58 @@ public class RTSPaymentService : IRTSPaymentService
                 CreatedDate = c.CreatedDate
             })
             .ToListAsync(ct);
+    }
+
+
+    /// <summary>   //helper methods for assign the officers 
+    /// Moves the application to the next active stage after a successful payment.
+    /// Used by: online verify, webhook, offline counter, cheque/DD clearance.
+    /// Backward compatible: if the stage is not flagged CanPay, the caller's legacy rule decides.
+    /// Does NOT change ApplicationStatus — callers own status.
+    /// </summary>
+    private async Task AdvanceAfterPaymentAsync(
+        RTSApplicationDetailsEntity app,
+        bool legacyShouldAdvance,
+        CancellationToken ct)
+    {
+        var stages = await _approvalFlowStageRepository.GetQueryable().AsNoTracking()
+            .Where(s => s.ApprovalFlowId == app.ApprovalFlowId)
+            .OrderBy(s => s.StageOrder)
+            .Select(s => new { s.Id, s.StageOrder, s.CanPay, s.IsFinalStage, s.IsActive, s.UserId })
+            .ToListAsync(ct);
+
+        var currentStage = stages.FirstOrDefault(s => s.Id == app.CurrentApprovalFlowStageId);
+
+        if (currentStage?.CanPay != true && !legacyShouldAdvance) return;
+        if (currentStage?.IsFinalStage == true) return;
+
+        int currentOrder = currentStage?.StageOrder ?? app.CurrentStageOrder ?? 0;
+
+        var nextStage = stages.FirstOrDefault(s => s.IsActive && s.StageOrder > currentOrder);
+        if (nextStage is null) return;
+
+        if (app.Service?.IsPaymentAfterApproval == true &&
+            await _issuedCertificateRepository.GetQueryable().AsNoTracking()
+                .AnyAsync(x => x.ApplicationId == app.Id && x.IsActive && !x.MarkedForDeletion, ct))
+            return;
+
+        var officerId = await ResolveStageOfficerAsync(app, nextStage.Id, ct);
+
+        app.CurrentApprovalFlowStageId = nextStage.Id;
+        app.CurrentStageOrder = nextStage.StageOrder;
+        app.UserId = officerId > 0 ? officerId
+                   : nextStage.UserId > 0 ? nextStage.UserId
+                   : app.UserId;
+        app.UpdatedDate = DateTime.Now;
+    }
+
+    private async Task<int> ResolveStageOfficerAsync(RTSApplicationDetailsEntity application,
+   int stageId, CancellationToken cancellationToken)
+    {
+        var values = await _fieldValueRepository.GetQueryable().AsNoTracking()
+            .Where(x => x.ApplicationId == application.Id && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+        return await _allocationRules.ResolveOfficerAsync(application.ServiceId, application.ApprovalFlowId,
+            stageId, _allocationRules.NormalizeValues(values), cancellationToken);
     }
 }

@@ -1,17 +1,10 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RTSPayment;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using System.Text;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -171,7 +164,7 @@ public class RTSPaymentController : ControllerBase
     /// Cryptographically verifies the payment signature from the gateway and generates an official receipt
     /// </summary>
     [AllowAnonymous]
-    [HttpPost("record-payment-failure")]
+    [HttpPost("verify-payment")]
     [ProducesResponseType(typeof(ApiResponse<VerifyPaymentResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -516,9 +509,21 @@ public class RTSPaymentController : ControllerBase
       
         try
         {
-            int userId = 1;
-            var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId)) userId = parsedId;
+            //int userId = 1;
+            //var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
+            //if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId)) userId = parsedId;
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("UserId")
+                ?? User.FindFirst("id")
+                ?? User.FindFirst("sub");
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId) || userId <= 0)
+            {
+                return Unauthorized(new ApiResponse<PaymentReceiptDto>
+                {
+                    Success = false,
+                    Message = "An authenticated officer is required to record an offline payment."
+                });
+            }
 
             var result = await _paymentService.ApproveTransactionAsync(request, userId, ct);
             return Ok(new ApiResponse<VerifyPaymentResponseDto>
@@ -602,9 +607,18 @@ public class RTSPaymentController : ControllerBase
 
         try
         {
-            int userId = 1;
-            var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId)) userId = parsedId;
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?? User.FindFirst("UserId")
+                ?? User.FindFirst("id")
+                ?? User.FindFirst("sub");
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId) || userId <= 0)
+            {
+                return Unauthorized(new ApiResponse<PaymentReceiptDto>
+                {
+                    Success = false,
+                    Message = "An authenticated officer is required to record an offline payment."
+                });
+            }
 
             var result = await _paymentService.CancelReceiptAsync(request, userId, ct);
             return Ok(new ApiResponse<VerifyPaymentResponseDto>

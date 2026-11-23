@@ -4,6 +4,7 @@ using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
+using NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Extensions;
@@ -956,9 +957,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         // A payment-before-approval service may pass through earlier stages
         // that do not collect payment. A configured payment stage is the
         // checkpoint at which its demand must be settled.
-        if (RTSPaymentWorkflowGuard.RequiresSettlementBeforeVerification(
-                application.Service?.IsPaymentAfterApproval == true,
-                currentStage.CanPay))
+        if (RTSPaymentWorkflowGuard.RequiresSettlementBeforeVerification(currentStage.CanPay))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
                 dto.ApplicationId,
@@ -967,21 +966,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 cancellationToken);
         }
 
-        var currentHistory = await _historyRepository
-        .GetQueryable()
-        .Where(history =>
-        history.ApplicationId == dto.ApplicationId &&
-        history.ApprovalFlowId == application.ApprovalFlowId &&
-        history.ApprovalFlowStageId == application.CurrentApprovalFlowStageId &&
-        history.IsActive)
-        .OrderByDescending(history => history.Id)
-        .FirstOrDefaultAsync(cancellationToken);
-
-        if (currentHistory == null)
-        {
-            throw new InvalidOperationException("Current stage history record was not found.");
-        }
-
+       
         // Advance to next stage or update status
         var nextStage = await _approvalFlowStageRepository
             .GetQueryable()
@@ -1050,9 +1035,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         };
     }
 
-    public async Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync(
-    UpdateRTSApplicationProcessDto dto,
-    CancellationToken cancellationToken = default)
+    public async Task<RTSApplicationApprovalResponseDto> VerifyApplicationAndSentToApproveAsync( UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default)
     {
         var application = await _repository.GetQueryable()
             .Include(x => x.Service)
@@ -1087,12 +1070,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 $"{currentStage.StageName} does not permit application approval.");
 
-        // Payment is required at configured collection stages. Final approval
-        // remains a safeguard if a normal workflow has no reachable payment stage.
-        if (RTSPaymentWorkflowGuard.RequiresSettlementBeforeApproval(
-                application.Service?.IsPaymentAfterApproval == true,
-                currentStage.CanPay,
-                currentStage.IsFinalStage))
+        
+        if (currentStage.CanPay || (currentStage.IsFinalStage && application.Service?.IsPaymentAfterApproval != true))
         {
             await EnsurePaymentSnapshotIsSettledAsync(
                 dto.ApplicationId,
@@ -1113,18 +1092,32 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 "Current stage history record was not found.");
 
-        var nextStage = await _approvalFlowStageRepository
-           .GetQueryable()
-           .AsNoTracking()
-           .Where(stage =>
-               stage.ApprovalFlowId == application.ApprovalFlowId &&
-               stage.StageOrder > application.CurrentStageOrder)
-           .OrderBy(stage => stage.StageOrder)
-           .Select(stage => new { StageId = stage.Id, stage.StageOrder, stage.StageName })
-           .FirstOrDefaultAsync(cancellationToken);
+
+        var stages = await _approvalFlowStageRepository.GetQueryable().AsNoTracking()
+            .Where(s => s.ApprovalFlowId == application.ApprovalFlowId)
+            .OrderBy(s => s.StageOrder)
+            .Select(s => new { StageId = s.Id, s.StageOrder, s.StageName, s.CanPay, s.CanApprove, s.CanIssueCertificate})
+            .ToListAsync(cancellationToken);
+
+        var demand = await _demandRepository.GetQueryable().AsNoTracking()
+            .Where(d => d.ApplicationId == application.Id && d.IsActive)
+            .Select(d => new { d.TotalAmount, d.DemandStatus })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        bool paymentPending = demand != null
+            ? demand.TotalAmount > 0 && !string.Equals(demand.DemandStatus, "Paid", StringComparison.OrdinalIgnoreCase)
+            : application.Service?.FeesRequired == true && (application.Service.Fees ?? 0) > 0;
+
+        bool certificateRequired = application.Service?.IsCertificateRequired == true;
+
+        var nextStage = stages.FirstOrDefault(s =>
+            s.StageOrder > currentStage.StageOrder &&                                
+            (!s.CanPay || paymentPending) &&                                          
+            (!s.CanIssueCertificate || certificateRequired || s.CanApprove));         
+
 
         // Finalize approval only if current stage is final and there are no subsequent stages
-        if (currentStage.IsFinalStage && nextStage == null)
+        if (currentStage.IsFinalStage|| nextStage == null)
         {
             application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
             {
@@ -1148,6 +1141,16 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
             application.UpdatedBy = dto.UpdatedBy;
             application.UpdatedDate = DateTime.Now;
+
+           
+            if (nextStage != null)
+            {
+                var officerId = await ResolveStageOfficerAsync(application, nextStage.StageId, cancellationToken);
+                application.CurrentApprovalFlowStageId = nextStage.StageId;
+                application.CurrentStageOrder = nextStage.StageOrder;
+                application.UserId = officerId > 0 ? officerId  : dto.UpdatedBy;
+            }
+
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -1190,11 +1193,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (nextStage == null)
             throw new InvalidOperationException("Next approval stage is not configured.");
 
+        var nextOfficerId = await ResolveStageOfficerAsync(application, nextStage.StageId, cancellationToken);
 
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
-        application.UserId = await ResolveStageOfficerAsync(application, nextStage.StageId, cancellationToken);
-        application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
+        application.UserId = nextOfficerId > 0 ? nextOfficerId : application.UserId; application.ApplicationStatus = ApplicationStatus.ApplicationVerified;
         application.Remark = dto.Remark;
         application.IsReverted = false;
         application.IssuedCertificateGuid = dto.IssuedCertificateGuid;
@@ -1517,19 +1520,26 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException($"{currentStage.StageName} does not permit application correction.");
         }
 
-        // Find the previous stage in the approval flow (officer-wise revert)
+        // Find previous reviewable stage dynamically:
+        //  - active only
+        //  - skip payment (CanPay) stages -> payment officer never handles corrections
+        //  - if nothing remains (e.g. payment is first stage) -> previousStage = null -> revert to citizen
+
         var previousStage = await _approvalFlowStageRepository
             .GetQueryable()
             .AsNoTracking()
             .Where(stage =>
                 stage.ApprovalFlowId == currentStage.ApprovalFlowId &&
+                !stage.CanPay &&
+                !stage.IsFinalStage &&
                 stage.StageOrder < currentStage.StageOrder)
             .OrderByDescending(stage => stage.StageOrder)
             .Select(stage => new
             {
                 StageId = stage.Id,
                 stage.StageOrder,
-                stage.StageName
+                stage.StageName,
+                stage.UserId
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -1690,30 +1700,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
 
-
-
-
-
-    // <summary>
-    // Helper Methods
-    private static bool IsCompletedStatus(string? status)
-    {
-        return status != null &&
-        (
-            status.Equals(ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
-            status.Equals(ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase) ||
-            status.Equals(ApplicationStatus.DocumentVerified, StringComparison.OrdinalIgnoreCase)||
-            status.Equals(ApplicationStatus.ApplicationVerified, StringComparison.OrdinalIgnoreCase)
-        );
-    }
-
-    private static int? ExtractSlaDays(string? sla)  //getApplication Dashboard to find remaining days
-    {
-        var numericPart = new string(sla?.Where(char.IsDigit).ToArray() ?? []);
-        return int.TryParse(numericPart, out var days) ? days : null;
-    }
-
-    public async Task<List<NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(
+    public async Task<List<RTSTrackApplicationHistoryDto>> GetTrackApplicationHistoryAsync(
         int applicationId,
         CancellationToken cancellationToken = default)
     {
@@ -1749,7 +1736,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 (h.Remark != null && h.Remark.Contains("DSC Hash", StringComparison.OrdinalIgnoreCase))
             );
 
-            result.Add(new NtisPlatform.Application.DTOs.RTSTrackApplicationHistory.RTSTrackApplicationHistoryDto
+            result.Add(new RTSTrackApplicationHistoryDto
             {
                 Id = h.Id,
                 ApplicationId = h.ApplicationId,
@@ -1891,6 +1878,26 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             UploadedByFullName = !string.IsNullOrWhiteSpace(fullName) ? fullName : officer?.UserName,
             UploadedDate = DateTime.Now
         };
+    }
+
+
+    // <summary>
+    // Helper Methods
+    private static bool IsCompletedStatus(string? status)
+    {
+        return status != null &&
+        (
+            status.Equals(ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
+            status.Equals(ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase) ||
+            status.Equals(ApplicationStatus.DocumentVerified, StringComparison.OrdinalIgnoreCase) ||
+            status.Equals(ApplicationStatus.ApplicationVerified, StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    private static int? ExtractSlaDays(string? sla)  //getApplication Dashboard to find remaining days
+    {
+        var numericPart = new string(sla?.Where(char.IsDigit).ToArray() ?? []);
+        return int.TryParse(numericPart, out var days) ? days : null;
     }
 }
 

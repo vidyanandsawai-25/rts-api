@@ -9,18 +9,20 @@ internal static class RTSPaymentWorkflowGuard
     /// Document verification is a payment checkpoint only at stages configured to collect payment.
     /// </summary>
     public static bool RequiresSettlementBeforeVerification(
-        bool isPaymentAfterApproval,
-        bool currentStageCanPay) =>
-        !isPaymentAfterApproval && currentStageCanPay;
+     
+        bool currentStageCanPay) => currentStageCanPay;
 
     /// <summary>
     /// A configured payment stage cannot advance with an unpaid demand. Final approval is
     /// always a safeguard so a normal service cannot be approved unpaid when its workflow
     /// configuration has no reachable payment stage.
     /// </summary>
+    //public static bool RequiresSettlementBeforeApproval(
+    //    bool isPaymentAfterApproval,
+    //    bool currentStageCanPay,
+    //    bool isFinalStage) =>
+    //    !isPaymentAfterApproval && (currentStageCanPay || isFinalStage);
     public static bool RequiresSettlementBeforeApproval(
-        bool isPaymentAfterApproval,
-        bool currentStageCanPay,
-        bool isFinalStage) =>
-        !isPaymentAfterApproval && (currentStageCanPay || isFinalStage);
+    bool currentStageCanPay,
+    bool isFinalStage) => (currentStageCanPay && isFinalStage);
 }
