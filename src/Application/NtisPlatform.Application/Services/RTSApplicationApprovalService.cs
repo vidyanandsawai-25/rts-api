@@ -505,13 +505,37 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .GroupBy(history => history.StageId)
             .ToDictionary(group => group.Key, group => group.First());
 
-        var isTerminal = string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) ||
-                         string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase);
+        //var isCurrentStages =  await _approvalFlowStageRepository.GetQueryable().Where(x => x.Id == application.CurrentApprovalFlowStageId).FirstOrDefaultAsync(cancellationToken);
+
+        var currentStageInfo = await _approvalFlowStageRepository.GetQueryable()   //new dynamic logic is this 
+            .AsNoTracking()
+            .Where(x => x.Id == application.CurrentApprovalFlowStageId)
+            .Select(x => new { x.Id, x.CanPay, x.CanIssueCertificate })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Current stage still has pending work (payment / certificate) and is not completed in history
+        var currentStageHasPendingWork =
+            currentStageInfo != null &&
+            (currentStageInfo.CanPay || currentStageInfo.CanIssueCertificate) &&
+            !(latestHistoryByStage.TryGetValue(currentStageInfo.Id, out var currentHistory) &&
+              IsCompletedStatus(currentHistory.Status));
+
+        var isTerminal =
+            string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase) ||
+            (string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase)
+             && !currentStageHasPendingWork);
+
+        //var isTerminal = string.Equals(application.ApplicationStatus, ApplicationStatus.Approved, StringComparison.OrdinalIgnoreCase) 
+        //    ||string.Equals(application.ApplicationStatus, ApplicationStatus.Rejected, StringComparison.OrdinalIgnoreCase);
+
+        
 
         // Reverted to Citizen is TRUE only when application is marked Reverted AND UserId is 0/null (not on any officer's desk)
         var revertedToCitizen = application.IsReverted &&
                                 string.Equals(application.ApplicationStatus, ApplicationStatus.Reverted, StringComparison.OrdinalIgnoreCase) &&
                                 (!application.UserId.HasValue || application.UserId.Value <= 0);
+
+
 
         // Resolve preview officer only for upcoming stages without any history
         var applicationValues = await _fieldValueRepository.GetQueryable()
@@ -524,8 +548,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         foreach (var stage in stages)
         {
-            var isCurrentStage = !isTerminal && !revertedToCitizen &&
-                                 stage.Id == application.CurrentApprovalFlowStageId;
+            var isCurrentStage = !isTerminal && !revertedToCitizen && stage.Id == application.CurrentApprovalFlowStageId;
 
             // Skip stages that are current or already have an officer recorded in history
             if (isCurrentStage ||

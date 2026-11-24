@@ -200,11 +200,9 @@ public class RTSApplicationApprovalController : ControllerBase
             Items = result
         });
     }
-
     // <summary>
     // this api is used to revert the application to previous stage
     // </summary>
-
 
     [AllowAnonymous]
     [HttpPost("Revert-Application")]
