@@ -121,6 +121,11 @@ builder.Services.AddScoped<IPropertyTaxOperationsService, NtisPlatform.Applicati
             builder.Configuration.GetSection(CapitalValueOptions.SectionName));
 
 // Add background workers
+builder.Services.AddHttpClient();
+builder.Services.Configure<WhatsAppOptions>(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
+builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IRTSWhatsAppNotificationService, RTSWhatsAppNotificationService>();
+
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddHostedService<HardDeleteCleanupWorker>();
 builder.Services.AddHostedService<PropertyTaxJobProcessorWorker>();
@@ -128,6 +133,7 @@ builder.Services.AddHostedService<PropertyTaxJobRecoveryWorker>();
 // StaleReportRequestReclaimWorker retired Hangfire's invisibility timeout + server heartbeat now
 // reclaim jobs whose worker died, so a separate lease-sweep is no longer needed.
 builder.Services.AddHostedService<ReportRetentionWorker>();
+builder.Services.AddHostedService<RTSOfficerNotificationWorker>();
 
 var host = builder.Build();
 host.Run();

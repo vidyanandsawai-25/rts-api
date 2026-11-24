@@ -77,6 +77,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string status,
         string? gatewayResponse,
         int? applicationId,
+        int? smstypeId,
+        int? createdBy,
         CancellationToken ct)
     {
         try
@@ -89,12 +91,13 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
                 ReceiverMobileNo = mobileNo,
                 SenderName = "WHATSAPP",
                 TemplateID = templateName,
-                SMSTypeID = null,
+                SMSTypeID = smstypeId,
                 Message = messagePreview,
                 SmsUrl = _options.Value.WabaUrl,
                 SMSStatus = status,
                 GatewayResponse = gatewayResponse,
                 ApplicationId = applicationId,
+                CreatedBy = createdBy,
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -113,7 +116,9 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string templateName,
         string messagePreview,
         int? applicationId,
-        CancellationToken ct)
+        CancellationToken ct,
+        int? smstypeId = null,
+        int? createdBy = null)
     {
         var config = _options.Value;
         if (!config.IsActive)
@@ -173,13 +178,13 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
                 _logger.LogError("WhatsApp gateway returned HTTP {StatusCode} for {Mobile}. Response: {Response}", response.StatusCode, sanitizedMobile, responseContent);
             }
 
-            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, status, responseContent, applicationId, ct);
+            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, status, responseContent, applicationId, smstypeId, createdBy, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to dispatch WhatsApp message via template '{Template}' to {Mobile}", templateName, recipientMobile);
-            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_ERROR", ex.Message, applicationId, ct);
+            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_ERROR", ex.Message, applicationId, smstypeId, createdBy, ct);
             return false;
         }
     }
@@ -191,7 +196,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string serviceName,
         string status,
         string trackingUrl,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? applicationId = null)
     {
         if (!_options.Value.SendStatusOnWhatsApp) return;
 
@@ -227,7 +233,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         };
 
         var preview = $"Application No: {applicationNo}, Service: {cleanServiceName}, Status: {cleanStatus}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
     public async Task SendPaymentReceiptAsync(
@@ -237,7 +243,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string applicationNo,
         string receiptNo,
         string receiptUrl,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? applicationId = null)
     {
         var templateName = _options.Value.Templates.PaymentReceipt;
         var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
@@ -270,7 +277,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         };
 
         var preview = $"Payment of Rs. {formattedAmount} for {applicationNo}. Receipt: {receiptNo}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
     public async Task SendCertificateIssuedAsync(
@@ -279,7 +286,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string applicationNo,
         string serviceName,
         string certificateUrl,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? applicationId = null)
     {
         var templateName = _options.Value.Templates.CertificateIssued;
         var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
@@ -311,7 +319,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         };
 
         var preview = $"Certificate issued for {applicationNo} ({cleanServiceName})";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
     public async Task SendCitizenOtpAsync(
@@ -357,5 +365,202 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
 
         var preview = $"Login OTP Verification Code";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
+    }
+
+    public async Task SendOfficerTaskAssignedAsync(
+        string mobileNo,
+        string officerName,
+        string applicationNo,
+        string serviceName,
+        string stageName,
+        string dueDate,
+        string portalUrl,
+        int? applicationId = null,
+        int? stageId = null,
+        int? officerUserId = null,
+        CancellationToken ct = default)
+    {
+        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
+
+        var templateName = _options.Value.Templates.OfficerAssigned;
+        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
+        var cleanStageName = string.IsNullOrWhiteSpace(stageName) ? "Review / Verification" : stageName.Trim();
+        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy") : dueDate.Trim();
+        var cleanPortalUrl = string.IsNullOrWhiteSpace(portalUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : portalUrl.Trim();
+
+        var payload = new
+        {
+            to = SanitizeMobileNumber(mobileNo),
+            type = "template",
+            template = new
+            {
+                name = templateName,
+                language = new { code = "en" },
+                components = new object[]
+                {
+                    new
+                    {
+                        type = "body",
+                        parameters = new object[]
+                        {
+                            new { type = "text", text = cleanOfficerName },
+                            new { type = "text", text = applicationNo },
+                            new { type = "text", text = cleanServiceName },
+                            new { type = "text", text = cleanStageName },
+                            new { type = "text", text = cleanDueDate },
+                            new { type = "text", text = cleanPortalUrl }
+                        }
+                    }
+                }
+            }
+        };
+
+        var preview = $"Task Assigned: Application {applicationNo} ({cleanServiceName}) for {cleanStageName}. Due: {cleanDueDate}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: stageId, createdBy: officerUserId);
+    }
+
+    public async Task SendOfficerSlaWarningAsync(
+        string mobileNo,
+        string officerName,
+        string applicationNo,
+        string serviceName,
+        int daysRemaining,
+        string dueDate,
+        string actionUrl,
+        int? applicationId = null,
+        int? officerUserId = null,
+        CancellationToken ct = default)
+    {
+        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
+
+        var templateName = _options.Value.Templates.OfficerSlaWarning;
+        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
+        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(daysRemaining).ToString("dd-MM-yyyy") : dueDate.Trim();
+        var cleanActionUrl = string.IsNullOrWhiteSpace(actionUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : actionUrl.Trim();
+
+        var payload = new
+        {
+            to = SanitizeMobileNumber(mobileNo),
+            type = "template",
+            template = new
+            {
+                name = templateName,
+                language = new { code = "en" },
+                components = new object[]
+                {
+                    new
+                    {
+                        type = "body",
+                        parameters = new object[]
+                        {
+                            new { type = "text", text = cleanOfficerName },
+                            new { type = "text", text = applicationNo },
+                            new { type = "text", text = cleanServiceName },
+                            new { type = "text", text = Math.Max(1, daysRemaining).ToString() },
+                            new { type = "text", text = cleanDueDate },
+                            new { type = "text", text = cleanActionUrl }
+                        }
+                    }
+                }
+            }
+        };
+
+        var preview = $"SLA Warning: Application {applicationNo} ({cleanServiceName}) breaches in {daysRemaining} days. Due: {cleanDueDate}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: null, createdBy: officerUserId);
+    }
+
+    public async Task SendOfficerDailyDigestAsync(
+        string mobileNo,
+        string officerName,
+        int totalPending,
+        int nearSlaCount,
+        string dashboardUrl,
+        int? officerUserId = null,
+        CancellationToken ct = default)
+    {
+        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
+
+        var templateName = _options.Value.Templates.OfficerDailyDigest;
+        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
+        var cleanDashboardUrl = string.IsNullOrWhiteSpace(dashboardUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : dashboardUrl.Trim();
+
+        var payload = new
+        {
+            to = SanitizeMobileNumber(mobileNo),
+            type = "template",
+            template = new
+            {
+                name = templateName,
+                language = new { code = "en" },
+                components = new object[]
+                {
+                    new
+                    {
+                        type = "body",
+                        parameters = new object[]
+                        {
+                            new { type = "text", text = cleanOfficerName },
+                            new { type = "text", text = totalPending.ToString() },
+                            new { type = "text", text = nearSlaCount.ToString() },
+                            new { type = "text", text = cleanDashboardUrl }
+                        }
+                    }
+                }
+            }
+        };
+
+        var preview = $"Daily Digest for {cleanOfficerName}: {totalPending} pending applications, {nearSlaCount} near SLA breach";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct, smstypeId: null, createdBy: officerUserId);
+    }
+
+    public async Task SendCitizenActionReminderAsync(
+        string mobileNo,
+        string citizenName,
+        string applicationNo,
+        string serviceName,
+        string pendingAction,
+        string dueDate,
+        string serviceUrl,
+        int? applicationId = null,
+        CancellationToken ct = default)
+    {
+        var templateName = _options.Value.Templates.CitizenReminder;
+        var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
+        var cleanPendingAction = string.IsNullOrWhiteSpace(pendingAction) ? "Fee Payment / Document Submission" : pendingAction.Trim();
+        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy") : dueDate.Trim();
+        var cleanServiceUrl = string.IsNullOrWhiteSpace(serviceUrl) ? "https://rts.amcakola.in/service" : serviceUrl.Trim();
+
+        var payload = new
+        {
+            to = SanitizeMobileNumber(mobileNo),
+            type = "template",
+            template = new
+            {
+                name = templateName,
+                language = new { code = "en" },
+                components = new object[]
+                {
+                    new
+                    {
+                        type = "body",
+                        parameters = new object[]
+                        {
+                            new { type = "text", text = cleanCitizenName },
+                            new { type = "text", text = applicationNo },
+                            new { type = "text", text = cleanServiceName },
+                            new { type = "text", text = cleanPendingAction },
+                            new { type = "text", text = cleanDueDate },
+                            new { type = "text", text = cleanServiceUrl }
+                        }
+                    }
+                }
+            }
+        };
+
+        var preview = $"Action Reminder: {applicationNo} ({cleanServiceName}) needs {cleanPendingAction}. Due: {cleanDueDate}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 }

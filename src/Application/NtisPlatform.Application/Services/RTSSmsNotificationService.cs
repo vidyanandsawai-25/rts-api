@@ -263,7 +263,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     serviceName,
                     status,
                     trackingUrl,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    applicationId);
             }
             catch (Exception ex)
             {
@@ -358,7 +359,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     applicationNo,
                     serviceName,
                     certUrl,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    applicationId);
             }
             catch (Exception ex)
             {
@@ -442,7 +444,8 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     applicationNo,
                     receiptNo,
                     receiptUrl,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    applicationId);
             }
             catch (Exception ex)
             {
