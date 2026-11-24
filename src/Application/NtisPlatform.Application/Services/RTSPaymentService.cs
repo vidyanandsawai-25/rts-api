@@ -33,6 +33,7 @@ public class RTSPaymentService : IRTSPaymentService
     private readonly IRepository<RTSDepartmentEntity, int> _departmentRepository;
     private readonly IRepository<RTSFieldValueEntity, int> _fieldValueRepository;
     private readonly IRepository<RTSApprovalFlowStageMasterEntity, int> _approvalFlowStageRepository;
+    private readonly IRepository<RTSApprovalFlowStageUserAllocationMasterEntity, int> _approvalFlowStageUserAllocationRepository;
     private readonly IRepository<TrackApplicationHistoryEntity, int> _historyRepository;
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<UserRoleAllocationEntity, int> _userRoleAllocationRepository;
@@ -62,6 +63,7 @@ public class RTSPaymentService : IRTSPaymentService
         IRepository<RTSDepartmentEntity, int> departmentRepository,
         IRepository<RTSFieldValueEntity, int> fieldValueRepository,
         IRepository<RTSApprovalFlowStageMasterEntity, int> approvalFlowStageRepository,
+        IRepository<RTSApprovalFlowStageUserAllocationMasterEntity, int> approvalFlowStageUserAllocationRepository,
         IRepository<TrackApplicationHistoryEntity, int> historyRepository,
         IRepository<UserRoleAllocationEntity, int> userRoleAllocationRepository,
         IRepository<UserEntity, int> userRepository,
@@ -89,6 +91,7 @@ public class RTSPaymentService : IRTSPaymentService
         _issuedCertificateRepository = issuedCertificateRepository;
         _fieldValueRepository = fieldValueRepository;
         _approvalFlowStageRepository = approvalFlowStageRepository;
+        _approvalFlowStageUserAllocationRepository = approvalFlowStageUserAllocationRepository;
         _historyRepository = historyRepository;
         _allocationRules = allocationRules;
         _userRepository = userRepository;
@@ -2153,6 +2156,33 @@ public class RTSPaymentService : IRTSPaymentService
             .Include(o => o.Application)
                 .ThenInclude(a => a.Department)
             .AsQueryable();
+
+
+        var userId = queryParameters.UserId;
+
+        var isAdmin = await _userRoleAllocationRepository.GetQueryable()
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.UserId == userId &&
+                x.IsActive &&
+                x.UserRole != null &&
+                x.UserRole.UserRoleName != null &&
+                x.UserRole.UserRoleName.Trim().ToUpper() == "ADMIN", ct);
+
+        if (!isAdmin)
+        {
+            var canPay = await _approvalFlowStageRepository.GetQueryable()
+                .AsNoTracking()
+                .AnyAsync(s =>
+                    s.CanPay &&
+                    s.RTSApprovalFlowStageUserAllocations.Any(a => a.IsActive && a.UserId == userId), ct);
+
+            if (!canPay)
+            {
+                orderQuery = orderQuery.Where(o => o.Application != null &&
+                   o.Application.UserId == userId);
+            }
+        }
 
         // 1. OrderStatus Filter (defaults to "Initiated" if not specified or "ALL")
         if (!string.IsNullOrWhiteSpace(queryParameters.StatusCode) && queryParameters.StatusCode.ToUpper() != "ALL")
