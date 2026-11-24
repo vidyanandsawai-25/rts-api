@@ -564,9 +564,18 @@ public class RTSPaymentController : ControllerBase
 
         try
         {
-            int userId = 1;
-            var userIdClaim = User.FindFirst("UserId") ?? User.FindFirst("id") ?? User.FindFirst("sub");
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int parsedId)) userId = parsedId;
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                 ?? User.FindFirst("UserId")
+                 ?? User.FindFirst("id")
+                 ?? User.FindFirst("sub");
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId) || userId <= 0)
+            {
+                return Unauthorized(new ApiResponse<PaymentReceiptDto>
+                {
+                    Success = false,
+                    Message = "An authenticated officer is required to record an offline payment."
+                });
+            }
 
             var result = await _paymentService.DisapproveTransactionAsync(request, userId, ct);
             return Ok(new ApiResponse<VerifyPaymentResponseDto>
