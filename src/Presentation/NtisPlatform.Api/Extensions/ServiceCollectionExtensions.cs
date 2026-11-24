@@ -278,6 +278,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOtpChallengeService, OtpChallengeService>();
         services.AddScoped<ISmsService, SmsService>();
         services.AddScoped<IRTSSmsNotificationService, RTSSmsNotificationService>();
+        services.Configure<WhatsAppOptions>(configuration.GetSection(WhatsAppOptions.SectionName));
+        services.AddScoped<IRTSWhatsAppNotificationService, RTSWhatsAppNotificationService>();
 
         services.AddScoped<IAuthTokenIssuerService, AuthTokenIssuerService>();
         services.AddScoped<ISecurityAuditService, SecurityAuditService>();

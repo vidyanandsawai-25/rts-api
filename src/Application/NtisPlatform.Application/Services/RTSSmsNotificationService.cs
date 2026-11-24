@@ -22,6 +22,7 @@ namespace NtisPlatform.Application.Services;
 public class RTSSmsNotificationService : IRTSSmsNotificationService
 {
     private readonly ISmsService _smsService;
+    private readonly IRTSWhatsAppNotificationService _whatsAppService;
     private readonly IRepository<SMSMasterEntity, int> _smsMasterRepository;
     private readonly IRepository<SMSTypeEntity, int> _smsTypeRepository;
     private readonly IRepository<ULBMasterEntity, int> _ulbRepository;
@@ -31,6 +32,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
 
     public RTSSmsNotificationService(
         ISmsService smsService,
+        IRTSWhatsAppNotificationService whatsAppService,
         IRepository<SMSMasterEntity, int> smsMasterRepository,
         IRepository<SMSTypeEntity, int> smsTypeRepository,
         IRepository<ULBMasterEntity, int> ulbRepository,
@@ -39,6 +41,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         ILogger<RTSSmsNotificationService> logger)
     {
         _smsService = smsService;
+        _whatsAppService = whatsAppService;
         _smsMasterRepository = smsMasterRepository;
         _smsTypeRepository = smsTypeRepository;
         _ulbRepository = ulbRepository;
@@ -192,6 +195,19 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_CITIZEN_LOGIN_OTP", mobileNo, null, placeholders, ct);
+
+        // Dispatches WhatsApp login OTP concurrently in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _whatsAppService.SendCitizenOtpAsync(mobileNo, otp, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background WhatsApp OTP dispatch failed for {Mobile}", mobileNo);
+            }
+        });
     }
 
     private static string SanitizeDltVar(string? text, int maxLen = 30)
@@ -234,6 +250,26 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_APP_STATUS_UPDATE", mobileNo, applicationId, placeholders, ct);
+
+        // Dispatches WhatsApp application status update concurrently in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _whatsAppService.SendApplicationStatusAsync(
+                    mobileNo,
+                    citizenName,
+                    applicationNo,
+                    serviceName,
+                    status,
+                    trackingUrl,
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background WhatsApp application status dispatch failed for {Mobile}", mobileNo);
+            }
+        });
     }
 
     /// <summary>
@@ -310,6 +346,25 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         var baseUrl = await GetPortalBaseUrlAsync(ct);
         var certUrl = $"{baseUrl}?track={Uri.EscapeDataString(applicationNo)}";
         await SendApplicationStatusUpdateAsync(applicationId, applicationNo, citizenName, mobileNo, serviceName, "CERTIFICATE ISSUED", certUrl, ct);
+
+        // Dispatches dedicated Certificate Issued notice on WhatsApp in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _whatsAppService.SendCertificateIssuedAsync(
+                    mobileNo,
+                    citizenName,
+                    applicationNo,
+                    serviceName,
+                    certUrl,
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background WhatsApp certificate notice dispatch failed for {Mobile}", mobileNo);
+            }
+        });
     }
 
     /// <summary>
@@ -374,5 +429,25 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_FEE_PAID", mobileNo, applicationId, placeholders, ct);
+
+        // Dispatches WhatsApp payment receipt concurrently in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _whatsAppService.SendPaymentReceiptAsync(
+                    mobileNo,
+                    citizenName,
+                    amount,
+                    applicationNo,
+                    receiptNo,
+                    receiptUrl,
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background WhatsApp payment receipt dispatch failed for {Mobile}", mobileNo);
+            }
+        });
     }
 }
