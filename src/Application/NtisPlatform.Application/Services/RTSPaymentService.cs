@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.InkML;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -2322,30 +2324,49 @@ public class RTSPaymentService : IRTSPaymentService
         return pagedResult;
     }
 
-
-
-    ///logic 
-
+    //old method 
 
     public async Task<PendingClearanceStatsDto> GetPendingClearanceStatsAsync(int UserId, CancellationToken ct = default)
     {
         var today = DateTime.Today;
 
-        var officer = await _userRoleAllocationRepository.GetQueryable()
-            .AsNoTracking()
-            .Include(x => x.UserRole)
-            .FirstOrDefaultAsync(x => x.UserId == UserId && x.IsActive, ct);
-
-        bool isAdmin = string.Equals(officer?.UserRole?.UserRoleName?.Trim(), "ADMIN", StringComparison.OrdinalIgnoreCase);
-
+      
         var query = _paymentRepository.GetQueryable()
-            .AsNoTracking()
-            .Where(x => x.IsActive);
+          .AsNoTracking()
+          .Where(x => x.IsActive);
 
-        if (!isAdmin && officer != null)
+        var pendingOnlineCount = 0;
+
+
+        var isAdmin = await _userRoleAllocationRepository.GetQueryable()
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.UserId == UserId &&
+                x.IsActive &&
+                x.UserRole != null &&
+                x.UserRole.UserRoleName != null &&
+                x.UserRole.UserRoleName.Trim().ToUpper() == "ADMIN", ct);
+
+        var canPay = await _approvalFlowStageRepository.GetQueryable()
+                .AsNoTracking()
+                .AnyAsync(s =>
+                    s.CanPay &&
+                    s.RTSApprovalFlowStageUserAllocations.Any(a => a.IsActive && a.UserId == UserId), ct);
+
+        if(isAdmin||canPay)
+        {
+            pendingOnlineCount = await _gatewayOrderRepository
+              .GetQueryable()
+              .AsNoTracking()
+              .CountAsync(x => x.OrderStatus == "Initiated", ct);
+        }
+
+        else if (!isAdmin)
         {
             query = query.Where(t => t.CreatedBy == UserId);
+            
         }
+       
         // 3. Load ONLY the 7 scalar filter columns (Zero entity objects, zero change tracker overhead)
         var payments = await query
             .Select(t => new
@@ -2364,12 +2385,6 @@ public class RTSPaymentService : IRTSPaymentService
             x.StatusCode == "PENDING_CLEARANCE" ||
             ((x.ModeCode == "CHEQUE" || x.ModeCode == "DD") && x.StatusCode == "PENDING" && (x.ModeCode == null || x.ModeCode != "CASH")));
 
-        var pendingOnlineCount = await _gatewayOrderRepository
-            .GetQueryable()
-            .AsNoTracking()
-            .CountAsync(x => x.OrderStatus == "Initiated", ct);
-
-
         var clearedTodayQuery = payments.Where(t =>
             t.StatusCode == "SUCCESS" &&
             !t.IsReceiptCancelled &&
@@ -2380,9 +2395,9 @@ public class RTSPaymentService : IRTSPaymentService
 
         var clearedTodayAmount = clearedTodayQuery.Sum(t => t.TotalAmount);
 
-        var clearedCount = payments.Count(t => t.StatusCode == "SUCCESS" &&  !t.IsReceiptCancelled);
+        var clearedCount = payments.Count(t => t.StatusCode == "SUCCESS" && !t.IsReceiptCancelled);
 
-        var bouncedCount = payments.Count(t =>  t.StatusCode == "BOUNCED" || t.ApprovalStatus == "DISAPPROVED");
+        var bouncedCount = payments.Count(t => t.StatusCode == "BOUNCED" || t.ApprovalStatus == "DISAPPROVED");
 
         var cancelledCount = payments.Count(t => t.IsReceiptCancelled || t.StatusCode == "CANCELLED");
 
@@ -2400,6 +2415,7 @@ public class RTSPaymentService : IRTSPaymentService
             TotalCancelled = cancelledCount
         };
     }
+
 
     public async Task<VerifyPaymentResponseDto> ApproveTransactionAsync(ApprovePaymentRequestDto request, int officerUserId, CancellationToken ct = default)
     {
