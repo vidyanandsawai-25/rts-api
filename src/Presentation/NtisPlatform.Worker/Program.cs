@@ -122,8 +122,10 @@ builder.Services.AddScoped<IPropertyTaxOperationsService, NtisPlatform.Applicati
 
 // Add background workers
 builder.Services.AddHttpClient();
+builder.Services.AddHttpContextAccessor();
 builder.Services.Configure<WhatsAppOptions>(builder.Configuration.GetSection(WhatsAppOptions.SectionName));
 builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IRTSSmsNotificationService, RTSSmsNotificationService>();
 builder.Services.AddScoped<IRTSWhatsAppNotificationService, RTSWhatsAppNotificationService>();
 
 builder.Services.AddHostedService<Worker>();

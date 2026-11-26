@@ -453,4 +453,80 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
             }
         });
     }
+
+    /// <summary>
+    /// 4. Officer Assigned Notification (TemplateName: RTS_OFFICER_ASSIGNED, DLT ID: 1777179560503279488)
+    /// Text: "Dear Officer {OfficerName}, RTS App No {ApplicationNo}{ServiceName} assigned for Document Verification. Due: {DueDate} Akola Municipal Corporation"
+    /// </summary>
+    public async Task SendOfficerAssignedSmsAsync(
+        string mobileNo,
+        string officerName,
+        string applicationNo,
+        string serviceName,
+        string dueDate,
+        int? applicationId = null,
+        CancellationToken ct = default)
+    {
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $" ({serviceName.Trim()})";
+        var placeholders = new Dictionary<string, string>
+        {
+            { "OfficerName", string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName },
+            { "ApplicationNo", applicationNo },
+            { "ServiceName", cleanServiceName },
+            { "DueDate", dueDate }
+        };
+
+        await SendDynamicSmsAsync("RTS_OFFICER_ASSIGNED", mobileNo, applicationId, placeholders, ct);
+    }
+
+    /// <summary>
+    /// 5. Officer SLA Breach Warning (TemplateName: RTS_SLA_WARNING, DLT ID: 1777179560524049216)
+    /// Text: "URGENT: RTS App {ApplicationNo} {ServiceName} breaches SLA in {DaysRemaining} days. Action required. Akola Municipal Corporation"
+    /// </summary>
+    public async Task SendOfficerSlaWarningSmsAsync(
+        string mobileNo,
+        string applicationNo,
+        string serviceName,
+        int daysRemaining,
+        string dueDate,
+        int? applicationId = null,
+        CancellationToken ct = default)
+    {
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $"({serviceName.Trim()})";
+        var placeholders = new Dictionary<string, string>
+        {
+            { "ApplicationNo", applicationNo },
+            { "ServiceName", cleanServiceName },
+            { "DaysRemaining", daysRemaining.ToString() },
+            { "DaysUnit", "days." },
+            { "DueDate", dueDate }
+        };
+
+        await SendDynamicSmsAsync("RTS_SLA_WARNING", mobileNo, applicationId, placeholders, ct);
+    }
+
+    /// <summary>
+    /// 6. Citizen Reminder / Action Required (TemplateName: RTS_CITIZEN_REMINDER, DLT ID: 1777179560546242798)
+    /// Text: "Dear {CitizenName}, Action required for RTS App No {ApplicationNo}{ServiceName}: Please complete {ActionRequired} Akola Municipal Corporation"
+    /// </summary>
+    public async Task SendCitizenReminderSmsAsync(
+        string mobileNo,
+        string citizenName,
+        string applicationNo,
+        string serviceName,
+        string actionRequired,
+        int? applicationId = null,
+        CancellationToken ct = default)
+    {
+        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $" ({serviceName.Trim()})";
+        var placeholders = new Dictionary<string, string>
+        {
+            { "CitizenName", string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName },
+            { "ApplicationNo", applicationNo },
+            { "ServiceName", cleanServiceName },
+            { "ActionRequired", actionRequired }
+        };
+
+        await SendDynamicSmsAsync("RTS_CITIZEN_REMINDER", mobileNo, applicationId, placeholders, ct);
+    }
 }

@@ -80,7 +80,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
-        var smsService = scope.ServiceProvider.GetService<ISmsService>();
+        var rtsSmsService = scope.ServiceProvider.GetService<IRTSSmsNotificationService>();
 
         var templateName = _options.Value.Templates.OfficerAssigned;
         var portalUrl = _options.Value.Worker.OfficerPortalBaseUrl;
@@ -164,19 +164,19 @@ public class RTSOfficerNotificationWorker : BackgroundService
                 officerUserId: item.OfficerUserId,
                 ct: ct);
 
-            // 2. Dual-channel: Also dispatch official SMS
-            if (smsService != null)
+            // 2. Dual-channel: Also dispatch official SMS (100% dynamic from CORE.SMSMaster)
+            if (rtsSmsService != null)
             {
                 try
                 {
-                    var smsText = $"Dear Officer {officerName}, RTS App No {item.ApplicationNo} ({item.ServiceName}) assigned for {stageName}. Due: {dueDate}. AMC";
-                    await smsService.SendSmsAsync(new SmsRequest
-                    {
-                        PhoneNumber = item.OfficerMobile,
-                        Message = smsText,
-                        ApplicationId = item.ApplicationId,
-                        TemplateId = "RTS_OFFICER_ASSIGNED"
-                    }, ct);
+                    await rtsSmsService.SendOfficerAssignedSmsAsync(
+                        item.OfficerMobile,
+                        officerName,
+                        item.ApplicationNo,
+                        item.ServiceName,
+                        dueDate,
+                        item.ApplicationId,
+                        ct);
                 }
                 catch (Exception ex)
                 {
@@ -209,7 +209,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
-        var smsService = scope.ServiceProvider.GetService<ISmsService>();
+        var rtsSmsService = scope.ServiceProvider.GetService<IRTSSmsNotificationService>();
 
         var slaTemplate = _options.Value.Templates.OfficerSlaWarning;
         var digestTemplate = _options.Value.Templates.OfficerDailyDigest;
@@ -297,18 +297,18 @@ public class RTSOfficerNotificationWorker : BackgroundService
                         officerUserId: first.OfficerUserId,
                         ct: ct);
 
-                    if (smsService != null)
+                    if (rtsSmsService != null)
                     {
                         try
                         {
-                            var smsWarning = $"URGENT: RTS App {urgentApp.ApplicationNo} ({urgentApp.ServiceName}) breaches SLA in {daysRemaining} days (Due: {dueDateObj:dd-MM-yyyy}). Action required. AMC";
-                            await smsService.SendSmsAsync(new SmsRequest
-                            {
-                                PhoneNumber = first.OfficerMobile,
-                                Message = smsWarning,
-                                ApplicationId = urgentApp.ApplicationId,
-                                TemplateId = "RTS_SLA_WARNING"
-                            }, ct);
+                            await rtsSmsService.SendOfficerSlaWarningSmsAsync(
+                                first.OfficerMobile,
+                                urgentApp.ApplicationNo,
+                                urgentApp.ServiceName,
+                                daysRemaining,
+                                dueDateObj.ToString("dd-MM-yyyy"),
+                                urgentApp.ApplicationId,
+                                ct);
                         }
                         catch (Exception ex)
                         {
