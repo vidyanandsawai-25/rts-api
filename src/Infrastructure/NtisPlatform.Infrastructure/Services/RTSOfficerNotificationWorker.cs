@@ -7,18 +7,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NtisPlatform.Application.DTOs.Sms;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 
-namespace NtisPlatform.Worker.Services;
+namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
 /// Autonomous background worker for RTS approval officers.
 /// Monitors stage transitions, dispatches real-time WhatsApp + SMS desk alerts,
-/// and computes daily morning SLA breach warnings without touching the core RTS API flow.
+/// and computes daily SLA breach warnings without touching the core RTS API flow.
+/// Runs as a hosted service inside the Web API and/or Worker process.
 /// </summary>
 public class RTSOfficerNotificationWorker : BackgroundService
 {
@@ -37,6 +37,13 @@ public class RTSOfficerNotificationWorker : BackgroundService
         _options = options;
     }
 
+    private static int ParseSlaDays(string? raw, int defaultDays = 15)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return defaultDays;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsed) && parsed > 0 ? parsed : defaultDays;
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("RTS Officer Notification Background Worker started.");
@@ -53,11 +60,14 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
             try
             {
-                // 1. Process recent stage assignments (real-time desk alerts)
+                // 1. Process recent stage assignments (desk alerts)
                 await ProcessNewStageAssignmentsAsync(stoppingToken);
 
-                // 2. Process daily morning SLA breach warnings & officer digest (runs around 9:30 AM)
-                await ProcessDailySlaAndDigestAsync(stoppingToken);
+                // 2. Process SLA breach warnings (urgent & overdue applications)
+                await ProcessSlaWarningsAsync(stoppingToken);
+
+                // 3. Process daily morning officer digest (runs around 9:30 AM IST)
+                await ProcessDailyDigestAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -119,7 +129,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
             .AsNoTracking()
             .Where(s => s.ApplicationId.HasValue
                      && appIds.Contains(s.ApplicationId.Value)
-                     && s.TemplateID == templateName)
+                     && (s.TemplateID == templateName || s.TemplateID == "1777179560503279488"))
             .Select(s => new { AppId = s.ApplicationId!.Value, StageId = s.SMSTypeID })
             .ToListAsync(ct);
 
@@ -137,7 +147,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
             }
 
             var officerName = string.IsNullOrWhiteSpace(item.OfficerName) ? "Officer" : item.OfficerName;
-            var slaDays = int.TryParse(item.SlaDaysRaw, out var parsedDays) ? parsedDays : 15;
+            var slaDays = ParseSlaDays(item.SlaDaysRaw, 15);
             var dueDate = (item.CreatedDate ?? DateTime.UtcNow).AddDays(slaDays).ToString("dd-MM-yyyy");
 
             // Look up stage name if available
@@ -187,34 +197,20 @@ public class RTSOfficerNotificationWorker : BackgroundService
     }
 
     /// <summary>
-    /// Runs daily at the configured morning time (default 9:30 AM).
-    /// Sends SLA breach warning alerts (for files expiring in 2 days or less) and officer daily pending digest.
+    /// Evaluates applications near SLA breach (<= thresholdDays remaining) or already overdue.
+    /// Dispatches at most ONE warning alert per application per calendar day to avoid spamming officers.
     /// </summary>
-    private async Task ProcessDailySlaAndDigestAsync(CancellationToken ct)
+    private async Task ProcessSlaWarningsAsync(CancellationToken ct)
     {
         var config = _options.Value.Worker;
-        var now = DateTime.UtcNow.AddHours(5.5); // Indian Standard Time (IST)
-
-        // Check if already executed today
-        if (_lastDigestDate.Date == now.Date) return;
-
-        // Check if current IST time has reached the scheduled morning digest time
-        if (now.Hour < config.MorningDigestHour || (now.Hour == config.MorningDigestHour && now.Minute < config.MorningDigestMinute))
-        {
-            return;
-        }
-
-        _logger.LogInformation("Starting Daily Morning RTS Officer SLA & Digest run for date: {Date}...", now.ToString("yyyy-MM-dd"));
+        var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
+        var slaTemplate = _options.Value.Templates.OfficerSlaWarning;
+        var portalUrl = config.OfficerPortalBaseUrl;
 
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
         var rtsSmsService = scope.ServiceProvider.GetService<IRTSSmsNotificationService>();
-
-        var slaTemplate = _options.Value.Templates.OfficerSlaWarning;
-        var digestTemplate = _options.Value.Templates.OfficerDailyDigest;
-        var portalUrl = config.OfficerPortalBaseUrl;
-        var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
 
         var activeApps = await db.RTSApplicationDetails
             .AsNoTracking()
@@ -239,6 +235,121 @@ public class RTSOfficerNotificationWorker : BackgroundService
             })
             .ToListAsync(ct);
 
+        if (!activeApps.Any()) return;
+
+        var todayUtc = DateTime.UtcNow.Date;
+
+        foreach (var app in activeApps)
+        {
+            if (string.IsNullOrWhiteSpace(app.OfficerMobile)) continue;
+
+            var slaDays = ParseSlaDays(app.SlaDaysRaw, 15);
+            var dueDateObj = (app.CreatedDate ?? DateTime.UtcNow).AddDays(slaDays);
+            var remainingTotalDays = (dueDateObj - DateTime.UtcNow).TotalDays;
+
+            // Only trigger if within threshold or already overdue
+            if (remainingTotalDays > thresholdDays) continue;
+
+            var daysRemaining = Math.Max(0, (int)Math.Ceiling(remainingTotalDays));
+
+            // Check if already warned today via WhatsApp or DLT SMS
+            var alreadyWarnedToday = await db.SMSSendDetails
+                .AsNoTracking()
+                .AnyAsync(s => s.ApplicationId == app.ApplicationId
+                            && (s.TemplateID == slaTemplate || s.TemplateID == "1777179560524049216")
+                            && s.CreatedDate >= todayUtc, ct);
+
+            if (alreadyWarnedToday) continue;
+
+            var officerName = string.IsNullOrWhiteSpace(app.OfficerName) ? "Officer" : app.OfficerName;
+
+            _logger.LogInformation("Sending SLA Warning for Application {AppNo} (breaches in {Days} days) to Officer {Officer} ({Mobile})...",
+                app.ApplicationNo, daysRemaining, officerName, app.OfficerMobile);
+
+            // 1. WhatsApp warning card
+            await waService.SendOfficerSlaWarningAsync(
+                app.OfficerMobile,
+                officerName,
+                app.ApplicationNo,
+                app.ServiceName,
+                daysRemaining,
+                dueDateObj.ToString("dd-MM-yyyy"),
+                portalUrl,
+                applicationId: app.ApplicationId,
+                officerUserId: app.OfficerUserId,
+                ct: ct);
+
+            // 2. Official DLT SMS
+            if (rtsSmsService != null)
+            {
+                try
+                {
+                    await rtsSmsService.SendOfficerSlaWarningSmsAsync(
+                        app.OfficerMobile,
+                        app.ApplicationNo,
+                        app.ServiceName,
+                        daysRemaining,
+                        dueDateObj.ToString("dd-MM-yyyy"),
+                        app.ApplicationId,
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "SLA warning SMS skipped for {Mobile}", app.OfficerMobile);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Runs daily at the configured morning time (default 9:30 AM IST).
+    /// Sends an aggregated officer daily pending digest.
+    /// </summary>
+    private async Task ProcessDailyDigestAsync(CancellationToken ct)
+    {
+        var config = _options.Value.Worker;
+        var now = DateTime.UtcNow.AddHours(5.5); // Indian Standard Time (IST)
+
+        // Check if already executed today
+        if (_lastDigestDate.Date == now.Date) return;
+
+        // Check if current IST time has reached the scheduled morning digest time
+        if (now.Hour < config.MorningDigestHour || (now.Hour == config.MorningDigestHour && now.Minute < config.MorningDigestMinute))
+        {
+            return;
+        }
+
+        _logger.LogInformation("Starting Daily Morning RTS Officer Digest run for date: {Date}...", now.ToString("yyyy-MM-dd"));
+
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
+
+        var digestTemplate = _options.Value.Templates.OfficerDailyDigest;
+        var portalUrl = config.OfficerPortalBaseUrl;
+        var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
+
+        var activeApps = await db.RTSApplicationDetails
+            .AsNoTracking()
+            .Include(a => a.Service)
+            .Include(a => a.User)
+            .Where(a => a.CurrentApprovalFlowStageId > 0
+                     && a.UserId.HasValue
+                     && a.ApplicationStatus != "APPROVED"
+                     && a.ApplicationStatus != "REJECTED"
+                     && a.ApplicationStatus != "DELETED"
+                     && !a.MarkedForDeletion)
+            .Select(a => new
+            {
+                ApplicationId = a.Id,
+                OfficerUserId = a.UserId.Value,
+                OfficerName = ((a.User.FirstName ?? "") + " " + (a.User.LastName ?? "")).Trim(),
+                OfficerMobile = a.User.MobileNo,
+                CreatedDate = a.CreatedDate,
+                SlaDaysRaw = a.Service.Sla
+            })
+            .ToListAsync(ct);
+
         if (!activeApps.Any())
         {
             _lastDigestDate = now;
@@ -255,70 +366,15 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
             var officerName = string.IsNullOrWhiteSpace(first.OfficerName) ? "Officer" : first.OfficerName;
             var totalPending = group.Count();
-            var nearSlaList = group.Where(a =>
+            var nearSlaCount = group.Count(a =>
             {
-                var sla = int.TryParse(a.SlaDaysRaw, out var parsed) ? parsed : 15;
+                var sla = ParseSlaDays(a.SlaDaysRaw, 15);
                 var due = (a.CreatedDate ?? DateTime.UtcNow).AddDays(sla);
                 var daysRemaining = (due - DateTime.UtcNow).TotalDays;
                 return daysRemaining <= thresholdDays;
-            }).ToList();
+            });
 
-            var nearSlaCount = nearSlaList.Count;
-
-            // 1. Send Individual SLA Warnings for urgent files
-            foreach (var urgentApp in nearSlaList)
-            {
-                var sla = int.TryParse(urgentApp.SlaDaysRaw, out var parsed) ? parsed : 15;
-                var dueDateObj = (urgentApp.CreatedDate ?? DateTime.UtcNow).AddDays(sla);
-                var daysRemaining = Math.Max(0, (int)Math.Ceiling((dueDateObj - DateTime.UtcNow).TotalDays));
-
-                // Check if already sent today
-                var todayUtc = DateTime.UtcNow.Date;
-                var alreadyWarnedToday = await db.SMSSendDetails
-                    .AsNoTracking()
-                    .AnyAsync(s => s.ApplicationId == urgentApp.ApplicationId
-                                && s.TemplateID == slaTemplate
-                                && s.CreatedDate >= todayUtc, ct);
-
-                if (!alreadyWarnedToday)
-                {
-                    _logger.LogInformation("Sending SLA Warning for Application {AppNo} to Officer {Officer}...",
-                        urgentApp.ApplicationNo, officerName);
-
-                    await waService.SendOfficerSlaWarningAsync(
-                        first.OfficerMobile,
-                        officerName,
-                        urgentApp.ApplicationNo,
-                        urgentApp.ServiceName,
-                        daysRemaining,
-                        dueDateObj.ToString("dd-MM-yyyy"),
-                        portalUrl,
-                        applicationId: urgentApp.ApplicationId,
-                        officerUserId: first.OfficerUserId,
-                        ct: ct);
-
-                    if (rtsSmsService != null)
-                    {
-                        try
-                        {
-                            await rtsSmsService.SendOfficerSlaWarningSmsAsync(
-                                first.OfficerMobile,
-                                urgentApp.ApplicationNo,
-                                urgentApp.ServiceName,
-                                daysRemaining,
-                                dueDateObj.ToString("dd-MM-yyyy"),
-                                urgentApp.ApplicationId,
-                                ct);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "SLA warning SMS skipped for {Mobile}", first.OfficerMobile);
-                        }
-                    }
-                }
-            }
-
-            // 2. Send Daily Pending Digest
+            // Send Daily Pending Digest
             var alreadyDigestedToday = await db.SMSSendDetails
                 .AsNoTracking()
                 .AnyAsync(s => s.ReceiverMobileNo == first.OfficerMobile
@@ -342,6 +398,6 @@ public class RTSOfficerNotificationWorker : BackgroundService
         }
 
         _lastDigestDate = now;
-        _logger.LogInformation("Completed Daily Morning RTS Officer SLA & Digest run.");
+        _logger.LogInformation("Completed Daily Morning RTS Officer Digest run.");
     }
 }

@@ -82,6 +82,43 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             stageId, _allocationRules.NormalizeValues(values), cancellationToken);
     }
 
+    private async Task NotifyOfficerStageAssignedSafeAsync(
+        RTSApplicationDetailsEntity application,
+        string stageName,
+        string serviceName,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (application.UserId.HasValue && application.UserId.Value > 0)
+            {
+                var officer = await _userRepository.GetByIdAsync(application.UserId.Value, ct);
+                if (officer != null && !string.IsNullOrWhiteSpace(officer.MobileNo))
+                {
+                    var slaRaw = application.Service?.Sla;
+                    var slaDigits = new string((slaRaw ?? string.Empty).Where(char.IsDigit).ToArray());
+                    var slaDays = int.TryParse(slaDigits, out var parsed) && parsed > 0 ? parsed : 15;
+                    var dueDate = (application.CreatedDate ?? DateTime.UtcNow).AddDays(slaDays).ToString("dd-MM-yyyy");
+                    var officerName = ((officer.FirstName ?? string.Empty) + " " + (officer.LastName ?? string.Empty)).Trim();
+                    if (string.IsNullOrWhiteSpace(officerName)) officerName = officer.UserName;
+
+                    await _smsNotificationService.SendOfficerAssignedSmsAsync(
+                        officer.MobileNo,
+                        officerName,
+                        application.ApplicationNo ?? $"APP{application.Id}",
+                        serviceName,
+                        dueDate,
+                        application.Id,
+                        ct);
+                }
+            }
+        }
+        catch
+        {
+            // Non-fatal background notification error, do not fail transaction
+        }
+    }
+
     private async Task EnsurePaymentSnapshotIsSettledAsync(
         int applicationId,
         string? applicationNo,
@@ -1030,6 +1067,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     dto.Remark,
                     cancellationToken);
             }
+
+            await NotifyOfficerStageAssignedSafeAsync(application, nextStage.StageName, serviceName, cancellationToken);
         }
         catch { }
 
@@ -1242,6 +1281,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     dto.Remark,
                     cancellationToken);
             }
+
+            await NotifyOfficerStageAssignedSafeAsync(application, nextStage.StageName, serviceName, cancellationToken);
         }
         catch { }
 
@@ -1650,6 +1691,11 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     serviceName,
                     dto.Remark,
                     cancellationToken);
+            }
+
+            if (previousStage != null && application.UserId > 0)
+            {
+                await NotifyOfficerStageAssignedSafeAsync(application, previousStage.StageName, serviceName, cancellationToken);
             }
         }
         catch { }

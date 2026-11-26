@@ -477,6 +477,29 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_OFFICER_ASSIGNED", mobileNo, applicationId, placeholders, ct);
+
+        // Concurrently dispatch WhatsApp alert in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
+                await _whatsAppService.SendOfficerTaskAssignedAsync(
+                    mobileNo,
+                    string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName,
+                    applicationNo,
+                    serviceName,
+                    "Document Verification",
+                    dueDate,
+                    portalUrl,
+                    applicationId,
+                    ct: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background WhatsApp officer assigned dispatch skipped for {Mobile}", mobileNo);
+            }
+        });
     }
 
     /// <summary>
@@ -503,6 +526,29 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_SLA_WARNING", mobileNo, applicationId, placeholders, ct);
+
+        // Concurrently dispatch WhatsApp SLA warning in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
+                await _whatsAppService.SendOfficerSlaWarningAsync(
+                    mobileNo,
+                    officerName: "Officer",
+                    applicationNo,
+                    serviceName,
+                    daysRemaining,
+                    dueDate,
+                    portalUrl,
+                    applicationId,
+                    ct: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background WhatsApp SLA warning dispatch skipped for {Mobile}", mobileNo);
+            }
+        });
     }
 
     /// <summary>
@@ -528,5 +574,28 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         };
 
         await SendDynamicSmsAsync("RTS_CITIZEN_REMINDER", mobileNo, applicationId, placeholders, ct);
+
+        // Concurrently dispatch WhatsApp reminder in background
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
+                await _whatsAppService.SendCitizenActionReminderAsync(
+                    mobileNo,
+                    string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName,
+                    applicationNo,
+                    serviceName,
+                    actionRequired,
+                    dueDate: DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy"),
+                    serviceUrl: portalUrl,
+                    applicationId: applicationId,
+                    ct: CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Background WhatsApp citizen reminder dispatch skipped for {Mobile}", mobileNo);
+            }
+        });
     }
 }
