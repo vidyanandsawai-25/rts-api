@@ -6198,6 +6198,19 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_ApplicationDetails_CitizenSession");
 
+            entity.HasIndex(e => new { e.IsActive, e.MarkedForDeletion, e.DepartmentId, e.ServiceId, e.ApplicationStatus, e.CreatedDate })
+                .HasDatabaseName("IX_ApplicationDetails_Dashboard");
+
+            entity.HasIndex(e => new { e.UserId, e.ApplicationStatus, e.CreatedDate })
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
+                .HasDatabaseName("IX_ApplicationDetails_Officer_FIFO");
+
+            entity.HasIndex(e => e.ApplicationNo)
+                .HasDatabaseName("IX_ApplicationDetails_ApplicationNo");
+
+            entity.HasIndex(e => new { e.ApprovalFlowId, e.CurrentApprovalFlowStageId })
+                .HasDatabaseName("IX_ApplicationDetails_ApprovalFlow");
+
         });
 
 
@@ -6325,7 +6338,11 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(a => a.ApprovalFlowStageId)
             .HasPrincipalKey(e => e.Id)
             .OnDelete(DeleteBehavior.NoAction);
-            });
+
+            entity.HasIndex(e => new { e.ApprovalFlowId, e.StageOrder })
+                .HasDatabaseName("IX_ApprovalFlowStageMaster_Flow_Order");
+
+        });
 
         modelBuilder.Entity<RTSApprovalFlowStageUserAllocationMasterEntity>(entity =>
         {
@@ -6549,6 +6566,9 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.IssuedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ApplicationId, e.IsActive, e.MarkedForDeletion })
+                .HasDatabaseName("IX_IssuedCertificate_App_Active");
         });
 
 
@@ -6588,6 +6608,9 @@ public class ApplicationDbContext : DbContext
                 .WithMany(s => s.TrackApplicationHistory)
                 .HasForeignKey(e => e.ApprovalFlowStageId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ApplicationId, e.IsActive, e.ApprovalFlowStageId, e.Id })
+                .HasDatabaseName("IX_TrackApplicationHistory_App_Active");
         });
 
         modelBuilder.Entity<RTSPaymentStatusMasterEntity>(entity =>
@@ -6672,6 +6695,9 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ApplicationId, e.IsActive })
+                .HasDatabaseName("IX_PaymentDemand_App_Active");
         });
 
         modelBuilder.Entity<RTSPaymentGatewayOrderEntity>(entity =>
@@ -6718,6 +6744,12 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.GatewayConfigId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.GatewayOrderId)
+                .HasDatabaseName("IX_PaymentGatewayOrder_GatewayOrderId");
+
+            entity.HasIndex(e => new { e.DemandId, e.OrderStatus, e.CreatedDate })
+                .HasDatabaseName("IX_PaymentGatewayOrder_Demand_Status");
         });
 
         modelBuilder.Entity<RTSPaymentTransactionEntity>(entity =>
@@ -6814,6 +6846,15 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.PaymentModeId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ApplicationId, e.IsActive, e.IsReceiptCancelled, e.Id })
+                .HasDatabaseName("IX_PaymentTransaction_App_Active");
+
+            entity.HasIndex(e => new { e.IsActive, e.DepartmentId, e.ServiceId, e.PaymentStatusId, e.PaymentModeId, e.CreatedDate })
+                .HasDatabaseName("IX_PaymentTransaction_Dashboard");
+
+            entity.HasIndex(e => new { e.CreatedBy, e.CreatedDate })
+                .HasDatabaseName("IX_PaymentTransaction_CreatedBy");
         });
 
         modelBuilder.Entity<RTSReceiptCancellationLogEntity>(entity =>
