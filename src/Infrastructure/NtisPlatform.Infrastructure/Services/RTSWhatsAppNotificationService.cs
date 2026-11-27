@@ -39,6 +39,21 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         _logger = logger;
     }
 
+    private static string ResolveTemplateLanguage(string templateName)
+    {
+        if (string.IsNullOrWhiteSpace(templateName)) return "en_US";
+
+        // rmndr_rts and legacy amc templates are registered with 'en' language code in Meta WACRM
+        if (string.Equals(templateName, "rmndr_rts", StringComparison.OrdinalIgnoreCase) ||
+            templateName.StartsWith("amc_", StringComparison.OrdinalIgnoreCase))
+        {
+            return "en";
+        }
+
+        // All official RTS utility templates (rts_*) are registered as en_US in Meta WABA
+        return "en_US";
+    }
+
     /// <summary>
     /// Normalizes mobile number to Indian 91XXXXXXXXXX format.
     /// </summary>
@@ -307,7 +322,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -351,7 +366,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -394,7 +409,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -432,7 +447,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -490,7 +505,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -541,7 +556,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -587,7 +602,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
@@ -635,7 +650,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             template = new
             {
                 name = templateName,
-                language = new { code = "en" },
+                language = new { code = ResolveTemplateLanguage(templateName) },
                 components = new object[]
                 {
                     new
