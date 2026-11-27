@@ -205,6 +205,62 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             var response = await client.SendAsync(requestMessage, ct);
             var responseContent = await response.Content.ReadAsStringAsync(ct);
 
+            // Fallback: If template dispatch fails (e.g. Meta error #132001 template does not exist), automatically fall back to direct WhatsApp text
+            if (!response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(messagePreview))
+            {
+                _logger.LogWarning("WhatsApp template '{Template}' dispatch failed (HTTP {Status}: {Error}). Falling back to direct WhatsApp text message for {Mobile}...",
+                    templateName, response.StatusCode, responseContent, sanitizedMobile);
+
+                try
+                {
+                    var fallbackPayload = new
+                    {
+                        number = sanitizedMobile,
+                        type = "text",
+                        message = messagePreview,
+                        content_text = messagePreview
+                    };
+
+                    using var fallbackRequest = new HttpRequestMessage(HttpMethod.Post, config.WabaUrl)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(fallbackPayload), Encoding.UTF8, "application/json")
+                    };
+
+                    if (!string.IsNullOrWhiteSpace(config.ApiKey))
+                    {
+                        var token = config.ApiKey.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                            ? config.ApiKey.Substring(7).Trim()
+                            : config.ApiKey.Trim();
+
+                        fallbackRequest.Headers.Add("Authorization", $"Bearer {token}");
+                        fallbackRequest.Headers.Add("key", token);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(config.WabaNumber))
+                    {
+                        fallbackRequest.Headers.Add("wabaNumber", config.WabaNumber);
+                    }
+
+                    var fallbackResponse = await client.SendAsync(fallbackRequest, ct);
+                    var fallbackContent = await fallbackResponse.Content.ReadAsStringAsync(ct);
+
+                    if (fallbackResponse.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("WhatsApp direct text fallback successfully delivered to {Mobile}. Response: {Response}", sanitizedMobile, fallbackContent);
+                        await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_SENT", fallbackContent, applicationId, smstypeId, createdBy, ct);
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.LogError("WhatsApp text fallback also returned HTTP {StatusCode} for {Mobile}. Response: {Response}", fallbackResponse.StatusCode, sanitizedMobile, fallbackContent);
+                    }
+                }
+                catch (Exception fallbackEx)
+                {
+                    _logger.LogWarning(fallbackEx, "WhatsApp text fallback exception for {Mobile}", sanitizedMobile);
+                }
+            }
+
             var status = response.IsSuccessStatusCode ? "WHATSAPP_SENT" : "WHATSAPP_FAILED";
 
             if (response.IsSuccessStatusCode)
@@ -270,7 +326,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"Application No: {applicationNo}, Service: {cleanServiceName}, Status: {cleanStatus}";
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) ची सद्यस्थिती: *{cleanStatus}*.\n\n🔍 अर्जाची सद्यस्थिती तपासण्यासाठी खालील लिंकवर क्लिक करा:\n{trackingUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
@@ -314,7 +370,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"Payment of Rs. {formattedAmount} for {applicationNo}. Receipt: {receiptNo}";
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* साठी रु. *{formattedAmount}* चे शुल्क यशस्वीरीत्या जमा झाले आहे.\nपावती क्र: *{receiptNo}*\n\n🔗 अधिकृत पावती पाहण्यासाठी:\n{receiptUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
@@ -356,7 +412,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"Certificate issued for {applicationNo} ({cleanServiceName})";
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nअभिनंदन *{cleanCitizenName}*!\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) चा डिजिटल स्वाक्षरी असलेला अधिकृत दाखला मंजूर झाला आहे.\n\n📜 दाखला डाऊनलोड करण्यासाठी खालील लिंकवर क्लिक करा:\n{certificateUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 
@@ -454,7 +510,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"Task Assigned: Application {applicationNo} ({cleanServiceName}) for {cleanStageName}. Due: {cleanDueDate}";
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nअर्ज क्र. *{applicationNo}* ({cleanServiceName}) आपल्याकडे *{cleanStageName}* टप्प्यासाठी वर्ग करण्यात आला आहे.\n⏱️ विहित मुदत: *{cleanDueDate}*\n\n🔗 पोर्टल: {cleanPortalUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: stageId, createdBy: officerUserId);
     }
 
@@ -505,7 +561,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"SLA Warning: Application {applicationNo} ({cleanServiceName}) breaches in {daysRemaining} days. Due: {cleanDueDate}";
+        var preview = $"⚠️ *अकोला महानगरपालिका (RTS) - SLA इशारा*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nअर्ज क्र. *{applicationNo}* ({cleanServiceName}) ची मुदत संपण्यास *{daysRemaining}* दिवस शिल्लक आहेत.\n⏱️ अंतिम मुदत: *{cleanDueDate}*\n\n🔗 पोर्टल: {cleanActionUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: null, createdBy: officerUserId);
     }
 
@@ -549,7 +605,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"Daily Digest for {cleanOfficerName}: {totalPending} pending applications, {nearSlaCount} near SLA breach";
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS) - दैनिक प्रलंबित आढावा*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nआपल्याकडे सद्यस्थितीत एकूण *{totalPending}* अर्ज प्रलंबित आहेत.\n⚠️ SLA मुदत संपत आलेले अर्ज: *{nearSlaCount}*\n\n🔗 डॅशबोर्ड: {cleanDashboardUrl}";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct, smstypeId: null, createdBy: officerUserId);
     }
 
