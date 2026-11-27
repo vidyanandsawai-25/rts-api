@@ -44,41 +44,11 @@ public class RTSOfficerNotificationWorker : BackgroundService
         return int.TryParse(digits, out var parsed) && parsed > 0 ? parsed : defaultDays;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("RTS Officer Notification Background Worker started.");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var workerConfig = _options.Value.Worker;
-            if (!workerConfig.IsEnabled || !_options.Value.IsActive)
-            {
-                _logger.LogDebug("RTS Officer Notification Worker is disabled in configuration. Waiting 5 minutes...");
-                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                continue;
-            }
-
-            try
-            {
-                // 1. Process recent stage assignments (desk alerts)
-                await ProcessNewStageAssignmentsAsync(stoppingToken);
-
-                // 2. Process SLA breach warnings (urgent & overdue applications)
-                await ProcessSlaWarningsAsync(stoppingToken);
-
-                // 3. Process daily morning officer digest (runs around 9:30 AM IST)
-                await ProcessDailyDigestAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred during RTS Officer Notification processing loop.");
-            }
-
-            var pollInterval = TimeSpan.FromMinutes(Math.Max(1, workerConfig.PollIntervalMinutes));
-            await Task.Delay(pollInterval, stoppingToken);
-        }
-
-        _logger.LogInformation("RTS Officer Notification Background Worker stopped.");
+        // Background officer monitoring worker permanently disabled per requirement
+        _logger.LogInformation("RTS Officer Notification Background Worker is disabled.");
+        return Task.CompletedTask;
     }
 
     /// <summary>

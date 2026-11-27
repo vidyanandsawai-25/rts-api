@@ -455,10 +455,9 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
     }
 
     /// <summary>
-    /// 4. Officer Assigned Notification (TemplateName: RTS_OFFICER_ASSIGNED, DLT ID: 1777179560503279488)
-    /// Text: "Dear Officer {OfficerName}, RTS App No {ApplicationNo}{ServiceName} assigned for Document Verification. Due: {DueDate} Akola Municipal Corporation"
+    /// Officer notification disabled per requirement (officer notifications removed).
     /// </summary>
-    public async Task SendOfficerAssignedSmsAsync(
+    public Task SendOfficerAssignedSmsAsync(
         string mobileNo,
         string officerName,
         string applicationNo,
@@ -467,46 +466,13 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         int? applicationId = null,
         CancellationToken ct = default)
     {
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $" ({serviceName.Trim()})";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "OfficerName", string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", cleanServiceName },
-            { "DueDate", dueDate }
-        };
-
-        await SendDynamicSmsAsync("RTS_OFFICER_ASSIGNED", mobileNo, applicationId, placeholders, ct);
-
-        // Concurrently dispatch WhatsApp alert in background
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
-                await _whatsAppService.SendOfficerTaskAssignedAsync(
-                    mobileNo,
-                    string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName,
-                    applicationNo,
-                    serviceName,
-                    "Document Verification",
-                    dueDate,
-                    portalUrl,
-                    applicationId,
-                    ct: CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Background WhatsApp officer assigned dispatch skipped for {Mobile}", mobileNo);
-            }
-        });
+        return Task.CompletedTask;
     }
 
     /// <summary>
-    /// 5. Officer SLA Breach Warning (TemplateName: RTS_SLA_WARNING, DLT ID: 1777179560524049216)
-    /// Text: "URGENT: RTS App {ApplicationNo} {ServiceName} breaches SLA in {DaysRemaining} days. Action required. Akola Municipal Corporation"
+    /// Officer SLA notification disabled per requirement (officer notifications removed).
     /// </summary>
-    public async Task SendOfficerSlaWarningSmsAsync(
+    public Task SendOfficerSlaWarningSmsAsync(
         string mobileNo,
         string applicationNo,
         string serviceName,
@@ -515,40 +481,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
         int? applicationId = null,
         CancellationToken ct = default)
     {
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $"({serviceName.Trim()})";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", cleanServiceName },
-            { "DaysRemaining", daysRemaining.ToString() },
-            { "DaysUnit", "days." },
-            { "DueDate", dueDate }
-        };
-
-        await SendDynamicSmsAsync("RTS_SLA_WARNING", mobileNo, applicationId, placeholders, ct);
-
-        // Concurrently dispatch WhatsApp SLA warning in background
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
-                await _whatsAppService.SendOfficerSlaWarningAsync(
-                    mobileNo,
-                    officerName: "Officer",
-                    applicationNo,
-                    serviceName,
-                    daysRemaining,
-                    dueDate,
-                    portalUrl,
-                    applicationId,
-                    ct: CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Background WhatsApp SLA warning dispatch skipped for {Mobile}", mobileNo);
-            }
-        });
+        return Task.CompletedTask;
     }
 
     /// <summary>

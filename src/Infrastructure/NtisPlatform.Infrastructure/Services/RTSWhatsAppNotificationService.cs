@@ -504,7 +504,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
     }
 
-    public async Task SendOfficerTaskAssignedAsync(
+    public Task SendOfficerTaskAssignedAsync(
         string mobileNo,
         string officerName,
         string applicationNo,
@@ -517,47 +517,11 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         int? officerUserId = null,
         CancellationToken ct = default)
     {
-        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
-
-        var templateName = _options.Value.Templates.OfficerAssigned;
-        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
-        var cleanStageName = string.IsNullOrWhiteSpace(stageName) ? "Review / Verification" : stageName.Trim();
-        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy") : dueDate.Trim();
-        var cleanPortalUrl = string.IsNullOrWhiteSpace(portalUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : portalUrl.Trim();
-
-        var payload = new
-        {
-            to = SanitizeMobileNumber(mobileNo),
-            type = "template",
-            template = new
-            {
-                name = templateName,
-                language = new { code = ResolveTemplateLanguage(templateName) },
-                components = new object[]
-                {
-                    new
-                    {
-                        type = "body",
-                        parameters = new object[]
-                        {
-                            new { type = "text", text = cleanOfficerName },
-                            new { type = "text", text = applicationNo },
-                            new { type = "text", text = cleanServiceName },
-                            new { type = "text", text = cleanStageName },
-                            new { type = "text", text = cleanDueDate },
-                            new { type = "text", text = cleanPortalUrl }
-                        }
-                    }
-                }
-            }
-        };
-
-        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nअर्ज क्र. *{applicationNo}* ({cleanServiceName}) आपल्याकडे *{cleanStageName}* टप्प्यासाठी वर्ग करण्यात आला आहे.\n⏱️ विहित मुदत: *{cleanDueDate}*\n\n🔗 पोर्टल: {cleanPortalUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: stageId, createdBy: officerUserId);
+        // Officer WhatsApp notifications disabled per requirement
+        return Task.CompletedTask;
     }
 
-    public async Task SendOfficerSlaWarningAsync(
+    public Task SendOfficerSlaWarningAsync(
         string mobileNo,
         string officerName,
         string applicationNo,
@@ -569,46 +533,11 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         int? officerUserId = null,
         CancellationToken ct = default)
     {
-        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
-
-        var templateName = _options.Value.Templates.OfficerSlaWarning;
-        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
-        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(daysRemaining).ToString("dd-MM-yyyy") : dueDate.Trim();
-        var cleanActionUrl = string.IsNullOrWhiteSpace(actionUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : actionUrl.Trim();
-
-        var payload = new
-        {
-            to = SanitizeMobileNumber(mobileNo),
-            type = "template",
-            template = new
-            {
-                name = templateName,
-                language = new { code = ResolveTemplateLanguage(templateName) },
-                components = new object[]
-                {
-                    new
-                    {
-                        type = "body",
-                        parameters = new object[]
-                        {
-                            new { type = "text", text = cleanOfficerName },
-                            new { type = "text", text = applicationNo },
-                            new { type = "text", text = cleanServiceName },
-                            new { type = "text", text = Math.Max(1, daysRemaining).ToString() },
-                            new { type = "text", text = cleanDueDate },
-                            new { type = "text", text = cleanActionUrl }
-                        }
-                    }
-                }
-            }
-        };
-
-        var preview = $"⚠️ *अकोला महानगरपालिका (RTS) - SLA इशारा*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nअर्ज क्र. *{applicationNo}* ({cleanServiceName}) ची मुदत संपण्यास *{daysRemaining}* दिवस शिल्लक आहेत.\n⏱️ अंतिम मुदत: *{cleanDueDate}*\n\n🔗 पोर्टल: {cleanActionUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct, smstypeId: null, createdBy: officerUserId);
+        // Officer WhatsApp notifications disabled per requirement
+        return Task.CompletedTask;
     }
 
-    public async Task SendOfficerDailyDigestAsync(
+    public Task SendOfficerDailyDigestAsync(
         string mobileNo,
         string officerName,
         int totalPending,
@@ -617,39 +546,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         int? officerUserId = null,
         CancellationToken ct = default)
     {
-        if (!_options.Value.SendOfficerAlertsOnWhatsApp) return;
-
-        var templateName = _options.Value.Templates.OfficerDailyDigest;
-        var cleanOfficerName = string.IsNullOrWhiteSpace(officerName) ? "Officer" : officerName.Trim();
-        var cleanDashboardUrl = string.IsNullOrWhiteSpace(dashboardUrl) ? _options.Value.Worker.OfficerPortalBaseUrl : dashboardUrl.Trim();
-
-        var payload = new
-        {
-            to = SanitizeMobileNumber(mobileNo),
-            type = "template",
-            template = new
-            {
-                name = templateName,
-                language = new { code = ResolveTemplateLanguage(templateName) },
-                components = new object[]
-                {
-                    new
-                    {
-                        type = "body",
-                        parameters = new object[]
-                        {
-                            new { type = "text", text = cleanOfficerName },
-                            new { type = "text", text = totalPending.ToString() },
-                            new { type = "text", text = nearSlaCount.ToString() },
-                            new { type = "text", text = cleanDashboardUrl }
-                        }
-                    }
-                }
-            }
-        };
-
-        var preview = $"🏛️ *अकोला महानगरपालिका (RTS) - दैनिक प्रलंबित आढावा*\n\nप्रिय अधिकारी *{cleanOfficerName}*,\nआपल्याकडे सद्यस्थितीत एकूण *{totalPending}* अर्ज प्रलंबित आहेत.\n⚠️ SLA मुदत संपत आलेले अर्ज: *{nearSlaCount}*\n\n🔗 डॅशबोर्ड: {cleanDashboardUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct, smstypeId: null, createdBy: officerUserId);
+        // Officer WhatsApp notifications disabled per requirement
+        return Task.CompletedTask;
     }
 
     public async Task SendCitizenActionReminderAsync(

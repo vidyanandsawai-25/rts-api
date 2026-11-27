@@ -135,7 +135,6 @@ builder.Services.AddHostedService<PropertyTaxJobRecoveryWorker>();
 // StaleReportRequestReclaimWorker retired Hangfire's invisibility timeout + server heartbeat now
 // reclaim jobs whose worker died, so a separate lease-sweep is no longer needed.
 builder.Services.AddHostedService<ReportRetentionWorker>();
-builder.Services.AddHostedService<RTSOfficerNotificationWorker>();
 
 var host = builder.Build();
 host.Run();
