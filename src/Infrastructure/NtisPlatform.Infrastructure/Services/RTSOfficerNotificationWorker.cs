@@ -83,7 +83,8 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
     /// <summary>
     /// Scans recent stage allocations and dispatches WhatsApp + SMS to the newly assigned officer.
-    /// Checks CORE.SMSSendDetails to guarantee zero duplicate dispatches.
+    /// Completely dynamic: identifies officer stages from RTS.ApprovalFlowStageMaster and DLT templates from CORE.SMSMaster.
+    /// Deduplicates against CORE.SMSSendDetails so zero duplicate alerts are ever dispatched.
     /// </summary>
     private async Task ProcessNewStageAssignmentsAsync(CancellationToken ct)
     {
@@ -98,26 +99,30 @@ public class RTSOfficerNotificationWorker : BackgroundService
             ? $"{ulb.WebsiteUrl.Trim().TrimEnd('/')}/officer"
             : _options.Value.Worker.OfficerPortalBaseUrl;
 
+        // Resolve DLT template dynamically from CORE.SMSMaster table
         var smsDltTemplateId = await db.SMSMasters
             .AsNoTracking()
             .Where(t => t.IsActive && t.TemplateName == "RTS_OFFICER_ASSIGNED")
             .Select(t => t.TemplateID)
             .FirstOrDefaultAsync(ct);
 
-        // Fetch applications currently active at a stage with an assigned officer (exclude Payment Pending, Drafts, Completed)
+        // Dynamically resolve all officer stages configured in RTS.ApprovalFlowStageMaster (verification/approval/scrutiny)
+        var officerStageIds = await db.Set<RTSApprovalFlowStageMasterEntity>()
+            .AsNoTracking()
+            .Where(s => s.CanVerifyDocument || s.CanApprove || s.CanReject || s.CanReturn)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        if (!officerStageIds.Any()) return;
+
+        // Fetch applications currently at an active officer stage with an assigned officer
         var activeApplications = await db.RTSApplicationDetails
             .AsNoTracking()
             .Include(a => a.Service)
             .Include(a => a.User)
-            .Where(a => a.CurrentApprovalFlowStageId > 0
-                     && a.UserId.HasValue
-                     && a.ApplicationStatus != "APPROVED"
-                     && a.ApplicationStatus != "REJECTED"
-                     && a.ApplicationStatus != "DELETED"
-                     && a.ApplicationStatus != "Payment Pending"
-                     && a.ApplicationStatus != "PAYMENT_PENDING"
-                     && a.ApplicationStatus != "DRAFT"
-                     && a.ApplicationStatus != "Draft"
+            .Where(a => a.UserId.HasValue
+                     && officerStageIds.Contains(a.CurrentApprovalFlowStageId)
+                     && a.IssuedCertificateGuid == null
                      && !a.MarkedForDeletion)
             .Select(a => new
             {
@@ -138,15 +143,17 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
         var appIds = activeApplications.Select(x => x.ApplicationId).ToList();
 
+        // Build list of valid assignment template IDs from DB & config
+        var assignmentTemplateIds = new List<string>();
+        if (!string.IsNullOrWhiteSpace(templateName)) assignmentTemplateIds.Add(templateName);
+        if (!string.IsNullOrWhiteSpace(smsDltTemplateId)) assignmentTemplateIds.Add(smsDltTemplateId);
+
         // 100% Strict Deduplication: If an alert has EVER been recorded in SMSSendDetails for this application, never repeat!
         var alreadySentAppIds = await db.SMSSendDetails
             .AsNoTracking()
             .Where(s => s.ApplicationId.HasValue
                      && appIds.Contains(s.ApplicationId.Value)
-                     && (s.TemplateID == templateName
-                         || (smsDltTemplateId != null && s.TemplateID == smsDltTemplateId)
-                         || s.TemplateID == "1777179560503279488"
-                         || s.SenderName == "WHATSAPP"))
+                     && (assignmentTemplateIds.Contains(s.TemplateID!) || s.SenderName == "WHATSAPP"))
             .Select(s => s.ApplicationId!.Value)
             .Distinct()
             .ToListAsync(ct);
@@ -168,7 +175,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
             var slaDays = ParseSlaDays(item.SlaDaysRaw, 15);
             var dueDate = (item.CreatedDate ?? DateTime.UtcNow).AddDays(slaDays).ToString("dd-MM-yyyy");
 
-            // Look up stage name if available
+            // Look up stage name dynamically from database
             var stageName = await db.Set<RTSApprovalFlowStageMasterEntity>()
                 .AsNoTracking()
                 .Where(s => s.Id == item.StageId)
@@ -234,21 +241,29 @@ public class RTSOfficerNotificationWorker : BackgroundService
             ? $"{ulb.WebsiteUrl.Trim().TrimEnd('/')}/officer"
             : config.OfficerPortalBaseUrl;
 
+        // Resolve DLT template dynamically from CORE.SMSMaster table
         var smsSlaDltTemplateId = await db.SMSMasters
             .AsNoTracking()
             .Where(t => t.IsActive && t.TemplateName == "RTS_SLA_WARNING")
             .Select(t => t.TemplateID)
             .FirstOrDefaultAsync(ct);
 
+        // Dynamically resolve all officer stages configured in RTS.ApprovalFlowStageMaster
+        var officerStageIds = await db.Set<RTSApprovalFlowStageMasterEntity>()
+            .AsNoTracking()
+            .Where(s => s.CanVerifyDocument || s.CanApprove || s.CanReject || s.CanReturn)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        if (!officerStageIds.Any()) return;
+
         var activeApps = await db.RTSApplicationDetails
             .AsNoTracking()
             .Include(a => a.Service)
             .Include(a => a.User)
-            .Where(a => a.CurrentApprovalFlowStageId > 0
-                     && a.UserId.HasValue
-                     && a.ApplicationStatus != "APPROVED"
-                     && a.ApplicationStatus != "REJECTED"
-                     && a.ApplicationStatus != "DELETED"
+            .Where(a => a.UserId.HasValue
+                     && officerStageIds.Contains(a.CurrentApprovalFlowStageId)
+                     && a.IssuedCertificateGuid == null
                      && !a.MarkedForDeletion)
             .Select(a => new
             {
@@ -267,6 +282,10 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
         var todayUtc = DateTime.UtcNow.Date;
 
+        var slaTemplateIds = new List<string>();
+        if (!string.IsNullOrWhiteSpace(slaTemplate)) slaTemplateIds.Add(slaTemplate);
+        if (!string.IsNullOrWhiteSpace(smsSlaDltTemplateId)) slaTemplateIds.Add(smsSlaDltTemplateId);
+
         foreach (var app in activeApps)
         {
             if (string.IsNullOrWhiteSpace(app.OfficerMobile)) continue;
@@ -284,9 +303,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
             var alreadyWarnedToday = await db.SMSSendDetails
                 .AsNoTracking()
                 .AnyAsync(s => s.ApplicationId == app.ApplicationId
-                            && (s.TemplateID == slaTemplate 
-                                || (smsSlaDltTemplateId != null && s.TemplateID == smsSlaDltTemplateId)
-                                || s.TemplateID == "1777179560524049216")
+                            && slaTemplateIds.Contains(s.TemplateID!)
                             && s.CreatedDate >= todayUtc, ct);
 
             if (alreadyWarnedToday) continue;
@@ -362,15 +379,22 @@ public class RTSOfficerNotificationWorker : BackgroundService
             : config.OfficerPortalBaseUrl;
         var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
 
+        // Dynamically resolve all officer stages configured in RTS.ApprovalFlowStageMaster
+        var officerStageIds = await db.Set<RTSApprovalFlowStageMasterEntity>()
+            .AsNoTracking()
+            .Where(s => s.CanVerifyDocument || s.CanApprove || s.CanReject || s.CanReturn)
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+
+        if (!officerStageIds.Any()) return;
+
         var activeApps = await db.RTSApplicationDetails
             .AsNoTracking()
             .Include(a => a.Service)
             .Include(a => a.User)
-            .Where(a => a.CurrentApprovalFlowStageId > 0
-                     && a.UserId.HasValue
-                     && a.ApplicationStatus != "APPROVED"
-                     && a.ApplicationStatus != "REJECTED"
-                     && a.ApplicationStatus != "DELETED"
+            .Where(a => a.UserId.HasValue
+                     && officerStageIds.Contains(a.CurrentApprovalFlowStageId)
+                     && a.IssuedCertificateGuid == null
                      && !a.MarkedForDeletion)
             .Select(a => new
             {
