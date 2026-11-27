@@ -104,7 +104,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
             .Select(t => t.TemplateID)
             .FirstOrDefaultAsync(ct);
 
-        // Fetch applications currently active at a stage with an assigned officer
+        // Fetch applications currently active at a stage with an assigned officer (exclude Payment Pending, Drafts, Completed)
         var activeApplications = await db.RTSApplicationDetails
             .AsNoTracking()
             .Include(a => a.Service)
@@ -114,6 +114,10 @@ public class RTSOfficerNotificationWorker : BackgroundService
                      && a.ApplicationStatus != "APPROVED"
                      && a.ApplicationStatus != "REJECTED"
                      && a.ApplicationStatus != "DELETED"
+                     && a.ApplicationStatus != "Payment Pending"
+                     && a.ApplicationStatus != "PAYMENT_PENDING"
+                     && a.ApplicationStatus != "DRAFT"
+                     && a.ApplicationStatus != "Draft"
                      && !a.MarkedForDeletion)
             .Select(a => new
             {
@@ -134,8 +138,8 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
         var appIds = activeApplications.Select(x => x.ApplicationId).ToList();
 
-        // Check which applications have already received the stage assignment notification for their current stage
-        var alreadySentStageAlerts = await db.SMSSendDetails
+        // 100% Strict Deduplication: If an alert has EVER been recorded in SMSSendDetails for this application, never repeat!
+        var alreadySentAppIds = await db.SMSSendDetails
             .AsNoTracking()
             .Where(s => s.ApplicationId.HasValue
                      && appIds.Contains(s.ApplicationId.Value)
@@ -143,16 +147,12 @@ public class RTSOfficerNotificationWorker : BackgroundService
                          || (smsDltTemplateId != null && s.TemplateID == smsDltTemplateId)
                          || s.TemplateID == "1777179560503279488"
                          || s.SenderName == "WHATSAPP"))
-            .Select(s => new { AppId = s.ApplicationId!.Value, SentDate = s.CreatedDate })
+            .Select(s => s.ApplicationId!.Value)
+            .Distinct()
             .ToListAsync(ct);
 
         var pendingAlerts = activeApplications
-            .Where(a =>
-            {
-                var stageEffectiveDate = (a.UpdatedDate ?? a.CreatedDate ?? DateTime.MinValue).AddMinutes(-2);
-                var alreadySent = alreadySentStageAlerts.Any(s => s.AppId == a.ApplicationId && s.SentDate >= stageEffectiveDate);
-                return !alreadySent;
-            })
+            .Where(a => !alreadySentAppIds.Contains(a.ApplicationId))
             .ToList();
 
         foreach (var item in pendingAlerts)
