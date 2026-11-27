@@ -50,22 +50,4 @@ public interface IRTSSmsNotificationService
     /// Sends SMS when application is reverted for correction
     /// </summary>
     Task SendApplicationRevertedAsync(int applicationId, string applicationNo, string citizenName, string mobileNo, string serviceName, string? remark = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// Sends SMS when application is assigned to an officer (DLT Template ID: 1777179560503279488)
-    /// Template: "Dear Officer {OfficerName}, RTS App No {ApplicationNo}{ServiceName} assigned for Document Verification. Due: {DueDate} Akola Municipal Corporation"
-    /// </summary>
-    Task SendOfficerAssignedSmsAsync(string mobileNo, string officerName, string applicationNo, string serviceName, string dueDate, int? applicationId = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// Sends SMS SLA breach warning alert to officer (DLT Template ID: 1777179560524049216)
-    /// Template: "URGENT: RTS App {ApplicationNo} {ServiceName} breaches SLA in {DaysRemaining} days. Action required. Akola Municipal Corporation"
-    /// </summary>
-    Task SendOfficerSlaWarningSmsAsync(string mobileNo, string applicationNo, string serviceName, int daysRemaining, string dueDate, int? applicationId = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// Sends SMS reminder/action required to citizen (DLT Template ID: 1777179560546242798)
-    /// Template: "Dear {CitizenName}, Action required for RTS App No {ApplicationNo}{ServiceName}: Please complete {ActionRequired} Akola Municipal Corporation"
-    /// </summary>
-    Task SendCitizenReminderSmsAsync(string mobileNo, string citizenName, string applicationNo, string serviceName, string actionRequired, int? applicationId = null, CancellationToken ct = default);
 }

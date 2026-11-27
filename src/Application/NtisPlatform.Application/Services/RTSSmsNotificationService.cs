@@ -263,8 +263,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     serviceName,
                     status,
                     trackingUrl,
-                    CancellationToken.None,
-                    applicationId);
+                    CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -359,8 +358,7 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     applicationNo,
                     serviceName,
                     certUrl,
-                    CancellationToken.None,
-                    applicationId);
+                    CancellationToken.None);
             }
             catch (Exception ex)
             {
@@ -444,90 +442,11 @@ public class RTSSmsNotificationService : IRTSSmsNotificationService
                     applicationNo,
                     receiptNo,
                     receiptUrl,
-                    CancellationToken.None,
-                    applicationId);
+                    CancellationToken.None);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Background WhatsApp payment receipt dispatch failed for {Mobile}", mobileNo);
-            }
-        });
-    }
-
-    /// <summary>
-    /// Officer notification disabled per requirement (officer notifications removed).
-    /// </summary>
-    public Task SendOfficerAssignedSmsAsync(
-        string mobileNo,
-        string officerName,
-        string applicationNo,
-        string serviceName,
-        string dueDate,
-        int? applicationId = null,
-        CancellationToken ct = default)
-    {
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Officer SLA notification disabled per requirement (officer notifications removed).
-    /// </summary>
-    public Task SendOfficerSlaWarningSmsAsync(
-        string mobileNo,
-        string applicationNo,
-        string serviceName,
-        int daysRemaining,
-        string dueDate,
-        int? applicationId = null,
-        CancellationToken ct = default)
-    {
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// 6. Citizen Reminder / Action Required (TemplateName: RTS_CITIZEN_REMINDER, DLT ID: 1777179560546242798)
-    /// Text: "Dear {CitizenName}, Action required for RTS App No {ApplicationNo}{ServiceName}: Please complete {ActionRequired} Akola Municipal Corporation"
-    /// </summary>
-    public async Task SendCitizenReminderSmsAsync(
-        string mobileNo,
-        string citizenName,
-        string applicationNo,
-        string serviceName,
-        string actionRequired,
-        int? applicationId = null,
-        CancellationToken ct = default)
-    {
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? string.Empty : $" ({serviceName.Trim()})";
-        var placeholders = new Dictionary<string, string>
-        {
-            { "CitizenName", string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName },
-            { "ApplicationNo", applicationNo },
-            { "ServiceName", cleanServiceName },
-            { "ActionRequired", actionRequired }
-        };
-
-        await SendDynamicSmsAsync("RTS_CITIZEN_REMINDER", mobileNo, applicationId, placeholders, ct);
-
-        // Concurrently dispatch WhatsApp reminder in background
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var portalUrl = await GetPortalBaseUrlAsync(CancellationToken.None);
-                await _whatsAppService.SendCitizenActionReminderAsync(
-                    mobileNo,
-                    string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName,
-                    applicationNo,
-                    serviceName,
-                    actionRequired,
-                    dueDate: DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy"),
-                    serviceUrl: portalUrl,
-                    applicationId: applicationId,
-                    ct: CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Background WhatsApp citizen reminder dispatch skipped for {Mobile}", mobileNo);
             }
         });
     }

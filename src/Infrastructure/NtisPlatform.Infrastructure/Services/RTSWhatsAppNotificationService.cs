@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,6 +18,7 @@ namespace NtisPlatform.Infrastructure.Services;
 /// <summary>
 /// Enterprise WhatsApp Business API (WABA) notification service following the standard NtisPlatform architecture pattern.
 /// Uses strongly-typed WhatsAppOptions, resilient IHttpClientFactory calls, and database audit logging via CORE.SMSSendDetails.
+/// Dispatches citizen notifications for OTP, Application Status, Fee Payment Receipts, and Certificates.
 /// </summary>
 public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
 {
@@ -43,14 +43,12 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
     {
         if (string.IsNullOrWhiteSpace(templateName)) return "en_US";
 
-        // rmndr_rts and legacy amc templates are registered with 'en' language code in Meta WACRM
-        if (string.Equals(templateName, "rmndr_rts", StringComparison.OrdinalIgnoreCase) ||
-            templateName.StartsWith("amc_", StringComparison.OrdinalIgnoreCase))
+        if (templateName.StartsWith("amc_", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(templateName, "otp", StringComparison.OrdinalIgnoreCase))
         {
             return "en";
         }
 
-        // All official RTS utility templates (rts_*) are registered as en_US in Meta WABA
         return "en_US";
     }
 
@@ -82,34 +80,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         return digits.Length >= 10 ? digits : null;
     }
 
-    private async Task<string> GetPortalBaseUrlAsync(CancellationToken ct)
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            var ulb = await dbContext.ULBMasters.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct);
-            if (ulb != null && !string.IsNullOrWhiteSpace(ulb.WebsiteUrl))
-            {
-                var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
-                if (!cleanUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !cleanUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                {
-                    cleanUrl = $"https://{cleanUrl}";
-                }
-                return cleanUrl;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve portal base URL from database ULBMaster.");
-        }
-
-        return "https://rts.amcakola.in";
-    }
-
     /// <summary>
     /// Records outgoing WhatsApp notification in the central message audit trail (CORE.SMSSendDetails).
-    /// Follows the exact audit pattern established in SmsService.LogSmsOutboxAsync.
     /// </summary>
     private async Task LogWhatsAppOutboxAsync(
         string mobileNo,
@@ -118,8 +90,6 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string status,
         string? gatewayResponse,
         int? applicationId,
-        int? smstypeId,
-        int? createdBy,
         CancellationToken ct)
     {
         try
@@ -132,13 +102,12 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
                 ReceiverMobileNo = mobileNo,
                 SenderName = "WHATSAPP",
                 TemplateID = templateName,
-                SMSTypeID = smstypeId,
+                SMSTypeID = null,
                 Message = messagePreview,
                 SmsUrl = _options.Value.WabaUrl,
                 SMSStatus = status,
                 GatewayResponse = gatewayResponse,
                 ApplicationId = applicationId,
-                CreatedBy = createdBy,
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -157,9 +126,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string templateName,
         string messagePreview,
         int? applicationId,
-        CancellationToken ct,
-        int? smstypeId = null,
-        int? createdBy = null)
+        CancellationToken ct)
     {
         var config = _options.Value;
         if (!config.IsActive)
@@ -189,34 +156,6 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             return false;
         }
 
-        // Deduplication Guard: Avoid sending the exact same WhatsApp template to the same recipient for the same application within 5 minutes
-        if (applicationId.HasValue && applicationId.Value > 0 && !string.IsNullOrWhiteSpace(templateName))
-        {
-            try
-            {
-                using var checkScope = _scopeFactory.CreateScope();
-                var checkDb = checkScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var recentCutoff = DateTime.UtcNow.AddMinutes(-5);
-                var isDuplicate = await checkDb.SMSSendDetails
-                    .AsNoTracking()
-                    .AnyAsync(s => s.ApplicationId == applicationId.Value
-                                && s.TemplateID == templateName
-                                && s.ReceiverMobileNo == sanitizedMobile
-                                && s.CreatedDate >= recentCutoff, ct);
-
-                if (isDuplicate)
-                {
-                    _logger.LogInformation("WhatsApp deduplication guard: '{Template}' was already sent to {Mobile} for Application {AppId} recently. Skipping duplicate dispatch.",
-                        templateName, sanitizedMobile, applicationId.Value);
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "WhatsApp deduplication guard check encountered an error. Proceeding with dispatch.");
-            }
-        }
-
         try
         {
             var jsonBody = JsonSerializer.Serialize(payload);
@@ -243,16 +182,16 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(10);
 
-            _logger.LogInformation("Dispatching WhatsApp notification via template '{Template}' to {Mobile}...", templateName, sanitizedMobile);
+            _logger.LogInformation("Dispatching citizen WhatsApp notification via template '{Template}' to {Mobile}...", templateName, sanitizedMobile);
 
             var response = await client.SendAsync(requestMessage, ct);
             var responseContent = await response.Content.ReadAsStringAsync(ct);
 
-            // Fallback: If template dispatch fails (e.g. Meta error #132001 template does not exist), automatically fall back to direct WhatsApp text
+            // Fallback: If template dispatch fails (e.g. Meta error), automatically fall back to direct text
             if (!response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(messagePreview))
             {
-                _logger.LogWarning("WhatsApp template '{Template}' dispatch failed (HTTP {Status}: {Error}). Falling back to direct WhatsApp text message for {Mobile}...",
-                    templateName, response.StatusCode, responseContent, sanitizedMobile);
+                _logger.LogWarning("WhatsApp template '{Template}' dispatch failed (HTTP {Status}). Falling back to direct text for {Mobile}...",
+                    templateName, response.StatusCode, sanitizedMobile);
 
                 try
                 {
@@ -289,13 +228,9 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
 
                     if (fallbackResponse.IsSuccessStatusCode)
                     {
-                        _logger.LogInformation("WhatsApp direct text fallback successfully delivered to {Mobile}. Response: {Response}", sanitizedMobile, fallbackContent);
-                        await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_SENT", fallbackContent, applicationId, smstypeId, createdBy, ct);
+                        _logger.LogInformation("WhatsApp direct text fallback successfully delivered to {Mobile}.", sanitizedMobile);
+                        await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_SENT", fallbackContent, applicationId, ct);
                         return true;
-                    }
-                    else
-                    {
-                        _logger.LogError("WhatsApp text fallback also returned HTTP {StatusCode} for {Mobile}. Response: {Response}", fallbackResponse.StatusCode, sanitizedMobile, fallbackContent);
                     }
                 }
                 catch (Exception fallbackEx)
@@ -305,23 +240,13 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
 
             var status = response.IsSuccessStatusCode ? "WHATSAPP_SENT" : "WHATSAPP_FAILED";
-
-            if (response.IsSuccessStatusCode)
-            {
-                _logger.LogInformation("WhatsApp message successfully dispatched to {Mobile}. Response: {Response}", sanitizedMobile, responseContent);
-            }
-            else
-            {
-                _logger.LogError("WhatsApp gateway returned HTTP {StatusCode} for {Mobile}. Response: {Response}", response.StatusCode, sanitizedMobile, responseContent);
-            }
-
-            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, status, responseContent, applicationId, smstypeId, createdBy, ct);
+            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, status, responseContent, applicationId, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to dispatch WhatsApp message via template '{Template}' to {Mobile}", templateName, recipientMobile);
-            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_ERROR", ex.Message, applicationId, smstypeId, createdBy, ct);
+            await LogWhatsAppOutboxAsync(sanitizedMobile, templateName, messagePreview, "WHATSAPP_ERROR", ex.Message, applicationId, ct);
             return false;
         }
     }
@@ -333,8 +258,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string serviceName,
         string status,
         string trackingUrl,
-        CancellationToken ct = default,
-        int? applicationId = null)
+        CancellationToken ct = default)
     {
         if (!_options.Value.SendStatusOnWhatsApp) return;
 
@@ -369,8 +293,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) ची सद्यस्थिती: *{cleanStatus}*.\n\n🔍 अर्जाची सद्यस्थिती तपासण्यासाठी खालील लिंकवर क्लिक करा:\n{trackingUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) ची सद्यस्थिती: *{cleanStatus}*.\n\n🔍 अर्जाची सद्यस्थिती तपासण्यासाठी:\n{trackingUrl}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
     }
 
     public async Task SendPaymentReceiptAsync(
@@ -380,8 +304,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string applicationNo,
         string receiptNo,
         string receiptUrl,
-        CancellationToken ct = default,
-        int? applicationId = null)
+        CancellationToken ct = default)
     {
         var templateName = _options.Value.Templates.PaymentReceipt;
         var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
@@ -413,8 +336,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* साठी रु. *{formattedAmount}* चे शुल्क यशस्वीरीत्या जमा झाले आहे.\nपावती क्र: *{receiptNo}*\n\n🔗 अधिकृत पावती पाहण्यासाठी:\n{receiptUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nप्रिय *{cleanCitizenName}*,\nआपल्या अर्ज क्र. *{applicationNo}* साठी रु. *{formattedAmount}* चे शुल्क जमा झाले आहे.\nपावती क्र: *{receiptNo}*\n\n🔗 पावती पाहण्यासाठी:\n{receiptUrl}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
     }
 
     public async Task SendCertificateIssuedAsync(
@@ -423,8 +346,7 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         string applicationNo,
         string serviceName,
         string certificateUrl,
-        CancellationToken ct = default,
-        int? applicationId = null)
+        CancellationToken ct = default)
     {
         var templateName = _options.Value.Templates.CertificateIssued;
         var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
@@ -455,8 +377,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             }
         };
 
-        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nअभिनंदन *{cleanCitizenName}*!\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) चा डिजिटल स्वाक्षरी असलेला अधिकृत दाखला मंजूर झाला आहे.\n\n📜 दाखला डाऊनलोड करण्यासाठी खालील लिंकवर क्लिक करा:\n{certificateUrl}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
+        var preview = $"🏛️ *अकोला महानगरपालिका (RTS)*\n\nअभिनंदन *{cleanCitizenName}*!\nआपल्या अर्ज क्र. *{applicationNo}* ({cleanServiceName}) चा अधिकृत दाखला मंजूर झाला आहे.\n\n📜 दाखला डाऊनलोड करण्यासाठी:\n{certificateUrl}";
+        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
     }
 
     public async Task SendCitizenOtpAsync(
@@ -502,101 +424,5 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
 
         var preview = $"Login OTP Verification Code";
         await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, null, ct);
-    }
-
-    public Task SendOfficerTaskAssignedAsync(
-        string mobileNo,
-        string officerName,
-        string applicationNo,
-        string serviceName,
-        string stageName,
-        string dueDate,
-        string portalUrl,
-        int? applicationId = null,
-        int? stageId = null,
-        int? officerUserId = null,
-        CancellationToken ct = default)
-    {
-        // Officer WhatsApp notifications disabled per requirement
-        return Task.CompletedTask;
-    }
-
-    public Task SendOfficerSlaWarningAsync(
-        string mobileNo,
-        string officerName,
-        string applicationNo,
-        string serviceName,
-        int daysRemaining,
-        string dueDate,
-        string actionUrl,
-        int? applicationId = null,
-        int? officerUserId = null,
-        CancellationToken ct = default)
-    {
-        // Officer WhatsApp notifications disabled per requirement
-        return Task.CompletedTask;
-    }
-
-    public Task SendOfficerDailyDigestAsync(
-        string mobileNo,
-        string officerName,
-        int totalPending,
-        int nearSlaCount,
-        string dashboardUrl,
-        int? officerUserId = null,
-        CancellationToken ct = default)
-    {
-        // Officer WhatsApp notifications disabled per requirement
-        return Task.CompletedTask;
-    }
-
-    public async Task SendCitizenActionReminderAsync(
-        string mobileNo,
-        string citizenName,
-        string applicationNo,
-        string serviceName,
-        string pendingAction,
-        string dueDate,
-        string serviceUrl,
-        int? applicationId = null,
-        CancellationToken ct = default)
-    {
-        var templateName = _options.Value.Templates.CitizenReminder;
-        var cleanCitizenName = string.IsNullOrWhiteSpace(citizenName) ? "Citizen" : citizenName.Trim();
-        var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
-        var cleanPendingAction = string.IsNullOrWhiteSpace(pendingAction) ? "Fee Payment / Document Submission" : pendingAction.Trim();
-        var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy") : dueDate.Trim();
-        var portalBaseUrl = await GetPortalBaseUrlAsync(ct);
-        var cleanServiceUrl = string.IsNullOrWhiteSpace(serviceUrl) ? $"{portalBaseUrl}/service" : serviceUrl.Trim();
-
-        var payload = new
-        {
-            to = SanitizeMobileNumber(mobileNo),
-            type = "template",
-            template = new
-            {
-                name = templateName,
-                language = new { code = ResolveTemplateLanguage(templateName) },
-                components = new object[]
-                {
-                    new
-                    {
-                        type = "body",
-                        parameters = new object[]
-                        {
-                            new { type = "text", text = cleanCitizenName },
-                            new { type = "text", text = applicationNo },
-                            new { type = "text", text = cleanServiceName },
-                            new { type = "text", text = cleanPendingAction },
-                            new { type = "text", text = cleanDueDate },
-                            new { type = "text", text = cleanServiceUrl }
-                        }
-                    }
-                }
-            }
-        };
-
-        var preview = $"Action Reminder: {applicationNo} ({cleanServiceName}) needs {cleanPendingAction}. Due: {cleanDueDate}";
-        await SendWabaPayloadAsync(mobileNo, payload, templateName, preview, applicationId, ct);
     }
 }

@@ -19,8 +19,7 @@ public interface IRTSWhatsAppNotificationService
         string serviceName,
         string status,
         string trackingUrl,
-        CancellationToken ct = default,
-        int? applicationId = null);
+        CancellationToken ct = default);
 
     /// <summary>
     /// Dispatches payment confirmation and e-receipt download link.
@@ -33,8 +32,7 @@ public interface IRTSWhatsAppNotificationService
         string applicationNo,
         string receiptNo,
         string receiptUrl,
-        CancellationToken ct = default,
-        int? applicationId = null);
+        CancellationToken ct = default);
 
     /// <summary>
     /// Dispatches certificate issuance notice and verifiable download link.
@@ -46,76 +44,14 @@ public interface IRTSWhatsAppNotificationService
         string applicationNo,
         string serviceName,
         string certificateUrl,
-        CancellationToken ct = default,
-        int? applicationId = null);
+        CancellationToken ct = default);
 
     /// <summary>
     /// Dispatches citizen portal login OTP with interactive copy-code button.
-    /// Template: amc_user_otp (Authentication)
+    /// Template: otp (Authentication)
     /// </summary>
     Task SendCitizenOtpAsync(
         string mobileNo,
         string otp,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Dispatches task assignment notice to the allocated officer when an application enters their stage.
-    /// Template: rts_officer_assignment (Utility)
-    /// </summary>
-    Task SendOfficerTaskAssignedAsync(
-        string mobileNo,
-        string officerName,
-        string applicationNo,
-        string serviceName,
-        string stageName,
-        string dueDate,
-        string portalUrl,
-        int? applicationId = null,
-        int? stageId = null,
-        int? officerUserId = null,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Dispatches urgent SLA warning to the assigned officer when SLA is expiring in 2 days or less.
-    /// Template: rts_officer_sla_warning (Utility)
-    /// </summary>
-    Task SendOfficerSlaWarningAsync(
-        string mobileNo,
-        string officerName,
-        string applicationNo,
-        string serviceName,
-        int daysRemaining,
-        string dueDate,
-        string actionUrl,
-        int? applicationId = null,
-        int? officerUserId = null,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Dispatches morning digest summary to each officer with their pending applications count.
-    /// Template: rts_officer_daily_digest (Utility)
-    /// </summary>
-    Task SendOfficerDailyDigestAsync(
-        string mobileNo,
-        string officerName,
-        int totalPending,
-        int nearSlaCount,
-        string dashboardUrl,
-        int? officerUserId = null,
-        CancellationToken ct = default);
-
-    /// <summary>
-    /// Dispatches pending fee payment or document re-upload reminder to citizen.
-    /// Template: rts_citizen_reminder (Utility)
-    /// </summary>
-    Task SendCitizenActionReminderAsync(
-        string mobileNo,
-        string citizenName,
-        string applicationNo,
-        string serviceName,
-        string pendingAction,
-        string dueDate,
-        string serviceUrl,
-        int? applicationId = null,
         CancellationToken ct = default);
 }
