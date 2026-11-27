@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -64,6 +65,31 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         }
 
         return digits.Length >= 10 ? digits : null;
+    }
+
+    private async Task<string> GetPortalBaseUrlAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var ulb = await dbContext.ULBMasters.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct);
+            if (ulb != null && !string.IsNullOrWhiteSpace(ulb.WebsiteUrl))
+            {
+                var cleanUrl = ulb.WebsiteUrl.Trim().TrimEnd('/');
+                if (!cleanUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !cleanUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    cleanUrl = $"https://{cleanUrl}";
+                }
+                return cleanUrl;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve portal base URL from database ULBMaster.");
+        }
+
+        return "https://rts.amcakola.in";
     }
 
     /// <summary>
@@ -156,8 +182,20 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
                 Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
             };
 
-            requestMessage.Headers.Add("key", config.ApiKey);
-            requestMessage.Headers.Add("wabaNumber", config.WabaNumber);
+            if (!string.IsNullOrWhiteSpace(config.ApiKey))
+            {
+                var token = config.ApiKey.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    ? config.ApiKey.Substring(7).Trim()
+                    : config.ApiKey.Trim();
+
+                requestMessage.Headers.Add("Authorization", $"Bearer {token}");
+                requestMessage.Headers.Add("key", token);
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.WabaNumber))
+            {
+                requestMessage.Headers.Add("wabaNumber", config.WabaNumber);
+            }
 
             var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(10);
@@ -531,7 +569,8 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
         var cleanServiceName = string.IsNullOrWhiteSpace(serviceName) ? "RTS Service" : serviceName.Trim();
         var cleanPendingAction = string.IsNullOrWhiteSpace(pendingAction) ? "Fee Payment / Document Submission" : pendingAction.Trim();
         var cleanDueDate = string.IsNullOrWhiteSpace(dueDate) ? DateTime.UtcNow.AddDays(7).ToString("dd-MM-yyyy") : dueDate.Trim();
-        var cleanServiceUrl = string.IsNullOrWhiteSpace(serviceUrl) ? "https://rts.amcakola.in/service" : serviceUrl.Trim();
+        var portalBaseUrl = await GetPortalBaseUrlAsync(ct);
+        var cleanServiceUrl = string.IsNullOrWhiteSpace(serviceUrl) ? $"{portalBaseUrl}/service" : serviceUrl.Trim();
 
         var payload = new
         {

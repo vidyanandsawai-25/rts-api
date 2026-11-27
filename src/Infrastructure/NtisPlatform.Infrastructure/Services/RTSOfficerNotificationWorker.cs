@@ -93,7 +93,16 @@ public class RTSOfficerNotificationWorker : BackgroundService
         var rtsSmsService = scope.ServiceProvider.GetService<IRTSSmsNotificationService>();
 
         var templateName = _options.Value.Templates.OfficerAssigned;
-        var portalUrl = _options.Value.Worker.OfficerPortalBaseUrl;
+        var ulb = await db.ULBMasters.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct);
+        var portalUrl = !string.IsNullOrWhiteSpace(ulb?.WebsiteUrl)
+            ? $"{ulb.WebsiteUrl.Trim().TrimEnd('/')}/officer"
+            : _options.Value.Worker.OfficerPortalBaseUrl;
+
+        var smsDltTemplateId = await db.SMSMasters
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.TemplateName == "RTS_OFFICER_ASSIGNED")
+            .Select(t => t.TemplateID)
+            .FirstOrDefaultAsync(ct);
 
         // Fetch applications currently active at a stage with an assigned officer
         var activeApplications = await db.RTSApplicationDetails
@@ -116,6 +125,7 @@ public class RTSOfficerNotificationWorker : BackgroundService
                 OfficerName = ((a.User.FirstName ?? "") + " " + (a.User.LastName ?? "")).Trim(),
                 OfficerMobile = a.User.MobileNo,
                 CreatedDate = a.CreatedDate,
+                UpdatedDate = a.UpdatedDate,
                 SlaDaysRaw = a.Service.Sla
             })
             .ToListAsync(ct);
@@ -124,17 +134,25 @@ public class RTSOfficerNotificationWorker : BackgroundService
 
         var appIds = activeApplications.Select(x => x.ApplicationId).ToList();
 
-        // Check which application + stage combinations have already received the stage assignment notification
+        // Check which applications have already received the stage assignment notification for their current stage
         var alreadySentStageAlerts = await db.SMSSendDetails
             .AsNoTracking()
             .Where(s => s.ApplicationId.HasValue
                      && appIds.Contains(s.ApplicationId.Value)
-                     && (s.TemplateID == templateName || s.TemplateID == "1777179560503279488"))
-            .Select(s => new { AppId = s.ApplicationId!.Value, StageId = s.SMSTypeID })
+                     && (s.TemplateID == templateName
+                         || (smsDltTemplateId != null && s.TemplateID == smsDltTemplateId)
+                         || s.TemplateID == "1777179560503279488"
+                         || s.SenderName == "WHATSAPP"))
+            .Select(s => new { AppId = s.ApplicationId!.Value, SentDate = s.CreatedDate })
             .ToListAsync(ct);
 
         var pendingAlerts = activeApplications
-            .Where(a => !alreadySentStageAlerts.Any(s => s.AppId == a.ApplicationId && s.StageId == a.StageId))
+            .Where(a =>
+            {
+                var stageEffectiveDate = (a.UpdatedDate ?? a.CreatedDate ?? DateTime.MinValue).AddMinutes(-2);
+                var alreadySent = alreadySentStageAlerts.Any(s => s.AppId == a.ApplicationId && s.SentDate >= stageEffectiveDate);
+                return !alreadySent;
+            })
             .ToList();
 
         foreach (var item in pendingAlerts)
@@ -205,12 +223,22 @@ public class RTSOfficerNotificationWorker : BackgroundService
         var config = _options.Value.Worker;
         var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
         var slaTemplate = _options.Value.Templates.OfficerSlaWarning;
-        var portalUrl = config.OfficerPortalBaseUrl;
 
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
         var rtsSmsService = scope.ServiceProvider.GetService<IRTSSmsNotificationService>();
+
+        var ulb = await db.ULBMasters.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct);
+        var portalUrl = !string.IsNullOrWhiteSpace(ulb?.WebsiteUrl)
+            ? $"{ulb.WebsiteUrl.Trim().TrimEnd('/')}/officer"
+            : config.OfficerPortalBaseUrl;
+
+        var smsSlaDltTemplateId = await db.SMSMasters
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.TemplateName == "RTS_SLA_WARNING")
+            .Select(t => t.TemplateID)
+            .FirstOrDefaultAsync(ct);
 
         var activeApps = await db.RTSApplicationDetails
             .AsNoTracking()
@@ -256,7 +284,9 @@ public class RTSOfficerNotificationWorker : BackgroundService
             var alreadyWarnedToday = await db.SMSSendDetails
                 .AsNoTracking()
                 .AnyAsync(s => s.ApplicationId == app.ApplicationId
-                            && (s.TemplateID == slaTemplate || s.TemplateID == "1777179560524049216")
+                            && (s.TemplateID == slaTemplate 
+                                || (smsSlaDltTemplateId != null && s.TemplateID == smsSlaDltTemplateId)
+                                || s.TemplateID == "1777179560524049216")
                             && s.CreatedDate >= todayUtc, ct);
 
             if (alreadyWarnedToday) continue;
@@ -326,7 +356,10 @@ public class RTSOfficerNotificationWorker : BackgroundService
         var waService = scope.ServiceProvider.GetRequiredService<IRTSWhatsAppNotificationService>();
 
         var digestTemplate = _options.Value.Templates.OfficerDailyDigest;
-        var portalUrl = config.OfficerPortalBaseUrl;
+        var ulb = await db.ULBMasters.AsNoTracking().FirstOrDefaultAsync(u => u.IsActive, ct);
+        var portalUrl = !string.IsNullOrWhiteSpace(ulb?.WebsiteUrl)
+            ? $"{ulb.WebsiteUrl.Trim().TrimEnd('/')}/officer"
+            : config.OfficerPortalBaseUrl;
         var thresholdDays = Math.Max(1, config.SlaWarningThresholdDays);
 
         var activeApps = await db.RTSApplicationDetails
