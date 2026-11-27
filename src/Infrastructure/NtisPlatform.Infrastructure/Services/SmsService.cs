@@ -62,6 +62,32 @@ public class SmsService : ISmsService
             sanitizedMobile = sanitizedMobile.Substring(2);
         }
 
+        // Deduplication Guard: Avoid sending the exact same SMS template to the same recipient for the same application within 5 minutes
+        if (request.ApplicationId.HasValue && request.ApplicationId.Value > 0 && !string.IsNullOrWhiteSpace(request.TemplateId))
+        {
+            try
+            {
+                var recentCutoff = DateTime.UtcNow.AddMinutes(-5);
+                var isDuplicate = await _dbContext.SMSSendDetails
+                    .AsNoTracking()
+                    .AnyAsync(s => s.ApplicationId == request.ApplicationId.Value
+                                && s.TemplateID == request.TemplateId
+                                && s.ReceiverMobileNo == sanitizedMobile
+                                && s.CreatedDate >= recentCutoff, cancellationToken);
+
+                if (isDuplicate)
+                {
+                    _logger.LogInformation("SMS deduplication guard: Template '{Template}' was already sent to {Mobile} for Application {AppId} recently. Skipping duplicate SMS dispatch.",
+                        request.TemplateId, sanitizedMobile, request.ApplicationId.Value);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SMS deduplication guard check encountered an error. Proceeding with dispatch.");
+            }
+        }
+
         // 2. Fetch Active Gateway Configuration from Database
         var activeGateway = await _dbContext.SMSGatewayMasters
             .Include(g => g.GatewayDetails)

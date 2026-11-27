@@ -189,6 +189,34 @@ public class RTSWhatsAppNotificationService : IRTSWhatsAppNotificationService
             return false;
         }
 
+        // Deduplication Guard: Avoid sending the exact same WhatsApp template to the same recipient for the same application within 5 minutes
+        if (applicationId.HasValue && applicationId.Value > 0 && !string.IsNullOrWhiteSpace(templateName))
+        {
+            try
+            {
+                using var checkScope = _scopeFactory.CreateScope();
+                var checkDb = checkScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var recentCutoff = DateTime.UtcNow.AddMinutes(-5);
+                var isDuplicate = await checkDb.SMSSendDetails
+                    .AsNoTracking()
+                    .AnyAsync(s => s.ApplicationId == applicationId.Value
+                                && s.TemplateID == templateName
+                                && s.ReceiverMobileNo == sanitizedMobile
+                                && s.CreatedDate >= recentCutoff, ct);
+
+                if (isDuplicate)
+                {
+                    _logger.LogInformation("WhatsApp deduplication guard: '{Template}' was already sent to {Mobile} for Application {AppId} recently. Skipping duplicate dispatch.",
+                        templateName, sanitizedMobile, applicationId.Value);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "WhatsApp deduplication guard check encountered an error. Proceeding with dispatch.");
+            }
+        }
+
         try
         {
             var jsonBody = JsonSerializer.Serialize(payload);
